@@ -550,7 +550,7 @@ export default function Settings() {
               });
               navigate(-1);
             }}
-            className="w-full bg-black text-white py-3.5 rounded-xl text-[14px] font-medium tracking-wide hover:bg-stone-800 transition-all active:scale-[0.98] shadow-sm"
+            className="w-full bg-[#2a2a2a] text-white py-3.5 rounded-xl text-[14px] font-medium tracking-wide hover:bg-[#222222] transition-all active:scale-[0.98] shadow-sm"
           >
             保存并返回
           </button>

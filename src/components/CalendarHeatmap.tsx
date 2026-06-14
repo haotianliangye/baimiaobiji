@@ -54,7 +54,7 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose }: 
     if (count < 3) return 'bg-[#e2dce3] rounded-[3px]';
     if (count < 8) return 'bg-[#a99fb1] rounded-[3px]';
     if (count < 15) return 'bg-[#706478] rounded-[3px]';
-    return 'bg-[#35253a] rounded-[3px]';
+    return 'bg-[#2a2a2a] rounded-[3px]';
   };
 
   const allLogs = useLiveQuery(() => db.raw_logs.toArray());
@@ -135,7 +135,7 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose }: 
                onSelectDate(format(today, 'yyyy-MM-dd'));
                onClose();
              }}
-             className="w-full bg-[#35253a] text-white py-3.5 rounded-xl text-[14px] font-medium tracking-wide shadow-sm hover:bg-[#2d1b33] transition-colors active:scale-[0.98] flex items-center justify-center gap-2"
+             className="w-full bg-[#2a2a2a] text-white py-3.5 rounded-xl text-[14px] font-medium tracking-wide shadow-sm hover:bg-[#222222] transition-colors active:scale-[0.98] flex items-center justify-center gap-2"
            >
              <svg className="w-4 h-4 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
              回到今天

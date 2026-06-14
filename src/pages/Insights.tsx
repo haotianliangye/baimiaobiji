@@ -121,6 +121,30 @@ export default function Insights() {
   const [timeRange, setTimeRange] = useState('week');
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const rangeOptions = [
+    { value: 'day', label: '今日' },
+    { value: 'week', label: '本周' },
+    { value: 'month', label: '本月' },
+    { value: 'quarter', label: '季度' },
+    { value: 'half-year', label: '半年' },
+    { value: 'year', label: '一年' },
+    { value: 'custom', label: '自选范围' },
+  ];
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -329,19 +353,35 @@ export default function Insights() {
            <Sparkles className="w-4 h-4 text-stone-400" />
            时光洞察
          </h2>
-         <select 
-           value={timeRange}
-           onChange={(e) => setTimeRange(e.target.value)}
-           className="bg-transparent text-[13px] font-medium text-stone-600 outline-none cursor-pointer hover:bg-stone-100 px-2 py-1 rounded transition-colors"
-         >
-           <option value="day">今日</option>
-           <option value="week">本周</option>
-           <option value="month">本月</option>
-           <option value="quarter">季度</option>
-           <option value="half-year">半年</option>
-           <option value="year">一年</option>
-           <option value="custom">自选范围</option>
-         </select>
+         <div className="relative" ref={dropdownRef}>
+           <button 
+             onClick={() => setShowDropdown(!showDropdown)}
+             className="flex items-center gap-1.5 bg-transparent text-[13px] font-medium text-stone-600 outline-none cursor-pointer hover:bg-stone-100 px-2 py-1 rounded transition-colors"
+           >
+             {rangeOptions.find(o => o.value === timeRange)?.label}
+             <ChevronDown className="w-3.5 h-3.5" />
+           </button>
+           {showDropdown && (
+             <div className="absolute right-0 top-full mt-1 w-28 bg-[#2a2a2a]/95 backdrop-blur-xl rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.15)] flex flex-col p-1.5 animate-in fade-in zoom-in-95 duration-100 z-50">
+               {rangeOptions.map((opt) => (
+                 <button
+                   key={opt.value}
+                   onClick={() => {
+                     setTimeRange(opt.value);
+                     setShowDropdown(false);
+                   }}
+                   className={`px-3 py-2 text-[13px] font-medium rounded-lg text-left transition-colors ${
+                     timeRange === opt.value 
+                       ? 'bg-white/10 text-white' 
+                       : 'text-white/70 hover:text-white hover:bg-white/5'
+                   }`}
+                 >
+                   {opt.label}
+                 </button>
+               ))}
+             </div>
+           )}
+         </div>
       </div>
 
       {timeRange === 'custom' && (

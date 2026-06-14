@@ -154,7 +154,7 @@ export default function Diary() {
              <button
                disabled={!hasLogs}
                onClick={handleGenerate}
-               className="w-full bg-black text-white px-5 py-2.5 rounded-full text-[13px] font-medium tracking-wide flex items-center justify-center gap-2 hover:bg-stone-800 disabled:opacity-30 disabled:hover:bg-black transition-all active:scale-[0.98]"
+               className="w-full bg-[#2a2a2a] text-white px-5 py-2.5 rounded-full text-[13px] font-medium tracking-wide flex items-center justify-center gap-2 hover:bg-[#222222] disabled:opacity-30 disabled:hover:bg-[#2a2a2a] transition-all active:scale-[0.98]"
              >
                AI 智能整理
              </button>
@@ -216,7 +216,7 @@ export default function Diary() {
                    </button>
                    <button 
                      onClick={handleSaveEdit}
-                     className="flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium text-white bg-stone-900 border border-stone-900 hover:bg-stone-800 transition-colors shadow-sm select-none"
+                     className="flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium text-white bg-[#2a2a2a] border border-[#2a2a2a] hover:bg-[#222222] transition-colors shadow-sm select-none"
                    >
                      <Save className="w-3.5 h-3.5" />
                      保存

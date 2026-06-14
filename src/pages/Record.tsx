@@ -593,7 +593,7 @@ export default function Record() {
                 {isMultiSelectMode && (
                    <div className="shrink-0 pt-[6px]">
                       <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${
-                        selectedLogIds.has(log.id) ? 'bg-[#35253a] border-[#35253a]' : 'border-stone-300'
+                        selectedLogIds.has(log.id) ? 'bg-[#2a2a2a] border-[#2a2a2a]' : 'border-stone-300'
                       }`}>
                          {selectedLogIds.has(log.id) && <Check className="w-2.5 h-2.5 text-white" />}
                       </div>
@@ -828,7 +828,7 @@ export default function Record() {
                   }
                 }}
                 disabled={!editContent.trim()}
-                className="flex-1 py-2.5 rounded-xl text-[14px] font-medium text-white bg-stone-900 hover:bg-stone-800 transition-colors disabled:opacity-50"
+                className="flex-1 py-2.5 rounded-xl text-[14px] font-medium text-white bg-[#2a2a2a] hover:bg-[#222222] transition-colors disabled:opacity-50"
               >
                 保存
               </button>
