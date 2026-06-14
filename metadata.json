@@ -1,0 +1,6 @@
+{
+  "name": "白描笔记",
+  "description": "A local-first, minimalist diary app that uses AI to organize raw daily fragments into a structured time-blocking timeline.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,282 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { startOfDay, endOfDay, format, parse, addDays, subDays, isSameDay } from 'date-fns';
+import { Sparkles, Loader2, RefreshCw, ChevronLeft, ChevronRight, Copy, Trash2, Edit2, Save, X } from 'lucide-react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
+import { db } from '../db/db';
+import { useAppStore } from '../store/app.store';
+import CalendarHeatmap from '../components/CalendarHeatmap';
+import ActionSheet from '../components/ActionSheet';
+
+export default function Diary() {
+  const { isProcessingDiary, diaryErrorMap, generateDiaryTimeline } = useAppStore();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState('');
+  const holdTimeoutRef = useRef<any>(null);
+  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const navigate = useNavigate();
+  
+  const today = new Date();
+  const dateParam = searchParams.get('date');
+  
+  let targetDate = today;
+  if (dateParam) {
+     const parsed = parse(dateParam, 'yyyy-MM-dd', new Date());
+     if (!isNaN(parsed.getTime())) {
+        targetDate = parsed;
+     }
+  }
+
+  const start = startOfDay(targetDate).getTime();
+  const end = endOfDay(targetDate).getTime();
+  const dateStr = format(targetDate, 'yyyy-MM-dd');
+  const isTodayDate = isSameDay(targetDate, today);
+  
+  const errorMsg = diaryErrorMap[dateStr];
+
+  const navigateToDate = (offset: number) => {
+    const newDate = offset > 0 ? addDays(targetDate, offset) : subDays(targetDate, Math.abs(offset));
+    setSearchParams({ date: format(newDate, 'yyyy-MM-dd') });
+  };
+
+  const logs = useLiveQuery(
+    () => db.raw_logs.where('created_at').between(start, end).sortBy('created_at'),
+    []
+  );
+
+  const diaryRes = useLiveQuery(
+    () => db.daily_diaries.where('diary_date').equals(dateStr).first(),
+    [dateStr]
+  );
+  
+  const handleGenerate = async () => {
+     if (!logs || logs.length === 0) {
+        alert('今天还没有记录任何碎屑，无法生成日记。');
+        return;
+     }
+     await generateDiaryTimeline(dateStr, logs);
+  };
+
+  const handleSaveEdit = async () => {
+     if (diaryRes) {
+        await db.daily_diaries.update(diaryRes.id!, { ai_editorial: editText });
+     }
+     setIsEditing(false);
+  };
+
+  useEffect(() => {
+     if (isEditing && editTextareaRef.current) {
+        editTextareaRef.current.style.height = 'auto';
+        editTextareaRef.current.style.height = editTextareaRef.current.scrollHeight + 'px';
+     }
+  }, [editText, isEditing]);
+
+  const hasLogs = logs && logs.length > 0;
+
+  return (
+    <div className="flex flex-col h-full bg-white relative">
+      <div className="flex h-[52px] items-center px-4 bg-stone-50/80 backdrop-blur border-b border-stone-100 z-10 shrink-0 w-full justify-between">
+         <h2 className="text-[13px] font-medium tracking-wide text-stone-500 uppercase">
+           日记整理
+         </h2>
+         <div className="flex items-center gap-3">
+           <button onClick={() => navigateToDate(-1)} className="p-1 hover:bg-stone-200/50 rounded-full transition-colors text-stone-400 hover:text-stone-700">
+             <ChevronLeft className="w-4 h-4" />
+           </button>
+           <button 
+             onClick={() => setShowHeatmap(true)}
+             className="text-[13px] font-medium font-mono text-stone-700 w-[95px] text-center select-none hover:bg-stone-200/30 py-1 rounded-md transition-colors active:scale-95"
+           >
+             {dateStr}
+           </button>
+           <button 
+             onClick={() => navigateToDate(1)} 
+             disabled={isTodayDate}
+             className="p-1 hover:bg-stone-200/50 rounded-full transition-colors text-stone-400 hover:text-stone-700 disabled:opacity-30 disabled:hover:bg-transparent"
+           >
+             <ChevronRight className="w-4 h-4" />
+           </button>
+         </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center pb-24">
+         
+         {errorMsg && !isProcessingDiary && (
+           <div className="mb-4 text-[13px] text-red-500 bg-red-50 border border-red-100 rounded-xl p-3 w-full max-w-[90%] mx-auto shadow-sm animate-in fade-in">
+             <p className="font-medium mb-1">生成失败</p>
+             <p className="opacity-90 leading-tight">{errorMsg}</p>
+           </div>
+         )}
+
+         {!diaryRes && !isProcessingDiary && (
+           <div className="mt-8 flex flex-col items-center justify-center p-8 bg-[#fafafa] rounded-2xl border border-black/[0.03] select-none text-center w-full max-w-[280px]">
+             <div className="text-stone-400 mb-4 bg-white p-3 rounded-xl shadow-sm border border-stone-100">
+               <Sparkles className="w-6 h-6 stroke-[1.5px]" />
+             </div>
+             <p className="text-[15px] text-stone-900 font-medium tracking-tight mb-2">今天你积累了 {hasLogs ? logs.length : 0} 条碎屑</p>
+             <p className="text-[13px] text-stone-500 mb-6 leading-relaxed">让 AI 为你总结今天</p>
+             <button
+               disabled={!hasLogs}
+               onClick={handleGenerate}
+               className="w-full bg-black text-white px-5 py-2.5 rounded-full text-[13px] font-medium tracking-wide flex items-center justify-center gap-2 hover:bg-stone-800 disabled:opacity-30 disabled:hover:bg-black transition-all active:scale-[0.98]"
+             >
+               AI 智能整理
+             </button>
+           </div>
+         )}
+         
+         {isProcessingDiary && (
+           <div className="w-full mt-8 flex flex-col gap-6 max-w-[90%] mx-auto relative opacity-60 pointer-events-none pb-20">
+             <div className="flex flex-col items-center justify-center absolute inset-0 z-10 m-auto h-[100px]">
+               <Loader2 className="w-8 h-8 animate-spin text-black mb-4 drop-shadow-md" />
+               <p className="text-[13px] text-stone-900 font-medium animate-pulse tracking-wide bg-white/50 px-2 py-1 rounded">正在让 AI 帮你写日记...</p>
+             </div>
+             
+             <div className="h-6 bg-stone-50 rounded w-full" />
+             <div className="h-6 bg-stone-50 rounded w-5/6" />
+             <div className="h-6 bg-stone-50 rounded w-full mt-4" />
+             <div className="h-6 bg-stone-50 rounded w-2/3" />
+           </div>
+         )}
+         
+         {diaryRes && !isProcessingDiary && (
+           <div 
+             className={`w-full animate-in fade-in slide-in-from-bottom-2 duration-500 rounded-lg transition-colors select-none -mx-2 bg-stone-100 ${isEditing ? 'p-4' : 'p-2 active:bg-stone-50'}`}
+             onTouchStart={() => {
+               if (isEditing) return;
+               holdTimeoutRef.current = setTimeout(() => {
+                 if (window.navigator?.vibrate) window.navigator.vibrate(50);
+                 setIsActionSheetOpen(true);
+               }, 500);
+             }}
+             onTouchEnd={() => clearTimeout(holdTimeoutRef.current)}
+             onTouchMove={() => clearTimeout(holdTimeoutRef.current)}
+             onContextMenu={(e) => {
+               if (isEditing) return;
+               e.preventDefault();
+               if (window.navigator?.vibrate) window.navigator.vibrate(50);
+               setIsActionSheetOpen(true);
+             }}
+           >
+             {isEditing ? (
+               <div className="flex flex-col gap-3 relative z-10 w-full animate-in fade-in zoom-in-95 duration-200">
+                 <textarea
+                   ref={editTextareaRef}
+                   value={editText}
+                   onChange={e => setEditText(e.target.value)}
+                   className="w-full bg-white p-4 rounded-xl border border-stone-200 shadow-sm focus:outline-none focus:border-stone-300 focus:ring-2 focus:ring-stone-100 resize-none font-sans text-[15px] leading-relaxed text-stone-900 overflow-hidden min-h-[300px]"
+                   placeholder="开始编辑日记..."
+                   autoFocus
+                 />
+                 <div className="flex justify-end gap-2 pr-1">
+                   <button 
+                     onClick={() => setIsEditing(false)}
+                     className="px-4 py-2 rounded-full text-[13px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors shadow-sm select-none"
+                   >
+                     取消
+                   </button>
+                   <button 
+                     onClick={handleSaveEdit}
+                     className="flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium text-white bg-stone-900 border border-stone-900 hover:bg-stone-800 transition-colors shadow-sm select-none"
+                   >
+                     <Save className="w-3.5 h-3.5" />
+                     保存
+                   </button>
+                 </div>
+               </div>
+             ) : (
+               <div className="markdown-body prose prose-stone prose-h1:text-[18px] prose-h2:text-[16px] prose-h3:text-[15px] prose-h1:leading-snug prose-headings:font-bold max-w-none text-[15px] leading-relaxed select-text pointer-events-auto mt-2 px-2">
+                 <ReactMarkdown 
+                   components={{
+                     a: ({ node, href, children, ...props }) => {
+                       const handleClick = (e: React.MouseEvent) => {
+                         e.preventDefault();
+                         if (href?.startsWith('#log_id_')) {
+                           const logId = href.replace('#log_id_', '');
+                           navigate(`/?date=${dateStr}&logId=${logId}`);
+                         }
+                       };
+                       return (
+                         <a 
+                           href={href} 
+                           onClick={handleClick}
+                           className="text-stone-500 bg-stone-200/50 hover:bg-stone-200 hover:text-stone-900 px-1.5 py-0.5 rounded cursor-pointer no-underline transition-colors border border-black/5"
+                           {...props}
+                         >
+                           {children}
+                         </a>
+                       );
+                     }
+                   }}
+                 >
+                   {diaryRes.ai_editorial || '生成的内容为空。'}
+                 </ReactMarkdown>
+               </div>
+             )}
+           </div>
+         )}
+         
+      </div>
+      
+      {diaryRes && !isProcessingDiary && !isEditing && (
+        <div className="fixed bottom-20 left-0 p-4 bg-gradient-to-t from-white via-white/90 to-transparent pointer-events-none shrink-0 z-20 flex justify-center w-full">
+          <button
+            onClick={handleGenerate}
+            className="pointer-events-auto flex items-center justify-center gap-2 text-[13px] text-stone-600 hover:text-black transition-colors px-6 py-2.5 rounded-full border border-stone-200 shadow-[0_2px_8px_rgb(0_0_0_/_0.04)] bg-white hover:bg-stone-50 hover:border-black/5 active:scale-[0.98] font-medium w-full max-w-[280px]"
+          >
+            <RefreshCw className="w-4 h-4" />
+            重新生成日记
+          </button>
+        </div>
+      )}
+
+      {showHeatmap && (
+        <CalendarHeatmap 
+          currentDate={targetDate} 
+          onSelectDate={(date) => setSearchParams({ date })} 
+          onClose={() => setShowHeatmap(false)} 
+        />
+      )}
+
+      {/* Action Sheet */}
+      <ActionSheet 
+        isOpen={isActionSheetOpen}
+        onClose={() => setIsActionSheetOpen(false)}
+        actions={[
+          {
+            label: '编辑日记',
+            icon: <Edit2 className="w-4 h-4" />,
+            onClick: () => {
+              if (diaryRes) {
+                 setEditText(diaryRes.ai_editorial || '');
+                 setIsEditing(true);
+              }
+            }
+          },
+          {
+            label: '复制日记',
+            icon: <Copy className="w-4 h-4" />,
+            onClick: () => {
+              if (diaryRes?.ai_editorial) {
+                 navigator.clipboard.writeText(diaryRes.ai_editorial);
+              }
+            }
+          },
+          {
+            label: '删除日记',
+            icon: <Trash2 className="w-4 h-4" />,
+            danger: true,
+            onClick: async () => {
+               await db.daily_diaries.where('diary_date').equals(dateStr).delete();
+            }
+          }
+        ]}
+      />
+    </div>
+  );
+}
+
