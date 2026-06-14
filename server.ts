@@ -3,6 +3,12 @@ import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
+import ffmpeg from 'fluent-ffmpeg';
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+import fs from 'fs';
+import os from 'os';
+
+ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
 async function startServer() {
   const app = express();
@@ -77,6 +83,7 @@ ${logs.map((l: any) => `- [${new Date(l.created_at).toLocaleTimeString('zh-CN', 
          switch(provider) {
            case 'openai': defBase = 'https://api.openai.com/v1'; defModel = 'gpt-4o-mini'; break;
            case 'deepseek': defBase = 'https://api.deepseek.com/v1'; defModel = 'deepseek-chat'; break;
+           case 'volcengine': defBase = 'https://ark.cn-beijing.volces.com/api/v3'; defModel = 'doubao-seed-2-0-lite-260428'; break;
            case 'kimi': defBase = 'https://api.moonshot.cn/v1'; defModel = 'moonshot-v1-8k'; break;
            case 'zhipu': defBase = 'https://open.bigmodel.cn/api/paas/v4'; defModel = 'glm-4-flash'; break;
            case 'minimax': defBase = 'https://api.minimax.chat/v1'; defModel = 'abab6.5s-chat'; break;
@@ -196,6 +203,7 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
          switch(provider) {
            case 'openai': defBase = 'https://api.openai.com/v1'; defModel = 'gpt-4o-mini'; break;
            case 'deepseek': defBase = 'https://api.deepseek.com/v1'; defModel = 'deepseek-chat'; break;
+           case 'volcengine': defBase = 'https://ark.cn-beijing.volces.com/api/v3'; defModel = 'doubao-seed-2-0-lite-260428'; break;
            case 'kimi': defBase = 'https://api.moonshot.cn/v1'; defModel = 'moonshot-v1-8k'; break;
            case 'zhipu': defBase = 'https://open.bigmodel.cn/api/paas/v4'; defModel = 'glm-4-flash'; break;
            case 'minimax': defBase = 'https://api.minimax.chat/v1'; defModel = 'abab6.5s-chat'; break;
@@ -294,15 +302,112 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
          const hallucinationKeywords = ["[EMPTY_AUDIO]", "EMPTY_AUDIO", "谢谢观看", "字幕提供", "请不吝赐教", "字幕", "Thank you", "空白", "空音频", "没有声音", "请把上面的语音文件", "转录为简体中文", "如果是静音", "[静音]"];
          const tTrimmed = transcript.trim().replace(/[.,!?;:'"。，！？；：’”（）()]+/g, "");
          
-         if (hallucinationKeywords.some(h => tTrimmed === h || tTrimmed.includes("谢谢观看") || tTrimmed.includes("EMPTY_AUDIO")) || tTrimmed.length <= 1) {
-           transcript = "";
+         if (transcript && (tTrimmed.includes("谢谢观看") || tTrimmed === "EMPTY_AUDIO" || tTrimmed === "哎" || tTrimmed.length <= 1)) {
+           // Only drop if it's literally just the hallucination word, 
+           // don't drop if it includes EMPTY_AUDIO but has other text, 
+           // actually, for volcengine let's just let it pass through to debug what it's saying.
+           if (provider !== 'volcengine') {
+               transcript = "";
+           }
+         }
+       } else if (provider === 'volcengine') {
+         const baseStr = baseUrl || 'https://ark.cn-beijing.volces.com/api/v3';
+         const apiPrefix = baseStr.replace(/\/chat\/completions$/, '').replace(/\/responses$/, '').replace(/\/$/, '');
+         const apiUrl = `${apiPrefix}/responses`;
+         
+         if (!apiUrl) {
+            return res.status(400).json({ error: '缺少自定义 API 配置信息' });
+         }
+
+         let convertedBase64 = audio_base64;
+         let convertedMime = mime_type;
+         
+         if (mime_type.includes('webm')) {
+           const tempInput = path.join(os.tmpdir(), `input_${Date.now()}.webm`);
+           const tempOutput = path.join(os.tmpdir(), `output_${Date.now()}.mp3`);
+           
+           fs.writeFileSync(tempInput, Buffer.from(audio_base64, 'base64'));
+           
+           await new Promise<void>((resolve, reject) => {
+             ffmpeg(tempInput)
+               .toFormat('mp3')
+               .on('end', () => resolve())
+               .on('error', (err) => reject(err))
+               .save(tempOutput);
+           });
+           
+           convertedBase64 = fs.readFileSync(tempOutput).toString('base64');
+           convertedMime = 'audio/mp3'; // use mp3 instead of mpeg for volcengine exact match
+           
+           fs.unlinkSync(tempInput);
+           fs.unlinkSync(tempOutput);
+         }
+
+         const audioDataUrl = `data:${convertedMime};base64,${convertedBase64}`;
+         
+         const fetchRes = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+               'Content-Type': 'application/json',
+               'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+               model: model || 'doubao-seed-2-0-lite-260428',
+               input: [
+                 {
+                   role: 'user',
+                   content: [
+                     {
+                       type: 'input_text',
+                       text: '请逐句将这段语音转录为文字，保持原意。如果是纯噪音、静音或没有明显的人类语音，请务必直接输出并且只输出 [EMPTY_AUDIO] 这个占位符。'
+                     },
+                     {
+                       type: 'input_audio',
+                       audio_url: audioDataUrl
+                     }
+                   ]
+                 }
+               ]
+            })
+         });
+
+         if (!fetchRes.ok) {
+            const errText = await fetchRes.text();
+            throw new Error(`语音解析报错: ${errText}`);
+         }
+         
+         const data = await fetchRes.json();
+         console.log("Volcengine Audio Transcript Response:", JSON.stringify(data, null, 2));
+         
+         transcript = data.choices?.[0]?.message?.content || data.output?.text || data.text || data.data?.text || data.response?.text || "";
+         
+         if (!transcript && data.output && Array.isArray(data.output)) {
+             const messageObj = data.output.find((o: any) => o.type === 'message');
+             if (messageObj && messageObj.content && Array.isArray(messageObj.content)) {
+                const textObj = messageObj.content.find((c: any) => c.type === 'text' || c.type === 'output_text');
+                if (textObj && textObj.text) {
+                   transcript = textObj.text;
+                }
+             }
+             if (!transcript) {
+                 transcript = data.output[0]?.text || data.output.find((o: any) => o.type === 'text')?.text || "";
+             }
+         }
+
+         if (!transcript && data.choices && data.choices[0]?.message) {
+            transcript = data.choices[0].message.content || "";
+         }
+         
+         // DEBUG: If transcript is still empty, throw the raw JSON so we can see it on the frontend!
+         if (!transcript) {
+            throw new Error(`Volcengine response text empty. Raw JSON: ${JSON.stringify(data)}`);
          }
        } else {
          let defBase = 'http://127.0.0.1:11434/v1';
          let defModel = 'whisper-1';
          switch(provider) {
            case 'openai': defBase = 'https://api.openai.com/v1'; break;
-           case 'deepseek': defBase = 'https://api.deepseek.com/v1'; break;
+           case 'volcengine': defBase = 'https://ark.cn-beijing.volces.com/api/v3'; break;
            case 'kimi': defBase = 'https://api.moonshot.cn/v1'; break;
            case 'zhipu': defBase = 'https://open.bigmodel.cn/api/paas/v4'; break;
            case 'minimax': defBase = 'https://api.minimax.chat/v1'; break;
@@ -316,12 +421,33 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
             return res.status(400).json({ error: '缺少自定义 API 配置信息，或者该服务商不支持语音转写' });
          }
 
-         // OpenAI API expects multipart/form-data for audio
-         const buffer = Buffer.from(audio_base64, 'base64');
-         const formData = new FormData();
-         const extension = mime_type.includes('mp4') ? 'mp4' : mime_type.includes('mpeg') ? 'mp3' : 'webm';
+         let finalBuffer = Buffer.from(audio_base64, 'base64');
+         let finalMime = mime_type;
+         let extension = mime_type.includes('mp4') ? 'mp4' : mime_type.includes('mpeg') ? 'mp3' : 'webm';
          
-         const audioBlob = new Blob([buffer], { type: mime_type });
+         // Convert webm to mp3 for volcengine standard endpoint just in case it's used
+         if (provider === 'volcengine' && mime_type.includes('webm')) {
+           const tempInput = path.join(os.tmpdir(), `input_${Date.now()}.webm`);
+           const tempOutput = path.join(os.tmpdir(), `output_${Date.now()}.mp3`);
+           fs.writeFileSync(tempInput, finalBuffer);
+           await new Promise<void>((resolve, reject) => {
+             ffmpeg(tempInput)
+               .toFormat('mp3')
+               .on('end', () => resolve())
+               .on('error', (err) => reject(err))
+               .save(tempOutput);
+           });
+           finalBuffer = fs.readFileSync(tempOutput);
+           finalMime = 'audio/mp3';
+           extension = 'mp3';
+           fs.unlinkSync(tempInput);
+           fs.unlinkSync(tempOutput);
+         }
+
+         // OpenAI API expects multipart/form-data for audio
+         const formData = new FormData();
+         
+         const audioBlob = new Blob([finalBuffer], { type: finalMime });
          formData.append('file', audioBlob, `audio.${extension}`);
          // model name for openai audio transcription is typically whisper-1, allow custom
          formData.append('model', provider === 'openai' ? 'whisper-1' : (model || 'whisper-1'));

@@ -16,11 +16,23 @@ export const DEFAULT_INSIGHT_PROMPT = `你是一个生产力与生活教练助�
 
 export const DEFAULT_SUMMARY_PROMPT = `你是一个用于生成一句话日记摘要的助手。请根据提供的日记文本，生成一句简短、优美、富有诗意的中文摘要（不超过30个字）。`;
 
+const DEFAULT_PROVIDER_CONFIGS: Record<string, { apiKey: string; baseUrl: string; model: string }> = {
+  gemini: { apiKey: '', baseUrl: 'https://generativelanguage.googleapis.com', model: 'gemini-2.5-flash' },
+  openai: { apiKey: '', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
+  volcengine: { apiKey: '', baseUrl: 'https://ark.cn-beijing.volces.com/api/v3', model: 'doubao-seed-2-0-lite-260428' },
+  kimi: { apiKey: '', baseUrl: 'https://api.moonshot.cn/v1', model: 'moonshot-v1-8k' },
+  zhipu: { apiKey: '', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4-flash' },
+  minimax: { apiKey: '', baseUrl: 'https://api.minimax.chat/v1', model: 'abab6.5s-chat' },
+  mimo: { apiKey: '', baseUrl: 'https://ai.xiaomi.com/v1', model: 'mimo-chat' },
+  custom: { apiKey: '', baseUrl: 'http://127.0.0.1:11434/v1', model: 'llama3' }
+};
+
 interface SettingsState {
-  provider: 'gemini' | 'openai' | 'deepseek' | 'kimi' | 'zhipu' | 'minimax' | 'mimo' | 'custom';
+  provider: 'gemini' | 'openai' | 'volcengine' | 'kimi' | 'zhipu' | 'minimax' | 'mimo' | 'custom';
   apiKey: string;
   baseUrl: string;
   model: string;
+  configs: Record<string, { apiKey: string; baseUrl: string; model: string }>;
   diaryPrompt: string;
   reviewPrompt: string;
   insightPrompt: string;
@@ -32,15 +44,72 @@ export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
       provider: 'gemini',
-      apiKey: '',
-      baseUrl: '',
-      model: '',
+      apiKey: DEFAULT_PROVIDER_CONFIGS['gemini'].apiKey,
+      baseUrl: DEFAULT_PROVIDER_CONFIGS['gemini'].baseUrl,
+      model: DEFAULT_PROVIDER_CONFIGS['gemini'].model,
+      configs: {},
       diaryPrompt: DEFAULT_DIARY_PROMPT,
       reviewPrompt: DEFAULT_REVIEW_PROMPT,
       insightPrompt: DEFAULT_INSIGHT_PROMPT,
       summaryPrompt: DEFAULT_SUMMARY_PROMPT,
-      setSettings: (settings) => set(settings),
+      setSettings: (newSettings) => set((state) => {
+         const nextConfigs = { ...state.configs };
+         const providerToUpdate = state.provider;
+         
+         // 1. Save current provider state before any changes
+         nextConfigs[providerToUpdate] = { 
+           apiKey: state.apiKey, 
+           baseUrl: state.baseUrl, 
+           model: state.model 
+         };
+
+         // 2. Are we switching providers?
+         if (newSettings.provider && newSettings.provider !== state.provider) {
+           const nextProvider = newSettings.provider;
+           // Grab the saved config for the new provider, or establish defaults
+           const targetConfig = nextConfigs[nextProvider] || DEFAULT_PROVIDER_CONFIGS[nextProvider] || { 
+             apiKey: '', 
+             baseUrl: '', 
+             model: '' 
+           };
+           
+           return {
+             ...state,
+             ...newSettings,
+             apiKey: targetConfig.apiKey,
+             baseUrl: newSettings.baseUrl !== undefined ? newSettings.baseUrl : targetConfig.baseUrl,
+             model: newSettings.model !== undefined ? newSettings.model : targetConfig.model,
+             configs: nextConfigs
+           };
+         }
+         
+         // 3. Normal update
+         const nextState = { ...state, ...newSettings, configs: nextConfigs };
+         nextConfigs[providerToUpdate] = { 
+           apiKey: nextState.apiKey, 
+           baseUrl: nextState.baseUrl, 
+           model: nextState.model 
+         };
+         
+         return nextState;
+      }),
     }),
-    { name: 'whitewash-settings' }
+    { 
+       name: 'whitewash-settings',
+       version: 1,
+       migrate: (persistedState: any, version) => {
+         if (!persistedState.configs) {
+            persistedState.configs = {};
+            if (persistedState.provider) {
+               persistedState.configs[persistedState.provider] = {
+                  apiKey: persistedState.apiKey || '',
+                  baseUrl: persistedState.baseUrl || '',
+                  model: persistedState.model || ''
+               };
+            }
+         }
+         return persistedState;
+       }
+    }
   )
 );

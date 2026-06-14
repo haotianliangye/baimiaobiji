@@ -184,7 +184,7 @@ export default function Settings() {
                     {[
                       { id: 'gemini', label: 'Gemini', defaultBase: 'https://generativelanguage.googleapis.com/v1beta', defaultModel: 'gemini-3.1-flash-lite', link: 'https://aistudio.google.com/app/apikey' },
                       { id: 'openai', label: 'OpenAI', defaultBase: 'https://api.openai.com/v1', defaultModel: 'gpt-4o-mini', link: 'https://platform.openai.com/api-keys' },
-                      { id: 'deepseek', label: 'DeepSeek', defaultBase: 'https://api.deepseek.com/v1', defaultModel: 'deepseek-chat', link: 'https://platform.deepseek.com/api_keys' },
+                      { id: 'volcengine', label: '火山引擎', defaultBase: 'https://ark.cn-beijing.volces.com/api/v3', defaultModel: 'ep-xxx', link: 'https://console.volcengine.com/ark/region:ark+cn-beijing/endpoint' },
                       { id: 'kimi', label: 'Kimi', defaultBase: 'https://api.moonshot.cn/v1', defaultModel: 'moonshot-v1-8k', link: 'https://platform.moonshot.cn/console/api-keys' },
                       { id: 'zhipu', label: '智谱', defaultBase: 'https://open.bigmodel.cn/api/paas/v4', defaultModel: 'glm-4-flash', link: 'https://bigmodel.cn/usercenter/apikeys' },
                       { id: 'minimax', label: 'MiniMax', defaultBase: 'https://api.minimax.chat/v1', defaultModel: 'abab6.5s-chat', link: 'https://platform.minimaxi.com/user-center/basic-information' },
@@ -194,21 +194,7 @@ export default function Settings() {
                        <button
                          key={p.id}
                          onClick={() => {
-                           const currProvDef = [
-                             { id: 'gemini', defaultBase: 'https://generativelanguage.googleapis.com', defaultModel: 'gemini-2.5-flash' },
-                             { id: 'openai', defaultBase: 'https://api.openai.com/v1', defaultModel: 'gpt-4o-mini' },
-                             { id: 'deepseek', defaultBase: 'https://api.deepseek.com/v1', defaultModel: 'deepseek-chat' },
-                             { id: 'kimi', defaultBase: 'https://api.moonshot.cn/v1', defaultModel: 'moonshot-v1-8k' },
-                             { id: 'zhipu', defaultBase: 'https://open.bigmodel.cn/api/paas/v4', defaultModel: 'glm-4-flash' },
-                             { id: 'minimax', defaultBase: 'https://api.minimax.chat/v1', defaultModel: 'abab6.5s-chat' },
-                             { id: 'mimo', defaultBase: 'https://ai.xiaomi.com/v1', defaultModel: 'mimo-chat' },
-                             { id: 'custom', defaultBase: 'http://127.0.0.1:11434/v1', defaultModel: 'llama3' }
-                           ].find(x => x.id === provider);
-
-                           const newBase = (!baseUrl || (currProvDef && baseUrl === currProvDef.defaultBase)) ? p.defaultBase : baseUrl;
-                           const newModel = (!model || (currProvDef && model === currProvDef.defaultModel)) ? p.defaultModel : model;
-
-                           setSettings({ provider: p.id as any, baseUrl: newBase, model: newModel });
+                           setSettings({ provider: p.id as any });
                          }}
                          className={`flex items-center justify-center py-1.5 px-1 rounded-lg text-[12px] font-medium transition-all ${
                            provider === p.id 
@@ -238,7 +224,7 @@ export default function Settings() {
                         const linkInfo = [
                           { id: 'gemini', link: 'https://aistudio.google.com/app/apikey' },
                           { id: 'openai', link: 'https://platform.openai.com/api-keys' },
-                          { id: 'deepseek', link: 'https://platform.deepseek.com/api_keys' },
+                          { id: 'volcengine', link: 'https://console.volcengine.com/ark/region:ark+cn-beijing/endpoint' },
                           { id: 'kimi', link: 'https://platform.moonshot.cn/console/api-keys' },
                           { id: 'zhipu', link: 'https://bigmodel.cn/usercenter/apikeys' },
                           { id: 'minimax', link: 'https://platform.minimaxi.com/user-center/basic-information' },
@@ -281,18 +267,19 @@ export default function Settings() {
                     </label>
                     <input
                       type="text"
-                      value={baseUrl || [
+                      placeholder={[
                         { id: 'gemini', defaultBase: 'https://generativelanguage.googleapis.com' },
                         { id: 'openai', defaultBase: 'https://api.openai.com/v1' },
-                        { id: 'deepseek', defaultBase: 'https://api.deepseek.com/v1' },
+                        { id: 'volcengine', defaultBase: 'https://ark.cn-beijing.volces.com/api/v3' },
                         { id: 'kimi', defaultBase: 'https://api.moonshot.cn/v1' },
                         { id: 'zhipu', defaultBase: 'https://open.bigmodel.cn/api/paas/v4' },
                         { id: 'minimax', defaultBase: 'https://api.minimax.chat/v1' },
                         { id: 'mimo', defaultBase: 'https://ai.xiaomi.com/v1' },
                         { id: 'custom', defaultBase: 'http://127.0.0.1:11434/v1' }
                       ].find(x => x.id === provider)?.defaultBase || ''}
+                      value={baseUrl}
                       onChange={e => setSettings({ baseUrl: e.target.value })}
-                      className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-lg text-[14px] text-stone-900 transition-all font-mono"
+                      className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-lg text-[14px] text-stone-900 transition-all font-mono placeholder:text-stone-300"
                     />
                   </div>
 
@@ -304,18 +291,19 @@ export default function Settings() {
                     </label>
                     <input
                       type="text"
-                      value={model || [
+                      placeholder={[
                         { id: 'gemini', defaultModel: 'gemini-2.5-flash' },
                         { id: 'openai', defaultModel: 'gpt-4o-mini' },
-                        { id: 'deepseek', defaultModel: 'deepseek-chat' },
+                        { id: 'volcengine', defaultModel: 'doubao-seed-2-0-lite-260428' },
                         { id: 'kimi', defaultModel: 'moonshot-v1-8k' },
                         { id: 'zhipu', defaultModel: 'glm-4-flash' },
                         { id: 'minimax', defaultModel: 'abab6.5s-chat' },
                         { id: 'mimo', defaultModel: 'mimo-chat' },
                         { id: 'custom', defaultModel: 'llama3' }
                       ].find(x => x.id === provider)?.defaultModel || ''}
+                      value={model}
                       onChange={e => setSettings({ model: e.target.value })}
-                      className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-lg text-[14px] text-stone-900 transition-all font-mono"
+                      className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-lg text-[14px] text-stone-900 transition-all font-mono placeholder:text-stone-300"
                     />
                   </div>
                 </div>

@@ -22,6 +22,7 @@ import {
   RefreshCw,
   Check,
   ListChecks,
+  Keyboard,
 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { db } from "../db/db";
@@ -152,6 +153,7 @@ export default function Record() {
   const holdTimeoutRef = useRef<any>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isMicInitializingRef = useRef(false);
+  const isCancelledRef = useRef(false);
 
   const today = new Date();
   const dateParam = searchParams.get("date");
@@ -283,6 +285,12 @@ export default function Record() {
         }
         const audioBlob = new Blob(audioChunks, { type: mimeType });
         stream.getTracks().forEach((track) => track.stop());
+
+        if (isCancelledRef.current) {
+          isCancelledRef.current = false;
+          setIsSubmitting(false);
+          return;
+        }
 
         setIsSubmitting(true);
         try {
@@ -662,56 +670,76 @@ export default function Record() {
         ) : (
         <form
           onSubmit={handleSubmit}
-          className={`flex items-end bg-white rounded-2xl px-4 py-3 border transition-all shadow-[0_2px_10px_rgb(0_0_0_/_0.03)] ${
+          className={`flex items-end bg-white rounded-2xl p-1.5 border transition-all shadow-[0_2px_10px_rgb(0_0_0_/_0.03)] ${
             !isTodayDate
               ? "opacity-50 pointer-events-none border-transparent"
               : "border-black/5 focus-within:border-black/15 focus-within:shadow-[0_4px_16px_rgb(0_0_0_/_0.06)]"
           }`}
         >
-          <button
-            type="button"
-            onClick={handleToggleListen}
-            className={`p-2 -ml-2 transition-colors shrink-0 ${isListening ? "text-red-500 animate-pulse" : "text-stone-400 hover:text-stone-900"}`}
-            title="点击开始/停止录音"
-          >
+          <div className="relative flex-1 mr-1.5 flex flex-col justify-center min-h-[36px]">
             {isListening ? (
-              <Square className="w-5 h-5 fill-current" />
+              <button
+                type="button"
+                onClick={handleToggleListen}
+                disabled={isSubmitting}
+                className="w-full h-[36px] flex items-center justify-center gap-2 rounded-lg font-medium text-[14.5px] transition-all select-none bg-[#2a2a2a] text-white shadow-sm disabled:opacity-50 active:bg-[#1a1a1a]"
+              >
+                <div className="w-2 h-2 rounded-sm bg-red-500 animate-pulse" />
+                <span className="font-mono">{formatRecordTime(recordingDuration)}</span>
+                <span className="ml-[2px] opacity-90 font-normal">点击结束并发送</span>
+              </button>
             ) : (
-              <Mic className="w-5 h-5" />
-            )}
-          </button>
-
-          <div className="relative flex-1">
-            <textarea
-              ref={textareaRef}
-              rows={1}
-              className={`w-full bg-transparent px-3 py-2 text-[15px] outline-none placeholder:text-stone-400 min-w-0 resize-none overflow-y-auto no-scrollbar ${isListening ? "opacity-0" : ""}`}
-              placeholder={isSubmitting ? "正在解析..." : "输入你想记录的碎片..."}
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={isSubmitting || isListening}
-              style={{ minHeight: "40px", maxHeight: "50vh" }}
-            />
-            {isListening && (
-              <div className="absolute inset-0 flex items-center justify-between px-3 pointer-events-none">
-                <span className="text-stone-500 font-medium animate-pulse">正在录音...</span>
-                <span className="text-red-500 font-mono text-[14px]">{formatRecordTime(recordingDuration)}</span>
-              </div>
+              <textarea
+                ref={textareaRef}
+                rows={1}
+                className="w-full bg-transparent px-2 py-[7.5px] text-[15px] leading-[21px] outline-none placeholder:text-stone-400 min-w-0 resize-none overflow-y-auto no-scrollbar"
+                placeholder={isSubmitting ? "正在解析..." : "输入你想记录的碎片..."}
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={isSubmitting}
+                style={{ maxHeight: "50vh" }}
+              />
             )}
           </div>
 
-          <button
-            type="submit"
-            disabled={!inputText.trim() || isSubmitting}
-            className="p-2 -mr-2 text-stone-400 hover:text-stone-900 disabled:opacity-30 transition-colors shrink-0"
-          >
-            {isSubmitting ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
+          {!isListening ? (
+            inputText.trim() || isSubmitting ? (
+              <button
+                 type="submit"
+                 disabled={!inputText.trim() || isSubmitting}
+                 className="w-[36px] h-[36px] flex items-center justify-center rounded-xl text-stone-400 hover:text-stone-900 hover:bg-stone-100/50 disabled:opacity-30 disabled:bg-transparent transition-colors shrink-0"
+              >
+                 {isSubmitting ? (
+                   <Loader2 className="w-[20px] h-[20px] animate-spin" />
+                 ) : (
+                   <ArrowRight className="w-[20px] h-[20px]" />
+                 )}
+              </button>
             ) : (
-              <ArrowRight className="w-5 h-5" />
-            )}
-          </button>
+              <button
+                 type="button"
+                 onClick={handleToggleListen}
+                 className="w-[36px] h-[36px] flex items-center justify-center rounded-xl text-stone-400 hover:text-stone-900 hover:bg-stone-100/50 transition-colors shrink-0"
+                 title="点击开始录音"
+              >
+                 <Mic className="w-[22px] h-[22px]" />
+              </button>
+            )
+          ) : (
+            <button
+               type="button"
+               disabled={isSubmitting}
+               onClick={() => {
+                 isCancelledRef.current = true;
+                 handleToggleListen();
+               }}
+               className="w-[36px] h-[36px] flex items-center justify-center rounded-xl text-stone-400 hover:text-stone-900 hover:bg-stone-100/50 disabled:opacity-30 transition-colors shrink-0"
+               title="取消录音"
+            >
+               <Keyboard className="w-[22px] h-[22px]" />
+            </button>
+          )}
         </form>
         )}
       </div>
