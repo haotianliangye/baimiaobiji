@@ -1,12 +1,28 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload } from 'lucide-react';
-import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_SUMMARY_PROMPT } from '../store/settings.store';
+import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_LYUBISHCHEV_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_SUMMARY_PROMPT } from '../store/settings.store';
 import { db } from '../db/db';
 
 export default function Settings() {
   const navigate = useNavigate();
-  const { provider, apiKey, baseUrl, model, diaryPrompt, reviewPrompt, insightPrompt, summaryPrompt, setSettings } = useSettingsStore();
+  const { 
+    provider, 
+    apiKey, 
+    baseUrl, 
+    model, 
+    diaryPrompt, 
+    diaryPrompts, 
+    diaryPromptIndex, 
+    reviewPrompt, 
+    reviewPrompts, 
+    reviewPromptIndex, 
+    insightPrompt, 
+    insightPrompts, 
+    insightPromptIndex, 
+    summaryPrompt, 
+    setSettings 
+  } = useSettingsStore();
 
   const [activeTab, setActiveTab] = useState<'model' | 'data' | 'prompt'>('model');
   const [showApiKey, setShowApiKey] = useState(false);
@@ -22,12 +38,25 @@ export default function Settings() {
     insights: true,
   });
 
-  const [localPrompts, setLocalPrompts] = useState({
-    diaryPrompt: diaryPrompt || DEFAULT_DIARY_PROMPT,
-    reviewPrompt: reviewPrompt || DEFAULT_REVIEW_PROMPT,
-    insightPrompt: insightPrompt || DEFAULT_INSIGHT_PROMPT,
-    summaryPrompt: summaryPrompt || DEFAULT_SUMMARY_PROMPT,
+  const [localDiaryPrompts, setLocalDiaryPrompts] = useState<string[]>(() => {
+    if (diaryPrompts && diaryPrompts.length === 4) return [...diaryPrompts];
+    return [diaryPrompt || DEFAULT_DIARY_PROMPT, DEFAULT_LYUBISHCHEV_PROMPT, '', ''];
   });
+  const [localDiaryIndex, setLocalDiaryIndex] = useState<number>(diaryPromptIndex ?? 0);
+
+  const [localReviewPrompts, setLocalReviewPrompts] = useState<string[]>(() => {
+    if (reviewPrompts && reviewPrompts.length === 4) return [...reviewPrompts];
+    return [reviewPrompt || DEFAULT_REVIEW_PROMPT, '', '', ''];
+  });
+  const [localReviewIndex, setLocalReviewIndex] = useState<number>(reviewPromptIndex ?? 0);
+
+  const [localInsightPrompts, setLocalInsightPrompts] = useState<string[]>(() => {
+    if (insightPrompts && insightPrompts.length === 4) return [...insightPrompts];
+    return [insightPrompt || DEFAULT_INSIGHT_PROMPT, '', '', ''];
+  });
+  const [localInsightIndex, setLocalInsightIndex] = useState<number>(insightPromptIndex ?? 0);
+
+  const [localSummaryPrompt, setLocalSummaryPrompt] = useState(summaryPrompt || DEFAULT_SUMMARY_PROMPT);
 
   const convertBlobToBase64 = (blob: Blob): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -316,68 +345,167 @@ export default function Settings() {
                <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase mb-2">后台提示词配置 (Prompt)</h3>
                <div className="space-y-3">
                   <div className="space-y-1.5">
-                     <div className="flex items-center justify-between">
-                       <label className="flex items-center gap-2 text-[13px] font-medium text-stone-700">
-                          <Settings2 className="w-4 h-4 text-stone-400" />
-                          日记生成 Prompt
-                       </label>
-                       <button 
-                         onClick={() => setLocalPrompts(prev => ({...prev, diaryPrompt: DEFAULT_DIARY_PROMPT}))}
-                         className="text-[11px] text-stone-400 hover:text-black flex items-center gap-1 transition-colors"
-                       >
-                         <RotateCcw className="w-3 h-3" />
-                         恢复默认
-                       </button>
+                     <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-1">
+                       <div className="flex items-center gap-1.5 min-w-0">
+                         <label className="flex items-center gap-1.5 text-[13px] font-medium text-stone-700 shrink-0">
+                            <Settings2 className="w-4 h-4 text-stone-400" />
+                            日记生成 Prompt
+                         </label>
+                         <div className="flex gap-0.5 items-center bg-black/5 p-0.5 rounded-lg border border-black/5 shrink-0">
+                           {['默认', '自定义 1', '自定义 2', '自定义 3'].map((label, idx) => (
+                             <button
+                               key={idx}
+                               onClick={() => setLocalDiaryIndex(idx)}
+                               className={`px-2 py-1 text-[11px] font-medium rounded transition-all active:scale-[0.93] shrink-0 ${
+                                 localDiaryIndex === idx
+                                   ? 'bg-white text-stone-900 shadow-sm ring-1 ring-black/5'
+                                   : 'text-stone-400 hover:text-stone-600'
+                               }`}
+                             >
+                               {label}
+                             </button>
+                           ))}
+                         </div>
+                       </div>
+                       {localDiaryIndex !== 0 && (
+                         <button 
+                           onClick={() => {
+                             const next = [...localDiaryPrompts];
+                             next[localDiaryIndex] = '';
+                             setLocalDiaryPrompts(next);
+                           }}
+                           className="text-[11px] text-stone-400 hover:text-black flex items-center gap-1 transition-colors"
+                         >
+                           <RotateCcw className="w-3 h-3" />
+                           清空当前
+                         </button>
+                       )}
                      </div>
                      <textarea
-                        placeholder="请输入日记生成提示词..."
-                        value={localPrompts.diaryPrompt}
-                        onChange={e => setLocalPrompts(prev => ({...prev, diaryPrompt: e.target.value}))}
-                        className="w-full h-32 resize-none bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] text-stone-900 placeholder:text-stone-400 transition-all font-mono leading-relaxed"
+                        placeholder={localDiaryIndex === 0 ? '' : '请输入日记生成提示词...'}
+                        value={localDiaryPrompts[localDiaryIndex]}
+                        readOnly={localDiaryIndex === 0}
+                        onChange={e => {
+                          if (localDiaryIndex === 0) return;
+                          const next = [...localDiaryPrompts];
+                          next[localDiaryIndex] = e.target.value;
+                          setLocalDiaryPrompts(next);
+                        }}
+                        className={`w-full h-32 resize-none border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] transition-all font-mono leading-relaxed ${
+                          localDiaryIndex === 0
+                            ? 'bg-stone-100/70 text-stone-500 cursor-not-allowed'
+                            : 'bg-white text-stone-900 focus:bg-white'
+                        }`}
                      />
                   </div>
                   
                   <div className="space-y-1.5 pt-4 border-t border-stone-100">
-                     <div className="flex items-center justify-between">
-                       <label className="flex items-center gap-2 text-[13px] font-medium text-stone-700">
-                          <Settings2 className="w-4 h-4 text-stone-400" />
-                          回顾生成 Prompt
-                       </label>
-                       <button 
-                         onClick={() => setLocalPrompts(prev => ({...prev, reviewPrompt: DEFAULT_REVIEW_PROMPT}))}
-                         className="text-[11px] text-stone-400 hover:text-black flex items-center gap-1 transition-colors"
-                       >
-                         <RotateCcw className="w-3 h-3" />
-                         恢复默认
-                       </button>
+                     <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-1">
+                       <div className="flex items-center gap-1.5 min-w-0">
+                         <label className="flex items-center gap-1.5 text-[13px] font-medium text-stone-700 shrink-0">
+                            <Settings2 className="w-4 h-4 text-stone-400" />
+                            回顾生成 Prompt
+                         </label>
+                         <div className="flex gap-0.5 items-center bg-black/5 p-0.5 rounded-lg border border-black/5 shrink-0">
+                           {['默认', '自定义 1', '自定义 2', '自定义 3'].map((label, idx) => (
+                             <button
+                               key={idx}
+                               onClick={() => setLocalReviewIndex(idx)}
+                               className={`px-2 py-1 text-[11px] font-medium rounded transition-all active:scale-[0.93] shrink-0 ${
+                                 localReviewIndex === idx
+                                   ? 'bg-white text-stone-900 shadow-sm ring-1 ring-black/5'
+                                   : 'text-stone-400 hover:text-stone-600'
+                               }`}
+                             >
+                               {label}
+                             </button>
+                           ))}
+                         </div>
+                       </div>
+                       {localReviewIndex !== 0 && (
+                         <button 
+                           onClick={() => {
+                             const next = [...localReviewPrompts];
+                             next[localReviewIndex] = '';
+                             setLocalReviewPrompts(next);
+                           }}
+                           className="text-[11px] text-stone-400 hover:text-black flex items-center gap-1 transition-colors"
+                         >
+                           <RotateCcw className="w-3 h-3" />
+                           清空当前
+                         </button>
+                       )}
                      </div>
                      <textarea
-                        placeholder="请输入回顾生成提示词..."
-                        value={localPrompts.reviewPrompt}
-                        onChange={e => setLocalPrompts(prev => ({...prev, reviewPrompt: e.target.value}))}
-                        className="w-full h-24 resize-none bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] text-stone-900 placeholder:text-stone-400 transition-all font-mono leading-relaxed"
+                        placeholder={localReviewIndex === 0 ? '' : '请输入回顾生成提示词...'}
+                        value={localReviewPrompts[localReviewIndex]}
+                        readOnly={localReviewIndex === 0}
+                        onChange={e => {
+                          if (localReviewIndex === 0) return;
+                          const next = [...localReviewPrompts];
+                          next[localReviewIndex] = e.target.value;
+                          setLocalReviewPrompts(next);
+                        }}
+                        className={`w-full h-24 resize-none border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] transition-all font-mono leading-relaxed ${
+                          localReviewIndex === 0
+                            ? 'bg-stone-100/70 text-stone-500 cursor-not-allowed'
+                            : 'bg-white text-stone-900 focus:bg-white'
+                        }`}
                      />
                   </div>
 
                   <div className="space-y-1.5 pt-4 border-t border-stone-100">
-                     <div className="flex items-center justify-between">
-                       <label className="flex items-center gap-2 text-[13px] font-medium text-stone-700">
-                          <Settings2 className="w-4 h-4 text-stone-400" />
-                          洞察生成 Prompt
-                       </label>
-                       <button 
-                         onClick={() => setLocalPrompts(prev => ({...prev, insightPrompt: DEFAULT_INSIGHT_PROMPT}))}
-                         className="text-[11px] text-stone-400 hover:text-black flex items-center gap-1 transition-colors"
-                       >
-                         <RotateCcw className="w-3 h-3" />
-                         恢复默认
-                       </button>
+                     <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-1">
+                       <div className="flex items-center gap-1.5 min-w-0">
+                         <label className="flex items-center gap-1.5 text-[13px] font-medium text-stone-700 shrink-0">
+                            <Settings2 className="w-4 h-4 text-stone-400" />
+                            洞察生成 Prompt
+                         </label>
+                         <div className="flex gap-0.5 items-center bg-black/5 p-0.5 rounded-lg border border-black/5 shrink-0">
+                           {['默认', '自定义 1', '自定义 2', '自定义 3'].map((label, idx) => (
+                             <button
+                               key={idx}
+                               onClick={() => setLocalInsightIndex(idx)}
+                               className={`px-2 py-1 text-[11px] font-medium rounded transition-all active:scale-[0.93] shrink-0 ${
+                                 localInsightIndex === idx
+                                   ? 'bg-white text-stone-900 shadow-sm ring-1 ring-black/5'
+                                   : 'text-stone-400 hover:text-stone-600'
+                               }`}
+                             >
+                               {label}
+                             </button>
+                           ))}
+                         </div>
+                       </div>
+                       {localInsightIndex !== 0 && (
+                         <button 
+                           onClick={() => {
+                             const next = [...localInsightPrompts];
+                             next[localInsightIndex] = '';
+                             setLocalInsightPrompts(next);
+                           }}
+                           className="text-[11px] text-stone-400 hover:text-black flex items-center gap-1 transition-colors"
+                         >
+                           <RotateCcw className="w-3 h-3" />
+                           清空当前
+                         </button>
+                       )}
                      </div>
                      <textarea
-                        placeholder="请输入洞察生成提示词..."
-                        value={localPrompts.insightPrompt}
-                        onChange={e => setLocalPrompts(prev => ({...prev, insightPrompt: e.target.value}))}
-                        className="w-full h-24 resize-none bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] text-stone-900 placeholder:text-stone-400 transition-all font-mono leading-relaxed"
+                        placeholder={localInsightIndex === 0 ? '' : '请输入洞察生成提示词...'}
+                        value={localInsightPrompts[localInsightIndex]}
+                        readOnly={localInsightIndex === 0}
+                        onChange={e => {
+                          if (localInsightIndex === 0) return;
+                          const next = [...localInsightPrompts];
+                          next[localInsightIndex] = e.target.value;
+                          setLocalInsightPrompts(next);
+                        }}
+                        className={`w-full h-24 resize-none border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] transition-all font-mono leading-relaxed ${
+                          localInsightIndex === 0
+                            ? 'bg-stone-100/70 text-stone-500 cursor-not-allowed'
+                            : 'bg-white text-stone-900 focus:bg-white'
+                        }`}
                      />
                   </div>
 
@@ -388,7 +516,7 @@ export default function Settings() {
                           日记摘要生成 Prompt
                        </label>
                        <button 
-                         onClick={() => setLocalPrompts(prev => ({...prev, summaryPrompt: DEFAULT_SUMMARY_PROMPT}))}
+                         onClick={() => setLocalSummaryPrompt(DEFAULT_SUMMARY_PROMPT)}
                          className="text-[11px] text-stone-400 hover:text-black flex items-center gap-1 transition-colors"
                        >
                          <RotateCcw className="w-3 h-3" />
@@ -397,8 +525,8 @@ export default function Settings() {
                      </div>
                      <textarea
                         placeholder="请输入摘要生成提示词..."
-                        value={localPrompts.summaryPrompt}
-                        onChange={e => setLocalPrompts(prev => ({...prev, summaryPrompt: e.target.value}))}
+                        value={localSummaryPrompt}
+                        onChange={e => setLocalSummaryPrompt(e.target.value)}
                         className="w-full h-24 resize-none bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] text-stone-900 placeholder:text-stone-400 transition-all font-mono leading-relaxed"
                      />
                   </div>
@@ -531,10 +659,16 @@ export default function Settings() {
           <button
             onClick={() => {
               setSettings({
-                diaryPrompt: localPrompts.diaryPrompt,
-                reviewPrompt: localPrompts.reviewPrompt,
-                insightPrompt: localPrompts.insightPrompt,
-                summaryPrompt: localPrompts.summaryPrompt
+                diaryPrompts: localDiaryPrompts,
+                diaryPromptIndex: localDiaryIndex,
+                diaryPrompt: localDiaryPrompts[localDiaryIndex],
+                reviewPrompts: localReviewPrompts,
+                reviewPromptIndex: localReviewIndex,
+                reviewPrompt: localReviewPrompts[localReviewIndex],
+                insightPrompts: localInsightPrompts,
+                insightPromptIndex: localInsightIndex,
+                insightPrompt: localInsightPrompts[localInsightIndex],
+                summaryPrompt: localSummaryPrompt
               });
               navigate(-1);
             }}
