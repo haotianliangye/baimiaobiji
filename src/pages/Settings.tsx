@@ -292,7 +292,7 @@ export default function Settings() {
                     <input
                       type="text"
                       placeholder={[
-                        { id: 'gemini', defaultModel: 'gemini-2.5-flash' },
+                        { id: 'gemini', defaultModel: 'gemini-3.1-flash-lite' },
                         { id: 'openai', defaultModel: 'gpt-4o-mini' },
                         { id: 'volcengine', defaultModel: 'doubao-seed-2-0-lite-260428' },
                         { id: 'kimi', defaultModel: 'moonshot-v1-8k' },

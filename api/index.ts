@@ -55,8 +55,7 @@ ${logs.map((l: any) => `- [${new Date(l.created_at).toLocaleTimeString('zh-CN', 
          }
          const ai = new GoogleGenAI(genAiConfig);
          
-         let finalModel = model || 'gemini-2.5-flash';
-         if (finalModel === 'gemini-3.1-flash-lite') finalModel = 'gemini-2.5-flash';
+         let finalModel = model || 'gemini-3.1-flash-lite';
 
          const response = await ai.models.generateContent({
            model: finalModel,
@@ -184,8 +183,7 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
          }
          const ai = new GoogleGenAI(genAiConfig);
          
-         let finalModel = model || 'gemini-2.5-flash';
-         if (finalModel === 'gemini-3.1-flash-lite') finalModel = 'gemini-2.5-flash';
+         let finalModel = model || 'gemini-3.1-flash-lite';
 
          const response = await ai.models.generateContent({
            model: finalModel,
@@ -272,8 +270,7 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
          }
          const ai = new GoogleGenAI(genAiConfig);
          
-         let finalModel = model || 'gemini-2.5-flash';
-         if (finalModel === 'gemini-3.1-flash-lite') finalModel = 'gemini-2.5-flash';
+         let finalModel = model || 'gemini-3.1-flash-lite';
 
          const cleanMimeType = mime_type.split(';')[0];
          const response = await ai.models.generateContent({
@@ -421,9 +418,9 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
          let finalMime = mime_type;
          let extension = mime_type.includes('mp4') ? 'mp4' : mime_type.includes('mpeg') ? 'mp3' : 'webm';
          
-         // Convert webm to mp3 for volcengine standard endpoint just in case it's used
-         if (provider === 'volcengine' && mime_type.includes('webm')) {
-           const tempInput = path.join(os.tmpdir(), `input_${Date.now()}.webm`);
+         // Convert all non-mp3 for volcengine standard endpoint just in case it's used
+         if (provider === 'volcengine' && !mime_type.includes('mpeg') && !mime_type.includes('mp3')) {
+           const tempInput = path.join(os.tmpdir(), `input_${Date.now()}.${extension}`);
            const tempOutput = path.join(os.tmpdir(), `output_${Date.now()}.mp3`);
            fs.writeFileSync(tempInput, finalBuffer);
            await new Promise<void>((resolve, reject) => {
