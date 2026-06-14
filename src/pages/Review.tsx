@@ -7,9 +7,11 @@ import { db } from '../db/db';
 import CalendarHeatmap from '../components/CalendarHeatmap';
 import ActionSheet from '../components/ActionSheet';
 import { Copy, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { useAppStore } from '../store/app.store';
 
 export default function Review() {
   const navigate = useNavigate();
+  const { isProcessingReviewMap, generateReview, diaryErrorMap } = useAppStore();
   const WEEKS_TO_SHOW = 15;
   const today = new Date();
   
@@ -28,6 +30,15 @@ export default function Review() {
   const [activeDiary, setActiveDiary] = useState<any>(null);
   const holdTimeoutRef = useRef<any>(null);
   const dateParam = searchParams.get('date');
+
+  const handleGenerateReview = async (diary: any) => {
+    const logsForDiary = allLogs?.filter(log => format(new Date(log.created_at), 'yyyy-MM-dd') === diary.diary_date) || [];
+    if (logsForDiary.length === 0) {
+      alert('该天没有任何记录碎屑，无法生成回顾。');
+      return;
+    }
+    await generateReview(diary.diary_date, logsForDiary, diary.ai_editorial || "");
+  };
 
   let targetDate = today;
   if (dateParam) {
@@ -129,44 +140,88 @@ export default function Review() {
                     })()}
                   </span>
                 </button>
-                {expandedDiaryId === diary.id && (
-                  <div className="px-4 pb-5 pt-2 border-t border-black/5 bg-stone-50/50">
-                    <div className="markdown-body prose prose-stone prose-h1:text-[16px] prose-h2:text-[15px] prose-h3:text-[14px] prose-h1:leading-snug prose-headings:font-bold max-w-none text-[14px] leading-relaxed select-text pointer-events-auto">
-                      <ReactMarkdown 
-                        components={{
-                          a: ({ node, href, children, ...props }) => {
-                            const handleClick = (e: React.MouseEvent) => {
-                              e.preventDefault();
-                              if (href?.startsWith('#log_id_')) {
-                                const logId = href.replace('#log_id_', '');
-                                navigate(`/?date=${diary.diary_date}&logId=${logId}`);
-                              }
-                            };
-                            return (
-                              <a 
-                                href={href} 
-                                onClick={handleClick}
-                                className="text-stone-500 bg-stone-200/50 hover:bg-stone-200 hover:text-stone-900 px-1.5 py-0.5 rounded cursor-pointer no-underline transition-colors border border-black/5"
-                                {...props}
-                              >
-                                {children}
-                              </a>
-                            );
-                          }
-                        }}
-                      >
-                        {diary.ai_editorial || '生成的内容为空。'}
-                      </ReactMarkdown>
+                {expandedDiaryId === diary.id && (() => {
+                  const isGenerating = isProcessingReviewMap[diary.diary_date];
+                  const errorMsg = diaryErrorMap[diary.diary_date];
+                  
+                  return (
+                    <div className="px-4 pb-5 pt-2 border-t border-black/5 bg-stone-50/50">
+                      {isGenerating ? (
+                        <div className="flex flex-col items-center justify-center py-8 text-stone-500 text-[13px] gap-2 font-medium">
+                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-stone-400 border-t-transparent"></div>
+                          <span>AI 正在为您生成统计回顾与反思...</span>
+                        </div>
+                      ) : diary.ai_review ? (
+                        <>
+                          <div className="markdown-body prose prose-stone prose-h1:text-[16px] prose-h2:text-[15px] prose-h3:text-[14px] prose-h1:leading-snug prose-headings:font-bold max-w-none text-[14px] leading-relaxed select-text pointer-events-auto">
+                            <ReactMarkdown 
+                              components={{
+                                a: ({ node, href, children, ...props }) => {
+                                  const handleClick = (e: React.MouseEvent) => {
+                                    e.preventDefault();
+                                    if (href?.startsWith('#log_id_')) {
+                                      const logId = href.replace('#log_id_', '');
+                                      navigate(`/?date=${diary.diary_date}&logId=${logId}`);
+                                    }
+                                  };
+                                  return (
+                                    <a 
+                                      href={href} 
+                                      onClick={handleClick}
+                                      className="text-stone-500 bg-stone-200/50 hover:bg-stone-200 hover:text-stone-900 px-1.5 py-0.5 rounded cursor-pointer no-underline transition-colors border border-black/5"
+                                      {...props}
+                                    >
+                                      {children}
+                                    </a>
+                                  );
+                                }
+                              }}
+                            >
+                              {diary.ai_review}
+                            </ReactMarkdown>
+                          </div>
+                          
+                          {errorMsg && (
+                            <div className="mt-3 text-[12px] text-rose-500 bg-rose-50 border border-rose-100 rounded-md py-1 px-2.5 leading-relaxed">
+                              {errorMsg}
+                            </div>
+                          )}
+
+                          <div className="mt-5 flex gap-2 w-full">
+                            <button 
+                              onClick={() => handleGenerateReview(diary)}
+                              className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[13px] text-stone-600 hover:text-stone-800 bg-stone-200/50 hover:bg-stone-200 rounded-lg transition-colors font-medium"
+                            >
+                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                              重新生成回顾
+                            </button>
+                            <button 
+                              onClick={() => setExpandedDiaryId(null)}
+                              className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[13px] text-stone-500 hover:text-stone-800 bg-black/5 hover:bg-black/10 rounded-lg transition-colors font-medium"
+                            >
+                              <ChevronUp className="w-4 h-4" />
+                              收起
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-8 px-4 text-center border border-dashed border-stone-300 rounded-xl bg-stone-50/50">
+                          <span className="text-[13px] text-stone-500 mb-4 font-medium">该日尚未生成统计回顾与反思</span>
+                          {errorMsg && (
+                            <span className="text-[12px] text-rose-500 mb-3 block px-2 leading-relaxed bg-rose-50 border border-rose-100 rounded-md py-1">{errorMsg}</span>
+                          )}
+                          <button
+                            onClick={() => handleGenerateReview(diary)}
+                            className="px-6 py-2 text-[13px] bg-stone-800 text-white hover:bg-stone-900 active:scale-95 transition-all rounded-lg font-medium shadow-sm flex items-center gap-1.5"
+                          >
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                            立即生成回顾
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    <button 
-                      onClick={() => setExpandedDiaryId(null)}
-                      className="mt-4 w-full flex items-center justify-center gap-1.5 py-2 text-[13px] text-stone-500 hover:text-stone-800 bg-black/5 hover:bg-black/10 rounded-lg transition-colors font-medium"
-                    >
-                      <ChevronUp className="w-4 h-4" />
-                      收起
-                    </button>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
             ))
           )}

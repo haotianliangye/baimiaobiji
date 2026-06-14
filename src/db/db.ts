@@ -23,6 +23,7 @@ export interface DailyDiary {
   raw_log_ids: string[];
   timeline_json: string; // serialized JSON array of TimelineBlock
   ai_editorial: string;
+  ai_review?: string;
   updated_at: number;
 }
 

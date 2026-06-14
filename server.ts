@@ -19,7 +19,7 @@ async function startServer() {
   app.post('/api/generate-timeline', async (req, res) => {
     try {
       const { logs, date, timezone, settings } = req.body;
-      const { provider = 'gemini', apiKey, baseUrl, model, diaryPrompt } = settings || {};
+      const { provider = 'gemini', apiKey, baseUrl, model, diaryPrompt, reviewPrompt } = settings || {};
       
       const defaultPrompt = `You are a thoughtful diary assistant. Your task is to take a list of raw log fragments and weave them into a single cohesive, beautifully written diary entry for the day in Chinese.
 
@@ -42,6 +42,7 @@ ${logs.map((l: any) => `- [${new Date(l.created_at).toLocaleTimeString('zh-CN', 
 
       let diaryMarkdown = "";
       let summaryMarkdown = "";
+      let reviewMarkdown = "";
 
       if (provider === 'gemini') {
          const activeKey = apiKey;
@@ -74,6 +75,15 @@ ${logs.map((l: any) => `- [${new Date(l.created_at).toLocaleTimeString('zh-CN', 
              contents: `${summaryPromptStr}\n\nDiary Text:\n${diaryMarkdown}`
            });
            summaryMarkdown = summaryRes.text || "";
+
+           const activeReviewPrompt = reviewPrompt || `你是一个有深度的反思助手。你的任务是回顾过去一段时间的记录和日记，并针对用户的关注点、情绪状态以及取得的成就撰写一份有意义的总结。请保持鼓励性和建设性的基调。`;
+           const promptReviewContext = `${activeReviewPrompt}\n\nContext:\n- Date: ${date}\n- Timeline Logs:\n${logs.map((l: any) => `- [${new Date(l.created_at).toLocaleTimeString('zh-CN', { hour12: false, timeZone: timezone })}] ${l.content}`).join('\n')}\n- Generated Diary:\n${diaryMarkdown}`;
+
+           const reviewRes = await ai.models.generateContent({
+             model: finalModel,
+             contents: promptReviewContext
+           });
+           reviewMarkdown = reviewRes.text || "";
          }
 
       } else {
@@ -140,10 +150,130 @@ ${logs.map((l: any) => `- [${new Date(l.created_at).toLocaleTimeString('zh-CN', 
                const sData = await summaryRes.json();
                summaryMarkdown = sData.choices?.[0]?.message?.content || "";
             }
+
+            const activeReviewPrompt = reviewPrompt || `你是一个有深度的反思助手。你的任务是回顾过去一段时间的记录和日记，并针对用户的关注点、情绪状态以及取得的成就撰写一份有意义的总结。请保持鼓励性和建设性的基调。`;
+            const promptReviewContext = `${activeReviewPrompt}\n\nContext:\n- Date: ${date}\n- Timeline Logs:\n${logs.map((l: any) => `- [${new Date(l.created_at).toLocaleTimeString('zh-CN', { hour12: false, timeZone: timezone })}] ${l.content}`).join('\n')}\n- Generated Diary:\n${diaryMarkdown}`;
+
+            const reviewRes = await fetch(apiUrl, {
+               method: 'POST',
+               headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${apiKey}`
+               },
+               body: JSON.stringify({
+                  model: actualModel,
+                  messages: [
+                    { role: "system", content: "You output well-formatted Markdown text." },
+                    { role: "user", content: promptReviewContext }
+                  ]
+               })
+            });
+            if (reviewRes.ok) {
+               const rData = await reviewRes.json();
+               reviewMarkdown = rData.choices?.[0]?.message?.content || "";
+            }
          }
       }
 
-      res.json({ timeline: "", ai_editorial: diaryMarkdown, ai_summary: summaryMarkdown });
+      res.json({ timeline: "", ai_editorial: diaryMarkdown, ai_summary: summaryMarkdown, ai_review: reviewMarkdown });
+    } catch (err: any) {
+      console.error(err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/generate-review', async (req, res) => {
+    try {
+      const { logs, date, timezone, diaryContent, settings } = req.body;
+      const { provider = 'gemini', apiKey, baseUrl, model, reviewPrompt } = settings || {};
+      
+      const defaultReviewPrompt = `你是一个有深度的反思助手。你的任务是回顾过去一段时间的记录和日记，并针对用户的关注点、情绪状态以及取得的成就撰写一份有意义的总结。请保持鼓励性和建设性的基调。`;
+      
+      const promptReviewContext = `${reviewPrompt || defaultReviewPrompt}
+
+Context:
+- Current Date: ${date}
+- System Timezone: ${timezone}
+
+Raw Logs:
+${logs.map((l: any) => `- [${new Date(l.created_at).toLocaleTimeString('zh-CN', { hour12: false, timeZone: timezone })}] ${l.content}`).join('\n')}
+
+Generated Diary:
+${diaryContent || ""}
+`;
+
+      let reviewMarkdown = "";
+
+      if (provider === 'gemini') {
+         const activeKey = apiKey;
+         if (!activeKey) {
+            return res.status(500).json({ error: '请在设置页面中配置你的 Gemini API Key' });
+         }
+         
+         const genAiConfig: any = { apiKey: activeKey };
+         let finalBaseUrl = baseUrl;
+         if (finalBaseUrl === 'https://generativelanguage.googleapis.com/v1beta') {
+             finalBaseUrl = 'https://generativelanguage.googleapis.com';
+         }
+         if (finalBaseUrl) {
+            genAiConfig.httpOptions = { baseUrl: finalBaseUrl };
+         }
+         const ai = new GoogleGenAI(genAiConfig);
+         
+         let finalModel = model || 'gemini-3.1-flash-lite';
+
+         const response = await ai.models.generateContent({
+           model: finalModel,
+           contents: promptReviewContext,
+         });
+         reviewMarkdown = response.text || "";
+
+      } else {
+         let defBase = 'http://127.0.0.1:11434/v1';
+         let defModel = 'llama3';
+         switch(provider) {
+           case 'openai': defBase = 'https://api.openai.com/v1'; defModel = 'gpt-4o-mini'; break;
+           case 'deepseek': defBase = 'https://api.deepseek.com/v1'; defModel = 'deepseek-chat'; break;
+           case 'volcengine': defBase = 'https://ark.cn-beijing.volces.com/api/v3'; defModel = 'doubao-seed-2-0-lite-260428'; break;
+           case 'kimi': defBase = 'https://api.moonshot.cn/v1'; defModel = 'moonshot-v1-8k'; break;
+           case 'zhipu': defBase = 'https://open.bigmodel.cn/api/paas/v4'; defModel = 'glm-4-flash'; break;
+           case 'minimax': defBase = 'https://api.minimax.chat/v1'; defModel = 'abab6.5s-chat'; break;
+           case 'mimo': defBase = 'https://ai.xiaomi.com/v1'; defModel = 'mimo-chat'; break;
+         }
+         
+         const baseStr = baseUrl || defBase;
+         const apiUrl = baseStr.endsWith('/chat/completions') ? baseStr : `${baseStr.replace(/\/$/, '')}/chat/completions`;
+         const actualModel = model || defModel;
+         
+         if (!apiUrl || !actualModel) {
+            return res.status(400).json({ error: '缺少自定义 API 配置信息' });
+         }
+
+         const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+               'Content-Type': 'application/json',
+               'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+               model: actualModel,
+               messages: [
+                 { role: "system", content: "You output well-formatted Markdown text." },
+                 { role: "user", content: promptReviewContext }
+               ]
+            })
+         });
+
+         if (!response.ok) {
+            const errBody = await response.text();
+            throw new Error(`模型接口报错: ${response.status} ${errBody}`);
+         }
+         
+         const data = await response.json();
+         reviewMarkdown = data.choices?.[0]?.message?.content || "";
+      }
+
+      res.json({ ai_review: reviewMarkdown });
     } catch (err: any) {
       console.error(err);
       res.status(500).json({ error: err.message });
