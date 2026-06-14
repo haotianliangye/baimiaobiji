@@ -11,3 +11,31 @@ html, body, #root {
   margin: 0;
   background-color: #fafaf9; /* stone-50 */
 }
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .thin-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .thin-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .thin-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+  }
+  .thin-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.25);
+  }
+  .thin-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+  }
+}

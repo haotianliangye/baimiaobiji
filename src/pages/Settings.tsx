@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload } from 'lucide-react';
 import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_SUMMARY_PROMPT } from '../store/settings.store';
 import { db } from '../db/db';
 
@@ -8,8 +8,13 @@ export default function Settings() {
   const navigate = useNavigate();
   const { provider, apiKey, baseUrl, model, diaryPrompt, reviewPrompt, insightPrompt, summaryPrompt, setSettings } = useSettingsStore();
 
-  const [activeTab, setActiveTab] = useState<'model' | 'export' | 'prompt'>('model');
+  const [activeTab, setActiveTab] = useState<'model' | 'data' | 'prompt'>('model');
   const [showApiKey, setShowApiKey] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [exportDateRange, setExportDateRange] = useState<'all' | 'custom'>('all');
+  const [exportStartDate, setExportStartDate] = useState('');
+  const [exportEndDate, setExportEndDate] = useState('');
 
   const [exportOptions, setExportOptions] = useState({
     logs: true,
@@ -24,24 +29,57 @@ export default function Settings() {
     summaryPrompt: summaryPrompt || DEFAULT_SUMMARY_PROMPT,
   });
 
+  const convertBlobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
+
   const handleExport = async () => {
     try {
       const data: any = {};
+      const startMs = exportDateRange === 'custom' && exportStartDate ? new Date(exportStartDate).getTime() : 0;
+      const endMs = exportDateRange === 'custom' && exportEndDate ? new Date(exportEndDate).getTime() + 86400000 - 1 : Infinity;
+      
+      const startStr = exportDateRange === 'custom' ? exportStartDate || '0000-00-00' : '0000-00-00';
+      const endStr = exportDateRange === 'custom' && exportEndDate ? exportEndDate : '9999-99-99';
+
       if (exportOptions.logs) {
-         data.logs = await db.raw_logs.toArray();
+         let logs = await db.raw_logs.toArray();
+         if (exportDateRange === 'custom') {
+           logs = logs.filter(l => l.created_at >= startMs && l.created_at <= endMs);
+         }
+         data.logs = await Promise.all(logs.map(async l => {
+            if (l.audioBlob) {
+              const base64 = await convertBlobToBase64(l.audioBlob);
+              return { ...l, audioBlob: undefined, audioBase64: base64 };
+            }
+            return l;
+         }));
       }
       if (exportOptions.diaries) {
-         data.diaries = await db.daily_diaries.toArray();
+         let diaries = await db.daily_diaries.toArray();
+         if (exportDateRange === 'custom') {
+           diaries = diaries.filter(d => d.diary_date >= startStr && d.diary_date <= endStr);
+         }
+         data.diaries = diaries;
       }
       if (exportOptions.insights) {
-         data.insights = await db.insights.toArray();
+         let insights = await db.insights.toArray();
+         if (exportDateRange === 'custom') {
+           insights = insights.filter(i => i.created_at >= startMs && i.created_at <= endMs);
+         }
+         data.insights = insights;
       }
       
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `baimiao_export_${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `baimiao_data_${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -51,19 +89,66 @@ export default function Settings() {
     }
   };
 
-  return (
-    <div className="flex flex-col h-[100dvh] overflow-hidden bg-stone-50 relative z-50 mx-auto max-w-md w-full shadow-sm ring-1 ring-black/5">
-      <div className="flex h-14 items-center px-4 bg-white border-b border-stone-100 shrink-0">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-stone-500 hover:text-black">
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <h2 className="text-[15px] font-medium ml-2 text-stone-900">系统设置</h2>
-      </div>
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-      <div className="flex-1 overflow-y-auto w-full p-3 space-y-4 pb-16">
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const text = ev.target?.result as string;
+        const data = JSON.parse(text);
+        
+        let importedCount = 0;
+
+        if (data.logs && Array.isArray(data.logs)) {
+          const logsToPut = await Promise.all(data.logs.map(async (l: any) => {
+            if (l.audioBase64) {
+              const res = await fetch(l.audioBase64);
+              const blob = await res.blob();
+              l.audioBlob = blob;
+              delete l.audioBase64;
+            }
+            return l;
+          }));
+          await db.raw_logs.bulkPut(logsToPut);
+          importedCount += logsToPut.length;
+        }
+
+        if (data.diaries && Array.isArray(data.diaries)) {
+          await db.daily_diaries.bulkPut(data.diaries);
+          importedCount += data.diaries.length;
+        }
+
+        if (data.insights && Array.isArray(data.insights)) {
+          await db.insights.bulkPut(data.insights);
+          importedCount += data.insights.length;
+        }
+
+        alert(`成功导入了 ${importedCount} 条历史数据片段！`);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      } catch (err) {
+        console.error(err);
+        alert('导入失败，请检查文件格式。');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  return (
+    <div className="flex flex-col h-[100dvh] bg-stone-100 font-sans text-stone-900 overflow-hidden items-center justify-center">
+      <div className="flex flex-col h-[100dvh] overflow-hidden bg-[#f4f4f0] relative z-50 mx-auto max-w-md w-full shadow-sm ring-1 ring-black/5">
+        <div className="flex h-14 items-center px-4 bg-[#f4f4f0] border-b border-stone-200/50 shrink-0">
+          <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-stone-500 hover:text-black">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <h2 className="text-[15px] font-medium ml-2 text-stone-900">系统设置</h2>
+        </div>
+
+        <div className="flex-1 overflow-y-auto thin-scrollbar w-full p-3 space-y-4 pb-16">
         
         {/* Navigation Tabs */}
-        <div className="flex bg-stone-100/80 p-1 rounded-xl shadow-inner border border-stone-200/50">
+        <div className="flex bg-black/5 p-1 rounded-xl shadow-inner border border-black/5">
           <button
             onClick={() => setActiveTab('model')}
             className={`flex-1 flex justify-center py-2 text-[13px] font-medium rounded-lg transition-colors ${
@@ -73,12 +158,12 @@ export default function Settings() {
             系统设置
           </button>
           <button
-            onClick={() => setActiveTab('export')}
+            onClick={() => setActiveTab('data')}
             className={`flex-1 flex justify-center py-2 text-[13px] font-medium rounded-lg transition-colors ${
-              activeTab === 'export' ? 'bg-white shadow-sm ring-1 ring-black/5 text-black' : 'text-stone-500 hover:text-stone-700'
+              activeTab === 'data' ? 'bg-white shadow-sm ring-1 ring-black/5 text-black' : 'text-stone-500 hover:text-stone-700'
             }`}
           >
-            数据导出
+            数据管理
           </button>
           <button
             onClick={() => setActiveTab('prompt')}
@@ -110,7 +195,7 @@ export default function Settings() {
                          key={p.id}
                          onClick={() => {
                            const currProvDef = [
-                             { id: 'gemini', defaultBase: 'https://generativelanguage.googleapis.com/v1beta', defaultModel: 'gemini-3.1-flash-lite' },
+                             { id: 'gemini', defaultBase: 'https://generativelanguage.googleapis.com', defaultModel: 'gemini-2.5-flash' },
                              { id: 'openai', defaultBase: 'https://api.openai.com/v1', defaultModel: 'gpt-4o-mini' },
                              { id: 'deepseek', defaultBase: 'https://api.deepseek.com/v1', defaultModel: 'deepseek-chat' },
                              { id: 'kimi', defaultBase: 'https://api.moonshot.cn/v1', defaultModel: 'moonshot-v1-8k' },
@@ -171,7 +256,7 @@ export default function Settings() {
                         placeholder={'输入你的 API 凭证'}
                         value={apiKey}
                         onChange={e => setSettings({ apiKey: e.target.value })}
-                        className="w-full bg-stone-50 border border-stone-200 outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 pr-10 rounded-lg text-[14px] text-stone-900 placeholder:text-stone-400 transition-all font-mono"
+                        className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 pr-10 rounded-lg text-[14px] text-stone-900 placeholder:text-stone-400 transition-all font-mono"
                       />
                       <button
                         type="button"
@@ -197,7 +282,7 @@ export default function Settings() {
                     <input
                       type="text"
                       value={baseUrl || [
-                        { id: 'gemini', defaultBase: 'https://generativelanguage.googleapis.com/v1beta' },
+                        { id: 'gemini', defaultBase: 'https://generativelanguage.googleapis.com' },
                         { id: 'openai', defaultBase: 'https://api.openai.com/v1' },
                         { id: 'deepseek', defaultBase: 'https://api.deepseek.com/v1' },
                         { id: 'kimi', defaultBase: 'https://api.moonshot.cn/v1' },
@@ -207,7 +292,7 @@ export default function Settings() {
                         { id: 'custom', defaultBase: 'http://127.0.0.1:11434/v1' }
                       ].find(x => x.id === provider)?.defaultBase || ''}
                       onChange={e => setSettings({ baseUrl: e.target.value })}
-                      className="w-full bg-stone-50 border border-stone-200 outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-lg text-[14px] text-stone-900 transition-all font-mono"
+                      className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-lg text-[14px] text-stone-900 transition-all font-mono"
                     />
                   </div>
 
@@ -220,7 +305,7 @@ export default function Settings() {
                     <input
                       type="text"
                       value={model || [
-                        { id: 'gemini', defaultModel: 'gemini-3.1-flash-lite' },
+                        { id: 'gemini', defaultModel: 'gemini-2.5-flash' },
                         { id: 'openai', defaultModel: 'gpt-4o-mini' },
                         { id: 'deepseek', defaultModel: 'deepseek-chat' },
                         { id: 'kimi', defaultModel: 'moonshot-v1-8k' },
@@ -230,7 +315,7 @@ export default function Settings() {
                         { id: 'custom', defaultModel: 'llama3' }
                       ].find(x => x.id === provider)?.defaultModel || ''}
                       onChange={e => setSettings({ model: e.target.value })}
-                      className="w-full bg-stone-50 border border-stone-200 outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-lg text-[14px] text-stone-900 transition-all font-mono"
+                      className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-lg text-[14px] text-stone-900 transition-all font-mono"
                     />
                   </div>
                 </div>
@@ -260,7 +345,7 @@ export default function Settings() {
                         placeholder="请输入日记生成提示词..."
                         value={localPrompts.diaryPrompt}
                         onChange={e => setLocalPrompts(prev => ({...prev, diaryPrompt: e.target.value}))}
-                        className="w-full h-32 resize-none bg-stone-50 border border-stone-200 outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] text-stone-900 placeholder:text-stone-400 transition-all font-mono leading-relaxed"
+                        className="w-full h-32 resize-none bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] text-stone-900 placeholder:text-stone-400 transition-all font-mono leading-relaxed"
                      />
                   </div>
                   
@@ -282,7 +367,7 @@ export default function Settings() {
                         placeholder="请输入回顾生成提示词..."
                         value={localPrompts.reviewPrompt}
                         onChange={e => setLocalPrompts(prev => ({...prev, reviewPrompt: e.target.value}))}
-                        className="w-full h-24 resize-none bg-stone-50 border border-stone-200 outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] text-stone-900 placeholder:text-stone-400 transition-all font-mono leading-relaxed"
+                        className="w-full h-24 resize-none bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] text-stone-900 placeholder:text-stone-400 transition-all font-mono leading-relaxed"
                      />
                   </div>
 
@@ -304,7 +389,7 @@ export default function Settings() {
                         placeholder="请输入洞察生成提示词..."
                         value={localPrompts.insightPrompt}
                         onChange={e => setLocalPrompts(prev => ({...prev, insightPrompt: e.target.value}))}
-                        className="w-full h-24 resize-none bg-stone-50 border border-stone-200 outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] text-stone-900 placeholder:text-stone-400 transition-all font-mono leading-relaxed"
+                        className="w-full h-24 resize-none bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] text-stone-900 placeholder:text-stone-400 transition-all font-mono leading-relaxed"
                      />
                   </div>
 
@@ -326,63 +411,130 @@ export default function Settings() {
                         placeholder="请输入摘要生成提示词..."
                         value={localPrompts.summaryPrompt}
                         onChange={e => setLocalPrompts(prev => ({...prev, summaryPrompt: e.target.value}))}
-                        className="w-full h-24 resize-none bg-stone-50 border border-stone-200 outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] text-stone-900 placeholder:text-stone-400 transition-all font-mono leading-relaxed"
+                        className="w-full h-24 resize-none bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] text-stone-900 placeholder:text-stone-400 transition-all font-mono leading-relaxed"
                      />
                   </div>
                </div>
             </section>
           )}
 
-          {activeTab === 'export' && (
-            <section className="bg-white rounded-xl border border-stone-100 p-3 shadow-sm space-y-3">
-               <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase mb-2">数据导出</h3>
-               <div className="space-y-2">
-                  <label className="flex items-center gap-3">
-                     <input 
-                       type="checkbox" 
-                       checked={exportOptions.logs}
-                       onChange={e => setExportOptions(prev => ({ ...prev, logs: e.target.checked }))}
-                       className="w-4 h-4 rounded border-stone-300 text-stone-900 focus:ring-black accent-black" 
-                     />
-                     <div className="flex flex-col">
-                        <span className="text-[14px] text-stone-800 font-medium">原始碎屑记录</span>
-                        <span className="text-[12px] text-stone-400">导出所有时间线上的打点记录。</span>
-                     </div>
-                  </label>
-                  <label className="flex items-center gap-3 pt-2 border-t border-stone-50">
-                     <input 
-                       type="checkbox" 
-                       checked={exportOptions.diaries}
-                       onChange={e => setExportOptions(prev => ({ ...prev, diaries: e.target.checked }))}
-                       className="w-4 h-4 rounded border-stone-300 text-stone-900 focus:ring-black accent-black" 
-                     />
-                     <div className="flex flex-col">
-                        <span className="text-[14px] text-stone-800 font-medium">生成的日记与回顾</span>
-                        <span className="text-[12px] text-stone-400">导出由 AI 汇总的所有日记文本及对应的日期戳。</span>
-                     </div>
-                  </label>
-                  <label className="flex items-center gap-3 pt-2 border-t border-stone-50">
-                     <input 
-                       type="checkbox" 
-                       checked={exportOptions.insights}
-                       onChange={e => setExportOptions(prev => ({ ...prev, insights: e.target.checked }))}
-                       className="w-4 h-4 rounded border-stone-300 text-stone-900 focus:ring-black accent-black" 
-                     />
-                     <div className="flex flex-col">
-                        <span className="text-[14px] text-stone-800 font-medium">深度洞察</span>
-                        <span className="text-[12px] text-stone-400">导出生成的近期时间分布汇总及建议。</span>
-                     </div>
-                  </label>
+          {activeTab === 'data' && (
+            <section className="bg-white rounded-xl border border-stone-100 p-3 shadow-sm space-y-4">
+               <div>
+                 <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase mb-3">数据导出</h3>
+                 
+                 <div className="space-y-4">
+                    {/* Data type selection */}
+                    <div className="space-y-2.5">
+                      <label className="flex items-start gap-3">
+                         <input 
+                           type="checkbox" 
+                           checked={exportOptions.logs}
+                           onChange={e => setExportOptions(prev => ({ ...prev, logs: e.target.checked }))}
+                           className="w-4 h-4 mt-0.5 rounded border-stone-300 text-stone-900 focus:ring-black accent-black cursor-pointer" 
+                         />
+                         <div className="flex flex-col cursor-pointer select-none">
+                            <span className="text-[14px] text-stone-800 font-medium leading-none">原始碎屑记录</span>
+                            <span className="text-[12px] text-stone-400 mt-1">导出所有时间线上的打点记录，包含语音数据。</span>
+                         </div>
+                      </label>
+                      <label className="flex items-start gap-3 pt-2.5 border-t border-stone-50">
+                         <input 
+                           type="checkbox" 
+                           checked={exportOptions.diaries}
+                           onChange={e => setExportOptions(prev => ({ ...prev, diaries: e.target.checked }))}
+                           className="w-4 h-4 mt-0.5 rounded border-stone-300 text-stone-900 focus:ring-black accent-black cursor-pointer" 
+                         />
+                         <div className="flex flex-col cursor-pointer select-none">
+                            <span className="text-[14px] text-stone-800 font-medium leading-none">生成的日记与回顾</span>
+                            <span className="text-[12px] text-stone-400 mt-1">导出由 AI 汇总的日记文本及对应的日期戳。</span>
+                         </div>
+                      </label>
+                      <label className="flex items-start gap-3 pt-2.5 border-t border-stone-50">
+                         <input 
+                           type="checkbox" 
+                           checked={exportOptions.insights}
+                           onChange={e => setExportOptions(prev => ({ ...prev, insights: e.target.checked }))}
+                           className="w-4 h-4 mt-0.5 rounded border-stone-300 text-stone-900 focus:ring-black accent-black cursor-pointer" 
+                         />
+                         <div className="flex flex-col cursor-pointer select-none">
+                            <span className="text-[14px] text-stone-800 font-medium leading-none">深度洞察</span>
+                            <span className="text-[12px] text-stone-400 mt-1">导出生成的近期时间分布汇总及建议。</span>
+                         </div>
+                      </label>
+                    </div>
+
+                    {/* Date range selection */}
+                    <div className="pt-3 border-t border-stone-100">
+                      <h4 className="text-[12px] font-medium text-stone-500 mb-2">选择时间范围</h4>
+                      <div className="flex gap-2">
+                        <button 
+                           onClick={() => setExportDateRange('all')}
+                           className={`flex-1 py-1.5 text-[13px] rounded-lg border transition-all ${exportDateRange === 'all' ? 'bg-stone-100 border-stone-200 text-black font-medium shadow-[inset_0_1px_3px_rgb(0_0_0_/_0.02)]' : 'bg-white border-stone-100/50 text-stone-500 hover:bg-stone-50'}`}
+                        >
+                          全量导出
+                        </button>
+                        <button 
+                           onClick={() => setExportDateRange('custom')}
+                           className={`flex-1 py-1.5 text-[13px] rounded-lg border transition-all ${exportDateRange === 'custom' ? 'bg-stone-100 border-stone-200 text-black font-medium shadow-[inset_0_1px_3px_rgb(0_0_0_/_0.02)]' : 'bg-white border-stone-100/50 text-stone-500 hover:bg-stone-50'}`}
+                        >
+                          指定日期范围
+                        </button>
+                      </div>
+                      
+                      {exportDateRange === 'custom' && (
+                        <div className="flex items-center justify-between gap-3 mt-3 p-3 bg-stone-50/80 rounded-lg border border-stone-100/60 shadow-[inset_0_1px_2px_rgb(0_0_0_/_0.01)]">
+                          <input 
+                            type="date" 
+                            className="w-full bg-transparent border-b border-stone-200 pb-1 text-[13px] text-stone-700 outline-none focus:border-stone-400 transition-colors"
+                            value={exportStartDate}
+                            onChange={(e) => setExportStartDate(e.target.value)}
+                          />
+                          <span className="text-stone-400 text-[12px] font-mono shrink-0">to</span>
+                          <input 
+                            type="date" 
+                            className="w-full bg-transparent border-b border-stone-200 pb-1 text-[13px] text-stone-700 outline-none focus:border-stone-400 transition-colors"
+                            value={exportEndDate}
+                            onChange={(e) => setExportEndDate(e.target.value)}
+                          />
+                        </div>
+                      )}
+                    </div>
+                 </div>
+                 
+                 <button 
+                   onClick={handleExport}
+                   disabled={!exportOptions.logs && !exportOptions.diaries && !exportOptions.insights}
+                   className="w-full mt-4 flex items-center justify-center gap-2 bg-stone-100 text-stone-800 py-3 rounded-xl text-[13px] font-medium hover:bg-stone-200 transition-colors disabled:opacity-30 disabled:hover:bg-stone-100 active:scale-[0.98]"
+                 >
+                   <FileDown className="w-4 h-4" />
+                   导出数据 (JSON)
+                 </button>
                </div>
-               
-               <button 
-                 onClick={handleExport}
-                 disabled={!exportOptions.logs && !exportOptions.diaries && !exportOptions.insights}
-                 className="w-full mt-4 flex items-center justify-center gap-2 bg-stone-100 text-stone-900 py-3 rounded-xl text-[13px] font-medium hover:bg-stone-200 transition-colors disabled:opacity-50 disabled:hover:bg-stone-100"
-               >
-                 <FileDown className="w-4 h-4" />
-                 导出选中数据 (JSON)
-               </button>
+
+               <div className="pt-4 border-t border-stone-100">
+                 <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase">数据导入</h3>
+                 </div>
+                 <p className="text-[12px] text-stone-500 mb-4 leading-relaxed">
+                   迁移设备时，导入旧设备生成的 JSON 备份文件。
+                 </p>
+                 <input 
+                   type="file" 
+                   accept=".json"
+                   ref={fileInputRef}
+                   onChange={handleImport}
+                   className="hidden"
+                   id="import-file"
+                 />
+                 <label 
+                   htmlFor="import-file"
+                   className="w-full flex items-center justify-center gap-2 bg-white border border-stone-200 text-stone-700 py-3 rounded-xl text-[13px] font-medium hover:bg-stone-50 hover:border-stone-300 cursor-pointer transition-all shadow-[0_1px_2px_rgb(0_0_0_/_0.02)] active:scale-[0.98]"
+                 >
+                   <Upload className="w-4 h-4" />
+                   选择文件并合并导入
+                 </label>
+               </div>
             </section>
           )}
         </div>
@@ -405,6 +557,7 @@ export default function Settings() {
         </div>
 
       </div>
+    </div>
     </div>
   );
 }

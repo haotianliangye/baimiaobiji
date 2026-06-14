@@ -6,31 +6,31 @@ export default function Layout() {
   const navigate = useNavigate();
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-white font-sans text-stone-900 overflow-hidden">
-      {/* Global Nav */}
-      <header className="flex h-11 shrink-0 items-center justify-between px-4 bg-black text-white">
-        <h1 className="text-sm font-medium tracking-tight">白描笔记</h1>
-        <button onClick={() => navigate('/settings')} className="p-1 hover:opacity-70 transition-opacity">
-          <SettingsIcon className="w-4 h-4" />
-        </button>
-      </header>
+    <div className="flex flex-col h-[100dvh] bg-stone-100 font-sans text-stone-900 overflow-hidden items-center justify-center">
+      <div className="w-full max-w-md h-full bg-[#f4f4f0] shadow-sm ring-1 ring-black/5 flex flex-col relative overflow-hidden">
+        {/* Global Nav */}
+        <header className="flex h-12 shrink-0 items-center justify-between px-4 bg-black text-white">
+          <h1 className="text-[15px] font-medium tracking-wide">白描笔记</h1>
+          <button onClick={() => navigate('/settings')} className="p-1.5 hover:opacity-70 transition-opacity -mr-1.5">
+            <SettingsIcon className="w-[18px] h-[18px]" />
+          </button>
+        </header>
 
-      {/* Main Canvas */}
-      <main className="flex-1 overflow-hidden bg-stone-50 selection:bg-black selection:text-white flex justify-center">
-        <div className="w-full max-w-md h-full bg-white shadow-sm ring-1 ring-black/5 flex flex-col relative">
+        {/* Main Canvas */}
+        <main className="flex-1 overflow-hidden bg-[#f4f4f0] selection:bg-black selection:text-white flex flex-col relative">
           <Outlet />
-        </div>
-      </main>
+        </main>
 
-      {/* Tab Bar */}
-      <nav className="h-16 shrink-0 border-t border-stone-200 bg-white/90 backdrop-blur pb-safe">
-        <div className="mx-auto max-w-md w-full h-full flex justify-around items-center px-2">
-          <TabItem to="/" icon={<Edit3 />} label="记录" />
-          <TabItem to="/diary" icon={<Book />} label="日记" />
-          <TabItem to="/review" icon={<Clock />} label="回顾" />
-          <TabItem to="/insights" icon={<PieChart />} label="洞察" />
-        </div>
-      </nav>
+        {/* Tab Bar */}
+        <nav className="h-[60px] shrink-0 border-t border-stone-200/60 bg-[#f4f4f0]/90 backdrop-blur pb-safe z-50 relative">
+          <div className="w-full h-full flex justify-around items-center px-2">
+            <TabItem to="/" icon={<Edit3 />} label="记录" />
+            <TabItem to="/diary" icon={<Book />} label="日记" />
+            <TabItem to="/review" icon={<Clock />} label="回顾" />
+            <TabItem to="/insights" icon={<PieChart />} label="洞察" />
+          </div>
+        </nav>
+      </div>
     </div>
   );
 }

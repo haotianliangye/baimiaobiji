@@ -44,13 +44,20 @@ ${logs.map((l: any) => `- [${new Date(l.created_at).toLocaleTimeString('zh-CN', 
          }
          
          const genAiConfig: any = { apiKey: activeKey };
-         if (baseUrl) {
-            genAiConfig.httpOptions = { baseUrl };
+         let finalBaseUrl = baseUrl;
+         if (finalBaseUrl === 'https://generativelanguage.googleapis.com/v1beta') {
+             finalBaseUrl = 'https://generativelanguage.googleapis.com';
+         }
+         if (finalBaseUrl) {
+            genAiConfig.httpOptions = { baseUrl: finalBaseUrl };
          }
          const ai = new GoogleGenAI(genAiConfig);
          
+         let finalModel = model || 'gemini-2.5-flash';
+         if (finalModel === 'gemini-3.1-flash-lite') finalModel = 'gemini-2.5-flash';
+
          const response = await ai.models.generateContent({
-           model: model || 'gemini-3.1-flash-lite',
+           model: finalModel,
            contents: promptContext,
          });
          diaryMarkdown = response.text || "";
@@ -165,13 +172,20 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
          }
          
          const genAiConfig: any = { apiKey: activeKey };
-         if (baseUrl) {
-            genAiConfig.httpOptions = { baseUrl };
+         let finalBaseUrl = baseUrl;
+         if (finalBaseUrl === 'https://generativelanguage.googleapis.com/v1beta') {
+             finalBaseUrl = 'https://generativelanguage.googleapis.com';
+         }
+         if (finalBaseUrl) {
+            genAiConfig.httpOptions = { baseUrl: finalBaseUrl };
          }
          const ai = new GoogleGenAI(genAiConfig);
          
+         let finalModel = model || 'gemini-2.5-flash';
+         if (finalModel === 'gemini-3.1-flash-lite') finalModel = 'gemini-2.5-flash';
+
          const response = await ai.models.generateContent({
-           model: model || 'gemini-3.1-flash-lite',
+           model: finalModel,
            contents: promptContext,
          });
          insightMarkdown = response.text || "";
@@ -245,14 +259,21 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
          }
          
          const genAiConfig: any = { apiKey: activeKey };
-         if (baseUrl) {
-            genAiConfig.httpOptions = { baseUrl };
+         let finalBaseUrl = baseUrl;
+         if (finalBaseUrl === 'https://generativelanguage.googleapis.com/v1beta') {
+             finalBaseUrl = 'https://generativelanguage.googleapis.com';
+         }
+         if (finalBaseUrl) {
+            genAiConfig.httpOptions = { baseUrl: finalBaseUrl };
          }
          const ai = new GoogleGenAI(genAiConfig);
          
+         let finalModel = model || 'gemini-2.5-flash';
+         if (finalModel === 'gemini-3.1-flash-lite') finalModel = 'gemini-2.5-flash';
+
          const cleanMimeType = mime_type.split(';')[0];
          const response = await ai.models.generateContent({
-           model: model || 'gemini-3.1-flash-lite',
+           model: finalModel,
            contents: [
              {
                inlineData: {

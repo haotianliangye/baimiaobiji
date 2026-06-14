@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { startOfDay, endOfDay, format, parse, addDays, subDays, isSameDay } from 'date-fns';
 import { Sparkles, Loader2, RefreshCw, ChevronLeft, ChevronRight, Copy, Trash2, Edit2, Save, X } from 'lucide-react';
@@ -13,12 +13,39 @@ export default function Diary() {
   const { isProcessingDiary, diaryErrorMap, generateDiaryTimeline } = useAppStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const [showHeatmap, setShowHeatmap] = useState(false);
-  const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
+  const [contextMenuState, setContextMenuState] = useState<{
+    isOpen: boolean;
+    x: number;
+    y: number;
+  }>({
+    isOpen: false,
+    x: 0,
+    y: 0,
+  });
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState('');
+  const [showFloatBtn, setShowFloatBtn] = useState(false);
+  const floatBtnTimeoutRef = useRef<any>(null);
   const holdTimeoutRef = useRef<any>(null);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
   const navigate = useNavigate();
+
+  const handleInteraction = useCallback(() => {
+    setShowFloatBtn(true);
+    if (floatBtnTimeoutRef.current) {
+      clearTimeout(floatBtnTimeoutRef.current);
+    }
+    floatBtnTimeoutRef.current = setTimeout(() => {
+      setShowFloatBtn(false);
+    }, 5000);
+  }, []);
+
+  useEffect(() => {
+    handleInteraction();
+    return () => {
+      if (floatBtnTimeoutRef.current) clearTimeout(floatBtnTimeoutRef.current);
+    };
+  }, [handleInteraction]);
   
   const today = new Date();
   const dateParam = searchParams.get('date');
@@ -78,8 +105,8 @@ export default function Diary() {
   const hasLogs = logs && logs.length > 0;
 
   return (
-    <div className="flex flex-col h-full bg-white relative">
-      <div className="flex h-[52px] items-center px-4 bg-stone-50/80 backdrop-blur border-b border-stone-100 z-10 shrink-0 w-full justify-between">
+    <div className="flex flex-col h-full bg-transparent relative">
+      <div className="flex h-[52px] items-center px-4 bg-[#f4f4f0]/80 backdrop-blur border-b border-stone-200/50 z-10 shrink-0 w-full justify-between">
          <h2 className="text-[13px] font-medium tracking-wide text-stone-500 uppercase">
            日记整理
          </h2>
@@ -103,7 +130,12 @@ export default function Diary() {
          </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center pb-24">
+      <div 
+        className="flex-1 overflow-y-auto thin-scrollbar p-6 flex flex-col items-center pb-24"
+        onClick={handleInteraction}
+        onTouchStart={handleInteraction}
+        onScroll={handleInteraction}
+      >
          
          {errorMsg && !isProcessingDiary && (
            <div className="mb-4 text-[13px] text-red-500 bg-red-50 border border-red-100 rounded-xl p-3 w-full max-w-[90%] mx-auto shadow-sm animate-in fade-in">
@@ -113,7 +145,7 @@ export default function Diary() {
          )}
 
          {!diaryRes && !isProcessingDiary && (
-           <div className="mt-8 flex flex-col items-center justify-center p-8 bg-[#fafafa] rounded-2xl border border-black/[0.03] select-none text-center w-full max-w-[280px]">
+           <div className="mt-8 flex flex-col items-center justify-center p-8 bg-white/60 rounded-2xl border border-black/[0.03] select-none text-center w-full max-w-[280px]">
              <div className="text-stone-400 mb-4 bg-white p-3 rounded-xl shadow-sm border border-stone-100">
                <Sparkles className="w-6 h-6 stroke-[1.5px]" />
              </div>
@@ -145,12 +177,15 @@ export default function Diary() {
          
          {diaryRes && !isProcessingDiary && (
            <div 
-             className={`w-full animate-in fade-in slide-in-from-bottom-2 duration-500 rounded-lg transition-colors select-none -mx-2 bg-stone-100 ${isEditing ? 'p-4' : 'p-2 active:bg-stone-50'}`}
-             onTouchStart={() => {
+             className={`w-full animate-in fade-in slide-in-from-bottom-2 duration-500 rounded-lg transition-colors select-none -mx-2 ${isEditing ? 'p-4' : 'p-2 active:bg-stone-200/50'}`}
+             onTouchStart={(e) => {
                if (isEditing) return;
+               const touch = e.touches[0];
+               const x = touch.clientX;
+               const y = touch.clientY;
                holdTimeoutRef.current = setTimeout(() => {
                  if (window.navigator?.vibrate) window.navigator.vibrate(50);
-                 setIsActionSheetOpen(true);
+                 setContextMenuState({ isOpen: true, x, y });
                }, 500);
              }}
              onTouchEnd={() => clearTimeout(holdTimeoutRef.current)}
@@ -159,7 +194,7 @@ export default function Diary() {
                if (isEditing) return;
                e.preventDefault();
                if (window.navigator?.vibrate) window.navigator.vibrate(50);
-               setIsActionSheetOpen(true);
+               setContextMenuState({ isOpen: true, x: e.clientX, y: e.clientY });
              }}
            >
              {isEditing ? (
@@ -223,10 +258,13 @@ export default function Diary() {
       </div>
       
       {diaryRes && !isProcessingDiary && !isEditing && (
-        <div className="fixed bottom-20 left-0 p-4 bg-gradient-to-t from-white via-white/90 to-transparent pointer-events-none shrink-0 z-20 flex justify-center w-full">
+        <div 
+          className={`fixed bottom-24 left-0 w-full flex justify-center pointer-events-none z-20 transition-opacity duration-500 max-w-md mx-auto right-0 ${showFloatBtn ? 'opacity-100' : 'opacity-0'}`}
+        >
           <button
             onClick={handleGenerate}
-            className="pointer-events-auto flex items-center justify-center gap-2 text-[13px] text-stone-600 hover:text-black transition-colors px-6 py-2.5 rounded-full border border-stone-200 shadow-[0_2px_8px_rgb(0_0_0_/_0.04)] bg-white hover:bg-stone-50 hover:border-black/5 active:scale-[0.98] font-medium w-full max-w-[280px]"
+            disabled={isProcessingDiary}
+            className={`bg-[#2a2a2a]/95 backdrop-blur-md border border-white/10 text-white px-6 py-2.5 rounded-full text-[13px] font-medium tracking-wide transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:active:scale-100 min-w-[160px] ${showFloatBtn ? 'pointer-events-auto' : 'pointer-events-none'}`}
           >
             <RefreshCw className="w-4 h-4" />
             重新生成日记
@@ -242,40 +280,69 @@ export default function Diary() {
         />
       )}
 
-      {/* Action Sheet */}
-      <ActionSheet 
-        isOpen={isActionSheetOpen}
-        onClose={() => setIsActionSheetOpen(false)}
-        actions={[
-          {
-            label: '编辑日记',
-            icon: <Edit2 className="w-4 h-4" />,
-            onClick: () => {
-              if (diaryRes) {
-                 setEditText(diaryRes.ai_editorial || '');
-                 setIsEditing(true);
-              }
-            }
-          },
-          {
-            label: '复制日记',
-            icon: <Copy className="w-4 h-4" />,
-            onClick: () => {
-              if (diaryRes?.ai_editorial) {
-                 navigator.clipboard.writeText(diaryRes.ai_editorial);
-              }
-            }
-          },
-          {
-            label: '删除日记',
-            icon: <Trash2 className="w-4 h-4" />,
-            danger: true,
-            onClick: async () => {
-               await db.daily_diaries.where('diary_date').equals(dateStr).delete();
-            }
-          }
-        ]}
-      />
+      {contextMenuState.isOpen && diaryRes && (
+        <div
+          className="fixed inset-0 z-[100]"
+          onClick={() => setContextMenuState({ ...contextMenuState, isOpen: false })}
+          onTouchMove={(e) => { setContextMenuState({ ...contextMenuState, isOpen: false }) }}
+          onWheel={(e) => { setContextMenuState({ ...contextMenuState, isOpen: false }) }}
+        >
+          <div
+            className="absolute bg-[#2a2a2a]/95 backdrop-blur-xl rounded-xl shadow-2xl flex items-center p-1 animate-in zoom-in-95 duration-100 divide-x divide-white/10"
+            style={{
+              top: contextMenuState.y > 100 ? contextMenuState.y - 75 : contextMenuState.y + 20,
+              left: Math.max(16, Math.min(contextMenuState.x - 140, window.innerWidth - 296)),
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => {
+                if (diaryRes?.ai_editorial) {
+                   navigator.clipboard.writeText(diaryRes.ai_editorial);
+                }
+                setContextMenuState({ ...contextMenuState, isOpen: false });
+              }}
+              className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 rounded-l-lg disabled:opacity-50"
+            >
+              <Copy className="w-3.5 h-3.5 mb-1.5 text-white/80" />
+              <span className="text-[10px] font-medium tracking-wide">复制内容</span>
+            </button>
+            <button
+              onClick={() => {
+                if (diaryRes) {
+                   setEditText(diaryRes.ai_editorial || '');
+                   setIsEditing(true);
+                }
+                setContextMenuState({ ...contextMenuState, isOpen: false });
+              }}
+              className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 disabled:opacity-50"
+            >
+              <Edit2 className="w-3.5 h-3.5 mb-1.5 text-white/80" />
+              <span className="text-[10px] font-medium tracking-wide">编辑日记</span>
+            </button>
+            <button
+              onClick={() => {
+                handleGenerate();
+                setContextMenuState({ ...contextMenuState, isOpen: false });
+              }}
+              className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 disabled:opacity-50"
+            >
+              <RefreshCw className="w-3.5 h-3.5 mb-1.5 text-white/80" />
+              <span className="text-[10px] font-medium tracking-wide">重新生成</span>
+            </button>
+            <button
+              onClick={async () => {
+                 await db.daily_diaries.where('diary_date').equals(dateStr).delete();
+                 setContextMenuState({ ...contextMenuState, isOpen: false });
+              }}
+              className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-rose-400 hover:text-rose-300 transition-colors hover:bg-white/10 rounded-r-lg disabled:opacity-50"
+            >
+              <Trash2 className="w-3.5 h-3.5 mb-1.5" />
+              <span className="text-[10px] font-medium tracking-wide">删除日记</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

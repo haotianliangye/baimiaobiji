@@ -20,6 +20,8 @@ import {
   Edit2,
   Trash2,
   RefreshCw,
+  Check,
+  ListChecks,
 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { db } from "../db/db";
@@ -129,6 +131,21 @@ export default function Record() {
   const [isEditingModalOpen, setIsEditingModalOpen] = useState(false);
   const [editContent, setEditContent] = useState("");
   const [recordingDuration, setRecordingDuration] = useState(0);
+
+  // New multi-select & context menu states
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
+  const [selectedLogIds, setSelectedLogIds] = useState<Set<number>>(new Set());
+  const [contextMenuState, setContextMenuState] = useState<{
+    isOpen: boolean;
+    log: any;
+    x: number;
+    y: number;
+  }>({
+    isOpen: false,
+    log: null,
+    x: 0,
+    y: 0,
+  });
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -501,8 +518,8 @@ export default function Record() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white relative">
-      <div className="flex h-[52px] items-center px-4 bg-stone-50/80 backdrop-blur border-b border-stone-100 z-10 shrink-0 w-full justify-between">
+    <div className="flex flex-col h-full bg-transparent relative">
+      <div className="flex h-[52px] items-center px-4 bg-[#f4f4f0]/80 backdrop-blur border-b border-stone-200/50 z-10 shrink-0 w-full justify-between">
         <h2 className="text-[13px] font-medium tracking-wide text-stone-500 uppercase">
           时间碎屑
         </h2>
@@ -529,78 +546,126 @@ export default function Record() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-5 space-y-6 pb-6 w-full relative z-0">
+      <div className="flex-1 overflow-y-auto thin-scrollbar px-5 py-5 pb-6 w-full relative z-0 flex flex-col">
         {!logs || logs.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-stone-400 text-[15px] tracking-tight">
+          <div className="flex-1 flex items-center justify-center text-stone-400 text-[15px] tracking-tight">
             记录下你此刻的时光碎屑
           </div>
         ) : (
-          logs.map((log) => (
-            <div
-              key={log.id}
-              id={`log-${log.id}`}
-              className="flex gap-4 group items-start px-2 py-1 rounded-lg transition-colors active:bg-stone-50"
-              onTouchStart={() => {
-                holdTimeoutRef.current = setTimeout(() => {
+          <>
+            <div className="flex-1 min-h-[0px]" />
+            <div className="flex-none flex flex-col space-y-6">
+              {logs.map((log) => (
+                <div
+                  key={log.id}
+                  id={`log-${log.id}`}
+                  className={`flex gap-3 group items-start px-2 py-1 rounded-lg transition-colors relative active:bg-stone-200/50 ${isMultiSelectMode ? "cursor-pointer" : ""}`}
+                  onClick={() => {
+                    if (isMultiSelectMode) {
+                      const newSelected = new Set(selectedLogIds);
+                      if (newSelected.has(log.id)) newSelected.delete(log.id);
+                      else newSelected.add(log.id);
+                      setSelectedLogIds(newSelected);
+                    }
+                  }}
+                onTouchStart={(e) => {
+                  if (isMultiSelectMode) return;
+                  const touch = e.touches[0];
+                  const x = touch.clientX;
+                  const y = touch.clientY;
+                  holdTimeoutRef.current = setTimeout(() => {
+                    if (window.navigator?.vibrate) window.navigator.vibrate(50);
+                    setContextMenuState({ isOpen: true, log, x, y });
+                  }, 500);
+                }}
+                onTouchEnd={() => clearTimeout(holdTimeoutRef.current)}
+                onTouchMove={() => clearTimeout(holdTimeoutRef.current)}
+                onContextMenu={(e) => {
+                  if (isMultiSelectMode) {
+                    e.preventDefault();
+                    return;
+                  }
+                  e.preventDefault();
                   if (window.navigator?.vibrate) window.navigator.vibrate(50);
-                  setActiveLog(log);
-                  setIsActionSheetOpen(true);
-                }, 500);
-              }}
-              onTouchEnd={() => clearTimeout(holdTimeoutRef.current)}
-              onTouchMove={() => clearTimeout(holdTimeoutRef.current)}
-              onContextMenu={(e) => {
-                // Prevent default context menu, show our custom one
-                e.preventDefault();
-                if (window.navigator?.vibrate) window.navigator.vibrate(50);
-                setActiveLog(log);
-                setIsActionSheetOpen(true);
-              }}
-            >
-              <span className="text-[11px] font-mono text-stone-400 shrink-0 mt-[4px] w-10 text-right opacity-80">
-                {format(new Date(log.created_at), "HH:mm")}
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="text-[15px] leading-relaxed text-stone-900 font-sans tracking-tight break-all">
-                  {log.content}
-                </p>
-                {log.audioBlob && (
-                  <div className="mt-2 w-full max-w-[220px]">
-                    <AudioPlayer blob={log.audioBlob} />
-                    {log.audioDuration !== undefined && (
-                      <div className="text-[11px] font-mono text-stone-400 mt-1 pl-1">
-                        时长: {formatRecordTime(log.audioDuration)}
+                  setContextMenuState({ isOpen: true, log, x: e.clientX, y: e.clientY });
+                }}
+              >
+                {isMultiSelectMode && (
+                   <div className="shrink-0 pt-[6px]">
+                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${
+                        selectedLogIds.has(log.id) ? 'bg-[#35253a] border-[#35253a]' : 'border-stone-300'
+                      }`}>
+                         {selectedLogIds.has(log.id) && <Check className="w-2.5 h-2.5 text-white" />}
                       </div>
-                    )}
-                  </div>
+                   </div>
                 )}
-                {typeof log.content === "string" && log.content.includes("解析失败") && log.audioBlob && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRetryTranscription(log);
-                    }}
-                    className="mt-2 text-[12px] text-indigo-500 hover:text-indigo-600 flex items-center gap-1.5 focus:outline-none transition-colors"
-                    disabled={retryingLogId === log.id}
-                  >
-                    {retryingLogId === log.id ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <RefreshCw className="w-3.5 h-3.5"/>}
-                    重新识别该录音
-                  </button>
-                )}
+                <span className="text-[11px] font-mono text-stone-400 shrink-0 mt-[4px] w-10 text-right opacity-80">
+                  {format(new Date(log.created_at), "HH:mm")}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[15px] leading-relaxed text-stone-900 font-sans tracking-tight break-all">
+                    {log.content}
+                  </p>
+                  {log.audioBlob && (
+                    <div className="mt-2 w-full max-w-[220px]">
+                      <AudioPlayer blob={log.audioBlob} />
+                      {log.audioDuration !== undefined && (
+                        <div className="text-[11px] font-mono text-stone-400 mt-1 pl-1">
+                          时长: {formatRecordTime(log.audioDuration)}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {typeof log.content === "string" && log.content.includes("解析失败") && log.audioBlob && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRetryTranscription(log);
+                      }}
+                      className="mt-2 text-[12px] text-indigo-500 hover:text-indigo-600 flex items-center gap-1.5 focus:outline-none transition-colors"
+                      disabled={retryingLogId === log.id}
+                    >
+                      {retryingLogId === log.id ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <RefreshCw className="w-3.5 h-3.5"/>}
+                      重新识别该录音
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))
+            ))}
+            <div ref={endOfListRef} />
+          </div>
+          </>
         )}
-        <div ref={endOfListRef} />
       </div>
 
-      <div className="p-4 bg-white/90 backdrop-blur-md border-t border-stone-50 shrink-0 z-20 relative">
+      <div className="p-4 bg-[#f4f4f0]/90 backdrop-blur-md border-t border-stone-200/50 shrink-0 z-20 relative">
+        {isMultiSelectMode ? (
+          <div className="flex items-center justify-between -mx-2 h-[56px] animate-in slide-in-from-bottom-2 duration-200">
+             <button onClick={() => { setIsMultiSelectMode(false); setSelectedLogIds(new Set()); }} className="px-5 py-2 text-stone-500 hover:text-stone-700 font-medium text-[14px] transition-colors">取消</button>
+             <span className="text-[13px] font-medium text-stone-700 tracking-wide">已选 <span className="text-black font-semibold">{selectedLogIds.size}</span> 项</span>
+             <button 
+                disabled={selectedLogIds.size === 0}
+                onClick={async () => {
+                   for (const id of Array.from(selectedLogIds)) {
+                      await db.raw_logs.delete(id);
+                   }
+                   setSelectedLogIds(new Set());
+                   setIsMultiSelectMode(false);
+                }}
+                className="px-5 py-2 text-red-500 hover:text-red-600 font-medium text-[14px] disabled:opacity-30 disabled:hover:text-red-500 transition-colors"
+             >
+                <div className="flex items-center gap-1">
+                  <Trash2 className="w-4 h-4" /> 删除
+                </div>
+             </button>
+          </div>
+        ) : (
         <form
           onSubmit={handleSubmit}
-          className={`flex items-end bg-stone-100 rounded-2xl px-4 py-2 border transition-all shadow-[0_2px_8px_rgb(0_0_0_/_0.04)] ${
+          className={`flex items-end bg-white rounded-2xl px-4 py-3 border transition-all shadow-[0_2px_10px_rgb(0_0_0_/_0.03)] ${
             !isTodayDate
               ? "opacity-50 pointer-events-none border-transparent"
-              : "border-black/5 focus-within:border-black/20 focus-within:bg-white"
+              : "border-black/5 focus-within:border-black/15 focus-within:shadow-[0_4px_16px_rgb(0_0_0_/_0.06)]"
           }`}
         >
           <button
@@ -648,6 +713,7 @@ export default function Record() {
             )}
           </button>
         </form>
+        )}
       </div>
 
       {showHeatmap && (
@@ -658,42 +724,68 @@ export default function Record() {
         />
       )}
 
-      {/* Action Sheet */}
-      <ActionSheet
-        isOpen={isActionSheetOpen}
-        onClose={() => setIsActionSheetOpen(false)}
-        actions={[
-          {
-            label: "复制内容",
-            icon: <Copy className="w-4 h-4" />,
-            onClick: () => {
-              if (activeLog) {
-                navigator.clipboard.writeText(activeLog.content);
-              }
-            },
-          },
-          {
-            label: "编辑记录",
-            icon: <Edit2 className="w-4 h-4" />,
-            onClick: () => {
-              if (activeLog) {
-                setEditContent(activeLog.content);
+      {/* Custom Context Menu */}
+      {contextMenuState.isOpen && contextMenuState.log && (
+        <div
+          className="fixed inset-0 z-[100]"
+          onClick={() => setContextMenuState({ ...contextMenuState, isOpen: false })}
+          onTouchMove={(e) => { setContextMenuState({ ...contextMenuState, isOpen: false }) }}
+          onWheel={(e) => { setContextMenuState({ ...contextMenuState, isOpen: false }) }}
+        >
+          <div
+            className="absolute bg-[#2a2a2a]/95 backdrop-blur-xl rounded-xl shadow-2xl flex items-center p-1 animate-in zoom-in-95 duration-100 divide-x divide-white/10"
+            style={{
+              top: contextMenuState.y > 100 ? contextMenuState.y - 75 : contextMenuState.y + 20,
+              left: Math.max(16, Math.min(contextMenuState.x - 140, window.innerWidth - 296)),
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(contextMenuState.log.content);
+                setContextMenuState({ ...contextMenuState, isOpen: false });
+              }}
+              className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 rounded-l-lg disabled:opacity-50"
+            >
+              <Copy className="w-3.5 h-3.5 mb-1.5 text-white/80" />
+              <span className="text-[10px] font-medium tracking-wide">复制内容</span>
+            </button>
+            <button
+              onClick={() => {
+                setActiveLog(contextMenuState.log);
+                setEditContent(contextMenuState.log.content);
                 setIsEditingModalOpen(true);
-              }
-            },
-          },
-          {
-            label: "删除记录",
-            icon: <Trash2 className="w-4 h-4" />,
-            danger: true,
-            onClick: async () => {
-              if (activeLog) {
-                await db.raw_logs.delete(activeLog.id);
-              }
-            },
-          },
-        ]}
-      />
+                setContextMenuState({ ...contextMenuState, isOpen: false });
+              }}
+              className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 disabled:opacity-50"
+            >
+              <Edit2 className="w-3.5 h-3.5 mb-1.5 text-white/80" />
+              <span className="text-[10px] font-medium tracking-wide">编辑记录</span>
+            </button>
+            <button
+              onClick={() => {
+                setSelectedLogIds(new Set([contextMenuState.log.id]));
+                setIsMultiSelectMode(true);
+                setContextMenuState({ ...contextMenuState, isOpen: false });
+              }}
+              className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 disabled:opacity-50"
+            >
+              <ListChecks className="w-3.5 h-3.5 mb-1.5 text-white/80" />
+              <span className="text-[10px] font-medium tracking-wide">多选</span>
+            </button>
+            <button
+              onClick={async () => {
+                await db.raw_logs.delete(contextMenuState.log.id);
+                setContextMenuState({ ...contextMenuState, isOpen: false });
+              }}
+              className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-rose-400 hover:text-rose-300 transition-colors hover:bg-white/10 rounded-r-lg disabled:opacity-50"
+            >
+              <Trash2 className="w-3.5 h-3.5 mb-1.5" />
+              <span className="text-[10px] font-medium tracking-wide">删除记录</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Edit Modal */}
       {isEditingModalOpen && (
