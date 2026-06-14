@@ -1,20 +1,66 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# 白描笔记 (Baimiao Notes)
 
-# Run and deploy your AI Studio app
+「白描笔记」是一款极简主义的 AI 智能语音笔记应用。它旨在帮助用户随时随地捕捉灵感与生活碎片，并通过大语言模型（LLM）的强大能力，自动进行语音转写、重构总结和生命洞察分析。
 
-This contains everything you need to run your app locally.
+## ✨ 核心特性
 
-View your app in AI Studio: https://ai.studio/apps/ade8ebd2-eddd-4f16-9109-da1fb0dc0238
+- 🎙️ **智能语音记录**: 一键录音保存思想碎片。针对 iOS Safari 和各大移动端浏览器进行了深度音频兼容性优化（支持自动降级与 WebM/MP4 无缝切换，彻底解决部分设备录音后无法播放的问题）。
+- 🤖 **全面且灵活的大模型支持**: 内置主流 AI 模型 API 接口集成，开箱即用，包括但不限于：
+  - Google Gemini
+  - OpenAI (ChatGPT / Whisper)
+  - DeepSeek
+  - Kimi (月之暗面)
+  - 智谱 (GLM-4)
+  - MiniMax
+  - 小米 MIMO
+  - 支持自定义兼容 OpenAI 格式的本地/第三方模型 (如 Ollama)
+- 📱 **PWA 渐进式 Web 应用**: 现代化的 PWA 架构支持「添加到主屏幕」，无需繁琐地去应用商店下载或打包 APK，即可在 iOS 和 Android 手机上获得媲美原生 App 的极速跟手体验与沉浸式全屏视图。
+- 🔒 **隐私优先与本地全掌控**: 基于 IndexedDB 的本地存储架构，音频文件与笔记数据默认留存在您的设备本地，并提供完善的数据「一键导出」能力，您的数据属于您。
+- 📝 **AI 智能加工与日记聚合**: 支持高度自定义的 AI 提示词（Prompt），可根据时间线自动将零散的灵感和语音碎片，一键总结并生成排版优美的日常日记和深度洞察。
+- 🎨 **极简设计与心流体验**: 干净、克制、专注于内容的 UI 界面。包含清晰的四大模块架构：「记录」（随手记）、「日记」（结构化总结）、「回顾」（时间轴展示）和「洞察」（AI 深度分析）。
 
-## Run Locally
+## 🏗️ 技术架构
 
-**Prerequisites:**  Node.js
+- **前端核心**: React 18, TypeScript, Vite
+- **UI & 样式**: Tailwind CSS (极简沉浸风)
+- **后端转接层**: Node.js, Express (用于安全代理与分发大模型 API 请求，处理跨域与鉴权)
+- **本地存储**: IndexedDB (处理海量音频 Blob 与文本缓存)
+- **原生化**: vite-plugin-pwa (提供 Service Worker 与强缓存离线能力)
 
+## 🚀 快速开始
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 安装与运行 (开发环境)
+1. 安装依赖包：
+   ```bash
+   npm install
+   ```
+2. 启动开发服务器：
+   ```bash
+   npm run dev
+   ```
+3. 构建生产环境产物：
+   ```bash
+   npm run build
+   ```
+
+### ⚙️ 使用与配置说明
+
+1. **设置大模型参数**：
+   首次启动应用后，点击应用右上角的「设置 (⚙️)」图标进入系统设置页：
+   - 选择您偏好的 AI 生成服务商（如 DeepSeek, Gemini, Kimi 等）。
+   - 填入对应服务商的 **API Key**（界面内置了提供快捷签发申请连结供参考）。
+   - 如使用局域网本地模型或其他代理通道，可自行修改 `Base URL` 与 `Model` 名称。
+   
+2. **定制化 Prompt**：
+   在设置的「Prompt 提示词配置」一栏，你可以根据你想要的写日记风格（口语化 / 诗意 / 小红书体 / 极简提纲等）自由定义系统提示词。
+
+## 📱 手机端无感安装指引 (PWA)
+
+得益于 PWA 支持，「白描笔记」可提供免安装的原生体验：
+
+- **🍎 iOS / iPhone (Safari)**: 
+  使用 Safari 浏览器打开应用域名 -> 点击浏览器底部的「分享」图标 -> 向上滑动菜单，选择 **「添加到主屏幕」**。
+- **🤖 Android / 鸿蒙 (Chrome / 默认浏览器)**: 
+  在浏览器中打开应用域名 -> 当底端出现安装提示时点击即可；或点击浏览器右上角的三点菜单 (⋮) -> 选择 **「安装应用」** 或 **「添加到主屏幕」**。
+
+安装后，即可以独立 App 形式全屏打开使用，无需经过应用商店。
