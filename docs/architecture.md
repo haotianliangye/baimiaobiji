@@ -54,11 +54,11 @@ sequenceDiagram
     LLM-->>Backend: 返回生成的连贯日记 (ai_editorial)
     Backend->>LLM: 步骤 2：使用 reviewPrompt 结合 logs 与日记内容生成回顾
     LLM-->>Backend: 返回回顾内容 (ai_review)
-    Backend-->>Store: 返回 JSON { ai_editorial, ai_review, ai_summary }
+    Backend->>Store: 返回 JSON { ai_editorial, ai_review, ai_summary }
     Store->>Store: 将日记与回顾一并持久化写入本地 [daily_diaries] 数据库
 ```
 
-对于缺少 `ai_review` 的历史老旧条目，或者用户在“统计回顾”页面点击“重新生成回顾”时，会发起**独立回顾请求**：
+对于缺少 `ai_review` 的历史老旧条目，或者用户在“统计回顾”页面点击“重新生成回顾”时，会发起**独立回顾请求**。此外，回顾页面的卡片已限制为仅根据当前所选日期 `dateStr` 进行过滤展示，确保回顾交互与日记日期保持严格联动，且重新生成的反思依然对应其历史所属的日期。
 
 ```mermaid
 sequenceDiagram
@@ -71,7 +71,7 @@ sequenceDiagram
     Store->>Backend: 发送独立回顾请求 (logs + 已生成日记)
     Backend->>LLM: 调用 reviewPrompt 进行统计反思大模型生成
     LLM-->>Backend: 返回回顾反思文本 (ai_review)
-    Backend-->>Store: 返回 JSON { ai_review }
+    Backend->>Store: 返回 JSON { ai_review }
     Store->>Store: 仅更新本地 IndexedDB 中 daily_diaries 表的 ai_review 字段
     Store-->>Frontend: 局部触发页面刷新，重新展示反思
 ```
@@ -167,3 +167,4 @@ sequenceDiagram
 
 * **2026-06-14**：新增“提示词四通道”模板选择机制。支持 `默认` 槽位和 3 个 `自定义` 配置槽位（配置版本升至 v2），支持根据所选槽位动态渲染只读/编辑输入框。
 * **2026-06-15**：实现统计回顾与日记生成逻辑完全解耦。在数据库中增加 `ai_review` 字段，增加 `/api/generate-review` 后端独立生成接口，并重构回顾页面 `Review.tsx`，加入加载动画、补发回顾占位卡片及出错重新生成等特性。
+* **2026-06-16**：解决 `Diary.tsx` 和 `Review.tsx` 交互折叠无限渲染和状态重置的问题；在 `Diary.tsx` 展开卡片的操作工具栏下方新增“收起”一键折叠按钮；重写 `Review.tsx` 的卡片列表逻辑，使其根据所选 `dateStr` 严格过滤，只展示当天关联的回顾；重构 `CalendarHeatmap.tsx` 日历面板，修改为 `14列 * 5行`（70天）的高密度白底圆角卡片布局，隐藏多余月份切换头部，增加了扁平指标统计，并修复了 `isSameDay` 导入异常。
