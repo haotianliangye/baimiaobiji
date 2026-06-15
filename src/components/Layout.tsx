@@ -1,16 +1,22 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Book, Clock, Edit3, PieChart, Settings as SettingsIcon } from 'lucide-react';
 
 export default function Layout() {
   const navigate = useNavigate();
+  const [showAboutModal, setShowAboutModal] = useState(false);
 
   return (
     <div className="flex flex-col h-[100dvh] bg-stone-100 font-sans text-stone-900 overflow-hidden items-center justify-center">
       <div className="w-full max-w-md h-full bg-[#f4f4f0] shadow-sm ring-1 ring-black/5 flex flex-col relative overflow-hidden">
         {/* Global Nav */}
         <header className="flex h-12 shrink-0 items-center justify-between px-4 bg-black text-white">
-          <h1 className="text-[15px] font-medium tracking-wide">白描笔记</h1>
+          <h1 
+            onClick={() => setShowAboutModal(true)} 
+            className="text-[15px] font-bold tracking-wide cursor-pointer hover:opacity-80 transition-opacity active:scale-[0.98] select-none"
+          >
+            白描笔记
+          </h1>
           <button onClick={() => navigate('/settings')} className="p-1.5 hover:opacity-70 transition-opacity -mr-1.5">
             <SettingsIcon className="w-[18px] h-[18px]" />
           </button>
@@ -31,6 +37,50 @@ export default function Layout() {
           </div>
         </nav>
       </div>
+
+      {/* About & Feedback Modal */}
+      {showAboutModal && (
+        <div 
+          className="absolute inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200"
+          onClick={() => setShowAboutModal(false)}
+        >
+          <div 
+            className="bg-[#f4f4f0] rounded-2xl w-full max-w-[280px] p-6 shadow-2xl border border-stone-200/30 flex flex-col items-center text-center animate-in zoom-in-95 duration-200 select-none"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 bg-black text-white rounded-xl flex items-center justify-center font-bold text-lg mb-4 shadow-md">
+              白
+            </div>
+            <h3 className="text-[16px] font-semibold text-stone-900 mb-1">白描笔记</h3>
+            <p className="text-[11px] text-stone-400 font-mono mb-4">v1.2.0</p>
+            
+            <div className="space-y-1.5 mb-6 text-center w-full text-stone-600 text-[13px] border-t border-b border-stone-200/40 py-4 flex flex-col items-center justify-center">
+              <span className="text-stone-400 text-[11px] uppercase tracking-wider">作者</span>
+              <span className="font-semibold text-stone-900 text-[14px]">Bitoky</span>
+              <p className="text-[12px] text-stone-450 leading-relaxed mt-2.5 pt-2.5 border-t border-stone-200/20 w-full text-center">
+                隐私优先的极简 AI 记录与反思工具
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2 w-full">
+              <a 
+                href="https://github.com/haotianliangye/baimiaobiji/issues"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-2.5 bg-black text-white hover:bg-stone-900 transition-colors rounded-xl text-[13px] font-medium tracking-wide shadow-sm flex items-center justify-center gap-1.5"
+              >
+                提交反馈 (Issue)
+              </a>
+              <button 
+                onClick={() => setShowAboutModal(false)}
+                className="w-full py-2 bg-stone-200/50 hover:bg-stone-200 text-stone-600 transition-colors rounded-xl text-[13px] font-medium"
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

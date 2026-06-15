@@ -348,7 +348,7 @@ export default function Insights() {
 
   return (
     <div className="flex flex-col h-full bg-transparent relative overflow-hidden">
-      <div className="flex h-[52px] items-center px-4 bg-[#f4f4f0]/80 backdrop-blur border-b border-stone-200/50 z-10 shrink-0 w-full justify-between">
+      <div className="flex h-[52px] items-center px-4 bg-[#f4f4f0]/80 backdrop-blur border-b border-stone-200/50 z-20 shrink-0 w-full justify-between">
          <h2 className="text-[14px] font-semibold tracking-wide text-stone-800 flex items-center gap-2">
            <Sparkles className="w-4 h-4 text-stone-400" />
            时光洞察

@@ -148,6 +148,8 @@ export default function Record() {
     y: 0,
   });
 
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
   const holdTimeoutRef = useRef<any>(null);
@@ -177,6 +179,32 @@ export default function Record() {
         ? addDays(targetDate, offset)
         : subDays(targetDate, Math.abs(offset));
     setSearchParams({ date: format(newDate, "yyyy-MM-dd") });
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const diffX = e.changedTouches[0].clientX - touchStartX.current;
+    const diffY = e.changedTouches[0].clientY - touchStartY.current;
+
+    // Detect horizontal swipes
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 60) {
+      if (diffX > 0) {
+        // Swipe Right -> navigate to previous date
+        navigateToDate(-1);
+      } else {
+        // Swipe Left -> navigate to next date (cannot exceed today)
+        if (!isTodayDate) {
+          navigateToDate(1);
+        }
+      }
+    }
+    touchStartX.current = null;
+    touchStartY.current = null;
   };
 
   const logs = useLiveQuery(
@@ -527,7 +555,7 @@ export default function Record() {
 
   return (
     <div className="flex flex-col h-full bg-transparent relative">
-      <div className="flex h-[52px] items-center px-4 bg-[#f4f4f0]/80 backdrop-blur border-b border-stone-200/50 z-10 shrink-0 w-full justify-between">
+      <div className="flex h-[52px] items-center px-4 bg-[#f4f4f0]/80 backdrop-blur border-b border-stone-200/50 z-20 shrink-0 w-full justify-between">
         <h2 className="text-[13px] font-medium tracking-wide text-stone-500 uppercase">
           时间碎屑
         </h2>
@@ -554,7 +582,11 @@ export default function Record() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto thin-scrollbar px-5 py-5 pb-6 w-full relative z-0 flex flex-col">
+      <div 
+        className="flex-1 overflow-y-auto thin-scrollbar px-5 py-5 pb-6 w-full relative z-0 flex flex-col"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         {!logs || logs.length === 0 ? (
           <div className="flex-1 flex items-center justify-center text-stone-400 text-[15px] tracking-tight">
             记录下你此刻的时光碎屑

@@ -7,8 +7,8 @@ interface AppState {
   isProcessingDiary: boolean;
   isProcessingReviewMap: Record<string, boolean>;
   diaryErrorMap: Record<string, string>;
-  generateDiaryTimeline: (dateStr: string, logs: any[]) => Promise<void>;
-  generateReview: (dateStr: string, logs: any[], diaryContent: string) => Promise<void>;
+  generateDiaryTimeline: (dateStr: string, logs: any[], idToOverwrite?: string) => Promise<void>;
+  generateReview: (id: string, dateStr: string, logs: any[], diaryContent: string) => Promise<void>;
   clearDiaryError: (dateStr: string) => void;
 }
 
@@ -25,15 +25,30 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   },
 
-  generateDiaryTimeline: async (dateStr, logs) => {
+  generateDiaryTimeline: async (dateStr, logs, idToOverwrite) => {
     if (!logs || logs.length === 0) return;
     
     set({ isProcessingDiary: true });
     get().clearDiaryError(dateStr);
     
-    const settings = useSettingsStore.getState();
+    const settings = { ...useSettingsStore.getState() };
+    
+    // Determine active prompt index. If regenerating, load the original diary's prompt settings
+    let activePromptIndex = settings.diaryPromptIndex ?? 0;
+    const promptNames = ['默认', '自定义 1', '自定义 2', '自定义 3'];
+    let activePromptName = promptNames[activePromptIndex];
     
     try {
+      if (idToOverwrite) {
+        const originalDiary = await db.daily_diaries.get(idToOverwrite);
+        if (originalDiary && originalDiary.prompt_index !== undefined) {
+          activePromptIndex = originalDiary.prompt_index;
+          activePromptName = originalDiary.prompt_name || promptNames[activePromptIndex];
+          // Temporarily set settings index to use the original prompt for this regeneration
+          settings.diaryPromptIndex = activePromptIndex;
+        }
+      }
+
       const response = await fetch('/api/generate-timeline', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -57,9 +72,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       // Store the ai_summary inside the timeline_json array for the summary display
       const timelineContent = JSON.stringify([{ summary: data.ai_summary || "暂无内容概要" }]);
 
-      const existing = await db.daily_diaries.where('diary_date').equals(dateStr).first();
-      if (existing) {
-        await db.daily_diaries.update(existing.id, {
+      if (idToOverwrite) {
+        await db.daily_diaries.update(idToOverwrite, {
            timeline_json: timelineContent,
            raw_log_ids: logs.map(l => l.id),
            ai_editorial: data.ai_editorial,
@@ -74,7 +88,9 @@ export const useAppStore = create<AppState>((set, get) => ({
            timeline_json: timelineContent,
            ai_editorial: data.ai_editorial,
            ai_review: data.ai_review,
-           updated_at: Date.now()
+           updated_at: Date.now(),
+           prompt_index: activePromptIndex,
+           prompt_name: activePromptName
         });
       }
     } catch (err: any) {
@@ -90,11 +106,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  generateReview: async (dateStr, logs, diaryContent) => {
+  generateReview: async (id, dateStr, logs, diaryContent) => {
     if (!logs || logs.length === 0) return;
     
     set((state) => ({
-      isProcessingReviewMap: { ...state.isProcessingReviewMap, [dateStr]: true }
+      isProcessingReviewMap: { ...state.isProcessingReviewMap, [id]: true }
     }));
     get().clearDiaryError(dateStr);
     
@@ -122,15 +138,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       
       const data = await response.json();
       
-      const existing = await db.daily_diaries.where('diary_date').equals(dateStr).first();
+      // Update by specific ID
+      const existing = await db.daily_diaries.get(id);
       if (existing) {
-        await db.daily_diaries.update(existing.id, {
+        await db.daily_diaries.update(id, {
            ai_review: data.ai_review,
            updated_at: Date.now()
-        });
+         });
       } else {
         await db.daily_diaries.add({
-           id: generateUUID(),
+           id: id,
            diary_date: dateStr,
            raw_log_ids: logs.map(l => l.id),
            timeline_json: JSON.stringify([{ summary: "暂无内容概要" }]),
@@ -149,7 +166,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       }));
     } finally {
       set((state) => ({
-        isProcessingReviewMap: { ...state.isProcessingReviewMap, [dateStr]: false }
+        isProcessingReviewMap: { ...state.isProcessingReviewMap, [id]: false }
       }));
     }
   }
