@@ -6,7 +6,7 @@ import ReactMarkdown from 'react-markdown';
 import { db } from '../db/db';
 import CalendarHeatmap from '../components/CalendarHeatmap';
 import ActionSheet from '../components/ActionSheet';
-import { Copy, Trash2, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import { Copy, Trash2, ChevronDown, ChevronUp, RefreshCw, X } from 'lucide-react';
 import { useAppStore } from '../store/app.store';
 
 export default function Review() {
@@ -35,12 +35,21 @@ export default function Review() {
   const dateParam = searchParams.get('date');
   const [showPromptMenu, setShowPromptMenu] = useState(false);
   const [selectedDiaryForReview, setSelectedDiaryForReview] = useState<any>(null);
+  const [popoverAnchor, setPopoverAnchor] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
 
-  const handleGenerateReviewClick = (diary: any) => {
+  const handleGenerateReviewClick = (diary: any, rect?: DOMRect) => {
     const logsForDiary = allLogs?.filter(log => format(new Date(log.created_at), 'yyyy-MM-dd') === diary.diary_date) || [];
     if (logsForDiary.length === 0) {
       alert('该天没有任何记录碎屑，无法生成回顾。');
       return;
+    }
+    if (rect) {
+      setPopoverAnchor({
+        top: rect.top + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+        height: rect.height
+      });
     }
     setSelectedDiaryForReview(diary);
     setShowPromptMenu(true);
@@ -329,7 +338,7 @@ export default function Review() {
 
                                     <div className="mt-4 flex gap-2 w-full select-none">
                                       <button 
-                                        onClick={() => handleGenerateReviewClick(diary)}
+                                        onClick={(e) => handleGenerateReviewClick(diary, e.currentTarget.getBoundingClientRect())}
                                         className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] text-stone-600 hover:text-stone-800 bg-stone-100 hover:bg-stone-200/60 rounded-lg transition-colors font-medium border border-stone-200/30"
                                       >
                                         <RefreshCw className="w-3 h-3" />
@@ -351,7 +360,7 @@ export default function Review() {
                                       <span className="text-[11px] text-rose-500 mb-2.5 block px-2 leading-relaxed bg-rose-50 border border-rose-100 rounded-md py-1">{errorMsg}</span>
                                     )}
                                     <button
-                                      onClick={() => handleGenerateReviewClick(diary)}
+                                      onClick={(e) => handleGenerateReviewClick(diary, e.currentTarget.getBoundingClientRect())}
                                       className="px-4 py-1.5 text-[12px] bg-stone-800 text-white hover:bg-stone-900 active:scale-95 transition-all rounded-lg font-medium shadow-sm flex items-center gap-1"
                                     >
                                       立即生成回顾
@@ -380,34 +389,40 @@ export default function Review() {
         />
       )}
 
-      {showPromptMenu && (
+      {showPromptMenu && popoverAnchor && (
         <div 
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[110] flex items-end justify-center animate-in fade-in duration-200"
-          onClick={() => setShowPromptMenu(false)}
+          className="fixed inset-0 z-[110] bg-black/10 backdrop-blur-[1px]"
+          onClick={() => { setShowPromptMenu(false); setPopoverAnchor(null); }}
         >
           <div 
-            className="w-full max-w-md bg-[#2a2a2a]/95 backdrop-blur-xl border border-white/10 rounded-t-3xl p-5 pb-8 flex flex-col gap-3.5 animate-in slide-in-from-bottom duration-250 z-[120]"
+            className="absolute bg-[#2a2a2a]/95 backdrop-blur-xl border border-white/10 rounded-2xl p-2 flex flex-col gap-1 shadow-[0_10px_30px_rgba(0,0,0,0.3)] z-[120] animate-in zoom-in-95 duration-100"
+            style={{
+              top: popoverAnchor.top + popoverAnchor.height + 6 + (popoverAnchor.top + popoverAnchor.height + 180 > window.innerHeight ? -popoverAnchor.height - 186 : 0),
+              left: Math.max(16, Math.min(popoverAnchor.left + (popoverAnchor.width - 200) / 2, window.innerWidth - 216)),
+              width: '200px',
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-white/5 pb-3">
-              <span className="text-[13.5px] font-semibold text-white/50 tracking-wider">选择 AI 整理模板 (回顾)</span>
+            <div className="text-[11px] font-semibold text-white/40 tracking-wider px-2.5 py-1.5 border-b border-white/5 flex justify-between items-center select-none">
+              <span>选择 AI 整理模板</span>
               <button 
-                onClick={() => setShowPromptMenu(false)}
-                className="p-1 hover:bg-white/10 rounded-lg text-white/40 hover:text-white transition-colors"
+                onClick={() => { setShowPromptMenu(false); setPopoverAnchor(null); }}
+                className="hover:bg-white/10 p-0.5 rounded text-white/40 hover:text-white transition-colors"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
             
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-0.5 mt-1">
               {['默认 (系统)', '自定义一', '自定义二', '自定义三'].map((name, idx) => (
                 <button
                   key={name}
                   onClick={() => {
                     setShowPromptMenu(false);
+                    setPopoverAnchor(null);
                     handleGenerateReviewWithPrompt(idx);
                   }}
-                  className="w-full py-3 hover:bg-white/5 border border-white/5 rounded-2xl text-[12.5px] font-medium text-white/90 text-center active:scale-[0.99] transition-all"
+                  className="w-full py-2 px-2.5 hover:bg-white/5 rounded-xl text-[12.5px] font-medium text-white/90 text-left active:scale-[0.98] transition-all"
                 >
                   {name}
                 </button>

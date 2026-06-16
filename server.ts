@@ -79,11 +79,7 @@ ${logs.map((l: any) => `- [${new Date(l.created_at).toLocaleTimeString('zh-CN', 
            const activeReviewPrompt = reviewPrompt || `你是一个有深度的反思助手。你的任务是回顾过去一段时间的记录和日记，并针对用户的关注点、情绪状态以及取得的成就撰写一份有意义的总结。请保持鼓励性和建设性的基调。`;
            const promptReviewContext = `${activeReviewPrompt}\n\nContext:\n- Date: ${date}\n- Timeline Logs:\n${logs.map((l: any) => `- [${new Date(l.created_at).toLocaleTimeString('zh-CN', { hour12: false, timeZone: timezone })}] ${l.content}`).join('\n')}\n- Generated Diary:\n${diaryMarkdown}`;
 
-           const reviewRes = await ai.models.generateContent({
-             model: finalModel,
-             contents: promptReviewContext
-           });
-           reviewMarkdown = reviewRes.text || "";
+           reviewMarkdown = "";
          }
 
       } else {
@@ -151,27 +147,7 @@ ${logs.map((l: any) => `- [${new Date(l.created_at).toLocaleTimeString('zh-CN', 
                summaryMarkdown = sData.choices?.[0]?.message?.content || "";
             }
 
-            const activeReviewPrompt = reviewPrompt || `你是一个有深度的反思助手。你的任务是回顾过去一段时间的记录和日记，并针对用户的关注点、情绪状态以及取得的成就撰写一份有意义的总结。请保持鼓励性和建设性的基调。`;
-            const promptReviewContext = `${activeReviewPrompt}\n\nContext:\n- Date: ${date}\n- Timeline Logs:\n${logs.map((l: any) => `- [${new Date(l.created_at).toLocaleTimeString('zh-CN', { hour12: false, timeZone: timezone })}] ${l.content}`).join('\n')}\n- Generated Diary:\n${diaryMarkdown}`;
-
-            const reviewRes = await fetch(apiUrl, {
-               method: 'POST',
-               headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${apiKey}`
-               },
-               body: JSON.stringify({
-                  model: actualModel,
-                  messages: [
-                    { role: "system", content: "You output well-formatted Markdown text." },
-                    { role: "user", content: promptReviewContext }
-                  ]
-               })
-            });
-            if (reviewRes.ok) {
-               const rData = await reviewRes.json();
-               reviewMarkdown = rData.choices?.[0]?.message?.content || "";
-            }
+            reviewMarkdown = "";
          }
       }
 

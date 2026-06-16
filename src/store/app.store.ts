@@ -121,6 +121,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     
     let activePromptName = promptNames[activePromptIndex];
     settings.diaryPromptIndex = activePromptIndex;
+    if (settings.diaryPrompts && settings.diaryPrompts[activePromptIndex] !== undefined) {
+      settings.diaryPrompt = settings.diaryPrompts[activePromptIndex];
+    }
     
     try {
       const response = await fetch('/api/generate-timeline', {
@@ -207,6 +210,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     
     const activePromptName = promptNames[activePromptIndex];
     settings.reviewPromptIndex = activePromptIndex;
+    if (settings.reviewPrompts && settings.reviewPrompts[activePromptIndex] !== undefined) {
+      settings.reviewPrompt = settings.reviewPrompts[activePromptIndex];
+    }
     
     try {
       const response = await fetch('/api/generate-review', {
