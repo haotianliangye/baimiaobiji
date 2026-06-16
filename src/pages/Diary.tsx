@@ -245,10 +245,10 @@ export default function Diary() {
                      onClick={() => setExpandedDiaryId(isExpanded ? null : diary.id)}
                      className="w-full text-left p-4 hover:bg-stone-50/50 active:bg-stone-50 transition-colors flex justify-between items-center select-none"
                    >
-                     <span className="flex items-center gap-2 text-[14px] font-semibold text-stone-800">
+                     <span className="flex items-center gap-2 text-[16px] font-semibold text-stone-800">
                        <Sparkles className="w-3.5 h-3.5 text-stone-400 stroke-[2px]" />
                        日记 ({diary.prompt_name || '默认'})
-                       <span className="text-[11px] font-normal font-mono text-stone-400 ml-1">
+                       <span className="text-[12px] font-normal font-mono text-stone-400 ml-1">
                          {format(new Date(diary.updated_at), 'HH:mm')}
                        </span>
                      </span>
@@ -312,7 +312,7 @@ export default function Diary() {
                          </div>
                        ) : (
                          <>
-                           <div className="markdown-body prose prose-stone prose-h1:text-[18px] prose-h2:text-[16px] prose-h3:text-[15px] prose-h1:leading-snug prose-headings:font-bold max-w-none text-[15px] leading-relaxed select-text pointer-events-auto mt-2 px-2">
+                           <div className="markdown-body prose prose-stone prose-h1:text-[18px] prose-h2:text-[16px] prose-h3:text-[15px] prose-h1:leading-snug prose-headings:font-bold max-w-none text-[16px] leading-relaxed select-text pointer-events-auto mt-2 px-2">
                              <ReactMarkdown 
                                components={{
                                  a: ({ node, href, children, ...props }) => {

@@ -54,7 +54,7 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
         </div>
       </div>
       
-      <div className={`markdown-body prose prose-stone prose-h1:text-[18px] prose-h2:text-[16px] prose-h3:text-[15px] prose-headings:font-bold prose-headings:text-stone-900 prose-p:text-stone-600 prose-li:text-stone-600 text-[14px] leading-relaxed relative z-10 selection:bg-stone-200 ${expanded ? '' : 'line-clamp-4 before:absolute before:bottom-0 before:left-0 before:right-0 before:h-12 before:bg-gradient-to-t before:from-white before:to-transparent'}`}>
+      <div className={`markdown-body prose prose-stone prose-h1:text-[18px] prose-h2:text-[17px] prose-h3:text-[16px] prose-headings:font-bold prose-headings:text-stone-900 prose-p:text-stone-600 prose-li:text-stone-600 text-[16px] leading-relaxed relative z-10 selection:bg-stone-200 ${expanded ? '' : 'line-clamp-4 before:absolute before:bottom-0 before:left-0 before:right-0 before:h-12 before:bg-gradient-to-t before:from-white before:to-transparent'}`}>
          <ReactMarkdown>{insight.content}</ReactMarkdown>
       </div>
       <div className="flex justify-center mt-2 text-stone-300">

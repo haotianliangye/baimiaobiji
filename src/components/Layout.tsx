@@ -148,7 +148,7 @@ export default function Layout() {
         <header className="flex h-[54px] shrink-0 items-center justify-between px-4 bg-black text-white">
           <h1 
             onClick={() => setShowAboutModal(true)} 
-            className="text-[15px] font-bold tracking-wide cursor-pointer hover:opacity-80 transition-opacity active:scale-[0.98] select-none"
+            className="text-[17px] font-bold tracking-wide cursor-pointer hover:opacity-80 transition-opacity active:scale-[0.98] select-none"
           >
             白描笔记
           </h1>
@@ -279,7 +279,7 @@ export default function Layout() {
 
       {/* Global Search Panel */}
       {isSearchMode && (
-        <div className="absolute inset-0 bg-[#f4f4f0] z-[80] flex flex-col overflow-hidden animate-in fade-in duration-200">
+        <div className="absolute inset-0 w-full max-w-md mx-auto left-0 right-0 bg-[#f4f4f0] z-[80] flex flex-col overflow-hidden animate-in fade-in duration-200">
           {/* Search Header */}
           <div className="flex h-[54px] shrink-0 items-center px-4 bg-black text-white gap-3 select-none">
             <div className="flex-1 bg-white/10 rounded-xl px-3 py-1 flex items-center gap-2 border border-white/5">
@@ -537,7 +537,7 @@ function TabItem({ to, icon, label, disabled = false }: { to: string, icon: Reac
     return (
       <div className="flex flex-col items-center justify-center p-2 opacity-30 cursor-not-allowed">
         {React.cloneElement(icon as React.ReactElement<any>, { className: 'w-5 h-5 mb-1' })}
-        <span className="text-[10px] tracking-wide">{label}</span>
+        <span className="text-[12px] tracking-wide">{label}</span>
       </div>
     );
   }
@@ -555,7 +555,7 @@ function TabItem({ to, icon, label, disabled = false }: { to: string, icon: Reac
           {React.cloneElement(icon as React.ReactElement<any>, {
             className: `w-5 h-5 mb-1 ${isActive ? 'stroke-[2.5px]' : 'stroke-2'}`,
           })}
-          <span className={`text-[10px] tracking-wide ${isActive ? 'font-medium' : ''}`}>{label}</span>
+          <span className={`text-[12px] tracking-wide ${isActive ? 'font-medium' : ''}`}>{label}</span>
         </>
       )}
     </NavLink>

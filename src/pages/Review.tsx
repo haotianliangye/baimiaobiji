@@ -208,7 +208,7 @@ export default function Review() {
                     className="p-4 text-left hover:bg-stone-50 active:bg-stone-100 transition-colors flex flex-col gap-1.5 w-full relative"
                   >
                     <div className="flex justify-between items-center w-full">
-                      <span className="text-[14px] font-semibold text-stone-800 font-mono tracking-tight leading-none flex items-center">
+                      <span className="text-[15px] font-semibold text-stone-800 font-mono tracking-tight leading-none flex items-center">
                         {group.date}
                         {diaryCount > 1 && (
                           <span className="text-[11px] font-normal text-stone-400 ml-2 font-sans bg-stone-100 px-1.5 py-0.5 rounded">
@@ -283,7 +283,7 @@ export default function Review() {
                                   </div>
                                 ) : diary.ai_review ? (
                                   <>
-                                    <div className="markdown-body prose prose-stone prose-h1:text-[15px] prose-h2:text-[14px] prose-h3:text-[13px] prose-h1:leading-snug prose-headings:font-bold max-w-none text-[13.5px] leading-relaxed select-text pointer-events-auto">
+                                    <div className="markdown-body prose prose-stone prose-h1:text-[18px] prose-h2:text-[17px] prose-h3:text-[16px] prose-h1:leading-snug prose-headings:font-bold max-w-none text-[16px] leading-relaxed select-text pointer-events-auto">
                                       <ReactMarkdown 
                                         components={{
                                           a: ({ node, href, children, ...props }) => {

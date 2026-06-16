@@ -643,7 +643,7 @@ export default function Record() {
                   {format(new Date(log.created_at), "HH:mm")}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[15px] leading-relaxed text-stone-900 font-sans tracking-tight break-all">
+                  <p className="text-[16px] leading-relaxed text-stone-900 font-sans tracking-tight break-all">
                     {log.content}
                   </p>
                   {log.audioBlob && (
