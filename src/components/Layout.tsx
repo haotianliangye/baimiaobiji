@@ -22,10 +22,14 @@ export default function Layout() {
     setSearchMode,
     setSearchQuery,
     setSearchFilters,
-    clearSearchHistory
+    clearSearchHistory,
+    addSearchHistory
   } = useAppStore();
 
   const handleResultClick = (item: any) => {
+    if (searchQuery.trim()) {
+      addSearchHistory(searchQuery);
+    }
     setSearchMode(false);
     if (item.type === 'record') {
       navigate(`/?date=${item.date}`);
@@ -36,6 +40,13 @@ export default function Layout() {
     } else if (item.type === 'insight') {
       // 洞察页不需要日期，直接导航到洞察大板块
       navigate('/insights');
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && searchQuery.trim()) {
+      addSearchHistory(searchQuery);
+      (e.target as HTMLInputElement).blur(); // 收起键盘
     }
   };
 
@@ -240,6 +251,7 @@ export default function Layout() {
                 placeholder="搜索碎屑、日记、反思..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
                 className="w-full bg-transparent text-[13.5px] text-white outline-none placeholder:text-stone-400"
                 autoFocus
               />
@@ -260,7 +272,7 @@ export default function Layout() {
           {/* Filters bar */}
           <div className="flex px-4 py-2 bg-white border-b border-stone-200/50 gap-2 shrink-0 overflow-x-auto no-scrollbar">
             {/* Date range filter selector */}
-            <div className="relative">
+            <div className="relative shrink-0">
               <select
                 value={searchFilters.dateRange}
                 onChange={(e) => setSearchFilters({ ...searchFilters, dateRange: e.target.value })}
@@ -278,10 +290,10 @@ export default function Layout() {
             {['record', 'diary', 'review', 'insight'].map((mod) => {
               const isSelected = searchFilters.modules.includes(mod);
               const getLabel = () => {
-                if (mod === 'record') return '只看记录';
-                if (mod === 'diary') return '只看日记';
-                if (mod === 'review') return '只看回顾';
-                return '只看洞察';
+                if (mod === 'record') return '记录';
+                if (mod === 'diary') return '日记';
+                if (mod === 'review') return '回顾';
+                return '洞察';
               };
               return (
                 <button
@@ -336,7 +348,10 @@ export default function Layout() {
                     {searchHistory.map((item) => (
                       <button
                         key={item}
-                        onClick={() => setSearchQuery(item)}
+                        onClick={() => {
+                          setSearchQuery(item);
+                          addSearchHistory(item); // 重新置顶点击的历史词
+                        }}
                         className="bg-white hover:bg-stone-200/60 active:scale-[0.98] text-stone-700 px-3 py-1.5 rounded-xl text-[13px] border border-stone-200/60 shadow-sm transition-all"
                       >
                         {item}

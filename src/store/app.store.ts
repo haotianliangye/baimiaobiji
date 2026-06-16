@@ -49,6 +49,7 @@ interface AppState {
   setSearchFilters: (filters: { dateRange: string; modules: string[] }) => void;
   clearSearchHistory: () => void;
   executeSearch: () => Promise<void>;
+  addSearchHistory: (query: string) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -394,10 +395,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     // 按日期倒序排列
     results.sort((a, b) => b.date.localeCompare(a.date));
     set({ searchResults: results });
+  },
 
-    // 保存至搜索历史 (最大存储 10 条)
+  addSearchHistory: (query) => {
+    if (!query || !query.trim()) return;
+    const trimmed = query.trim();
     set(state => {
-      const newHistory = [query, ...state.searchHistory.filter(h => h !== query)].slice(0, 10);
+      const newHistory = [trimmed, ...state.searchHistory.filter(h => h !== trimmed)].slice(0, 10);
       localStorage.setItem('baimiao_search_history', JSON.stringify(newHistory));
       return { searchHistory: newHistory };
     });
