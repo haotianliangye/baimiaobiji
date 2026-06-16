@@ -9,6 +9,8 @@ import {
   endOfMonth, 
   startOfQuarter, 
   endOfQuarter,
+  startOfDay,
+  endOfDay,
   parseISO,
   isWithinInterval,
   format
@@ -34,7 +36,12 @@ interface AppState {
   isSearchMode: boolean;
   searchQuery: string;
   searchHistory: string[];
-  searchFilters: { dateRange: string; modules: string[] };
+  searchFilters: { 
+    dateRange: string; 
+    modules: string[]; 
+    customStartDate?: string; 
+    customEndDate?: string; 
+  };
   searchResults: SearchItem[];
 
   generateDiaryTimeline: (dateStr: string, logs: any[], idToOverwrite?: string) => Promise<void>;
@@ -46,7 +53,12 @@ interface AppState {
   // 搜索动作
   setSearchMode: (open: boolean) => void;
   setSearchQuery: (query: string) => void;
-  setSearchFilters: (filters: { dateRange: string; modules: string[] }) => void;
+  setSearchFilters: (filters: { 
+    dateRange: string; 
+    modules: string[]; 
+    customStartDate?: string; 
+    customEndDate?: string; 
+  }) => void;
   clearSearchHistory: () => void;
   executeSearch: () => Promise<void>;
   addSearchHistory: (query: string) => void;
@@ -69,7 +81,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       return [];
     }
   })(),
-  searchFilters: { dateRange: '全部', modules: ['record', 'diary', 'review', 'insight'] },
+  searchFilters: { 
+    dateRange: '全部', 
+    modules: ['record', 'diary', 'review', 'insight'],
+    customStartDate: '',
+    customEndDate: ''
+  },
   searchResults: [],
 
   clearDiaryError: (dateStr) => {
@@ -317,7 +334,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
 
     const query = searchQuery.trim();
-    const { dateRange, modules } = searchFilters;
+    const { dateRange, modules, customStartDate, customEndDate } = searchFilters;
     const results: SearchItem[] = [];
 
     // 1. 碎屑记录搜索
@@ -325,7 +342,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const logs = await db.raw_logs.toArray();
       const matchedLogs = logs.filter(log => {
         const matchesQuery = log.content.toLowerCase().includes(query.toLowerCase());
-        const matchesDate = isDateInFilter(log.created_at, dateRange);
+        const matchesDate = isDateInFilter(log.created_at, dateRange, customStartDate, customEndDate);
         return matchesQuery && matchesDate;
       });
 
@@ -346,7 +363,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const diaries = await db.daily_diaries.toArray();
       const matchedDiaries = diaries.filter(d => {
         const diaryDateObj = parseISO(d.diary_date);
-        return isDateInFilter(diaryDateObj, dateRange);
+        return isDateInFilter(diaryDateObj, dateRange, customStartDate, customEndDate);
       });
 
       matchedDiaries.forEach(d => {
@@ -378,7 +395,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const insights = await db.insights.toArray();
       const matchedInsights = insights.filter(ins => {
         const matchesQuery = ins.content.toLowerCase().includes(query.toLowerCase());
-        const matchesDate = isDateInFilter(ins.created_at, dateRange);
+        const matchesDate = isDateInFilter(ins.created_at, dateRange, customStartDate, customEndDate);
         return matchesQuery && matchesDate;
       });
 
@@ -409,7 +426,12 @@ export const useAppStore = create<AppState>((set, get) => ({
 }));
 
 // === 搜索辅助函数 ===
-const isDateInFilter = (date: Date | number, range: string): boolean => {
+const isDateInFilter = (
+  date: Date | number, 
+  range: string, 
+  customStartDate?: string, 
+  customEndDate?: string
+): boolean => {
   if (range === '全部') return true;
   const now = new Date();
   const target = typeof date === 'number' ? new Date(date) : date;
@@ -426,6 +448,13 @@ const isDateInFilter = (date: Date | number, range: string): boolean => {
   } else if (range === '本季度') {
     start = startOfQuarter(now);
     end = endOfQuarter(now);
+  } else if (range === '自定义') {
+    if (!customStartDate && !customEndDate) return true;
+    
+    const startObj = customStartDate ? startOfDay(parseISO(customStartDate)) : new Date(0);
+    const endObj = customEndDate ? endOfDay(parseISO(customEndDate)) : new Date(8640000000000000);
+
+    return isWithinInterval(target, { start: startObj, end: endObj });
   } else {
     return true;
   }

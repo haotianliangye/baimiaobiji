@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Book, Clock, Edit3, Loader2, PieChart, Settings as SettingsIcon, X, Search, Trash2, ChevronDown } from 'lucide-react';
 import { subDays, startOfDay, endOfDay, format } from 'date-fns';
@@ -25,6 +25,41 @@ export default function Layout() {
     clearSearchHistory,
     addSearchHistory
   } = useAppStore();
+
+  const [showDateDropdown, setShowDateDropdown] = useState(false);
+  const dateDropdownRef = useRef<HTMLDivElement>(null);
+
+  const [tempStartDate, setTempStartDate] = useState(searchFilters.customStartDate || '');
+  const [tempEndDate, setTempEndDate] = useState(searchFilters.customEndDate || '');
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dateDropdownRef.current && !dateDropdownRef.current.contains(event.target as Node)) {
+        setShowDateDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (showDateDropdown) {
+      setTempStartDate(searchFilters.customStartDate || '');
+      setTempEndDate(searchFilters.customEndDate || '');
+    }
+  }, [showDateDropdown, searchFilters.customStartDate, searchFilters.customEndDate]);
+
+  const formatCustomDateLabel = (start: string, end: string) => {
+    try {
+      const s = start.slice(5); // "MM-DD"
+      const e = end.slice(5); // "MM-DD"
+      return `${s} ~ ${e}`;
+    } catch (err) {
+      return '自定义';
+    }
+  };
 
   const handleResultClick = (item: any) => {
     if (searchQuery.trim()) {
@@ -107,7 +142,7 @@ export default function Layout() {
     <div className="flex flex-col h-full bg-stone-100 font-sans text-stone-900 overflow-hidden items-center justify-center">
       <div className="w-full max-w-md h-full bg-[#f4f4f0] shadow-sm ring-1 ring-black/5 flex flex-col relative overflow-hidden">
         {/* Global Nav */}
-        <header className="flex h-12 shrink-0 items-center justify-between px-4 bg-black text-white">
+        <header className="flex h-[54px] shrink-0 items-center justify-between px-4 bg-black text-white">
           <h1 
             onClick={() => setShowAboutModal(true)} 
             className="text-[15px] font-bold tracking-wide cursor-pointer hover:opacity-80 transition-opacity active:scale-[0.98] select-none"
@@ -243,7 +278,7 @@ export default function Layout() {
       {isSearchMode && (
         <div className="absolute inset-0 bg-[#f4f4f0] z-[80] flex flex-col overflow-hidden animate-in fade-in duration-200">
           {/* Search Header */}
-          <div className="flex h-12 shrink-0 items-center px-4 bg-black text-white gap-3 select-none">
+          <div className="flex h-[54px] shrink-0 items-center px-4 bg-black text-white gap-3 select-none">
             <div className="flex-1 bg-white/10 rounded-xl px-3 py-1 flex items-center gap-2 border border-white/5">
               <Search className="w-[15px] h-[15px] text-stone-400 shrink-0" />
               <input 
@@ -272,18 +307,98 @@ export default function Layout() {
           {/* Filters bar */}
           <div className="flex px-4 py-2 bg-white border-b border-stone-200/50 gap-2 shrink-0 overflow-x-auto no-scrollbar">
             {/* Date range filter selector */}
-            <div className="relative shrink-0">
-              <select
-                value={searchFilters.dateRange}
-                onChange={(e) => setSearchFilters({ ...searchFilters, dateRange: e.target.value })}
-                className="appearance-none bg-stone-100 hover:bg-stone-200/80 text-stone-700 px-3 py-1 pr-7 rounded-xl text-[12px] font-medium border border-stone-200/40 outline-none transition-colors cursor-pointer"
+            <div className="relative shrink-0" ref={dateDropdownRef}>
+              <button 
+                onClick={() => setShowDateDropdown(!showDateDropdown)}
+                className={`flex items-center gap-1.5 bg-stone-100 hover:bg-stone-200/80 text-stone-750 px-3 py-1 rounded-xl text-[12px] font-medium border border-stone-200/40 outline-none transition-colors cursor-pointer active:scale-95`}
               >
-                <option value="全部">全部日期</option>
-                <option value="本周">本周</option>
-                <option value="本月">本月</option>
-                <option value="本季度">本季度</option>
-              </select>
-              <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <span>{
+                  searchFilters.dateRange === '自定义'
+                    ? (searchFilters.customStartDate && searchFilters.customEndDate
+                        ? formatCustomDateLabel(searchFilters.customStartDate, searchFilters.customEndDate)
+                        : '自定义时间'
+                      )
+                    : searchFilters.dateRange === '全部' ? '全部日期' : searchFilters.dateRange
+                }</span>
+                <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
+              </button>
+              
+              {showDateDropdown && (
+                <div className="absolute left-0 top-full mt-1.5 w-60 bg-[#2a2a2a]/95 backdrop-blur-xl rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.15)] border border-white/5 flex flex-col p-1.5 animate-in fade-in zoom-in-95 duration-100 z-[90]">
+                  {/* 标准时间范围选项 */}
+                  {['全部', '本周', '本月', '本季度'].map((range) => (
+                    <button
+                      key={range}
+                      onClick={() => {
+                        setSearchFilters({ 
+                          ...searchFilters, 
+                          dateRange: range,
+                          customStartDate: '',
+                          customEndDate: ''
+                        });
+                        setShowDateDropdown(false);
+                      }}
+                      className={`px-3 py-1.5 text-[12px] font-medium rounded-xl text-left transition-colors ${
+                        searchFilters.dateRange === range
+                          ? 'bg-white/10 text-white'
+                          : 'text-white/75 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      {range === '全部' ? '全部日期' : range}
+                    </button>
+                  ))}
+                  
+                  {/* 自定义时间范围 */}
+                  <div className="border-t border-white/10 my-1"></div>
+                  <div className="px-3 py-1.5 flex flex-col gap-2">
+                    <span className="text-[10.5px] font-semibold text-white/40 uppercase tracking-wider">自定义时间</span>
+                    
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] text-white/60 shrink-0">开始时间</span>
+                        <input 
+                          type="date"
+                          value={tempStartDate}
+                          onChange={(e) => setTempStartDate(e.target.value)}
+                          className="bg-white/5 border border-white/10 text-white rounded-lg px-1.5 py-0.5 text-[11px] outline-none focus:border-white/30 transition-colors w-32 [color-scheme:dark]"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] text-white/60 shrink-0">结束时间</span>
+                        <input 
+                          type="date"
+                          value={tempEndDate}
+                          onChange={(e) => setTempEndDate(e.target.value)}
+                          className="bg-white/5 border border-white/10 text-white rounded-lg px-1.5 py-0.5 text-[11px] outline-none focus:border-white/30 transition-colors w-32 [color-scheme:dark]"
+                        />
+                      </div>
+                    </div>
+                    
+                    <button
+                      onClick={() => {
+                        if (!tempStartDate || !tempEndDate) {
+                          alert('请选择完整的开始和结束日期');
+                          return;
+                        }
+                        if (tempStartDate > tempEndDate) {
+                          alert('开始时间不能晚于结束时间');
+                          return;
+                        }
+                        setSearchFilters({
+                          ...searchFilters,
+                          dateRange: '自定义',
+                          customStartDate: tempStartDate,
+                          customEndDate: tempEndDate
+                        });
+                        setShowDateDropdown(false);
+                      }}
+                      className="w-full mt-1.5 py-1.5 bg-white text-black hover:bg-stone-200 transition-colors rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1 active:scale-[0.98]"
+                    >
+                      确定
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Module filters toggle */}
