@@ -19,6 +19,9 @@
    - “日记”选项卡和“统计回顾”选项卡的数据和 Prompt 相互独立。日记展示 `ai_editorial`，回顾展示 `ai_review`。
 5. **回顾与日记按所属日期对齐过滤**：
    - 无论何时重新生成、补发或查看日记与回顾，数据必须以日志所属日期（`diary_date === dateStr`）为唯一对齐轴，过滤并展示在对应的日期面板中。严禁在当前选择 A 日时，展示 B 日或其它日期的回顾内容。
+6. **移动端 WebView 锁定与防回弹规约**：
+   - 全局最基础容器（`html, body, #root`）必须强制设为 `overflow: hidden` 及 `overscroll-behavior: none`。
+   - 严禁允许底层 body 原生滚动，以防在手机端（iOS/Safari 等）下拉刷新或滑动边界时引发 WebView 底座物理偏移导致页面被截断。所有页面的滚动手势必须收拢在其内部的子滚动容器（`overflow-y-auto`）中。
 
 ---
 
