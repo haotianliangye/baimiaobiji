@@ -33,14 +33,24 @@ export default function Review() {
   const [activeDiary, setActiveDiary] = useState<any>(null);
   const holdTimeoutRef = useRef<any>(null);
   const dateParam = searchParams.get('date');
+  const [showPromptMenu, setShowPromptMenu] = useState(false);
+  const [selectedDiaryForReview, setSelectedDiaryForReview] = useState<any>(null);
 
-  const handleGenerateReview = async (diary: any) => {
+  const handleGenerateReviewClick = (diary: any) => {
     const logsForDiary = allLogs?.filter(log => format(new Date(log.created_at), 'yyyy-MM-dd') === diary.diary_date) || [];
     if (logsForDiary.length === 0) {
       alert('该天没有任何记录碎屑，无法生成回顾。');
       return;
     }
-    await generateReview(diary.id, diary.diary_date, logsForDiary, diary.ai_editorial || "");
+    setSelectedDiaryForReview(diary);
+    setShowPromptMenu(true);
+  };
+
+  const handleGenerateReviewWithPrompt = async (promptIndex: number) => {
+    if (!selectedDiaryForReview) return;
+    const diary = selectedDiaryForReview;
+    const logsForDiary = allLogs?.filter(log => format(new Date(log.created_at), 'yyyy-MM-dd') === diary.diary_date) || [];
+    await generateReview(diary.id, diary.diary_date, logsForDiary, diary.ai_editorial || "", promptIndex);
   };
 
   let targetDate = today;
@@ -264,7 +274,7 @@ export default function Review() {
                               className="w-full px-3 py-2.5 hover:bg-stone-50/30 flex justify-between items-center text-[12px] font-semibold text-stone-700 select-none text-left"
                             >
                               <span>
-                                回顾 ({diary.prompt_name || '默认'}) - <span className="font-mono font-normal text-stone-400">{format(new Date(diary.updated_at), 'HH:mm')}</span>
+                                回顾 ({diary.review_prompt_name || '默认'}) - <span className="font-mono font-normal text-stone-400">{format(new Date(diary.updated_at), 'HH:mm')}</span>
                               </span>
                               {isReviewExpanded ? (
                                 <ChevronUp className="w-3.5 h-3.5 text-stone-450" />
@@ -319,7 +329,7 @@ export default function Review() {
 
                                     <div className="mt-4 flex gap-2 w-full select-none">
                                       <button 
-                                        onClick={() => handleGenerateReview(diary)}
+                                        onClick={() => handleGenerateReviewClick(diary)}
                                         className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] text-stone-600 hover:text-stone-800 bg-stone-100 hover:bg-stone-200/60 rounded-lg transition-colors font-medium border border-stone-200/30"
                                       >
                                         <RefreshCw className="w-3 h-3" />
@@ -341,7 +351,7 @@ export default function Review() {
                                       <span className="text-[11px] text-rose-500 mb-2.5 block px-2 leading-relaxed bg-rose-50 border border-rose-100 rounded-md py-1">{errorMsg}</span>
                                     )}
                                     <button
-                                      onClick={() => handleGenerateReview(diary)}
+                                      onClick={() => handleGenerateReviewClick(diary)}
                                       className="px-4 py-1.5 text-[12px] bg-stone-800 text-white hover:bg-stone-900 active:scale-95 transition-all rounded-lg font-medium shadow-sm flex items-center gap-1"
                                     >
                                       立即生成回顾
@@ -368,6 +378,43 @@ export default function Review() {
           onSelectDate={(date) => setSearchParams({ date })} 
           onClose={() => setShowHeatmap(false)} 
         />
+      )}
+
+      {showPromptMenu && (
+        <div 
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[110] flex items-end justify-center animate-in fade-in duration-200"
+          onClick={() => setShowPromptMenu(false)}
+        >
+          <div 
+            className="w-full max-w-md bg-[#2a2a2a]/95 backdrop-blur-xl border border-white/10 rounded-t-3xl p-5 pb-8 flex flex-col gap-3.5 animate-in slide-in-from-bottom duration-250 z-[120]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+              <span className="text-[13.5px] font-semibold text-white/50 tracking-wider">选择 AI 整理模板 (回顾)</span>
+              <button 
+                onClick={() => setShowPromptMenu(false)}
+                className="p-1 hover:bg-white/10 rounded-lg text-white/40 hover:text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="flex flex-col gap-2">
+              {['默认 (系统)', '自定义一', '自定义二', '自定义三'].map((name, idx) => (
+                <button
+                  key={name}
+                  onClick={() => {
+                    setShowPromptMenu(false);
+                    handleGenerateReviewWithPrompt(idx);
+                  }}
+                  className="w-full py-3 hover:bg-white/5 border border-white/5 rounded-2xl text-[12.5px] font-medium text-white/90 text-center active:scale-[0.99] transition-all"
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       {contextMenuState.isOpen && activeDiary && (

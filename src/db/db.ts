@@ -27,6 +27,8 @@ export interface DailyDiary {
   updated_at: number;
   prompt_index?: number;
   prompt_name?: string;
+  review_prompt_index?: number;
+  review_prompt_name?: string;
 }
 
 export interface Insight {
