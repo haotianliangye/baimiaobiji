@@ -165,8 +165,8 @@ export default function Settings() {
   };
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-stone-100 font-sans text-stone-900 overflow-hidden items-center justify-center">
-      <div className="flex flex-col h-[100dvh] overflow-hidden bg-[#f4f4f0] relative z-50 mx-auto max-w-md w-full shadow-sm ring-1 ring-black/5">
+    <div className="flex flex-col h-full bg-stone-100 font-sans text-stone-900 overflow-hidden items-center justify-center">
+      <div className="flex flex-col h-full overflow-hidden bg-[#f4f4f0] relative z-50 mx-auto max-w-md w-full shadow-sm ring-1 ring-black/5">
         <div className="flex h-14 items-center px-4 bg-[#f4f4f0] border-b border-stone-200/50 shrink-0">
           <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-stone-500 hover:text-black">
             <ArrowLeft className="w-5 h-5" />

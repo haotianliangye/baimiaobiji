@@ -21,7 +21,7 @@ export default function Layout() {
   };
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-stone-100 font-sans text-stone-900 overflow-hidden items-center justify-center">
+    <div className="flex flex-col h-full bg-stone-100 font-sans text-stone-900 overflow-hidden items-center justify-center">
       <div className="w-full max-w-md h-full bg-[#f4f4f0] shadow-sm ring-1 ring-black/5 flex flex-col relative overflow-hidden">
         {/* Global Nav */}
         <header className="flex h-12 shrink-0 items-center justify-between px-4 bg-black text-white">
