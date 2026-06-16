@@ -4,6 +4,7 @@ import { Book, Clock, Edit3, Loader2, PieChart, Settings as SettingsIcon, X, Sea
 import { subDays, startOfDay, endOfDay, format } from 'date-fns';
 import { db } from '../db/db';
 import { useAppStore } from '../store/app.store';
+import MiniCalendar from './MiniCalendar';
 
 export default function Layout() {
   const navigate = useNavigate();
@@ -32,6 +33,7 @@ export default function Layout() {
 
   const [tempStartDate, setTempStartDate] = useState(searchFilters.customStartDate || '');
   const [tempEndDate, setTempEndDate] = useState(searchFilters.customEndDate || '');
+  const [calendarTarget, setCalendarTarget] = useState<'none' | 'start' | 'end'>('none');
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -52,6 +54,7 @@ export default function Layout() {
       setTempStartDate(searchFilters.customStartDate || '');
       setTempEndDate(searchFilters.customEndDate || '');
     }
+    setCalendarTarget('none');
   }, [showDateDropdown, searchFilters.customStartDate, searchFilters.customEndDate]);
 
   const formatCustomDateLabel = (start: string, end: string) => {
@@ -368,78 +371,98 @@ export default function Layout() {
               ref={dropdownCardRef}
               className="absolute left-4 top-[100px] w-60 bg-[#2a2a2a]/95 backdrop-blur-xl rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.15)] border border-white/5 flex flex-col p-1.5 animate-in fade-in zoom-in-95 duration-100 z-[90]"
             >
-              {/* 标准时间范围选项 */}
-              {['全部', '本周', '本月', '本季度'].map((range) => (
-                <button
-                  key={range}
-                  onClick={() => {
-                    setSearchFilters({ 
-                      ...searchFilters, 
-                      dateRange: range,
-                      customStartDate: '',
-                      customEndDate: ''
-                    });
-                    setShowDateDropdown(false);
-                  }}
-                  className={`px-3 py-1.5 text-[12px] font-medium rounded-xl text-left transition-colors ${
-                    searchFilters.dateRange === range
-                      ? 'bg-white/10 text-white'
-                      : 'text-white/75 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  {range === '全部' ? '全部日期' : range}
-                </button>
-              ))}
-              
-              {/* 自定义时间范围 */}
-              <div className="border-t border-white/10 my-1"></div>
-              <div className="px-3 py-1.5 flex flex-col gap-2">
-                <span className="text-[10.5px] font-semibold text-white/40 uppercase tracking-wider">自定义时间</span>
-                
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[11px] text-white/60 shrink-0">开始时间</span>
-                    <input 
-                      type="date"
-                      value={tempStartDate}
-                      onChange={(e) => setTempStartDate(e.target.value)}
-                      className="bg-white/5 border border-white/10 text-white rounded-lg px-1.5 py-0.5 text-[11px] outline-none focus:border-white/30 transition-colors w-32 [color-scheme:dark]"
-                    />
+              {calendarTarget === 'none' ? (
+                <>
+                  {/* 标准时间范围选项 */}
+                  {['全部', '本周', '本月', '本季度'].map((range) => (
+                    <button
+                      key={range}
+                      onClick={() => {
+                        setSearchFilters({ 
+                          ...searchFilters, 
+                          dateRange: range,
+                          customStartDate: '',
+                          customEndDate: ''
+                        });
+                        setShowDateDropdown(false);
+                      }}
+                      className={`px-3 py-1.5 text-[12px] font-medium rounded-xl text-left transition-colors ${
+                        searchFilters.dateRange === range
+                          ? 'bg-white/10 text-white'
+                          : 'text-white/75 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      {range === '全部' ? '全部日期' : range}
+                    </button>
+                  ))}
+                  
+                  {/* 自定义时间范围 */}
+                  <div className="border-t border-white/10 my-1"></div>
+                  <div className="px-3 py-1.5 flex flex-col gap-2">
+                    <span className="text-[10.5px] font-semibold text-white/40 uppercase tracking-wider">自定义时间</span>
+                    
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11.5px] text-white/60 shrink-0">开始时间</span>
+                        <button
+                          onClick={() => setCalendarTarget('start')}
+                          className="bg-white/5 border border-white/10 text-white rounded-lg px-2 py-1 text-[11px] font-mono text-left w-32 outline-none hover:border-white/20 active:bg-white/10 transition-colors"
+                        >
+                          {tempStartDate || '未选择'}
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11.5px] text-white/60 shrink-0">结束时间</span>
+                        <button
+                          onClick={() => setCalendarTarget('end')}
+                          className="bg-white/5 border border-white/10 text-white rounded-lg px-2 py-1 text-[11px] font-mono text-left w-32 outline-none hover:border-white/20 active:bg-white/10 transition-colors"
+                        >
+                          {tempEndDate || '未选择'}
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <button
+                      onClick={() => {
+                        if (!tempStartDate || !tempEndDate) {
+                          alert('请选择完整的开始和结束日期');
+                          return;
+                        }
+                        if (tempStartDate > tempEndDate) {
+                          alert('开始时间不能晚于结束时间');
+                          return;
+                        }
+                        setSearchFilters({
+                          ...searchFilters,
+                          dateRange: '自定义',
+                          customStartDate: tempStartDate,
+                          customEndDate: tempEndDate
+                        });
+                        setShowDateDropdown(false);
+                      }}
+                      className="w-full mt-1.5 py-1.5 bg-white text-black hover:bg-stone-200 transition-colors rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1 active:scale-[0.98]"
+                    >
+                      确定
+                    </button>
                   </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[11px] text-white/60 shrink-0">结束时间</span>
-                    <input 
-                      type="date"
-                      value={tempEndDate}
-                      onChange={(e) => setTempEndDate(e.target.value)}
-                      className="bg-white/5 border border-white/10 text-white rounded-lg px-1.5 py-0.5 text-[11px] outline-none focus:border-white/30 transition-colors w-32 [color-scheme:dark]"
-                    />
-                  </div>
+                </>
+              ) : (
+                <div className="p-1">
+                  <MiniCalendar 
+                    value={calendarTarget === 'start' ? tempStartDate : tempEndDate}
+                    onChange={(val) => {
+                      if (calendarTarget === 'start') {
+                        setTempStartDate(val);
+                      } else {
+                        setTempEndDate(val);
+                      }
+                      setCalendarTarget('none');
+                    }}
+                    onBack={() => setCalendarTarget('none')}
+                    title={calendarTarget === 'start' ? '选择开始时间' : '选择结束时间'}
+                  />
                 </div>
-                
-                <button
-                  onClick={() => {
-                    if (!tempStartDate || !tempEndDate) {
-                      alert('请选择完整的开始和结束日期');
-                      return;
-                    }
-                    if (tempStartDate > tempEndDate) {
-                      alert('开始时间不能晚于结束时间');
-                      return;
-                    }
-                    setSearchFilters({
-                      ...searchFilters,
-                      dateRange: '自定义',
-                      customStartDate: tempStartDate,
-                      customEndDate: tempEndDate
-                    });
-                    setShowDateDropdown(false);
-                  }}
-                  className="w-full mt-1.5 py-1.5 bg-white text-black hover:bg-stone-200 transition-colors rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1 active:scale-[0.98]"
-                >
-                  确定
-                </button>
-              </div>
+              )}
             </div>
           )}
 
