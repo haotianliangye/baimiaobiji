@@ -1,17 +1,40 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { format, subMonths, startOfWeek, subDays, startOfDay, endOfDay, isSameDay, addDays, parse } from 'date-fns';
+import { format, startOfWeek, subDays, startOfDay, isSameDay, addDays, parse } from 'date-fns';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { db } from '../db/db';
 import CalendarHeatmap from '../components/CalendarHeatmap';
-import ActionSheet from '../components/ActionSheet';
-import { Copy, Trash2, ChevronDown, ChevronUp, RefreshCw, X } from 'lucide-react';
+import { Trash2, ChevronDown, ChevronUp, RefreshCw, X, Sparkles } from 'lucide-react';
 import { useAppStore } from '../store/app.store';
 
 const generateUUID = () => {
   return self.crypto?.randomUUID?.() || Math.random().toString(36).substring(2);
 };
+
+// ——— Smart Popover positioning helper ———
+// Returns CSS top (fixed) for the popover given the anchor DOMRect.
+// Priority: above the anchor. Falls back to below if not enough room above.
+const POPOVER_HEIGHT = 192; // approximate height of the prompt menu
+const POPOVER_GAP = 8;
+
+function calcPopoverTop(anchorRect: DOMRect): number {
+  const spaceAbove = anchorRect.top;
+  const spaceBelow = window.innerHeight - anchorRect.bottom;
+
+  if (spaceAbove >= POPOVER_HEIGHT + POPOVER_GAP) {
+    // Show above
+    return Math.max(8, anchorRect.top - POPOVER_HEIGHT - POPOVER_GAP);
+  } else if (spaceBelow >= POPOVER_HEIGHT + POPOVER_GAP) {
+    // Show below
+    return Math.min(anchorRect.bottom + POPOVER_GAP, window.innerHeight - POPOVER_HEIGHT - 8);
+  } else {
+    // Not enough room either way — pick the side with more space
+    return spaceAbove > spaceBelow
+      ? Math.max(8, anchorRect.top - POPOVER_HEIGHT - POPOVER_GAP)
+      : Math.min(anchorRect.bottom + POPOVER_GAP, window.innerHeight - POPOVER_HEIGHT - 8);
+  }
+}
 
 export default function Review() {
   const navigate = useNavigate();
@@ -34,78 +57,72 @@ export default function Review() {
   });
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
-  const [activeDiary, setActiveDiary] = useState<any>(null);
+  const [activeReview, setActiveReview] = useState<any>(null);
   const holdTimeoutRef = useRef<any>(null);
   const dateParam = searchParams.get('date');
   const [showPromptMenu, setShowPromptMenu] = useState(false);
-  const [selectedDiaryForReview, setSelectedDiaryForReview] = useState<any>(null);
-  const [popoverAnchor, setPopoverAnchor] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
-  const [appendModeDate, setAppendModeDate] = useState<string | null>(null);
-  const [pendingReviews, setPendingReviews] = useState<{ id: string; dateStr: string; reviewPromptIndex: number }[]>([]);
+  // Stores the DOMRect of the triggering button (viewport-relative, for fixed positioning)
+  const [popoverRect, setPopoverRect] = useState<DOMRect | null>(null);
+  const [targetDateForNewReview, setTargetDateForNewReview] = useState<string | null>(null);
+  const [regeneratingReviewId, setRegeneratingReviewId] = useState<string | null>(null);
+  // Tracks in-flight review generations (tempId -> true)
+  const [pendingIds, setPendingIds] = useState<Record<string, boolean>>({});
 
-  const handleGenerateReviewClick = (diary: any, rect?: DOMRect) => {
-    const logsForDiary = allLogs?.filter(log => format(new Date(log.created_at), 'yyyy-MM-dd') === diary.diary_date) || [];
-    if (logsForDiary.length === 0) {
-      alert('该天没有任何记录碎屑，无法生成回顾。');
-      return;
-    }
-    if (rect) {
-      setPopoverAnchor({
-        top: rect.top + window.scrollY,
-        left: rect.left + window.scrollX,
-        width: rect.width,
-        height: rect.height
-      });
-    }
-    setAppendModeDate(null);
-    setSelectedDiaryForReview(diary);
+  const openPromptMenu = (rect: DOMRect, opts: { dateStr?: string; reviewId?: string }) => {
+    setPopoverRect(rect);
+    setTargetDateForNewReview(opts.dateStr ?? null);
+    setRegeneratingReviewId(opts.reviewId ?? null);
     setShowPromptMenu(true);
   };
 
-  const handleNewReviewClick = (rect: DOMRect) => {
-    setPopoverAnchor({
-      top: rect.top + window.scrollY,
-      left: rect.left + window.scrollX,
-      width: rect.width,
-      height: rect.height
-    });
-    setSelectedDiaryForReview(null);
-    setAppendModeDate(dateStr);
-    setShowPromptMenu(true);
-  };
-
-  const handleAppendReviewClick = (date: string, rect: DOMRect) => {
-    setPopoverAnchor({
-      top: rect.top + window.scrollY,
-      left: rect.left + window.scrollX,
-      width: rect.width,
-      height: rect.height
-    });
-    setSelectedDiaryForReview(null);
-    setAppendModeDate(date);
-    setShowPromptMenu(true);
+  const closePromptMenu = () => {
+    setShowPromptMenu(false);
+    setPopoverRect(null);
   };
 
   const handleGenerateReviewWithPrompt = async (promptIndex: number) => {
-    const targetDateStr = selectedDiaryForReview ? selectedDiaryForReview.diary_date : appendModeDate;
-    if (!targetDateStr) return;
+    const targetDateStr = regeneratingReviewId
+      ? null  // will be resolved from review record
+      : targetDateForNewReview;
 
-    const logsForDiary = allLogs?.filter(log => format(new Date(log.created_at), 'yyyy-MM-dd') === targetDateStr) || [];
-    if (logsForDiary.length === 0) {
-      alert('该天没有任何记录碎屑，无法生成回顾。');
+    closePromptMenu();
+
+    if (regeneratingReviewId) {
+      // Re-generate an existing review — we already have the review in the DB,
+      // so we need to find its date first.
+      const existingReview = await db.daily_reviews.get(regeneratingReviewId);
+      if (!existingReview) return;
+      const logsForDate = allLogs?.filter(
+        log => format(new Date(log.created_at), 'yyyy-MM-dd') === existingReview.review_date
+      ) || [];
+      if (logsForDate.length === 0) {
+        alert('该天没有任何记录碎屑，无法重新生成回顾。');
+        return;
+      }
+      const tempId = generateUUID();
+      setPendingIds(prev => ({ ...prev, [tempId]: true }));
+      try {
+        await generateReview(tempId, existingReview.review_date, logsForDate, '', promptIndex);
+      } finally {
+        setPendingIds(prev => { const n = { ...prev }; delete n[tempId]; return n; });
+      }
       return;
     }
 
-    if (selectedDiaryForReview) {
-      await generateReview(selectedDiaryForReview.id, selectedDiaryForReview.diary_date, logsForDiary, selectedDiaryForReview.ai_editorial || "", promptIndex);
-    } else {
-      const tempId = generateUUID();
-      setPendingReviews(prev => [...prev, { id: tempId, dateStr: targetDateStr, reviewPromptIndex: promptIndex }]);
-      try {
-        await generateReview(tempId, targetDateStr, logsForDiary, "", promptIndex);
-      } finally {
-        setPendingReviews(prev => prev.filter(p => p.id !== tempId));
-      }
+    if (!targetDateStr) return;
+    const logsForDate = allLogs?.filter(
+      log => format(new Date(log.created_at), 'yyyy-MM-dd') === targetDateStr
+    ) || [];
+    if (logsForDate.length === 0) {
+      alert('该天没有任何记录碎屑，无法生成回顾。');
+      return;
+    }
+    const tempId = generateUUID();
+    setPendingIds(prev => ({ ...prev, [tempId]: true }));
+    try {
+      await generateReview(tempId, targetDateStr, logsForDate, '', promptIndex);
+    } finally {
+      setPendingIds(prev => { const n = { ...prev }; delete n[tempId]; return n; });
     }
   };
 
@@ -134,16 +151,11 @@ export default function Review() {
     const diffX = e.changedTouches[0].clientX - touchStartX.current;
     const diffY = e.changedTouches[0].clientY - touchStartY.current;
 
-    // Detect horizontal swipes
     if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 60) {
       if (diffX > 0) {
-        // Swipe Right -> previous date
         navigateToDate(-1);
       } else {
-        // Swipe Left -> next date (cannot exceed today)
-        if (!isTodayDate) {
-          navigateToDate(1);
-        }
+        if (!isTodayDate) navigateToDate(1);
       }
     }
     touchStartX.current = null;
@@ -156,84 +168,44 @@ export default function Review() {
   const startDate = startOfWeek(subDays(endDate, (WEEKS_TO_SHOW - 1) * 7));
 
   const allLogs = useLiveQuery(() => db.raw_logs.toArray(), []);
-  const allDiaries = useLiveQuery(() => db.daily_diaries.toArray(), []);
+  // Query the independent daily_reviews table only
+  const allReviews = useLiveQuery(() => db.daily_reviews.toArray(), []);
 
-  // Group diaries by date, sorting dates desc, and diaries within dates desc
-  const diariesGroupedByDate = useMemo(() => {
-    if (!allDiaries) return [];
-    const filteredDiaries = allDiaries.filter((diary) => diary.diary_date === dateStr);
-
-    const allItems = [...filteredDiaries];
-    pendingReviews.forEach(pending => {
-      if (pending.dateStr === dateStr) {
-        allItems.push({
-          id: pending.id,
-          diary_date: pending.dateStr,
-          raw_log_ids: [],
-          timeline_json: JSON.stringify([{ summary: "正在生成反思回顾..." }]),
-          ai_editorial: "",
-          ai_review: "",
-          updated_at: Date.now(),
-          review_prompt_index: pending.reviewPromptIndex,
-          review_prompt_name: ['默认', '自定义一', '自定义二', '自定义三'][pending.reviewPromptIndex],
-          isPending: true
-        });
-      }
-    });
-
-    const groups: Record<string, any[]> = {};
-    allItems.forEach((diary) => {
-      const date = diary.diary_date;
-      if (!groups[date]) {
-        groups[date] = [];
-      }
-      groups[date].push(diary);
-    });
-    return Object.keys(groups)
-      .sort((a, b) => b.localeCompare(a))
-      .map((date) => {
-        const sorted = groups[date].sort((a, b) => b.updated_at - a.updated_at);
-        return {
-          date,
-          diaries: sorted,
-        };
-      });
-  }, [allDiaries, dateStr, pendingReviews]);
+  // Group reviews by review_date, show only today's date
+  const reviewsForDate = useMemo(() => {
+    if (!allReviews) return [];
+    return allReviews
+      .filter(r => r.review_date === dateStr)
+      .sort((a, b) => b.updated_at - a.updated_at);
+  }, [allReviews, dateStr]);
 
   const lastAutoExpandedDateRef = useRef<string | null>(null);
-  const prevDiariesCountRef = useRef(0);
+  const prevReviewsCountRef = useRef(0);
 
-  // Reset auto-expand reference when database count increases (e.g. new diary card added)
   useEffect(() => {
-    if (!allDiaries) return;
-    const countIncreased = allDiaries.length > prevDiariesCountRef.current;
-    if (countIncreased) {
+    if (!allReviews) return;
+    if (allReviews.length > prevReviewsCountRef.current) {
       lastAutoExpandedDateRef.current = null;
     }
-    prevDiariesCountRef.current = allDiaries.length;
-  }, [allDiaries]);
+    prevReviewsCountRef.current = allReviews.length;
+  }, [allReviews]);
 
-  // Auto-expand card when dateStr changes, or when list changes, without blocking manual collapses
   useEffect(() => {
-    if (dateStr && diariesGroupedByDate.length > 0) {
-      if (lastAutoExpandedDateRef.current !== dateStr) {
-        const hasDateInDiaries = diariesGroupedByDate.some(g => g.date === dateStr);
-        if (hasDateInDiaries) {
-          setExpandedDate(dateStr);
-          const group = diariesGroupedByDate.find(g => g.date === dateStr);
-          if (group && group.diaries.length > 0) {
-            setExpandedReviewId(group.diaries[0].id);
-          }
-          lastAutoExpandedDateRef.current = dateStr;
-        } else {
-          // If no review exists for this date, fold other opened cards
-          setExpandedDate(null);
-          setExpandedReviewId(null);
-          lastAutoExpandedDateRef.current = dateStr;
-        }
-      }
+    if (reviewsForDate.length > 0 && lastAutoExpandedDateRef.current !== dateStr) {
+      setExpandedDate(dateStr);
+      setExpandedReviewId(reviewsForDate[0].id);
+      lastAutoExpandedDateRef.current = dateStr;
+    } else if (reviewsForDate.length === 0) {
+      setExpandedDate(null);
+      setExpandedReviewId(null);
+      lastAutoExpandedDateRef.current = dateStr;
     }
-  }, [dateStr, diariesGroupedByDate]);
+  }, [dateStr, reviewsForDate]);
+
+  const hasPendingForDate = Object.keys(pendingIds).some(id => pendingIds[id]);
+  const logsCountForDate = allLogs?.filter(
+    log => format(new Date(log.created_at), 'yyyy-MM-dd') === dateStr
+  ).length ?? 0;
 
   return (
     <div className="flex flex-col h-full bg-transparent relative">
@@ -266,9 +238,8 @@ export default function Review() {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {/* List of Previous Diaries grouped by Date */}
         <div className="w-full max-w-sm mb-20 flex flex-col gap-3">
-          {diariesGroupedByDate.length === 0 ? (
+          {reviewsForDate.length === 0 && !hasPendingForDate ? (
             <div className="flex flex-col items-center justify-center py-12 w-full select-none">
               <p className="text-[13px] text-stone-400 mb-6 tracking-wide">今天暂无任何回顾内容</p>
               <div className="flex flex-col items-center justify-center p-8 bg-white/60 rounded-2xl border border-black/[0.03] text-center w-full max-w-[280px]">
@@ -276,12 +247,12 @@ export default function Review() {
                   <Sparkles className="w-6 h-6 stroke-[1.5px]" />
                 </div>
                 <p className="text-[15px] text-stone-900 font-medium tracking-tight mb-2">
-                  今天你积累了 {allLogs?.filter(log => format(new Date(log.created_at), 'yyyy-MM-dd') === dateStr).length || 0} 条碎屑
+                  今天你积累了 {logsCountForDate} 条碎屑
                 </p>
                 <p className="text-[13px] text-stone-500 mb-6 leading-relaxed">让 AI 为你总结今天</p>
                 <button
-                  disabled={!(allLogs?.some(log => format(new Date(log.created_at), 'yyyy-MM-dd') === dateStr))}
-                  onClick={(e) => handleNewReviewClick(e.currentTarget.getBoundingClientRect())}
+                  disabled={logsCountForDate === 0}
+                  onClick={(e) => openPromptMenu(e.currentTarget.getBoundingClientRect(), { dateStr })}
                   className="w-full bg-[#2a2a2a] text-white px-5 py-2.5 rounded-full text-[13px] font-medium tracking-wide flex items-center justify-center gap-2 hover:bg-[#222222] disabled:opacity-30 disabled:hover:bg-[#2a2a2a] transition-all active:scale-[0.98]"
                 >
                   <Sparkles className="w-4 h-4 stroke-[1.5px]" />
@@ -290,185 +261,162 @@ export default function Review() {
               </div>
             </div>
           ) : (
-            diariesGroupedByDate.map(group => {
-              const primaryDiary = group.diaries[0];
-              const diaryCount = group.diaries.length;
-              const isDateExpanded = expandedDate === group.date;
-              const summary = (() => {
-                try {
-                  return JSON.parse(primaryDiary.timeline_json)[0]?.summary || '暂无内容概要...';
-                } catch {
-                  return '暂无内容概要...';
-                }
-              })();
+            <>
+              {/* Pending spinner card */}
+              {hasPendingForDate && (
+                <div className="bg-white rounded-2xl border border-black/5 shadow-[0_2px_10px_rgb(0_0_0_/_0.02)] p-5 flex flex-col items-center gap-2">
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-stone-400 border-t-transparent" />
+                  <span className="text-[12px] text-stone-500 font-medium">AI 正在为您生成统计回顾…</span>
+                </div>
+              )}
 
-              return (
-                <div key={group.date} className="bg-white rounded-2xl border border-black/5 shadow-[0_2px_10px_rgb(0_0_0_/_0.02)] transition-all flex flex-col block w-full overflow-hidden">
-                  {/* Master Date Header */}
-                  <button
-                    onClick={() => setExpandedDate(isDateExpanded ? null : group.date)}
-                    className="p-4 text-left hover:bg-stone-50 active:bg-stone-100 transition-colors flex flex-col gap-1.5 w-full relative"
+              {/* Reviews list */}
+              {reviewsForDate.map((review) => {
+                const isReviewExpanded = expandedReviewId === review.id;
+                const isGenerating = isProcessingReviewMap[review.id];
+                const errorMsg = diaryErrorMap[dateStr];
+
+                return (
+                  <div
+                    key={review.id}
+                    className="bg-white rounded-2xl border border-black/5 shadow-[0_2px_10px_rgb(0_0_0_/_0.02)] transition-all flex flex-col block w-full overflow-hidden"
+                    onTouchStart={(e) => {
+                      const touch = e.touches[0];
+                      const x = touch.clientX;
+                      const y = touch.clientY;
+                      holdTimeoutRef.current = setTimeout(() => {
+                        if (window.navigator?.vibrate) window.navigator.vibrate(50);
+                        setActiveReview(review);
+                        setContextMenuState({ isOpen: true, x, y });
+                      }, 500);
+                    }}
+                    onTouchEnd={() => clearTimeout(holdTimeoutRef.current)}
+                    onTouchMove={() => clearTimeout(holdTimeoutRef.current)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      if (window.navigator?.vibrate) window.navigator.vibrate(50);
+                      setActiveReview(review);
+                      setContextMenuState({ isOpen: true, x: e.clientX, y: e.clientY });
+                    }}
                   >
-                    <div className="flex justify-between items-center w-full">
-                      <span className="text-[15px] font-semibold text-stone-800 font-mono tracking-tight leading-none flex items-center">
-                        {group.date}
-                        {diaryCount > 1 && (
-                          <span className="text-[11px] font-normal text-stone-400 ml-2 font-sans bg-stone-100 px-1.5 py-0.5 rounded">
-                            共 {diaryCount} 篇
-                          </span>
+                    {/* Card header */}
+                    <button
+                      onClick={() => setExpandedReviewId(isReviewExpanded ? null : review.id)}
+                      className="p-4 text-left hover:bg-stone-50 active:bg-stone-100 transition-colors flex flex-col gap-1.5 w-full relative"
+                    >
+                      <div className="flex justify-between items-center w-full">
+                        <span className="text-[15px] font-semibold text-stone-800 font-mono tracking-tight leading-none">
+                          {review.review_date}
+                        </span>
+                        {isReviewExpanded ? (
+                          <ChevronUp className="w-4 h-4 text-stone-400" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-stone-400" />
                         )}
+                      </div>
+                      <span className="text-[13px] text-stone-500 line-clamp-2 leading-relaxed pr-6 select-none">
+                        {review.ai_summary || '暂无内容概要'}
                       </span>
-                      {isDateExpanded ? (
-                        <ChevronUp className="w-4 h-4 text-stone-400" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4 text-stone-400" />
-                      )}
+                    </button>
+
+                    {/* Prompt label sub-header */}
+                    <div className="px-4 py-1.5 border-t border-black/[0.03] bg-stone-50/60">
+                      <span className="text-[11px] text-stone-400 font-medium">
+                        回顾 ({review.review_prompt_name || '默认'}) · {format(new Date(review.updated_at), 'HH:mm')}
+                      </span>
                     </div>
-                    <span className="text-[13px] text-stone-500 line-clamp-2 leading-relaxed pr-6 select-none">
-                      {summary}
-                    </span>
-                  </button>
 
-                  {/* Inner Reviews List */}
-                  {isDateExpanded && (
-                    <div className="px-4 pb-4 pt-1 border-t border-black/5 bg-stone-50/40 space-y-3">
-                      {group.diaries.map((diary) => {
-                        const isReviewExpanded = expandedReviewId === diary.id || diary.isPending;
-                        const isGenerating = isProcessingReviewMap[diary.id] || diary.isPending;
-                        const errorMsg = diaryErrorMap[diary.diary_date];
-                        
-                        return (
-                          <div 
-                            key={diary.id} 
-                            className="bg-white rounded-xl border border-black/[0.04] shadow-[0_1px_4px_rgba(0,0,0,0.01)] overflow-hidden"
-                            onTouchStart={(e) => {
-                              const touch = e.touches[0];
-                              const x = touch.clientX;
-                              const y = touch.clientY;
-                              holdTimeoutRef.current = setTimeout(() => {
-                                if (window.navigator?.vibrate) window.navigator.vibrate(50);
-                                setActiveDiary(diary);
-                                setContextMenuState({ isOpen: true, x, y });
-                              }, 500);
-                            }}
-                            onTouchEnd={() => clearTimeout(holdTimeoutRef.current)}
-                            onTouchMove={() => clearTimeout(holdTimeoutRef.current)}
-                            onContextMenu={(e) => {
-                              e.preventDefault();
-                              if (window.navigator?.vibrate) window.navigator.vibrate(50);
-                              setActiveDiary(diary);
-                              setContextMenuState({ isOpen: true, x: e.clientX, y: e.clientY });
-                            }}
-                          >
-                            {/* Inner Review Header */}
-                            <button
-                              onClick={() => setExpandedReviewId(isReviewExpanded ? null : diary.id)}
-                              className="w-full px-3 py-2.5 hover:bg-stone-50/30 flex justify-between items-center text-[12px] font-semibold text-stone-700 select-none text-left"
-                            >
-                              <span>
-                                回顾 ({diary.review_prompt_name || '默认'}) - <span className="font-mono font-normal text-stone-400">{format(new Date(diary.updated_at), 'HH:mm')}</span>
-                              </span>
-                              {isReviewExpanded ? (
-                                <ChevronUp className="w-3.5 h-3.5 text-stone-450" />
-                              ) : (
-                                <ChevronDown className="w-3.5 h-3.5 text-stone-450" />
-                              )}
-                            </button>
+                    {/* Expanded content */}
+                    {isReviewExpanded && (
+                      <div className="px-4 pb-4 pt-2 border-t border-stone-100/60 bg-white">
+                        {isGenerating ? (
+                          <div className="flex flex-col items-center justify-center py-6 text-stone-400 text-[12px] gap-2 font-medium">
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-stone-400 border-t-transparent" />
+                            <span>AI 正在为您生成统计回顾与反思…</span>
+                          </div>
+                        ) : review.ai_review ? (
+                          <>
+                            <div className="markdown-body prose prose-stone prose-h1:text-[18px] prose-h2:text-[17px] prose-h3:text-[16px] prose-h1:leading-snug prose-headings:font-bold max-w-none text-[16px] leading-relaxed select-text pointer-events-auto">
+                              <ReactMarkdown
+                                components={{
+                                  a: ({ node, href, children, ...props }) => {
+                                    const handleClick = (e: React.MouseEvent) => {
+                                      e.preventDefault();
+                                      if (href?.startsWith('#log_id_')) {
+                                        const logId = href.replace('#log_id_', '');
+                                        navigate(`/?date=${review.review_date}&logId=${logId}`);
+                                      }
+                                    };
+                                    return (
+                                      <a
+                                        href={href}
+                                        onClick={handleClick}
+                                        className="text-stone-500 bg-stone-200/50 hover:bg-stone-200 hover:text-stone-900 px-1.5 py-0.5 rounded cursor-pointer no-underline transition-colors border border-black/5"
+                                        {...props}
+                                      >
+                                        {children}
+                                      </a>
+                                    );
+                                  }
+                                }}
+                              >
+                                {review.ai_review}
+                              </ReactMarkdown>
+                            </div>
 
-                            {/* Inner Review Content */}
-                            {isReviewExpanded && (
-                              <div className="px-3 pb-3 pt-1 border-t border-stone-100/50 bg-white">
-                                {isGenerating ? (
-                                  <div className="flex flex-col items-center justify-center py-6 text-stone-400 text-[12px] gap-2 font-medium">
-                                    <div className="animate-spin rounded-full h-4.5 w-4.5 border-2 border-stone-400 border-t-transparent"></div>
-                                    <span>AI 正在为您生成统计回顾与反思...</span>
-                                  </div>
-                                ) : diary.ai_review ? (
-                                  <>
-                                    <div className="markdown-body prose prose-stone prose-h1:text-[18px] prose-h2:text-[17px] prose-h3:text-[16px] prose-h1:leading-snug prose-headings:font-bold max-w-none text-[16px] leading-relaxed select-text pointer-events-auto">
-                                      <ReactMarkdown 
-                                        components={{
-                                          a: ({ node, href, children, ...props }) => {
-                                            const handleClick = (e: React.MouseEvent) => {
-                                              e.preventDefault();
-                                              if (href?.startsWith('#log_id_')) {
-                                                const logId = href.replace('#log_id_', '');
-                                                navigate(`/?date=${diary.diary_date}&logId=${logId}`);
-                                              }
-                                            };
-                                            return (
-                                              <a 
-                                                href={href} 
-                                                onClick={handleClick}
-                                                className="text-stone-500 bg-stone-200/50 hover:bg-stone-200 hover:text-stone-900 px-1.5 py-0.5 rounded cursor-pointer no-underline transition-colors border border-black/5"
-                                                {...props}
-                                              >
-                                                {children}
-                                              </a>
-                                            );
-                                          }
-                                        }}
-                                      >
-                                        {diary.ai_review}
-                                      </ReactMarkdown>
-                                    </div>
-                                    
-                                    {errorMsg && (
-                                      <div className="mt-3 text-[11px] text-rose-500 bg-rose-50 border border-rose-100 rounded-md py-1 px-2.5 leading-relaxed">
-                                        {errorMsg}
-                                      </div>
-                                    )}
-
-                                    <div className="mt-4 flex gap-2 w-full select-none">
-                                      <button 
-                                        onClick={(e) => handleGenerateReviewClick(diary, e.currentTarget.getBoundingClientRect())}
-                                        className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] text-stone-600 hover:text-stone-800 bg-stone-100 hover:bg-stone-200/60 rounded-lg transition-colors font-medium border border-stone-200/30"
-                                      >
-                                        <RefreshCw className="w-3 h-3" />
-                                        重新生成回顾
-                                      </button>
-                                      <button 
-                                        onClick={() => setExpandedReviewId(null)}
-                                        className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] text-stone-500 hover:text-stone-800 bg-stone-100 hover:bg-stone-200/40 rounded-lg transition-colors font-medium border border-stone-200/30"
-                                      >
-                                        <ChevronUp className="w-3.5 h-3.5" />
-                                        收起
-                                      </button>
-                                    </div>
-                                  </>
-                                ) : (
-                                  <div className="flex flex-col items-center justify-center py-6 px-3 text-center border border-dashed border-stone-200 rounded-lg bg-stone-50/50">
-                                    <span className="text-[12px] text-stone-500 mb-3 font-medium">该日记尚未生成统计回顾与反思</span>
-                                    {errorMsg && (
-                                      <span className="text-[11px] text-rose-500 mb-2.5 block px-2 leading-relaxed bg-rose-50 border border-rose-100 rounded-md py-1">{errorMsg}</span>
-                                    )}
-                                    <button
-                                      onClick={(e) => handleGenerateReviewClick(diary, e.currentTarget.getBoundingClientRect())}
-                                      className="px-4 py-1.5 text-[12px] bg-stone-800 text-white hover:bg-stone-900 active:scale-95 transition-all rounded-lg font-medium shadow-sm flex items-center gap-1"
-                                    >
-                                      立即生成回顾
-                                    </button>
-                                  </div>
-                                )}
+                            {errorMsg && (
+                              <div className="mt-3 text-[11px] text-rose-500 bg-rose-50 border border-rose-100 rounded-md py-1 px-2.5 leading-relaxed">
+                                {errorMsg}
                               </div>
                             )}
+
+                            <div className="mt-4 flex gap-2 w-full select-none">
+                              <button
+                                onClick={(e) => openPromptMenu(e.currentTarget.getBoundingClientRect(), { reviewId: review.id })}
+                                className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] text-stone-600 hover:text-stone-800 bg-stone-100 hover:bg-stone-200/60 rounded-lg transition-colors font-medium border border-stone-200/30"
+                              >
+                                <RefreshCw className="w-3 h-3" />
+                                重新生成回顾
+                              </button>
+                              <button
+                                onClick={() => setExpandedReviewId(null)}
+                                className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] text-stone-500 hover:text-stone-800 bg-stone-100 hover:bg-stone-200/40 rounded-lg transition-colors font-medium border border-stone-200/30"
+                              >
+                                <ChevronUp className="w-3.5 h-3.5" />
+                                收起
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center py-6 px-3 text-center border border-dashed border-stone-200 rounded-lg bg-stone-50/50">
+                            <span className="text-[12px] text-stone-500 mb-3 font-medium">该回顾内容为空</span>
+                            {errorMsg && (
+                              <span className="text-[11px] text-rose-500 mb-2.5 block px-2 leading-relaxed bg-rose-50 border border-rose-100 rounded-md py-1">{errorMsg}</span>
+                            )}
+                            <button
+                              onClick={(e) => openPromptMenu(e.currentTarget.getBoundingClientRect(), { reviewId: review.id })}
+                              className="px-4 py-1.5 text-[12px] bg-stone-800 text-white hover:bg-stone-900 active:scale-95 transition-all rounded-lg font-medium shadow-sm flex items-center gap-1"
+                            >
+                              立即生成回顾
+                            </button>
                           </div>
-                        );
-                      })}
-                      
-                      <button
-                        onClick={(e) => handleAppendReviewClick(group.date, e.currentTarget.getBoundingClientRect())}
-                        disabled={!(allLogs?.some(log => format(new Date(log.created_at), 'yyyy-MM-dd') === group.date))}
-                        className="w-full py-3 mt-2 border border-dashed border-stone-350 rounded-2xl bg-white/30 hover:bg-white/60 hover:border-stone-400 text-stone-500 hover:text-stone-700 transition-all flex items-center justify-center gap-1.5 text-[12px] font-medium active:scale-[0.99] disabled:opacity-40"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 stroke-[1.5px]" />
-                        + AI 智能回顾 (追加新回顾)
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Append new review button */}
+              <button
+                onClick={(e) => openPromptMenu(e.currentTarget.getBoundingClientRect(), { dateStr })}
+                disabled={logsCountForDate === 0}
+                className="w-full py-3 mt-2 border border-dashed border-stone-350 rounded-2xl bg-white/30 hover:bg-white/60 hover:border-stone-400 text-stone-500 hover:text-stone-700 transition-all flex items-center justify-center gap-1.5 text-[12px] font-medium active:scale-[0.99] disabled:opacity-40"
+              >
+                <Sparkles className="w-3.5 h-3.5 stroke-[1.5px]" />
+                + AI 智能回顾 (追加新回顾)
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -481,16 +429,20 @@ export default function Review() {
         />
       )}
 
-      {showPromptMenu && popoverAnchor && (
+      {/* Prompt selection Popover — smart positioning above/below */}
+      {showPromptMenu && popoverRect && (
         <div 
           className="fixed inset-0 z-[110] bg-black/10 backdrop-blur-[1px]"
-          onClick={() => { setShowPromptMenu(false); setPopoverAnchor(null); }}
+          onClick={closePromptMenu}
         >
           <div 
             className="absolute bg-[#2a2a2a]/95 backdrop-blur-xl border border-white/10 rounded-2xl p-2 flex flex-col gap-1 shadow-[0_10px_30px_rgba(0,0,0,0.3)] z-[120] animate-in zoom-in-95 duration-100"
             style={{
-              top: popoverAnchor.top + popoverAnchor.height + 6 + (popoverAnchor.top + popoverAnchor.height + 180 > window.innerHeight ? -popoverAnchor.height - 186 : 0),
-              left: Math.max(16, Math.min(popoverAnchor.left + (popoverAnchor.width - 200) / 2, window.innerWidth - 216)),
+              top: calcPopoverTop(popoverRect),
+              left: Math.max(16, Math.min(
+                popoverRect.left + (popoverRect.width - 200) / 2,
+                window.innerWidth - 216
+              )),
               width: '200px',
             }}
             onClick={(e) => e.stopPropagation()}
@@ -498,7 +450,7 @@ export default function Review() {
             <div className="text-[11px] font-semibold text-white/40 tracking-wider px-2.5 py-1.5 border-b border-white/5 flex justify-between items-center select-none">
               <span>选择 AI 整理模板</span>
               <button 
-                onClick={() => { setShowPromptMenu(false); setPopoverAnchor(null); }}
+                onClick={closePromptMenu}
                 className="hover:bg-white/10 p-0.5 rounded text-white/40 hover:text-white transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
@@ -509,11 +461,7 @@ export default function Review() {
               {['默认 (系统)', '自定义一', '自定义二', '自定义三'].map((name, idx) => (
                 <button
                   key={name}
-                  onClick={() => {
-                    setShowPromptMenu(false);
-                    setPopoverAnchor(null);
-                    handleGenerateReviewWithPrompt(idx);
-                  }}
+                  onClick={() => handleGenerateReviewWithPrompt(idx)}
                   className="w-full py-2 px-2.5 hover:bg-white/5 rounded-xl text-[12.5px] font-medium text-white/90 text-left active:scale-[0.98] transition-all"
                 >
                   {name}
@@ -524,12 +472,13 @@ export default function Review() {
         </div>
       )}
 
-      {contextMenuState.isOpen && activeDiary && (
+      {/* Long-press context menu */}
+      {contextMenuState.isOpen && activeReview && (
         <div
           className="fixed inset-0 z-[100]"
           onClick={() => setContextMenuState({ ...contextMenuState, isOpen: false })}
-          onTouchMove={(e) => { setContextMenuState({ ...contextMenuState, isOpen: false }) }}
-          onWheel={(e) => { setContextMenuState({ ...contextMenuState, isOpen: false }) }}
+          onTouchMove={() => setContextMenuState({ ...contextMenuState, isOpen: false })}
+          onWheel={() => setContextMenuState({ ...contextMenuState, isOpen: false })}
         >
           <div
             className="absolute bg-[#2a2a2a]/95 backdrop-blur-xl rounded-xl shadow-2xl flex items-center p-1 animate-in zoom-in-95 duration-100 divide-x divide-white/10"
@@ -541,24 +490,15 @@ export default function Review() {
           >
             <button
               onClick={async () => {
-                 if (activeDiary && confirm('确认清除这篇记录的 AI 回顾正文吗？(日记正文将保留)')) {
-                   if (!activeDiary.ai_editorial) {
-                     await db.daily_diaries.delete(activeDiary.id);
-                   } else {
-                     await db.daily_diaries.update(activeDiary.id, {
-                       ai_review: "",
-                       review_prompt_index: undefined,
-                       review_prompt_name: undefined,
-                       updated_at: Date.now()
-                     });
-                   }
-                 }
-                 setContextMenuState({ ...contextMenuState, isOpen: false });
+                if (activeReview && confirm('确认删除这篇回顾吗？(日记内容不受影响)')) {
+                  await db.daily_reviews.delete(activeReview.id);
+                }
+                setContextMenuState({ ...contextMenuState, isOpen: false });
               }}
-              className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-rose-400 hover:text-rose-300 transition-colors hover:bg-white/10 rounded-lg disabled:opacity-50"
+              className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-rose-400 hover:text-rose-300 transition-colors hover:bg-white/10 rounded-lg"
             >
               <Trash2 className="w-3.5 h-3.5 mb-1.5" />
-              <span className="text-[10px] font-medium tracking-wide">清除回顾</span>
+              <span className="text-[10px] font-medium tracking-wide">删除回顾</span>
             </button>
           </div>
         </div>

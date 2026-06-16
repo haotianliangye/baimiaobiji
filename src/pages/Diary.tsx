@@ -30,7 +30,8 @@ export default function Diary() {
   const [editText, setEditText] = useState('');
   const [showPromptMenu, setShowPromptMenu] = useState(false);
   const [diaryIdToOverwrite, setDiaryIdToOverwrite] = useState<string | undefined>(undefined);
-  const [popoverAnchor, setPopoverAnchor] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
+  // Store the raw viewport-relative DOMRect of the triggering button
+  const [popoverRect, setPopoverRect] = useState<DOMRect | null>(null);
   
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
@@ -136,12 +137,7 @@ export default function Diary() {
   }, [dateStr, diaries]);
   
   const openPromptMenu = (rect: DOMRect, diaryId?: string) => {
-    setPopoverAnchor({
-      top: rect.top + window.scrollY,
-      left: rect.left + window.scrollX,
-      width: rect.width,
-      height: rect.height
-    });
+    setPopoverRect(rect);
     setDiaryIdToOverwrite(diaryId);
     setShowPromptMenu(true);
   };
@@ -449,16 +445,30 @@ export default function Diary() {
         />
       )}
 
-      {showPromptMenu && popoverAnchor && (
+      {showPromptMenu && popoverRect && (
         <div 
           className="fixed inset-0 z-[110] bg-black/10 backdrop-blur-[1px]"
-          onClick={() => { setShowPromptMenu(false); setPopoverAnchor(null); }}
+          onClick={() => { setShowPromptMenu(false); setPopoverRect(null); }}
         >
           <div 
             className="absolute bg-[#2a2a2a]/95 backdrop-blur-xl border border-white/10 rounded-2xl p-2 flex flex-col gap-1 shadow-[0_10px_30px_rgba(0,0,0,0.3)] z-[120] animate-in zoom-in-95 duration-100"
             style={{
-              top: popoverAnchor.top + popoverAnchor.height + 6 + (popoverAnchor.top + popoverAnchor.height + 180 > window.innerHeight ? -popoverAnchor.height - 186 : 0),
-              left: Math.max(16, Math.min(popoverAnchor.left + (popoverAnchor.width - 200) / 2, window.innerWidth - 216)),
+              top: (() => {
+                const POPOVER_HEIGHT = 192;
+                const GAP = 8;
+                const spaceAbove = popoverRect.top;
+                const spaceBelow = window.innerHeight - popoverRect.bottom;
+                if (spaceAbove >= POPOVER_HEIGHT + GAP) {
+                  return Math.max(8, popoverRect.top - POPOVER_HEIGHT - GAP);
+                } else if (spaceBelow >= POPOVER_HEIGHT + GAP) {
+                  return Math.min(popoverRect.bottom + GAP, window.innerHeight - POPOVER_HEIGHT - 8);
+                } else {
+                  return spaceAbove > spaceBelow
+                    ? Math.max(8, popoverRect.top - POPOVER_HEIGHT - GAP)
+                    : Math.min(popoverRect.bottom + GAP, window.innerHeight - POPOVER_HEIGHT - 8);
+                }
+              })(),
+              left: Math.max(16, Math.min(popoverRect.left + (popoverRect.width - 200) / 2, window.innerWidth - 216)),
               width: '200px',
             }}
             onClick={(e) => e.stopPropagation()}
@@ -466,7 +476,7 @@ export default function Diary() {
             <div className="text-[11px] font-semibold text-white/40 tracking-wider px-2.5 py-1.5 border-b border-white/5 flex justify-between items-center select-none">
               <span>选择 AI 整理模板</span>
               <button 
-                onClick={() => { setShowPromptMenu(false); setPopoverAnchor(null); }}
+                onClick={() => { setShowPromptMenu(false); setPopoverRect(null); }}
                 className="hover:bg-white/10 p-0.5 rounded text-white/40 hover:text-white transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
