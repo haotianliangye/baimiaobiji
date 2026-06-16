@@ -11,7 +11,7 @@ import {
   subMonths,
   parseISO
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeft, ChevronDown } from 'lucide-react';
 
 interface MiniCalendarProps {
   value: string; // "YYYY-MM-DD"
@@ -25,6 +25,7 @@ const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日'];
 export default function MiniCalendar({ value, onChange, onBack, title }: MiniCalendarProps) {
   const initialDate = value ? parseISO(value) : new Date();
   const [currentMonth, setCurrentMonth] = useState<Date>(initialDate);
+  const [showYearDropdown, setShowYearDropdown] = useState(false);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -42,6 +43,9 @@ export default function MiniCalendar({ value, onChange, onBack, title }: MiniCal
   }
 
   const selectedDate = value ? parseISO(value) : null;
+  const currentYear = currentMonth.getFullYear();
+  // 动态生成前后 10 年的年份选项
+  const years = Array.from({ length: 21 }, (_, i) => currentYear - 10 + i);
 
   return (
     <div className="flex flex-col gap-2.5 w-full select-none text-white animate-in fade-in zoom-in-95 duration-150">
@@ -58,22 +62,54 @@ export default function MiniCalendar({ value, onChange, onBack, title }: MiniCal
       </div>
 
       {/* 月份切换器 */}
-      <div className="flex items-center justify-between bg-white/5 rounded-xl px-2 py-1">
+      <div className="relative flex items-center justify-between bg-white/5 rounded-xl px-2 py-1">
         <button 
-          onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+          onClick={() => {
+            setCurrentMonth(subMonths(currentMonth, 1));
+            setShowYearDropdown(false);
+          }}
           className="p-1 hover:bg-white/10 rounded-lg text-stone-400 hover:text-white transition-colors active:scale-90"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
-        <span className="text-[12.5px] font-semibold font-mono tracking-tight text-white/90">
-          {format(currentMonth, 'yyyy年 M月')}
-        </span>
         <button 
-          onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+          onClick={() => setShowYearDropdown(!showYearDropdown)}
+          className="px-2 py-0.5 hover:bg-white/10 rounded-lg text-[12.5px] font-semibold font-mono tracking-tight text-white/90 transition-colors flex items-center gap-1 active:scale-95"
+        >
+          {format(currentMonth, 'yyyy年 M月')}
+          <ChevronDown className="w-3.5 h-3.5 text-white/40" />
+        </button>
+        <button 
+          onClick={() => {
+            setCurrentMonth(addMonths(currentMonth, 1));
+            setShowYearDropdown(false);
+          }}
           className="p-1 hover:bg-white/10 rounded-lg text-stone-400 hover:text-white transition-colors active:scale-90"
         >
           <ChevronRight className="w-4 h-4" />
         </button>
+
+        {/* 年份下拉菜单 */}
+        {showYearDropdown && (
+          <div className="absolute top-[34px] left-1/2 -translate-x-1/2 w-28 bg-[#1e1e1e] border border-white/10 rounded-xl shadow-xl py-1 z-50 flex flex-col max-h-[160px] overflow-y-auto thin-scrollbar">
+            {years.map((y) => (
+              <button
+                key={y}
+                onClick={() => {
+                  const newDate = new Date(currentMonth);
+                  newDate.setFullYear(y);
+                  setCurrentMonth(newDate);
+                  setShowYearDropdown(false);
+                }}
+                className={`px-3 py-1.5 text-[11.5px] font-mono font-medium text-left hover:bg-white/10 transition-colors ${
+                  currentYear === y ? 'text-white bg-white/10 font-bold' : 'text-white/60'
+                }`}
+              >
+                {y}年
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 星期表头 */}
