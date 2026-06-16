@@ -175,6 +175,7 @@ ${diaryContent || ""}
 `;
 
       let reviewMarkdown = "";
+      let summaryMarkdown = "";
 
       if (provider === 'gemini') {
          const activeKey = apiKey;
@@ -198,7 +199,15 @@ ${diaryContent || ""}
            model: finalModel,
            contents: promptReviewContext,
          });
-         reviewMarkdown = response.text || "";
+          reviewMarkdown = response.text || "";
+          if (reviewMarkdown) {
+             const summaryPromptStr = settings?.summaryPrompt || `You are an assistant that creates a concise, one-sentence summary. Based on the provided text, generate a short, beautiful, and poetic summary in Chinese (no more than 30 characters).`;
+             const summaryRes = await ai.models.generateContent({
+               model: model || 'gemini-3.1-flash-lite',
+               contents: `${summaryPromptStr}\n\nReview Text:\n${reviewMarkdown}`
+             });
+             summaryMarkdown = summaryRes.text || "";
+          }
 
       } else {
          let defBase = 'http://127.0.0.1:11434/v1';
@@ -242,10 +251,31 @@ ${diaryContent || ""}
          }
          
          const data = await response.json();
-         reviewMarkdown = data.choices?.[0]?.message?.content || "";
+          reviewMarkdown = data.choices?.[0]?.message?.content || "";
+          if (reviewMarkdown) {
+             const summaryPromptStr = settings?.summaryPrompt || `You are an assistant that creates a concise, one-sentence summary. Based on the provided text, generate a short, beautiful, and poetic summary in Chinese (no more than 30 characters).`;
+             const summaryRes = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                   'Content-Type': 'application/json',
+                   'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                   model: actualModel,
+                   messages: [
+                     { role: "system", content: summaryPromptStr },
+                     { role: "user", content: `Review Text:\n${reviewMarkdown}` }
+                   ]
+                })
+             });
+             if (summaryRes.ok) {
+                const sData = await summaryRes.json();
+                summaryMarkdown = sData.choices?.[0]?.message?.content || "";
+             }
+          }
       }
 
-      res.json({ ai_review: reviewMarkdown });
+      res.json({ ai_review: reviewMarkdown, ai_summary: summaryMarkdown });
     } catch (err: any) {
       console.error(err);
       res.status(500).json({ error: err.message });

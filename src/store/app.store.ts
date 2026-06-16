@@ -250,7 +250,7 @@ export const useAppStore = create<AppState>((set, get) => ({
            id: id,
            diary_date: dateStr,
            raw_log_ids: logs.map(l => l.id),
-           timeline_json: JSON.stringify([{ summary: "暂无内容概要" }]),
+           timeline_json: JSON.stringify([{ summary: data.ai_summary || "暂无内容概要" }]),
            ai_editorial: "",
            ai_review: data.ai_review,
            review_prompt_index: activePromptIndex,

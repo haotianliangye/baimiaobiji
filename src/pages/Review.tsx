@@ -9,6 +9,10 @@ import ActionSheet from '../components/ActionSheet';
 import { Copy, Trash2, ChevronDown, ChevronUp, RefreshCw, X } from 'lucide-react';
 import { useAppStore } from '../store/app.store';
 
+const generateUUID = () => {
+  return self.crypto?.randomUUID?.() || Math.random().toString(36).substring(2);
+};
+
 export default function Review() {
   const navigate = useNavigate();
   const { isProcessingReviewMap, generateReview, diaryErrorMap } = useAppStore();
@@ -36,6 +40,8 @@ export default function Review() {
   const [showPromptMenu, setShowPromptMenu] = useState(false);
   const [selectedDiaryForReview, setSelectedDiaryForReview] = useState<any>(null);
   const [popoverAnchor, setPopoverAnchor] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
+  const [appendModeDate, setAppendModeDate] = useState<string | null>(null);
+  const [pendingReviews, setPendingReviews] = useState<{ id: string; dateStr: string; reviewPromptIndex: number }[]>([]);
 
   const handleGenerateReviewClick = (diary: any, rect?: DOMRect) => {
     const logsForDiary = allLogs?.filter(log => format(new Date(log.created_at), 'yyyy-MM-dd') === diary.diary_date) || [];
@@ -51,15 +57,56 @@ export default function Review() {
         height: rect.height
       });
     }
+    setAppendModeDate(null);
     setSelectedDiaryForReview(diary);
     setShowPromptMenu(true);
   };
 
+  const handleNewReviewClick = (rect: DOMRect) => {
+    setPopoverAnchor({
+      top: rect.top + window.scrollY,
+      left: rect.left + window.scrollX,
+      width: rect.width,
+      height: rect.height
+    });
+    setSelectedDiaryForReview(null);
+    setAppendModeDate(dateStr);
+    setShowPromptMenu(true);
+  };
+
+  const handleAppendReviewClick = (date: string, rect: DOMRect) => {
+    setPopoverAnchor({
+      top: rect.top + window.scrollY,
+      left: rect.left + window.scrollX,
+      width: rect.width,
+      height: rect.height
+    });
+    setSelectedDiaryForReview(null);
+    setAppendModeDate(date);
+    setShowPromptMenu(true);
+  };
+
   const handleGenerateReviewWithPrompt = async (promptIndex: number) => {
-    if (!selectedDiaryForReview) return;
-    const diary = selectedDiaryForReview;
-    const logsForDiary = allLogs?.filter(log => format(new Date(log.created_at), 'yyyy-MM-dd') === diary.diary_date) || [];
-    await generateReview(diary.id, diary.diary_date, logsForDiary, diary.ai_editorial || "", promptIndex);
+    const targetDateStr = selectedDiaryForReview ? selectedDiaryForReview.diary_date : appendModeDate;
+    if (!targetDateStr) return;
+
+    const logsForDiary = allLogs?.filter(log => format(new Date(log.created_at), 'yyyy-MM-dd') === targetDateStr) || [];
+    if (logsForDiary.length === 0) {
+      alert('该天没有任何记录碎屑，无法生成回顾。');
+      return;
+    }
+
+    if (selectedDiaryForReview) {
+      await generateReview(selectedDiaryForReview.id, selectedDiaryForReview.diary_date, logsForDiary, selectedDiaryForReview.ai_editorial || "", promptIndex);
+    } else {
+      const tempId = generateUUID();
+      setPendingReviews(prev => [...prev, { id: tempId, dateStr: targetDateStr, reviewPromptIndex: promptIndex }]);
+      try {
+        await generateReview(tempId, targetDateStr, logsForDiary, "", promptIndex);
+      } finally {
+        setPendingReviews(prev => prev.filter(p => p.id !== tempId));
+      }
+    }
   };
 
   let targetDate = today;
@@ -114,11 +161,28 @@ export default function Review() {
   // Group diaries by date, sorting dates desc, and diaries within dates desc
   const diariesGroupedByDate = useMemo(() => {
     if (!allDiaries) return [];
-    // Only keep the diaries matching the selected dateStr
     const filteredDiaries = allDiaries.filter((diary) => diary.diary_date === dateStr);
 
+    const allItems = [...filteredDiaries];
+    pendingReviews.forEach(pending => {
+      if (pending.dateStr === dateStr) {
+        allItems.push({
+          id: pending.id,
+          diary_date: pending.dateStr,
+          raw_log_ids: [],
+          timeline_json: JSON.stringify([{ summary: "正在生成反思回顾..." }]),
+          ai_editorial: "",
+          ai_review: "",
+          updated_at: Date.now(),
+          review_prompt_index: pending.reviewPromptIndex,
+          review_prompt_name: ['默认', '自定义一', '自定义二', '自定义三'][pending.reviewPromptIndex],
+          isPending: true
+        });
+      }
+    });
+
     const groups: Record<string, any[]> = {};
-    filteredDiaries.forEach((diary) => {
+    allItems.forEach((diary) => {
       const date = diary.diary_date;
       if (!groups[date]) {
         groups[date] = [];
@@ -134,7 +198,7 @@ export default function Review() {
           diaries: sorted,
         };
       });
-  }, [allDiaries, dateStr]);
+  }, [allDiaries, dateStr, pendingReviews]);
 
   const lastAutoExpandedDateRef = useRef<string | null>(null);
   const prevDiariesCountRef = useRef(0);
@@ -205,7 +269,26 @@ export default function Review() {
         {/* List of Previous Diaries grouped by Date */}
         <div className="w-full max-w-sm mb-20 flex flex-col gap-3">
           {diariesGroupedByDate.length === 0 ? (
-            <div className="text-stone-400 text-[13px] py-4 text-center">暂无已生成的日记记录。</div>
+            <div className="flex flex-col items-center justify-center py-12 w-full select-none">
+              <p className="text-[13px] text-stone-400 mb-6 tracking-wide">今天暂无任何回顾内容</p>
+              <div className="flex flex-col items-center justify-center p-8 bg-white/60 rounded-2xl border border-black/[0.03] text-center w-full max-w-[280px]">
+                <div className="text-stone-400 mb-4 bg-white p-3 rounded-xl shadow-sm border border-stone-100">
+                  <Sparkles className="w-6 h-6 stroke-[1.5px]" />
+                </div>
+                <p className="text-[15px] text-stone-900 font-medium tracking-tight mb-2">
+                  今天你积累了 {allLogs?.filter(log => format(new Date(log.created_at), 'yyyy-MM-dd') === dateStr).length || 0} 条碎屑
+                </p>
+                <p className="text-[13px] text-stone-500 mb-6 leading-relaxed">让 AI 为你总结今天</p>
+                <button
+                  disabled={!(allLogs?.some(log => format(new Date(log.created_at), 'yyyy-MM-dd') === dateStr))}
+                  onClick={(e) => handleNewReviewClick(e.currentTarget.getBoundingClientRect())}
+                  className="w-full bg-[#2a2a2a] text-white px-5 py-2.5 rounded-full text-[13px] font-medium tracking-wide flex items-center justify-center gap-2 hover:bg-[#222222] disabled:opacity-30 disabled:hover:bg-[#2a2a2a] transition-all active:scale-[0.98]"
+                >
+                  <Sparkles className="w-4 h-4 stroke-[1.5px]" />
+                  AI 智能回顾
+                </button>
+              </div>
+            </div>
           ) : (
             diariesGroupedByDate.map(group => {
               const primaryDiary = group.diaries[0];
@@ -250,8 +333,8 @@ export default function Review() {
                   {isDateExpanded && (
                     <div className="px-4 pb-4 pt-1 border-t border-black/5 bg-stone-50/40 space-y-3">
                       {group.diaries.map((diary) => {
-                        const isReviewExpanded = expandedReviewId === diary.id;
-                        const isGenerating = isProcessingReviewMap[diary.id];
+                        const isReviewExpanded = expandedReviewId === diary.id || diary.isPending;
+                        const isGenerating = isProcessingReviewMap[diary.id] || diary.isPending;
                         const errorMsg = diaryErrorMap[diary.diary_date];
                         
                         return (
@@ -372,6 +455,15 @@ export default function Review() {
                           </div>
                         );
                       })}
+                      
+                      <button
+                        onClick={(e) => handleAppendReviewClick(group.date, e.currentTarget.getBoundingClientRect())}
+                        disabled={!(allLogs?.some(log => format(new Date(log.created_at), 'yyyy-MM-dd') === group.date))}
+                        className="w-full py-3 mt-2 border border-dashed border-stone-350 rounded-2xl bg-white/30 hover:bg-white/60 hover:border-stone-400 text-stone-500 hover:text-stone-700 transition-all flex items-center justify-center gap-1.5 text-[12px] font-medium active:scale-[0.99] disabled:opacity-40"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 stroke-[1.5px]" />
+                        + AI 智能回顾 (追加新回顾)
+                      </button>
                     </div>
                   )}
                 </div>
@@ -449,15 +541,24 @@ export default function Review() {
           >
             <button
               onClick={async () => {
-                 if (activeDiary && confirm('确认删除这篇日记的回顾和整篇记录吗？')) {
-                   await db.daily_diaries.delete(activeDiary.id);
+                 if (activeDiary && confirm('确认清除这篇记录的 AI 回顾正文吗？(日记正文将保留)')) {
+                   if (!activeDiary.ai_editorial) {
+                     await db.daily_diaries.delete(activeDiary.id);
+                   } else {
+                     await db.daily_diaries.update(activeDiary.id, {
+                       ai_review: "",
+                       review_prompt_index: undefined,
+                       review_prompt_name: undefined,
+                       updated_at: Date.now()
+                     });
+                   }
                  }
                  setContextMenuState({ ...contextMenuState, isOpen: false });
               }}
               className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-rose-400 hover:text-rose-300 transition-colors hover:bg-white/10 rounded-lg disabled:opacity-50"
             >
               <Trash2 className="w-3.5 h-3.5 mb-1.5" />
-              <span className="text-[10px] font-medium tracking-wide">删除记录</span>
+              <span className="text-[10px] font-medium tracking-wide">清除回顾</span>
             </button>
           </div>
         </div>
