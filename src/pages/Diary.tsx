@@ -489,7 +489,7 @@ export default function Diary() {
                   key={name}
                   onClick={() => {
                     setShowPromptMenu(false);
-                    setPopoverAnchor(null);
+                    setPopoverRect(null);
                     handleGenerateWithPrompt(idx);
                   }}
                   className="w-full py-2 px-2.5 hover:bg-white/5 rounded-xl text-[12.5px] font-medium text-white/90 text-left active:scale-[0.98] transition-all"
