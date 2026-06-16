@@ -28,6 +28,8 @@ export default function Diary() {
   const [editingDiaryId, setEditingDiaryId] = useState<string | null>(null);
   const [activeDiary, setActiveDiary] = useState<any>(null);
   const [editText, setEditText] = useState('');
+  const [showPromptMenu, setShowPromptMenu] = useState(false);
+  const [diaryIdToOverwrite, setDiaryIdToOverwrite] = useState<string | undefined>(undefined);
   
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
@@ -132,12 +134,23 @@ export default function Diary() {
     prevDiariesLengthRef.current = diaries.length;
   }, [dateStr, diaries]);
   
-  const handleGenerate = async () => {
+  const handleGenerateClick = () => {
      if (!logs || logs.length === 0) {
         alert('今天还没有记录任何碎屑，无法生成日记。');
         return;
      }
-     await generateDiaryTimeline(dateStr, logs);
+     setDiaryIdToOverwrite(undefined);
+     setShowPromptMenu(true);
+  };
+
+  const handleRegenerateClick = (diaryId: string) => {
+     if (!logs || logs.length === 0) return;
+     setDiaryIdToOverwrite(diaryId);
+     setShowPromptMenu(true);
+  };
+
+  const handleGenerateWithPrompt = async (promptIndex: number) => {
+     await generateDiaryTimeline(dateStr, logs, diaryIdToOverwrite, promptIndex);
   };
 
   const handleSaveEdit = async (id: string) => {
@@ -207,7 +220,7 @@ export default function Diary() {
              <p className="text-[13px] text-stone-500 mb-6 leading-relaxed">让 AI 为你总结今天</p>
              <button
                disabled={!hasLogs}
-               onClick={handleGenerate}
+               onClick={handleGenerateClick}
                className="w-full bg-[#2a2a2a] text-white px-5 py-2.5 rounded-full text-[13px] font-medium tracking-wide flex items-center justify-center gap-2 hover:bg-[#222222] disabled:opacity-30 disabled:hover:bg-[#2a2a2a] transition-all active:scale-[0.98]"
              >
                AI 智能整理
@@ -365,7 +378,7 @@ export default function Diary() {
                                编辑
                              </button>
                              <button 
-                               onClick={() => generateDiaryTimeline(dateStr, logs, diary.id)}
+                               onClick={() => handleRegenerateClick(diary.id)}
                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
                              >
                                <RefreshCw className="w-3 h-3" />
@@ -401,7 +414,7 @@ export default function Diary() {
              {/* Append dashed button at the bottom of the list */}
              {!isProcessingDiary && (
                <button
-                 onClick={handleGenerate}
+                 onClick={handleGenerateClick}
                  disabled={!hasLogs}
                  className="w-full py-4 border border-dashed border-stone-300 rounded-2xl bg-white/30 hover:bg-white/60 hover:border-stone-400 text-stone-500 hover:text-stone-700 transition-all flex items-center justify-center gap-1.5 text-[13px] font-medium active:scale-[0.99] disabled:opacity-40 disabled:hover:bg-white/30 disabled:hover:border-stone-300"
                >
@@ -419,6 +432,43 @@ export default function Diary() {
           onSelectDate={(date) => setSearchParams({ date })} 
           onClose={() => setShowHeatmap(false)} 
         />
+      )}
+
+      {showPromptMenu && (
+        <div 
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[110] flex items-end justify-center animate-in fade-in duration-200"
+          onClick={() => setShowPromptMenu(false)}
+        >
+          <div 
+            className="w-full max-w-md bg-[#2a2a2a]/95 backdrop-blur-xl border border-white/10 rounded-t-3xl p-5 pb-8 flex flex-col gap-3.5 animate-in slide-in-from-bottom duration-250 z-[120]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+              <span className="text-[13.5px] font-semibold text-white/50 tracking-wider">选择 AI 整理模板 (日记)</span>
+              <button 
+                onClick={() => setShowPromptMenu(false)}
+                className="p-1 hover:bg-white/10 rounded-lg text-white/40 hover:text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="flex flex-col gap-2">
+              {['默认 (系统)', '自定义一', '自定义二', '自定义三'].map((name, idx) => (
+                <button
+                  key={name}
+                  onClick={() => {
+                    setShowPromptMenu(false);
+                    handleGenerateWithPrompt(idx);
+                  }}
+                  className="w-full py-3 hover:bg-white/5 border border-white/5 rounded-2xl text-[12.5px] font-medium text-white/90 text-center active:scale-[0.99] transition-all"
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       {contextMenuState.isOpen && activeDiary && (
@@ -464,7 +514,7 @@ export default function Diary() {
             <button
               onClick={() => {
                 if (activeDiary) {
-                  generateDiaryTimeline(dateStr, logs, activeDiary.id);
+                  handleRegenerateClick(activeDiary.id);
                 }
                 setContextMenuState({ ...contextMenuState, isOpen: false });
               }}
@@ -491,4 +541,3 @@ export default function Diary() {
     </div>
   );
 }
-
