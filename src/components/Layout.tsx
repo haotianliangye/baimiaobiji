@@ -6,6 +6,20 @@ export default function Layout() {
   const navigate = useNavigate();
   const [showAboutModal, setShowAboutModal] = useState(false);
 
+  const handleForceUpdate = async () => {
+    try {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (let registration of registrations) {
+          await registration.update(); // 强制 Service Worker 去服务器检查并拉取最新资源
+        }
+      }
+      window.location.reload();
+    } catch (err) {
+      window.location.reload();
+    }
+  };
+
   return (
     <div className="flex flex-col h-[100dvh] bg-stone-100 font-sans text-stone-900 overflow-hidden items-center justify-center">
       <div className="w-full max-w-md h-full bg-[#f4f4f0] shadow-sm ring-1 ring-black/5 flex flex-col relative overflow-hidden">
@@ -63,17 +77,23 @@ export default function Layout() {
             </div>
 
             <div className="flex flex-col gap-2 w-full">
+              <button 
+                onClick={handleForceUpdate}
+                className="w-full py-2.5 bg-black text-white hover:bg-stone-900 transition-colors rounded-xl text-[13px] font-medium tracking-wide shadow-sm flex items-center justify-center gap-1.5"
+              >
+                检查更新并重载
+              </button>
               <a 
                 href="https://github.com/haotianliangye/baimiaobiji/issues"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full py-2.5 bg-black text-white hover:bg-stone-900 transition-colors rounded-xl text-[13px] font-medium tracking-wide shadow-sm flex items-center justify-center gap-1.5"
+                className="w-full py-2 bg-stone-200/30 hover:bg-stone-200/60 text-stone-600 transition-colors rounded-xl text-[13px] font-medium flex items-center justify-center"
               >
                 提交反馈 (Issue)
               </a>
               <button 
                 onClick={() => setShowAboutModal(false)}
-                className="w-full py-2 bg-stone-200/50 hover:bg-stone-200 text-stone-600 transition-colors rounded-xl text-[13px] font-medium"
+                className="w-full py-2 text-stone-400 hover:text-stone-600 transition-colors text-[13px] font-medium"
               >
                 关闭
               </button>
