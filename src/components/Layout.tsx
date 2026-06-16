@@ -1,21 +1,27 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Book, Clock, Edit3, PieChart, Settings as SettingsIcon } from 'lucide-react';
+import { Book, Clock, Edit3, Loader2, PieChart, Settings as SettingsIcon } from 'lucide-react';
 
 export default function Layout() {
   const navigate = useNavigate();
   const [showAboutModal, setShowAboutModal] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const handleForceUpdate = async () => {
+    setIsUpdating(true);
+    await new Promise(resolve => setTimeout(resolve, 100)); // 留 100ms 缓冲让 loading 样式顺畅渲染
     try {
       if ('serviceWorker' in navigator) {
         const registrations = await navigator.serviceWorker.getRegistrations();
         for (let registration of registrations) {
-          await registration.update(); // 强制 Service Worker 去服务器检查并拉取最新资源
+          await registration.update(); // 强制 Service Worker 检查并拉取最新资源
         }
       }
+      // 强制 500ms 垫底延时以防动画瞬间闪过，建立良好的升级心智预期
+      await new Promise(resolve => setTimeout(resolve, 500));
       window.location.reload();
     } catch (err) {
+      await new Promise(resolve => setTimeout(resolve, 500));
       window.location.reload();
     }
   };
@@ -56,7 +62,7 @@ export default function Layout() {
       {showAboutModal && (
         <div 
           className="absolute inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200"
-          onClick={() => setShowAboutModal(false)}
+          onClick={() => !isUpdating && setShowAboutModal(false)}
         >
           <div 
             className="bg-[#f4f4f0] rounded-2xl w-full max-w-[280px] p-6 shadow-2xl border border-stone-200/30 flex flex-col items-center text-center animate-in zoom-in-95 duration-200 select-none"
@@ -79,21 +85,37 @@ export default function Layout() {
             <div className="flex flex-col gap-2 w-full">
               <button 
                 onClick={handleForceUpdate}
-                className="w-full py-2.5 bg-black text-white hover:bg-stone-900 transition-colors rounded-xl text-[13px] font-medium tracking-wide shadow-sm flex items-center justify-center gap-1.5"
+                disabled={isUpdating}
+                className={`w-full py-2.5 bg-black text-white hover:bg-stone-900 transition-colors rounded-xl text-[13px] font-medium tracking-wide shadow-sm flex items-center justify-center gap-1.5 ${
+                  isUpdating ? 'opacity-80 cursor-wait' : ''
+                }`}
               >
-                检查更新并重载
+                {isUpdating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    正在检查更新...
+                  </>
+                ) : (
+                  '检查更新并重载'
+                )}
               </button>
               <a 
                 href="https://github.com/haotianliangye/baimiaobiji/issues"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full py-2 bg-stone-200/30 hover:bg-stone-200/60 text-stone-600 transition-colors rounded-xl text-[13px] font-medium flex items-center justify-center"
+                onClick={(e) => isUpdating && e.preventDefault()}
+                className={`w-full py-2 bg-stone-200/30 hover:bg-stone-200/60 text-stone-600 transition-colors rounded-xl text-[13px] font-medium flex items-center justify-center ${
+                  isUpdating ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''
+                }`}
               >
                 提交反馈 (Issue)
               </a>
               <button 
-                onClick={() => setShowAboutModal(false)}
-                className="w-full py-2 text-stone-400 hover:text-stone-600 transition-colors text-[13px] font-medium"
+                onClick={() => !isUpdating && setShowAboutModal(false)}
+                disabled={isUpdating}
+                className={`w-full py-2 text-stone-400 hover:text-stone-600 transition-colors text-[13px] font-medium ${
+                  isUpdating ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
               >
                 关闭
               </button>
