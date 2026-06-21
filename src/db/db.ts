@@ -42,6 +42,12 @@ export interface DailyReview {
   updated_at: number;
 }
 
+export interface InsightMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
+}
+
 export interface Insight {
   id?: string;
   range_type: string;
@@ -50,6 +56,7 @@ export interface Insight {
   end_date: string;
   content: string;
   created_at: number;
+  chat_history?: InsightMessage[];
 }
 
 export class WhitewashDiaryDB extends dexie {
