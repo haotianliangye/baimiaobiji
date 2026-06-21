@@ -183,13 +183,13 @@ export default function InsightChat({ insight }: { insight: Insight }) {
                       <ReactMarkdown>{msg.content}</ReactMarkdown>
                     </div>
                     {/* Action Bar */}
-                    <div className="flex gap-4 mt-3 pt-2.5 border-t border-stone-100/80 text-[11px] text-stone-400 font-medium select-none">
+                    <div className="flex justify-between w-full mt-3 pt-2.5 border-t border-stone-100/80 text-[11px] text-stone-400 font-medium select-none">
                       <button 
-                        onClick={() => handleRegenerate(idx)} 
-                        className="flex items-center gap-1 hover:text-stone-700 transition-colors active:scale-95"
+                        onClick={() => handleDelete(idx)} 
+                        className="flex items-center gap-1 hover:text-rose-500 transition-colors active:scale-95"
                       >
-                        <RefreshCw className="w-3 h-3" />
-                        重新生成
+                        <Trash2 className="w-3 h-3" />
+                        删除
                       </button>
                       <button 
                         onClick={() => navigator.clipboard.writeText(msg.content)} 
@@ -199,11 +199,11 @@ export default function InsightChat({ insight }: { insight: Insight }) {
                         复制
                       </button>
                       <button 
-                        onClick={() => handleDelete(idx)} 
-                        className="flex items-center gap-1 hover:text-rose-500 transition-colors ml-auto active:scale-95"
+                        onClick={() => handleRegenerate(idx)} 
+                        className="flex items-center gap-1 hover:text-stone-700 transition-colors active:scale-95"
                       >
-                        <Trash2 className="w-3 h-3" />
-                        删除
+                        <RefreshCw className="w-3 h-3" />
+                        重新生成
                       </button>
                     </div>
                   </div>
