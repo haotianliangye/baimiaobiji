@@ -383,12 +383,10 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
     }
   });
 
-  app.post('/api/insight-chat', async (req, res) => {
+  async function processChatRequest(req: any, res: any, systemPrompt: string) {
     try {
-      const { insightContent, chatHistory, userMessage, settings } = req.body;
+      const { chatHistory, userMessage, settings } = req.body;
       const { provider = 'gemini', apiKey, baseUrl, model } = settings || {};
-      
-      const systemPrompt = `你是一个有洞察力的 AI 助手。以下是一份针对用户的「生命洞察」报告内容：\n\n${insightContent}\n\n请基于这份报告的内容，以及用户的历史对话，回答用户的最新问题。回答要保持客观、有洞察力且鼓励性，使用 Markdown 格式。如果用户的问题与报告无关，也可以正常回答。`;
       
       let replyMarkdown = "";
 
@@ -478,6 +476,24 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
       console.error(err);
       res.status(500).json({ error: err.message });
     }
+  }
+
+  app.post('/api/insight-chat', async (req, res) => {
+    const { insightContent } = req.body;
+    const systemPrompt = `你是一个有洞察力的 AI 助手。以下是一份针对用户的「生命洞察」报告内容：\n\n${insightContent}\n\n请基于这份报告的内容，以及用户的历史对话，回答用户的最新问题。回答要保持客观、有洞察力且鼓励性，使用 Markdown 格式。如果用户的问题与报告无关，也可以正常回答。`;
+    await processChatRequest(req, res, systemPrompt);
+  });
+
+  app.post('/api/diary-chat', async (req, res) => {
+    const { contextContent } = req.body;
+    const systemPrompt = `你是一个有同理心和洞察力的个人日记助理。以下是用户的一篇日记内容：\n\n${contextContent}\n\n请基于这篇日记的内容，以及用户的历史对话，回答用户的最新问题。回答要保持客观、有洞察力且鼓励性，使用 Markdown 格式。如果用户的问题与日记无关，也可以正常回答。`;
+    await processChatRequest(req, res, systemPrompt);
+  });
+
+  app.post('/api/review-chat', async (req, res) => {
+    const { contextContent } = req.body;
+    const systemPrompt = `你是一个有同理心和洞察力的个人反思教练。以下是用户的一篇回顾与反思总结：\n\n${contextContent}\n\n请基于这份总结的内容，以及用户的历史对话，回答用户的最新问题。回答要保持客观、有洞察力且鼓励性，使用 Markdown 格式。如果用户的问题与回顾无关，也可以正常回答。`;
+    await processChatRequest(req, res, systemPrompt);
   });
 
   app.post('/api/transcribe', express.json({limit: '50mb'}), async (req, res) => {

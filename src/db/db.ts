@@ -29,6 +29,7 @@ export interface DailyDiary {
   prompt_name?: string;
   review_prompt_index?: number;
   review_prompt_name?: string;
+  chat_history?: InsightMessage[];
 }
 
 export interface DailyReview {
@@ -40,6 +41,7 @@ export interface DailyReview {
   review_prompt_index?: number;
   review_prompt_name?: string;
   updated_at: number;
+  chat_history?: InsightMessage[];
 }
 
 export interface InsightMessage {
