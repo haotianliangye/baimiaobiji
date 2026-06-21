@@ -5,7 +5,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { db } from '../db/db';
 import CalendarHeatmap from '../components/CalendarHeatmap';
-import { Trash2, ChevronDown, ChevronUp, RefreshCw, X, Sparkles } from 'lucide-react';
+import ActionSheet from '../components/ActionSheet';
+import ContextChat from '../components/ContextChat';
+import { Trash2, ChevronDown, ChevronUp, RefreshCw, X, Sparkles, MessageCircle } from 'lucide-react';
 import { useAppStore } from '../store/app.store';
 import { useSettingsStore, getActivePromptIndices } from '../store/settings.store';
 
@@ -48,6 +50,7 @@ export default function Review() {
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
   const [expandedReviewId, setExpandedReviewId] = useState<string | null>(null);
+  const [chatReviewId, setChatReviewId] = useState<string | null>(null);
   const [contextMenuState, setContextMenuState] = useState<{
     isOpen: boolean;
     x: number;
@@ -405,7 +408,28 @@ export default function Review() {
                                 <ChevronUp className="w-3.5 h-3.5" />
                                 收起
                               </button>
+                              
+                              <button 
+                                onClick={() => setChatReviewId(chatReviewId === review.id ? null : review.id)}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-colors border border-stone-200/30 ${chatReviewId === review.id ? 'bg-stone-800 text-white' : 'text-stone-600 hover:text-stone-800 bg-stone-100 hover:bg-stone-200/60'}`}
+                              >
+                                <MessageCircle className="w-3.5 h-3.5" />
+                                AI 追问
+                              </button>
                             </div>
+                            
+                            {chatReviewId === review.id && (
+                              <div className="-mx-4 px-4">
+                                <ContextChat
+                                  chatHistory={review.chat_history || []}
+                                  contextContent={review.ai_review || ''}
+                                  apiEndpoint="/api/review-chat"
+                                  onUpdateHistory={async (newHistory) => {
+                                    await db.daily_reviews.update(review.id, { chat_history: newHistory });
+                                  }}
+                                />
+                              </div>
+                            )}
                           </>
                         ) : (
                           <div className="flex flex-col items-center justify-center py-6 px-3 text-center border border-dashed border-stone-200 rounded-lg bg-stone-50/50">

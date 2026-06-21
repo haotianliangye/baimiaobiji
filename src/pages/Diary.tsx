@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { startOfDay, endOfDay, format, parse, addDays, subDays, isSameDay } from 'date-fns';
-import { Sparkles, Loader2, RefreshCw, ChevronLeft, ChevronRight, Copy, Trash2, Edit2, Save, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Sparkles, Loader2, RefreshCw, ChevronLeft, ChevronRight, Copy, Trash2, Edit2, Save, X, ChevronDown, ChevronUp, MessageCircle } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { db } from '../db/db';
@@ -9,6 +9,7 @@ import { useAppStore } from '../store/app.store';
 import { useSettingsStore, getActivePromptIndices } from '../store/settings.store';
 import CalendarHeatmap from '../components/CalendarHeatmap';
 import ActionSheet from '../components/ActionSheet';
+import ContextChat from '../components/ContextChat';
 
 export default function Diary() {
   const { isProcessingDiary, diaryErrorMap, generateDiaryTimeline, batchProgress, generateAllDiaries } = useAppStore();
@@ -28,6 +29,7 @@ export default function Diary() {
   // States for handling multiple diaries
   const [expandedDiaryId, setExpandedDiaryId] = useState<string | null>(null);
   const [editingDiaryId, setEditingDiaryId] = useState<string | null>(null);
+  const [chatDiaryId, setChatDiaryId] = useState<string | null>(null);
   const [activeDiary, setActiveDiary] = useState<any>(null);
   const [editText, setEditText] = useState('');
   const [showPromptMenu, setShowPromptMenu] = useState(false);
@@ -433,7 +435,25 @@ export default function Diary() {
                                <ChevronUp className="w-3 h-3" />
                                收起
                              </button>
+                             <button 
+                               onClick={() => setChatDiaryId(chatDiaryId === diary.id ? null : diary.id)}
+                               className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${chatDiaryId === diary.id ? 'bg-stone-800 text-white' : 'text-stone-500 hover:text-stone-800 hover:bg-stone-100'}`}
+                             >
+                               <MessageCircle className="w-3 h-3" />
+                               AI 追问
+                             </button>
                            </div>
+                           
+                           {chatDiaryId === diary.id && (
+                             <ContextChat
+                               chatHistory={diary.chat_history || []}
+                               contextContent={diary.ai_editorial || ''}
+                               apiEndpoint="/api/diary-chat"
+                               onUpdateHistory={async (newHistory) => {
+                                 await db.daily_diaries.update(diary.id, { chat_history: newHistory });
+                               }}
+                             />
+                           )}
                          </>
                        )}
                      </div>
