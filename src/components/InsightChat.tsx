@@ -1,0 +1,153 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Send, Loader2 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import { db, Insight, InsightMessage } from '../db/db';
+import { useSettingsStore } from '../store/settings.store';
+
+export default function InsightChat({ insight }: { insight: Insight }) {
+  const [messages, setMessages] = useState<InsightMessage[]>(insight.chat_history || []);
+  const [inputValue, setInputValue] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const settings = useSettingsStore();
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, isTyping]);
+
+  const handleSend = async () => {
+    if (!inputValue.trim() || isTyping) return;
+    
+    const userMsg: InsightMessage = {
+      role: 'user',
+      content: inputValue.trim(),
+      timestamp: Date.now()
+    };
+    
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
+    setInputValue("");
+    setIsTyping(true);
+
+    try {
+      // Save locally first
+      if (insight.id) {
+        await db.insights.update(insight.id, { chat_history: newMessages });
+      }
+
+      const res = await fetch('/api/insight-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          insightContent: insight.content,
+          chatHistory: messages,
+          userMessage: userMsg.content,
+          settings
+        })
+      });
+
+      if (!res.ok) {
+        let errStr = await res.text();
+        try { const d = JSON.parse(errStr); errStr = d.error || errStr; } catch(e){}
+        throw new Error(errStr);
+      }
+
+      const data = await res.json();
+      const aiMsg: InsightMessage = {
+        role: 'assistant',
+        content: data.reply || "请求失败，未返回内容",
+        timestamp: Date.now()
+      };
+
+      const finalMessages = [...newMessages, aiMsg];
+      setMessages(finalMessages);
+      
+      if (insight.id) {
+        await db.insights.update(insight.id, { chat_history: finalMessages });
+      }
+
+    } catch (err: any) {
+      console.error(err);
+      const errorMsg: InsightMessage = {
+        role: 'assistant',
+        content: `**发生错误**：${err.message}`,
+        timestamp: Date.now()
+      };
+      const finalMessages = [...newMessages, errorMsg];
+      setMessages(finalMessages);
+      if (insight.id) {
+         await db.insights.update(insight.id, { chat_history: finalMessages });
+      }
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col mt-4 border-t border-stone-100 pt-4">
+      {/* Chat Messages */}
+      {messages.length > 0 && (
+        <div ref={scrollRef} className="flex flex-col gap-3 max-h-[300px] overflow-y-auto thin-scrollbar pb-2 pr-1 mb-3">
+          {messages.map((msg, idx) => (
+            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div 
+                className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed shadow-sm ${
+                  msg.role === 'user' 
+                    ? 'bg-stone-800 text-stone-50 rounded-tr-sm' 
+                    : 'bg-white border border-stone-100 text-stone-700 rounded-tl-sm'
+                }`}
+              >
+                {msg.role === 'assistant' ? (
+                  <div className="markdown-body prose prose-sm prose-stone prose-p:my-1 prose-ul:my-1 prose-ol:my-1 w-full max-w-none">
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <div className="whitespace-pre-wrap">{msg.content}</div>
+                )}
+              </div>
+            </div>
+          ))}
+          {isTyping && (
+            <div className="flex justify-start">
+              <div className="bg-white border border-stone-100 text-stone-500 rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-2 shadow-sm">
+                 <Loader2 className="w-4 h-4 animate-spin text-stone-400" />
+                 <span className="text-[13px] font-medium tracking-wide">思考中...</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Input Area */}
+      <div className="flex items-end gap-2 relative">
+        <textarea
+          className="flex-1 bg-stone-50 border border-stone-200/60 rounded-2xl px-4 py-3 text-[14px] text-stone-800 placeholder-stone-400 focus:outline-none focus:border-stone-300 focus:bg-white focus:ring-4 focus:ring-stone-100/50 transition-all resize-none thin-scrollbar"
+          rows={1}
+          placeholder="向 AI 追问更多细节..."
+          value={inputValue}
+          onChange={(e) => {
+             setInputValue(e.target.value);
+             e.target.style.height = 'auto';
+             e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
+          style={{ minHeight: '44px' }}
+        />
+        <button
+          onClick={handleSend}
+          disabled={!inputValue.trim() || isTyping}
+          className="w-11 h-11 shrink-0 flex items-center justify-center bg-stone-900 text-white rounded-xl shadow-sm hover:bg-stone-800 transition-colors disabled:opacity-40 disabled:hover:bg-stone-900"
+        >
+          <Send className="w-[18px] h-[18px]" />
+        </button>
+      </div>
+    </div>
+  );
+}

@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { PieChart, Loader2, Sparkles, ChevronLeft, Calendar, AlertCircle, ChevronDown, ChevronUp, Trash2, Copy, RefreshCw } from 'lucide-react';
+import { PieChart, Loader2, Sparkles, ChevronLeft, Calendar, AlertCircle, ChevronDown, ChevronUp, Trash2, Copy, RefreshCw, MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
+import InsightChat from '../components/InsightChat';
 import { db, Insight } from '../db/db';
 import { useSettingsStore } from '../store/settings.store';
 import { format, subDays } from 'date-fns';
@@ -11,6 +12,7 @@ import ActionSheet from '../components/ActionSheet';
 
 const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, onDelete: (id: string) => void, onRegenerate: (insight: Insight) => void }) => {
   const [expanded, setExpanded] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const [contextMenuState, setContextMenuState] = useState<{
     isOpen: boolean;
     x: number;
@@ -22,42 +24,103 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
   });
   const holdTimeoutRef = useRef<any>(null);
 
+  // 当卡片折叠时，同时也折叠聊天框
+  useEffect(() => {
+    if (!expanded) {
+       setShowChat(false);
+    }
+  }, [expanded]);
+
   return (
     <>
     <div 
-      className="bg-white rounded-2xl p-5 shadow-[0_2px_10px_rgb(0_0_0_/_0.03)] border border-black/5 mb-4 cursor-pointer transition-all hover:shadow-[0_4px_16px_rgb(0_0_0_/_0.05)] relative overflow-hidden select-none" 
-      onClick={() => setExpanded(!expanded)}
-      onTouchStart={(e) => {
-         const touch = e.touches[0];
-         const x = touch.clientX;
-         const y = touch.clientY;
-         holdTimeoutRef.current = setTimeout(() => {
-           if (window.navigator?.vibrate) window.navigator.vibrate(50);
-           setContextMenuState({ isOpen: true, x, y });
-         }, 500);
-      }}
-      onTouchEnd={() => clearTimeout(holdTimeoutRef.current)}
-      onTouchMove={() => clearTimeout(holdTimeoutRef.current)}
-      onContextMenu={(e) => {
-         e.preventDefault();
-         if (window.navigator?.vibrate) window.navigator.vibrate(50);
-         setContextMenuState({ isOpen: true, x: e.clientX, y: e.clientY });
-      }}
+      className="bg-white rounded-2xl p-5 shadow-[0_2px_10px_rgb(0_0_0_/_0.03)] border border-black/5 mb-4 transition-all hover:shadow-[0_4px_16px_rgb(0_0_0_/_0.05)] relative overflow-hidden" 
     >
-      <div className="flex justify-between items-center mb-3">
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-stone-400" />
-          <span className="text-[15px] font-semibold text-stone-800">{insight.range_label}</span>
+      <div 
+        className="cursor-pointer select-none"
+        onClick={() => setExpanded(!expanded)}
+        onTouchStart={(e) => {
+           const touch = e.touches[0];
+           const x = touch.clientX;
+           const y = touch.clientY;
+           holdTimeoutRef.current = setTimeout(() => {
+             if (window.navigator?.vibrate) window.navigator.vibrate(50);
+             setContextMenuState({ isOpen: true, x, y });
+           }, 500);
+        }}
+        onTouchEnd={() => clearTimeout(holdTimeoutRef.current)}
+        onTouchMove={() => clearTimeout(holdTimeoutRef.current)}
+        onContextMenu={(e) => {
+           e.preventDefault();
+           if (window.navigator?.vibrate) window.navigator.vibrate(50);
+           setContextMenuState({ isOpen: true, x: e.clientX, y: e.clientY });
+        }}
+      >
+        <div className="flex justify-between items-center mb-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-stone-400" />
+            <span className="text-[15px] font-semibold text-stone-800">{insight.range_label}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-[12px] text-stone-400 font-mono">{format(new Date(insight.created_at), 'MM-dd HH:mm')}</span>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-[12px] text-stone-400 font-mono">{format(new Date(insight.created_at), 'MM-dd HH:mm')}</span>
+        
+        <div className={`markdown-body prose prose-stone prose-h1:text-[18px] prose-h2:text-[17px] prose-h3:text-[16px] prose-headings:font-bold prose-headings:text-stone-900 prose-p:text-stone-600 prose-li:text-stone-600 text-[16px] leading-relaxed relative z-10 selection:bg-stone-200 ${expanded ? '' : 'line-clamp-4 before:absolute before:bottom-0 before:left-0 before:right-0 before:h-12 before:bg-gradient-to-t before:from-white before:to-transparent'}`}>
+           <ReactMarkdown>{insight.content}</ReactMarkdown>
         </div>
       </div>
-      
-      <div className={`markdown-body prose prose-stone prose-h1:text-[18px] prose-h2:text-[17px] prose-h3:text-[16px] prose-headings:font-bold prose-headings:text-stone-900 prose-p:text-stone-600 prose-li:text-stone-600 text-[16px] leading-relaxed relative z-10 selection:bg-stone-200 ${expanded ? '' : 'line-clamp-4 before:absolute before:bottom-0 before:left-0 before:right-0 before:h-12 before:bg-gradient-to-t before:from-white before:to-transparent'}`}>
-         <ReactMarkdown>{insight.content}</ReactMarkdown>
-      </div>
-      <div className="flex justify-center mt-2 text-stone-300">
+
+      {expanded && (
+        <div className="mt-5 flex items-center justify-between border-t border-stone-100 pt-4">
+           <div className="flex gap-2">
+             <button
+                onClick={(e) => { e.stopPropagation(); onRegenerate(insight); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-50 hover:bg-stone-100 text-stone-600 rounded-lg text-[13px] font-medium transition-colors"
+             >
+                <RefreshCw className="w-3.5 h-3.5" />
+                重新生成
+             </button>
+             <button
+                onClick={(e) => {
+                   e.stopPropagation();
+                   if (insight.content) navigator.clipboard.writeText(insight.content);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-50 hover:bg-stone-100 text-stone-600 rounded-lg text-[13px] font-medium transition-colors"
+             >
+                <Copy className="w-3.5 h-3.5" />
+                复制
+             </button>
+             <button
+                onClick={(e) => {
+                   e.stopPropagation();
+                   if (insight.id) onDelete(insight.id);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-[13px] font-medium transition-colors"
+             >
+                <Trash2 className="w-3.5 h-3.5" />
+                删除
+             </button>
+           </div>
+           
+           <button
+              onClick={(e) => { e.stopPropagation(); setShowChat(!showChat); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${showChat ? 'bg-stone-800 text-white' : 'bg-stone-100 hover:bg-stone-200 text-stone-700'}`}
+           >
+              <MessageCircle className="w-4 h-4" />
+              AI 追问
+           </button>
+        </div>
+      )}
+
+      {expanded && showChat && (
+        <InsightChat insight={insight} />
+      )}
+
+      <div 
+        className="flex justify-center mt-2 text-stone-300 cursor-pointer"
+        onClick={() => setExpanded(!expanded)}
+      >
         {expanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
       </div>
     </div>
