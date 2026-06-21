@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, RefreshCw, Copy, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { db, Insight, InsightMessage } from '../db/db';
 import { useSettingsStore } from '../store/settings.store';
@@ -85,6 +85,84 @@ export default function InsightChat({ insight }: { insight: Insight }) {
     }
   };
 
+  const handleDelete = async (index: number) => {
+    const newMessages = messages.filter((_, i) => i !== index);
+    setMessages(newMessages);
+    if (insight.id) {
+      await db.insights.update(insight.id, { chat_history: newMessages });
+    }
+  };
+
+  const handleRegenerate = async (index: number) => {
+    if (isTyping) return;
+    
+    let userMsgIndex = index - 1;
+    while (userMsgIndex >= 0 && messages[userMsgIndex].role !== 'user') {
+       userMsgIndex--;
+    }
+    
+    if (userMsgIndex < 0) return;
+
+    const historyUpToUserMsg = messages.slice(0, userMsgIndex);
+    const targetUserMsg = messages[userMsgIndex];
+
+    const newMessages = messages.slice(0, userMsgIndex + 1);
+    setMessages(newMessages);
+    setIsTyping(true);
+
+    try {
+      if (insight.id) {
+        await db.insights.update(insight.id, { chat_history: newMessages });
+      }
+
+      const res = await fetch('/api/insight-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          insightContent: insight.content,
+          chatHistory: historyUpToUserMsg,
+          userMessage: targetUserMsg.content,
+          settings
+        })
+      });
+
+      if (!res.ok) {
+        let errStr = await res.text();
+        try { const d = JSON.parse(errStr); errStr = d.error || errStr; } catch(e){}
+        throw new Error(errStr);
+      }
+
+      const data = await res.json();
+      const aiMsg: InsightMessage = {
+        role: 'assistant',
+        content: data.reply || "请求失败，未返回内容",
+        timestamp: Date.now()
+      };
+
+      const finalMessages = [...newMessages, aiMsg];
+      setMessages(finalMessages);
+      
+      if (insight.id) {
+        await db.insights.update(insight.id, { chat_history: finalMessages });
+      }
+
+    } catch (err: any) {
+      console.error(err);
+      const errorMsg: InsightMessage = {
+        role: 'assistant',
+        content: `**发生错误**：${err.message}`,
+        timestamp: Date.now()
+      };
+      const finalMessages = [...newMessages, errorMsg];
+      setMessages(finalMessages);
+      if (insight.id) {
+         await db.insights.update(insight.id, { chat_history: finalMessages });
+      }
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
   return (
     <div className="flex flex-col mt-4 border-t border-stone-100 pt-4">
       {/* Chat Messages */}
@@ -100,8 +178,34 @@ export default function InsightChat({ insight }: { insight: Insight }) {
                 }`}
               >
                 {msg.role === 'assistant' ? (
-                  <div className="markdown-body prose prose-sm prose-stone prose-p:my-1 prose-ul:my-1 prose-ol:my-1 w-full max-w-none">
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  <div className="w-full flex flex-col">
+                    <div className="markdown-body prose prose-sm prose-stone prose-p:my-1 prose-ul:my-1 prose-ol:my-1 w-full max-w-none">
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    </div>
+                    {/* Action Bar */}
+                    <div className="flex gap-4 mt-3 pt-2.5 border-t border-stone-100/80 text-[11px] text-stone-400 font-medium select-none">
+                      <button 
+                        onClick={() => handleRegenerate(idx)} 
+                        className="flex items-center gap-1 hover:text-stone-700 transition-colors active:scale-95"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        重新生成
+                      </button>
+                      <button 
+                        onClick={() => navigator.clipboard.writeText(msg.content)} 
+                        className="flex items-center gap-1 hover:text-stone-700 transition-colors active:scale-95"
+                      >
+                        <Copy className="w-3 h-3" />
+                        复制
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(idx)} 
+                        className="flex items-center gap-1 hover:text-rose-500 transition-colors ml-auto active:scale-95"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        删除
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="whitespace-pre-wrap">{msg.content}</div>
