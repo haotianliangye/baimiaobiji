@@ -7,6 +7,7 @@ import { db } from '../db/db';
 import CalendarHeatmap from '../components/CalendarHeatmap';
 import { Trash2, ChevronDown, ChevronUp, RefreshCw, X, Sparkles } from 'lucide-react';
 import { useAppStore } from '../store/app.store';
+import { useSettingsStore, getActivePromptIndices } from '../store/settings.store';
 
 const generateUUID = () => {
   return self.crypto?.randomUUID?.() || Math.random().toString(36).substring(2);
@@ -38,7 +39,8 @@ function calcPopoverTop(anchorRect: DOMRect): number {
 
 export default function Review() {
   const navigate = useNavigate();
-  const { isProcessingReviewMap, generateReview, diaryErrorMap } = useAppStore();
+  const { isProcessingReviewMap, generateReview, diaryErrorMap, batchProgress, generateAllReviews } = useAppStore();
+  const { reviewPrompts } = useSettingsStore();
   const WEEKS_TO_SHOW = 15;
   const today = new Date();
   
@@ -238,6 +240,24 @@ export default function Review() {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
+         {/* 批量生成进度浮动条 */}
+         {batchProgress && batchProgress.type === 'review' && (
+           <div className="mb-4 w-full max-w-sm mx-auto animate-in fade-in">
+             <div className="flex items-center gap-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/60 rounded-xl px-4 py-3 shadow-sm">
+               <div className="animate-spin rounded-full h-4 w-4 border-2 border-amber-500 border-t-transparent shrink-0" />
+               <div className="flex-1 min-w-0">
+                 <p className="text-[13px] font-medium text-amber-800 truncate">正在批量生成 ({batchProgress.current}/{batchProgress.total})...</p>
+                 <div className="mt-1.5 h-1.5 bg-amber-100 rounded-full overflow-hidden">
+                   <div
+                     className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                     style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
+                   />
+                 </div>
+               </div>
+             </div>
+           </div>
+         )}
+
         <div className="w-full max-w-sm mb-20 flex flex-col gap-3">
           {reviewsForDate.length === 0 && !hasPendingForDate ? (
             <div className="flex flex-col items-center justify-center py-12 w-full select-none">
@@ -458,15 +478,42 @@ export default function Review() {
             </div>
             
             <div className="flex flex-col gap-0.5 mt-1">
-              {['默认 (系统)', '自定义一', '自定义二', '自定义三'].map((name, idx) => (
-                <button
-                  key={name}
-                  onClick={() => handleGenerateReviewWithPrompt(idx)}
-                  className="w-full py-2 px-2.5 hover:bg-white/5 rounded-xl text-[12.5px] font-medium text-white/90 text-left active:scale-[0.98] transition-all"
-                >
-                  {name}
-                </button>
-              ))}
+              {/* 全部生成按钮 */}
+              {(() => {
+                const activeCount = getActivePromptIndices(reviewPrompts).length;
+                return activeCount > 1 ? (
+                  <button
+                    onClick={() => {
+                      closePromptMenu();
+                      if (allLogs && allLogs.length > 0) {
+                         const logsForDate = allLogs.filter(log => format(new Date(log.created_at), 'yyyy-MM-dd') === dateStr);
+                         if (logsForDate.length > 0) {
+                            generateAllReviews(dateStr, logsForDate);
+                         } else {
+                            alert('该天没有任何记录碎屑，无法生成回顾。');
+                         }
+                      }
+                    }}
+                    className="w-full py-2 px-2.5 hover:bg-white/5 rounded-xl text-[12.5px] font-medium text-amber-400 text-left active:scale-[0.98] transition-all border-b border-white/5 mb-0.5"
+                  >
+                    ✨ 全部生成 ({activeCount} 套)
+                  </button>
+                ) : null;
+              })()}
+
+              {['默认 (系统)', '自定义一', '自定义二', '自定义三'].map((name, idx) => {
+                const hasContent = reviewPrompts[idx]?.trim().length > 0;
+                return (
+                  <button
+                    key={name}
+                    onClick={() => handleGenerateReviewWithPrompt(idx)}
+                    className="w-full py-2 px-2.5 hover:bg-white/5 rounded-xl text-[12.5px] font-medium text-white/90 text-left active:scale-[0.98] transition-all flex items-center justify-between"
+                  >
+                    <span>{name}</span>
+                    {hasContent && <span className="text-green-400 text-[11px]">✓</span>}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
