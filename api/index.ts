@@ -379,6 +379,103 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
     }
   });
 
+  app.post('/api/insight-chat', async (req, res) => {
+    try {
+      const { insightContent, chatHistory, userMessage, settings } = req.body;
+      const { provider = 'gemini', apiKey, baseUrl, model } = settings || {};
+      
+      const systemPrompt = `你是一个有洞察力的 AI 助手。以下是一份针对用户的「生命洞察」报告内容：\n\n${insightContent}\n\n请基于这份报告的内容，以及用户的历史对话，回答用户的最新问题。回答要保持客观、有洞察力且鼓励性，使用 Markdown 格式。如果用户的问题与报告无关，也可以正常回答。`;
+      
+      let replyMarkdown = "";
+
+      if (provider === 'gemini') {
+         const activeKey = apiKey;
+         if (!activeKey) {
+            return res.status(500).json({ error: '请在设置页面中配置你的 Gemini API Key' });
+         }
+         
+         const genAiConfig: any = { apiKey: activeKey };
+         let finalBaseUrl = baseUrl;
+         if (finalBaseUrl === 'https://generativelanguage.googleapis.com/v1beta') {
+             finalBaseUrl = 'https://generativelanguage.googleapis.com';
+         }
+         if (finalBaseUrl) {
+            genAiConfig.httpOptions = { baseUrl: finalBaseUrl };
+         }
+         const ai = new GoogleGenAI(genAiConfig);
+         
+         let finalModel = model || 'gemini-3.1-flash-lite';
+         
+         const contents = (chatHistory || []).map((msg: any) => ({
+             role: msg.role === 'assistant' ? 'model' : 'user',
+             parts: [{ text: msg.content }]
+         }));
+         contents.push({ role: 'user', parts: [{ text: userMessage }] });
+
+         const response = await ai.models.generateContent({
+           model: finalModel,
+           contents: contents,
+           config: {
+               systemInstruction: systemPrompt
+           }
+         });
+         replyMarkdown = response.text || "";
+
+      } else {
+         let defBase = 'http://127.0.0.1:11434/v1';
+         let defModel = 'llama3';
+         switch(provider) {
+           case 'openai': defBase = 'https://api.openai.com/v1'; defModel = 'gpt-4o-mini'; break;
+           case 'deepseek': defBase = 'https://api.deepseek.com/v1'; defModel = 'deepseek-chat'; break;
+           case 'volcengine': defBase = 'https://ark.cn-beijing.volces.com/api/v3'; defModel = 'doubao-seed-2-0-lite-260428'; break;
+           case 'kimi': defBase = 'https://api.moonshot.cn/v1'; defModel = 'moonshot-v1-8k'; break;
+           case 'zhipu': defBase = 'https://open.bigmodel.cn/api/paas/v4'; defModel = 'glm-4-flash'; break;
+           case 'minimax': defBase = 'https://api.minimax.chat/v1'; defModel = 'abab6.5s-chat'; break;
+           case 'mimo': defBase = 'https://ai.xiaomi.com/v1'; defModel = 'mimo-chat'; break;
+         }
+         
+         const baseStr = baseUrl || defBase;
+         const apiUrl = baseStr.endsWith('/chat/completions') ? baseStr : `${baseStr.replace(/\/$/, '')}/chat/completions`;
+         const actualModel = model || defModel;
+         
+         if (!apiUrl || !actualModel) {
+            return res.status(400).json({ error: '缺少自定义 API 配置信息' });
+         }
+
+         const messages = [
+             { role: "system", content: systemPrompt },
+             ...(chatHistory || []).map((msg: any) => ({ role: msg.role, content: msg.content })),
+             { role: "user", content: userMessage }
+         ];
+
+         const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+               'Content-Type': 'application/json',
+               'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+               model: actualModel,
+               messages: messages
+            })
+         });
+
+         if (!response.ok) {
+            const errBody = await response.text();
+            throw new Error(`模型接口报错: ${response.status} ${errBody}`);
+         }
+         
+         const data = await response.json();
+         replyMarkdown = data.choices?.[0]?.message?.content || "";
+      }
+
+      res.json({ reply: replyMarkdown });
+    } catch (err: any) {
+      console.error(err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.post('/api/transcribe', express.json({limit: '50mb'}), async (req, res) => {
     try {
        const { audio_base64, mime_type, settings } = req.body;
