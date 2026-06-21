@@ -1,21 +1,39 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Loader2, RefreshCw, Copy, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { db, Insight, InsightMessage } from '../db/db';
+import { InsightMessage } from '../db/db';
 import { useSettingsStore } from '../store/settings.store';
 
-export default function InsightChat({ insight }: { insight: Insight }) {
-  const [messages, setMessages] = useState<InsightMessage[]>(insight.chat_history || []);
+interface ContextChatProps {
+  chatHistory: InsightMessage[];
+  contextContent: string;
+  apiEndpoint: string;
+  onUpdateHistory: (newHistory: InsightMessage[]) => Promise<void> | void;
+}
+
+export default function ContextChat({ chatHistory, contextContent, apiEndpoint, onUpdateHistory }: ContextChatProps) {
+  const [messages, setMessages] = useState<InsightMessage[]>(chatHistory || []);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const settings = useSettingsStore();
 
   useEffect(() => {
+    if (chatHistory && chatHistory.length !== messages.length && !isTyping) {
+        setMessages(chatHistory);
+    }
+  }, [chatHistory]);
+
+  useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isTyping]);
+
+  const updateAndSave = async (newMsgs: InsightMessage[]) => {
+    setMessages(newMsgs);
+    await onUpdateHistory(newMsgs);
+  };
 
   const handleSend = async () => {
     if (!inputValue.trim() || isTyping) return;
@@ -27,21 +45,17 @@ export default function InsightChat({ insight }: { insight: Insight }) {
     };
     
     const newMessages = [...messages, userMsg];
-    setMessages(newMessages);
+    await updateAndSave(newMessages);
+    
     setInputValue("");
     setIsTyping(true);
 
     try {
-      // Save locally first
-      if (insight.id) {
-        await db.insights.update(insight.id, { chat_history: newMessages });
-      }
-
-      const res = await fetch('/api/insight-chat', {
+      const res = await fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          insightContent: insight.content,
+          contextContent,
           chatHistory: messages,
           userMessage: userMsg.content,
           settings
@@ -61,12 +75,7 @@ export default function InsightChat({ insight }: { insight: Insight }) {
         timestamp: Date.now()
       };
 
-      const finalMessages = [...newMessages, aiMsg];
-      setMessages(finalMessages);
-      
-      if (insight.id) {
-        await db.insights.update(insight.id, { chat_history: finalMessages });
-      }
+      await updateAndSave([...newMessages, aiMsg]);
 
     } catch (err: any) {
       console.error(err);
@@ -75,11 +84,7 @@ export default function InsightChat({ insight }: { insight: Insight }) {
         content: `**发生错误**：${err.message}`,
         timestamp: Date.now()
       };
-      const finalMessages = [...newMessages, errorMsg];
-      setMessages(finalMessages);
-      if (insight.id) {
-         await db.insights.update(insight.id, { chat_history: finalMessages });
-      }
+      await updateAndSave([...newMessages, errorMsg]);
     } finally {
       setIsTyping(false);
     }
@@ -87,10 +92,7 @@ export default function InsightChat({ insight }: { insight: Insight }) {
 
   const handleDelete = async (index: number) => {
     const newMessages = messages.filter((_, i) => i !== index);
-    setMessages(newMessages);
-    if (insight.id) {
-      await db.insights.update(insight.id, { chat_history: newMessages });
-    }
+    await updateAndSave(newMessages);
   };
 
   const handleRegenerate = async (index: number) => {
@@ -107,19 +109,15 @@ export default function InsightChat({ insight }: { insight: Insight }) {
     const targetUserMsg = messages[userMsgIndex];
 
     const newMessages = messages.slice(0, userMsgIndex + 1);
-    setMessages(newMessages);
+    await updateAndSave(newMessages);
     setIsTyping(true);
 
     try {
-      if (insight.id) {
-        await db.insights.update(insight.id, { chat_history: newMessages });
-      }
-
-      const res = await fetch('/api/insight-chat', {
+      const res = await fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          insightContent: insight.content,
+          contextContent,
           chatHistory: historyUpToUserMsg,
           userMessage: targetUserMsg.content,
           settings
@@ -139,12 +137,7 @@ export default function InsightChat({ insight }: { insight: Insight }) {
         timestamp: Date.now()
       };
 
-      const finalMessages = [...newMessages, aiMsg];
-      setMessages(finalMessages);
-      
-      if (insight.id) {
-        await db.insights.update(insight.id, { chat_history: finalMessages });
-      }
+      await updateAndSave([...newMessages, aiMsg]);
 
     } catch (err: any) {
       console.error(err);
@@ -153,11 +146,7 @@ export default function InsightChat({ insight }: { insight: Insight }) {
         content: `**发生错误**：${err.message}`,
         timestamp: Date.now()
       };
-      const finalMessages = [...newMessages, errorMsg];
-      setMessages(finalMessages);
-      if (insight.id) {
-         await db.insights.update(insight.id, { chat_history: finalMessages });
-      }
+      await updateAndSave([...newMessages, errorMsg]);
     } finally {
       setIsTyping(false);
     }
@@ -165,7 +154,6 @@ export default function InsightChat({ insight }: { insight: Insight }) {
 
   return (
     <div className="flex flex-col mt-4 border-t border-stone-100 pt-4">
-      {/* Chat Messages */}
       {messages.length > 0 && (
         <div ref={scrollRef} className="flex flex-col gap-3 max-h-[300px] overflow-y-auto thin-scrollbar pb-2 pr-1 mb-3">
           {messages.map((msg, idx) => (
@@ -182,7 +170,6 @@ export default function InsightChat({ insight }: { insight: Insight }) {
                     <div className="markdown-body prose prose-sm prose-stone prose-p:my-1 prose-ul:my-1 prose-ol:my-1 w-full max-w-none">
                       <ReactMarkdown>{msg.content}</ReactMarkdown>
                     </div>
-                    {/* Action Bar */}
                     <div className="flex justify-between w-full mt-3 pt-2.5 border-t border-stone-100/80 text-[11px] text-stone-400 font-medium select-none">
                       <button 
                         onClick={() => handleDelete(idx)} 
@@ -224,7 +211,6 @@ export default function InsightChat({ insight }: { insight: Insight }) {
         </div>
       )}
 
-      {/* Input Area */}
       <div className="flex items-end gap-2 relative">
         <textarea
           className="flex-1 bg-stone-50 border border-stone-200/60 rounded-2xl px-4 py-3 text-[14px] text-stone-800 placeholder-stone-400 focus:outline-none focus:border-stone-300 focus:bg-white focus:ring-4 focus:ring-stone-100/50 transition-all resize-none thin-scrollbar"
@@ -249,7 +235,7 @@ export default function InsightChat({ insight }: { insight: Insight }) {
           disabled={!inputValue.trim() || isTyping}
           className="w-11 h-11 shrink-0 flex items-center justify-center bg-stone-900 text-white rounded-xl shadow-sm hover:bg-stone-800 transition-colors disabled:opacity-40 disabled:hover:bg-stone-900"
         >
-          <Send className="w-[18px] h-[18px]" />
+          <Send className="w-5 h-5 ml-[-2px]" />
         </button>
       </div>
     </div>

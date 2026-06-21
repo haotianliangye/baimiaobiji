@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { PieChart, Loader2, Sparkles, ChevronLeft, Calendar, AlertCircle, ChevronDown, ChevronUp, Trash2, Copy, RefreshCw, MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
-import InsightChat from '../components/InsightChat';
+import ContextChat from '../components/ContextChat';
 import { db, Insight } from '../db/db';
 import { useSettingsStore } from '../store/settings.store';
 import { format, subDays } from 'date-fns';
@@ -114,7 +114,16 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
       )}
 
       {expanded && showChat && (
-        <InsightChat insight={insight} />
+        <ContextChat 
+          chatHistory={insight.chat_history || []}
+          contextContent={insight.content}
+          apiEndpoint="/api/insight-chat"
+          onUpdateHistory={async (newHistory) => {
+            if (insight.id) {
+              await db.insights.update(insight.id, { chat_history: newHistory });
+            }
+          }}
+        />
       )}
 
       <div 
