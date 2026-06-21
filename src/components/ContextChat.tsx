@@ -155,7 +155,7 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
   return (
     <div className="flex flex-col mt-4 border-t border-stone-100 pt-4">
       {messages.length > 0 && (
-        <div ref={scrollRef} className="flex flex-col gap-3 max-h-[300px] overflow-y-auto thin-scrollbar pb-2 pr-1 mb-3">
+        <div ref={scrollRef} className="flex flex-col gap-3 max-h-[60vh] overflow-y-auto thin-scrollbar pb-2 pr-1 mb-3">
           {messages.map((msg, idx) => (
             <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div 
