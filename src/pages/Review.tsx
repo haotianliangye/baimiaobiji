@@ -359,13 +359,21 @@ export default function Review() {
                           </div>
                         ) : review.ai_review ? (
                           <>
-                            <div className="markdown-body prose prose-stone prose-h1:text-[18px] prose-h2:text-[17px] prose-h3:text-[16px] prose-h1:leading-snug prose-headings:font-bold max-w-none text-[16px] leading-relaxed select-text pointer-events-auto">
+                            <div 
+                              className="markdown-body prose prose-stone prose-h1:text-[18px] prose-h2:text-[17px] prose-h3:text-[16px] prose-h1:leading-snug prose-headings:font-bold max-w-none text-[16px] leading-relaxed select-text pointer-events-auto cursor-pointer"
+                              onClick={(e) => {
+                                // 避免点击内部链接时触发收起
+                                if ((e.target as HTMLElement).tagName.toLowerCase() === 'a') return;
+                                setExpandedReviewId(null);
+                              }}
+                            >
                               <ReactMarkdown
                                 components={{
                                   a: ({ node, href, children, ...props }) => {
-                                    const handleClick = (e: React.MouseEvent) => {
-                                      e.preventDefault();
-                                      if (href?.startsWith('#log_id_')) {
+                                      const handleClick = (e: React.MouseEvent) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        if (href?.startsWith('#log_id_')) {
                                         const logId = href.replace('#log_id_', '');
                                         navigate(`/?date=${review.review_date}&logId=${logId}`);
                                       }
@@ -393,27 +401,63 @@ export default function Review() {
                               </div>
                             )}
 
-                            <div className="mt-4 flex gap-2 w-full select-none">
-                              <button
-                                onClick={(e) => openPromptMenu(e.currentTarget.getBoundingClientRect(), { reviewId: review.id })}
-                                className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] text-stone-600 hover:text-stone-800 bg-stone-100 hover:bg-stone-200/60 rounded-lg transition-colors font-medium border border-stone-200/30"
-                              >
-                                <RefreshCw className="w-3 h-3" />
-                                重新生成回顾
-                              </button>
-                              <button
-                                onClick={() => setExpandedReviewId(null)}
-                                className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] text-stone-500 hover:text-stone-800 bg-stone-100 hover:bg-stone-200/40 rounded-lg transition-colors font-medium border border-stone-200/30"
-                              >
-                                <ChevronUp className="w-3.5 h-3.5" />
-                                收起
-                              </button>
+                            <div className="flex flex-col gap-3 mt-4 pt-3 border-t border-stone-200/40 select-none px-2">
+                              <div className="flex justify-between w-full">
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (confirm('确认删除这篇回顾吗？')) {
+                                      await db.daily_reviews.delete(review.id);
+                                    }
+                                  }}
+                                  className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-rose-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                  删除
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (review.ai_review) {
+                                      navigator.clipboard.writeText(review.ai_review);
+                                      alert('回顾已复制到剪贴板');
+                                    }
+                                  }}
+                                  className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
+                                >
+                                  <Copy className="w-4 h-4" />
+                                  复制
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openPromptMenu(e.currentTarget.getBoundingClientRect(), { reviewId: review.id });
+                                  }}
+                                  className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
+                                >
+                                  <RefreshCw className="w-4 h-4" />
+                                  重新生成
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setExpandedReviewId(null);
+                                  }}
+                                  className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
+                                >
+                                  <ChevronUp className="w-4 h-4" />
+                                  收起
+                                </button>
+                              </div>
                               
                               <button 
-                                onClick={() => setChatReviewId(chatReviewId === review.id ? null : review.id)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-colors border border-stone-200/30 ${chatReviewId === review.id ? 'bg-stone-800 text-white' : 'text-stone-600 hover:text-stone-800 bg-stone-100 hover:bg-stone-200/60'}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setChatReviewId(chatReviewId === review.id ? null : review.id);
+                                }}
+                                className={`flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl text-[13px] font-medium transition-colors ${chatReviewId === review.id ? 'bg-stone-800 text-white' : 'bg-stone-100 hover:bg-stone-200 text-stone-700'}`}
                               >
-                                <MessageCircle className="w-3.5 h-3.5" />
+                                <MessageCircle className="w-4 h-4" />
                                 AI 追问
                               </button>
                             </div>

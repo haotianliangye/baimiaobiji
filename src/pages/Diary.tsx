@@ -358,12 +358,20 @@ export default function Diary() {
                          </div>
                        ) : (
                          <>
-                           <div className="markdown-body prose prose-stone prose-h1:text-[18px] prose-h2:text-[16px] prose-h3:text-[15px] prose-h1:leading-snug prose-headings:font-bold max-w-none text-[16px] leading-relaxed select-text pointer-events-auto mt-2 px-2">
+                           <div 
+                             className="markdown-body prose prose-stone prose-h1:text-[18px] prose-h2:text-[16px] prose-h3:text-[15px] prose-h1:leading-snug prose-headings:font-bold max-w-none text-[16px] leading-relaxed select-text pointer-events-auto mt-2 px-2 cursor-pointer"
+                             onClick={(e) => {
+                               // 避免点击内部链接时触发收起
+                               if ((e.target as HTMLElement).tagName.toLowerCase() === 'a') return;
+                               setExpandedDiaryId(null);
+                             }}
+                           >
                              <ReactMarkdown 
                                components={{
                                  a: ({ node, href, children, ...props }) => {
                                    const handleClick = (e: React.MouseEvent) => {
                                      e.preventDefault();
+                                     e.stopPropagation();
                                      if (href?.startsWith('#log_id_')) {
                                        const logId = href.replace('#log_id_', '');
                                        navigate(`/?date=${dateStr}&logId=${logId}`);
@@ -387,59 +395,74 @@ export default function Diary() {
                            </div>
 
                            {/* Collapsed Inner Card Action Toolbar */}
-                           <div className="flex gap-2 justify-end mt-4 pt-3 border-t border-stone-200/40 select-none">
+                           <div className="flex flex-col gap-3 mt-4 pt-3 border-t border-stone-200/40 select-none px-2">
+                             <div className="flex justify-between w-full">
+                               <button 
+                                 onClick={async (e) => {
+                                   e.stopPropagation();
+                                   if (confirm('确认删除这篇日记吗？')) {
+                                      await db.daily_diaries.delete(diary.id);
+                                   }
+                                 }}
+                                 className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-rose-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                               >
+                                 <Trash2 className="w-4 h-4" />
+                                 删除
+                               </button>
+                               <button 
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   if (diary.ai_editorial) {
+                                     navigator.clipboard.writeText(diary.ai_editorial);
+                                     alert('日记已复制到剪贴板');
+                                   }
+                                 }}
+                                 className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
+                               >
+                                 <Copy className="w-4 h-4" />
+                                 复制
+                               </button>
+                               <button 
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   setEditText(diary.ai_editorial || '');
+                                   setEditingDiaryId(diary.id);
+                                 }}
+                                 className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
+                               >
+                                 <Edit2 className="w-4 h-4" />
+                                 编辑
+                               </button>
+                               <button 
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   handleRegenerateClick(diary.id, e.currentTarget.getBoundingClientRect());
+                                 }}
+                                 className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
+                               >
+                                 <RefreshCw className="w-4 h-4" />
+                                 重新生成
+                               </button>
+                               <button 
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   setExpandedDiaryId(null);
+                                 }}
+                                 className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
+                               >
+                                 <ChevronUp className="w-4 h-4" />
+                                 收起
+                               </button>
+                             </div>
+                             
                              <button 
-                               onClick={() => {
-                                 if (diary.ai_editorial) {
-                                   navigator.clipboard.writeText(diary.ai_editorial);
-                                   alert('日记已复制到剪贴板');
-                                 }
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 setChatDiaryId(chatDiaryId === diary.id ? null : diary.id);
                                }}
-                               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
+                               className={`flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl text-[13px] font-medium transition-colors ${chatDiaryId === diary.id ? 'bg-stone-800 text-white' : 'bg-stone-100 hover:bg-stone-200 text-stone-700'}`}
                              >
-                               <Copy className="w-3 h-3" />
-                               复制
-                             </button>
-                             <button 
-                               onClick={() => {
-                                 setEditText(diary.ai_editorial || '');
-                                 setEditingDiaryId(diary.id);
-                               }}
-                               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
-                             >
-                               <Edit2 className="w-3 h-3" />
-                               编辑
-                             </button>
-                             <button 
-                               onClick={(e) => handleRegenerateClick(diary.id, e.currentTarget.getBoundingClientRect())}
-                               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
-                             >
-                               <RefreshCw className="w-3 h-3" />
-                               重新生成
-                             </button>
-                             <button 
-                               onClick={async () => {
-                                 if (confirm('确认删除这篇日记吗？')) {
-                                    await db.daily_diaries.delete(diary.id);
-                                 }
-                               }}
-                               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-rose-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                             >
-                               <Trash2 className="w-3 h-3" />
-                               删除
-                             </button>
-                             <button 
-                               onClick={() => setExpandedDiaryId(null)}
-                               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
-                             >
-                               <ChevronUp className="w-3 h-3" />
-                               收起
-                             </button>
-                             <button 
-                               onClick={() => setChatDiaryId(chatDiaryId === diary.id ? null : diary.id)}
-                               className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${chatDiaryId === diary.id ? 'bg-stone-800 text-white' : 'text-stone-500 hover:text-stone-800 hover:bg-stone-100'}`}
-                             >
-                               <MessageCircle className="w-3 h-3" />
+                               <MessageCircle className="w-4 h-4" />
                                AI 追问
                              </button>
                            </div>

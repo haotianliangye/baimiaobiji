@@ -66,50 +66,69 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
           </div>
         </div>
         
-        <div className={`markdown-body prose prose-stone prose-h1:text-[18px] prose-h2:text-[17px] prose-h3:text-[16px] prose-headings:font-bold prose-headings:text-stone-900 prose-p:text-stone-600 prose-li:text-stone-600 text-[16px] leading-relaxed relative z-10 selection:bg-stone-200 ${expanded ? '' : 'line-clamp-4 before:absolute before:bottom-0 before:left-0 before:right-0 before:h-12 before:bg-gradient-to-t before:from-white before:to-transparent'}`}>
+        <div 
+          className={`markdown-body prose prose-stone prose-h1:text-[18px] prose-h2:text-[17px] prose-h3:text-[16px] prose-headings:font-bold prose-headings:text-stone-900 prose-p:text-stone-600 prose-li:text-stone-600 text-[16px] leading-relaxed relative z-10 selection:bg-stone-200 cursor-pointer ${expanded ? '' : 'line-clamp-4 before:absolute before:bottom-0 before:left-0 before:right-0 before:h-12 before:bg-gradient-to-t before:from-white before:to-transparent'}`}
+          onClick={(e) => {
+            // 避免点击内部链接时触发收起
+            if ((e.target as HTMLElement).tagName.toLowerCase() === 'a') return;
+            setExpanded(!expanded);
+          }}
+        >
            <ReactMarkdown>{insight.content}</ReactMarkdown>
         </div>
       </div>
 
       {expanded && (
-        <div className="mt-5 flex items-center justify-between border-t border-stone-100 pt-4">
-           <div className="flex gap-2">
-             <button
-                onClick={(e) => { e.stopPropagation(); onRegenerate(insight); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-50 hover:bg-stone-100 text-stone-600 rounded-lg text-[13px] font-medium transition-colors"
-             >
-                <RefreshCw className="w-3.5 h-3.5" />
-                重新生成
-             </button>
-             <button
-                onClick={(e) => {
-                   e.stopPropagation();
-                   if (insight.content) navigator.clipboard.writeText(insight.content);
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-50 hover:bg-stone-100 text-stone-600 rounded-lg text-[13px] font-medium transition-colors"
-             >
-                <Copy className="w-3.5 h-3.5" />
-                复制
-             </button>
-             <button
-                onClick={(e) => {
-                   e.stopPropagation();
-                   if (insight.id) onDelete(insight.id);
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-[13px] font-medium transition-colors"
-             >
-                <Trash2 className="w-3.5 h-3.5" />
-                删除
-             </button>
-           </div>
-           
-           <button
-              onClick={(e) => { e.stopPropagation(); setShowChat(!showChat); }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${showChat ? 'bg-stone-800 text-white' : 'bg-stone-100 hover:bg-stone-200 text-stone-700'}`}
-           >
-              <MessageCircle className="w-4 h-4" />
-              AI 追问
-           </button>
+        <div className="flex flex-col gap-3 mt-5 pt-4 border-t border-stone-100 select-none">
+          <div className="flex justify-between w-full">
+            <button
+               onClick={(e) => {
+                  e.stopPropagation();
+                  if (confirm('确认删除这篇洞察吗？') && insight.id) {
+                     onDelete(insight.id);
+                  }
+               }}
+               className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-rose-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+            >
+               <Trash2 className="w-4 h-4" />
+               删除
+            </button>
+            <button
+               onClick={(e) => {
+                  e.stopPropagation();
+                  if (insight.content) {
+                     navigator.clipboard.writeText(insight.content);
+                     alert('洞察已复制到剪贴板');
+                  }
+               }}
+               className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
+            >
+               <Copy className="w-4 h-4" />
+               复制
+            </button>
+            <button
+               onClick={(e) => { e.stopPropagation(); onRegenerate(insight); }}
+               className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
+            >
+               <RefreshCw className="w-4 h-4" />
+               重新生成
+            </button>
+            <button
+               onClick={(e) => { e.stopPropagation(); setExpanded(false); }}
+               className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
+            >
+               <ChevronUp className="w-4 h-4" />
+               收起
+            </button>
+          </div>
+          
+          <button
+             onClick={(e) => { e.stopPropagation(); setShowChat(!showChat); }}
+             className={`flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl text-[13px] font-medium transition-colors ${showChat ? 'bg-stone-800 text-white' : 'bg-stone-100 hover:bg-stone-200 text-stone-700'}`}
+          >
+             <MessageCircle className="w-4 h-4" />
+             AI 追问
+          </button>
         </div>
       )}
 
@@ -126,12 +145,14 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
         />
       )}
 
-      <div 
-        className="flex justify-center mt-2 text-stone-300 cursor-pointer"
-        onClick={() => setExpanded(!expanded)}
-      >
-        {expanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-      </div>
+      {!expanded && (
+        <div 
+          className="flex justify-center mt-2 text-stone-300 cursor-pointer"
+          onClick={() => setExpanded(true)}
+        >
+          <ChevronDown className="w-5 h-5" />
+        </div>
+      )}
     </div>
     
     {contextMenuState.isOpen && (
