@@ -265,3 +265,10 @@ export const useSettingsStore = create<SettingsState>()(
     }
   )
 );
+
+export function getActivePromptIndices(prompts: string[]): number[] {
+  return prompts
+    .map((p, i) => ({ index: i, hasContent: p.trim().length > 0 }))
+    .filter(item => item.hasContent)
+    .map(item => item.index);
+}
