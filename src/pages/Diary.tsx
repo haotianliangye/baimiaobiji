@@ -6,11 +6,13 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { db } from '../db/db';
 import { useAppStore } from '../store/app.store';
+import { useSettingsStore, getActivePromptIndices } from '../store/settings.store';
 import CalendarHeatmap from '../components/CalendarHeatmap';
 import ActionSheet from '../components/ActionSheet';
 
 export default function Diary() {
-  const { isProcessingDiary, diaryErrorMap, generateDiaryTimeline } = useAppStore();
+  const { isProcessingDiary, diaryErrorMap, generateDiaryTimeline, batchProgress, generateAllDiaries } = useAppStore();
+  const { diaryPrompts } = useSettingsStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [contextMenuState, setContextMenuState] = useState<{
@@ -215,6 +217,24 @@ export default function Diary() {
         onScroll={handleInteraction}
       >
          
+         {/* 批量生成进度浮动条 */}
+         {batchProgress && batchProgress.type === 'diary' && (
+           <div className="mb-4 w-full max-w-[90%] mx-auto animate-in fade-in">
+             <div className="flex items-center gap-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/60 rounded-xl px-4 py-3 shadow-sm">
+               <div className="animate-spin rounded-full h-4 w-4 border-2 border-amber-500 border-t-transparent shrink-0" />
+               <div className="flex-1 min-w-0">
+                 <p className="text-[13px] font-medium text-amber-800 truncate">正在批量生成 ({batchProgress.current}/{batchProgress.total})...</p>
+                 <div className="mt-1.5 h-1.5 bg-amber-100 rounded-full overflow-hidden">
+                   <div
+                     className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                     style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
+                   />
+                 </div>
+               </div>
+             </div>
+           </div>
+         )}
+
          {errorMsg && !isProcessingDiary && (
            <div className="mb-4 text-[13px] text-red-500 bg-red-50 border border-red-100 rounded-xl p-3 w-full max-w-[90%] mx-auto shadow-sm animate-in fade-in">
              <p className="font-medium mb-1">生成失败</p>
@@ -484,19 +504,42 @@ export default function Diary() {
             </div>
             
             <div className="flex flex-col gap-0.5 mt-1">
-              {['默认 (系统)', '自定义一', '自定义二', '自定义三'].map((name, idx) => (
-                <button
-                  key={name}
-                  onClick={() => {
-                    setShowPromptMenu(false);
-                    setPopoverRect(null);
-                    handleGenerateWithPrompt(idx);
-                  }}
-                  className="w-full py-2 px-2.5 hover:bg-white/5 rounded-xl text-[12.5px] font-medium text-white/90 text-left active:scale-[0.98] transition-all"
-                >
-                  {name}
-                </button>
-              ))}
+              {/* 全部生成按钮 */}
+              {(() => {
+                const activeCount = getActivePromptIndices(diaryPrompts).length;
+                return activeCount > 1 ? (
+                  <button
+                    onClick={() => {
+                      setShowPromptMenu(false);
+                      setPopoverRect(null);
+                      if (logs && logs.length > 0) {
+                        generateAllDiaries(dateStr, logs);
+                      }
+                    }}
+                    className="w-full py-2 px-2.5 hover:bg-white/5 rounded-xl text-[12.5px] font-medium text-amber-400 text-left active:scale-[0.98] transition-all border-b border-white/5 mb-0.5"
+                  >
+                    ✨ 全部生成 ({activeCount} 套)
+                  </button>
+                ) : null;
+              })()}
+
+              {['默认 (系统)', '自定义一', '自定义二', '自定义三'].map((name, idx) => {
+                const hasContent = diaryPrompts[idx]?.trim().length > 0;
+                return (
+                  <button
+                    key={name}
+                    onClick={() => {
+                      setShowPromptMenu(false);
+                      setPopoverRect(null);
+                      handleGenerateWithPrompt(idx);
+                    }}
+                    className="w-full py-2 px-2.5 hover:bg-white/5 rounded-xl text-[12.5px] font-medium text-white/90 text-left active:scale-[0.98] transition-all flex items-center justify-between"
+                  >
+                    <span>{name}</span>
+                    {hasContent && <span className="text-green-400 text-[11px]">✓</span>}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
