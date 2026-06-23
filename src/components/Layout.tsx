@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Book, Clock, Edit3, Loader2, PieChart, Settings as SettingsIcon, X, Search, Trash2, ChevronDown } from 'lucide-react';
+import { Book, Clock, Edit3, Loader2, PieChart, Settings as SettingsIcon, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning } from 'lucide-react';
 import { subDays, startOfDay, endOfDay, format } from 'date-fns';
 import { db } from '../db/db';
 import { useAppStore } from '../store/app.store';
+import { useSettingsStore } from '../store/settings.store';
 import MiniCalendar from './MiniCalendar';
 
 export default function Layout() {
@@ -25,8 +26,13 @@ export default function Layout() {
     setSearchQuery,
     setSearchFilters,
     clearSearchHistory,
-    addSearchHistory
+    addSearchHistory,
+    syncStatus,
+    syncErrorMessage,
+    syncNow
   } = useAppStore();
+
+  const { syncEnabled } = useSettingsStore();
 
   const [showDateDropdown, setShowDateDropdown] = useState(false);
   const dateDropdownRef = useRef<HTMLDivElement>(null);
@@ -128,7 +134,19 @@ export default function Layout() {
       }
     };
 
+    const checkAndAutoSync = async () => {
+      const settings = useSettingsStore.getState();
+      if (settings.syncEnabled && settings.syncAutoStartup) {
+        try {
+          await syncNow();
+        } catch (e) {
+          console.error("Auto sync on startup failed:", e);
+        }
+      }
+    };
+
     checkAndAutoGenerate();
+    checkAndAutoSync();
   }, []);
 
   const handleForceUpdate = async () => {
@@ -162,6 +180,19 @@ export default function Layout() {
             白描笔记
           </h1>
           <div className="flex items-center gap-1.5">
+            {syncEnabled && (
+              <button 
+                onClick={() => syncNow()}
+                disabled={syncStatus === 'syncing'}
+                title={syncStatus === 'error' ? `同步出错: ${syncErrorMessage}` : '点击手动同步'}
+                className="p-1.5 hover:opacity-70 transition-opacity active:scale-95 disabled:opacity-80 shrink-0"
+              >
+                {syncStatus === 'syncing' && <Loader2 className="w-[18px] h-[18px] text-blue-400 animate-spin" />}
+                {syncStatus === 'idle' && <Cloud className="w-[18px] h-[18px] text-emerald-400 fill-emerald-500/10" />}
+                {syncStatus === 'error' && <CloudLightning className="w-[18px] h-[18px] text-red-400 animate-bounce" />}
+                {syncStatus === 'disabled' && <CloudOff className="w-[18px] h-[18px] text-stone-500" />}
+              </button>
+            )}
             <button 
               onClick={() => setSearchMode(true)} 
               className="p-1.5 hover:opacity-70 transition-opacity active:scale-95"

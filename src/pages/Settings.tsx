@@ -1,11 +1,14 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload } from 'lucide-react';
+import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning } from 'lucide-react';
 import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_LYUBISHCHEV_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_SUMMARY_PROMPT } from '../store/settings.store';
 import { db } from '../db/db';
+import { checkStorageStatus, requestStoragePersistence, StorageEstimateInfo } from '../lib/storage';
+import { useAppStore } from '../store/app.store';
 
 export default function Settings() {
   const navigate = useNavigate();
+  const settingsStore = useSettingsStore();
   const { 
     provider, 
     apiKey, 
@@ -22,11 +25,55 @@ export default function Settings() {
     insightPromptIndex, 
     summaryPrompt, 
     setSettings 
-  } = useSettingsStore();
+  } = settingsStore;
 
+  const { syncStatus, syncErrorMessage, syncNow } = useAppStore();
+  
   const [activeTab, setActiveTab] = useState<'model' | 'data' | 'prompt'>('model');
   const [showApiKey, setShowApiKey] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [storageInfo, setStorageInfo] = useState<StorageEstimateInfo | null>(null);
+  const [isPersisting, setIsPersisting] = useState(false);
+  const [showSyncPass, setShowSyncPass] = useState(false);
+  const [showE2eePass, setShowE2eePass] = useState(false);
+
+  // Cloud Sync Form States
+  const [localSyncEnabled, setLocalSyncEnabled] = useState(settingsStore.syncEnabled);
+  const [localSyncEndpoint, setLocalSyncEndpoint] = useState(settingsStore.syncEndpoint);
+  const [localSyncUsername, setLocalSyncUsername] = useState(settingsStore.syncUsername);
+  const [localSyncPassword, setLocalSyncPassword] = useState(settingsStore.syncPassword);
+  const [localSyncDirectory, setLocalSyncDirectory] = useState(settingsStore.syncDirectory || '/baimiaobiji/');
+  const [localSyncPasswordE2EE, setLocalSyncPasswordE2EE] = useState(settingsStore.syncPasswordE2EE);
+
+  useEffect(() => {
+    async function loadStorageInfo() {
+      const info = await checkStorageStatus();
+      setStorageInfo(info);
+    }
+    loadStorageInfo();
+  }, []);
+
+  const handlePersist = async () => {
+    setIsPersisting(true);
+    const success = await requestStoragePersistence();
+    const info = await checkStorageStatus();
+    setStorageInfo(info);
+    setIsPersisting(false);
+    if (success) {
+      alert("成功激活永久存储保护！");
+    } else {
+      alert("永久存储申请被浏览器拒绝。某些浏览器（如在无痕浏览模式下）不支持此特性。");
+    }
+  };
+
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
 
   const [exportDateRange, setExportDateRange] = useState<'all' | 'custom'>('all');
   const [exportStartDate, setExportStartDate] = useState('');
@@ -535,9 +582,214 @@ export default function Settings() {
           )}
 
           {activeTab === 'data' && (
-            <section className="bg-white rounded-xl border border-stone-100 p-3 shadow-sm space-y-4">
-               <div>
-                 <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase mb-3">数据导出</h3>
+            <div className="space-y-4">
+              {/* Storage Protection card */}
+              <section className="bg-white rounded-xl border border-stone-100 p-3 shadow-sm space-y-2">
+                <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase flex items-center gap-1.5 mb-2">
+                  <Shield className="w-4 h-4 text-stone-400" />
+                  本地存储保护
+                </h3>
+                {storageInfo ? (
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-2.5">
+                      {storageInfo.persisted ? (
+                        <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                      ) : (
+                        <Shield className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                      )}
+                      <div className="flex flex-col">
+                        <span className="text-[13.5px] font-semibold text-stone-850">
+                          状态：{storageInfo.persisted ? (
+                            <span className="text-emerald-600">🟢 永久存储保护中</span>
+                          ) : (
+                            <span className="text-amber-600">🟡 临时存储 (系统在空间不足时可能会自动清理数据)</span>
+                          )}
+                        </span>
+                        <span className="text-[12px] text-stone-450 mt-1">
+                          当前应用已占用：{formatBytes(storageInfo.usedBytes)} / 可用估算：{formatBytes(storageInfo.quotaBytes)}
+                        </span>
+                      </div>
+                    </div>
+                    {!storageInfo.persisted && (
+                      <button
+                        onClick={handlePersist}
+                        disabled={isPersisting}
+                        className="w-full py-2 bg-black hover:bg-stone-900 text-white transition-colors rounded-xl text-[12.5px] font-medium active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-1.5"
+                      >
+                        {isPersisting ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            正在激活存储保护...
+                          </>
+                        ) : (
+                          '🔒 激活永久存储保护 (防自动清理)'
+                        )}
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-[12px] text-stone-450 py-2">获取存储状态中...</div>
+                )}
+              </section>
+
+              {/* Encrypted Cloud Sync card */}
+              <section className="bg-white rounded-xl border border-stone-100 p-3 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase flex items-center gap-1.5">
+                    <Cloud className="w-4 h-4 text-stone-400" />
+                    加密云同步与多端备份
+                  </h3>
+                  <label className="relative inline-flex items-center cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={localSyncEnabled}
+                      onChange={(e) => setLocalSyncEnabled(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-black"></div>
+                  </label>
+                </div>
+
+                {localSyncEnabled && (
+                  <div className="space-y-3 pt-2 border-t border-stone-100 animate-in fade-in duration-200">
+                    <div className="space-y-1">
+                      <label className="text-[12px] font-medium text-stone-500">云存储服务商</label>
+                      <select 
+                        value="webdav" 
+                        disabled 
+                        className="w-full bg-stone-100 border border-black/5 outline-none px-3 py-1.5 rounded-lg text-[13px] text-stone-600 cursor-not-allowed font-mono"
+                      >
+                        <option value="webdav">WebDAV (兼容坚果云、自建 NAS、Nextcloud)</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[12px] font-medium text-stone-500">服务器连接地址 (Endpoint URL)</label>
+                      <input
+                        type="text"
+                        placeholder="https://dav.jianguoyun.com/dav/"
+                        value={localSyncEndpoint}
+                        onChange={(e) => setLocalSyncEndpoint(e.target.value)}
+                        className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-850 transition-all font-mono"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-[12px] font-medium text-stone-500">云盘账号</label>
+                        <input
+                          type="text"
+                          placeholder="Your account"
+                          value={localSyncUsername}
+                          onChange={(e) => setLocalSyncUsername(e.target.value)}
+                          className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-850 transition-all font-mono"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[12px] font-medium text-stone-500">应用密码/密钥</label>
+                        <div className="relative">
+                          <input
+                            type={showSyncPass ? "text" : "password"}
+                            placeholder="App Password"
+                            value={localSyncPassword}
+                            onChange={(e) => setLocalSyncPassword(e.target.value)}
+                            className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 pr-8 rounded-lg text-[13px] text-stone-850 transition-all font-mono"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowSyncPass(!showSyncPass)}
+                            className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-stone-400 hover:text-stone-600 focus:outline-none"
+                          >
+                            {showSyncPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[12px] font-medium text-stone-500">云端同步文件夹目录</label>
+                      <input
+                        type="text"
+                        placeholder="/baimiaobiji/"
+                        value={localSyncDirectory}
+                        onChange={(e) => setLocalSyncDirectory(e.target.value)}
+                        className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-800 transition-all font-mono"
+                      />
+                    </div>
+
+                    <div className="space-y-1 pt-2 border-t border-stone-100">
+                      <label className="text-[12px] font-medium text-stone-500 flex items-center gap-1">
+                        🔒 端到端同步密码 (Sync Password)
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showE2eePass ? "text" : "password"}
+                          placeholder="多设备间解密数据使用，防窥探"
+                          value={localSyncPasswordE2EE}
+                          onChange={(e) => setLocalSyncPasswordE2EE(e.target.value)}
+                          className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 pr-8 rounded-lg text-[13px] text-stone-850 transition-all font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowE2eePass(!showE2eePass)}
+                          className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-stone-400 hover:text-stone-600 focus:outline-none"
+                        >
+                          {showE2eePass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-stone-400 leading-normal mt-0.5">本地使用此密码以 AES-GCM-256 加密所有文本与音频，密码丢失将无法解密。</p>
+                    </div>
+
+                    <div className="pt-2 border-t border-stone-100 flex flex-col gap-2">
+                      <div className="flex items-center justify-between text-[11px] text-stone-450 font-medium">
+                        <span>同步状态：
+                          {syncStatus === 'syncing' && <span className="text-blue-500 font-semibold animate-pulse">🔄 正在对齐...</span>}
+                          {syncStatus === 'idle' && <span className="text-emerald-500 font-semibold">🟢 已对齐</span>}
+                          {syncStatus === 'error' && <span className="text-red-500 font-semibold flex items-center gap-0.5"><CloudLightning className="w-3.5 h-3.5" />同步出错</span>}
+                          {syncStatus === 'disabled' && <span className="text-stone-400">⚪ 未启用</span>}
+                        </span>
+                        {settingsStore.syncLastTime && (
+                          <span className="font-mono">上次同步：{new Date(settingsStore.syncLastTime).toLocaleTimeString('zh-CN', { hour12: false })}</span>
+                        )}
+                      </div>
+                      {syncStatus === 'error' && syncErrorMessage && (
+                        <p className="text-[10px] text-red-500 font-medium leading-tight bg-red-50 p-2 rounded-lg border border-red-100">{syncErrorMessage}</p>
+                      )}
+                      
+                      <button
+                        onClick={async () => {
+                          settingsStore.setSettings({
+                            syncEnabled: localSyncEnabled,
+                            syncEndpoint: localSyncEndpoint,
+                            syncUsername: localSyncUsername,
+                            syncPassword: localSyncPassword,
+                            syncDirectory: localSyncDirectory,
+                            syncPasswordE2EE: localSyncPasswordE2EE
+                          });
+                          await new Promise(r => setTimeout(r, 50)); 
+                          await syncNow();
+                        }}
+                        disabled={syncStatus === 'syncing'}
+                        className="w-full mt-1 bg-stone-900 text-white hover:bg-black transition-colors rounded-xl text-[12.5px] font-medium active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-1.5 py-2.5"
+                      >
+                        {syncStatus === 'syncing' ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            同步进行中...
+                          </>
+                        ) : (
+                          '🔄 立即执行手动同步 (Sync Now)'
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </section>
+
+              {/* Data Export / Import section */}
+              <section className="bg-white rounded-xl border border-stone-100 p-3 shadow-sm space-y-4">
+                 <div>
+                   <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase mb-3">数据导出</h3>
                  
                  <div className="space-y-4">
                     {/* Data type selection */}
@@ -668,13 +920,19 @@ export default function Settings() {
                 insightPrompts: localInsightPrompts,
                 insightPromptIndex: localInsightIndex,
                 insightPrompt: localInsightPrompts[localInsightIndex],
-                summaryPrompt: localSummaryPrompt
+                summaryPrompt: localSummaryPrompt,
+                syncEnabled: localSyncEnabled,
+                syncEndpoint: localSyncEndpoint,
+                syncUsername: localSyncUsername,
+                syncPassword: localSyncPassword,
+                syncDirectory: localSyncDirectory,
+                syncPasswordE2EE: localSyncPasswordE2EE
               });
               navigate(-1);
             }}
             className="w-full bg-[#2a2a2a] text-white py-3.5 rounded-xl text-[14px] font-medium tracking-wide hover:bg-[#222222] transition-all active:scale-[0.98] shadow-sm"
           >
-            保存并返回
+             保存并返回
           </button>
         </div>
 
