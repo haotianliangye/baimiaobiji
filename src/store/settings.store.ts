@@ -134,9 +134,9 @@ export const useSettingsStore = create<SettingsState>()(
       syncProvider: 'webdav',
       syncEndpoint: '',
       syncUsername: '',
-      syncPassword: '',
+      syncPassword: sessionStorage.getItem('baimiao_syncPassword') || '',
       syncDirectory: '/baimiaobiji/',
-      syncPasswordE2EE: '',
+      syncPasswordE2EE: sessionStorage.getItem('baimiao_syncPasswordE2EE') || '',
       syncConflictPolicy: 'merge',
       syncAutoStartup: true,
       syncAutoChange: true,
@@ -150,6 +150,13 @@ export const useSettingsStore = create<SettingsState>()(
       syncDropboxToken: '',
       syncDropboxClientId: '',
       setSettings: (newSettings) => set((state) => {
+         if (newSettings.syncPassword !== undefined) {
+           sessionStorage.setItem('baimiao_syncPassword', newSettings.syncPassword);
+         }
+         if (newSettings.syncPasswordE2EE !== undefined) {
+           sessionStorage.setItem('baimiao_syncPasswordE2EE', newSettings.syncPasswordE2EE);
+         }
+
          const nextConfigs = { ...state.configs };
          const providerToUpdate = state.provider;
          
@@ -188,9 +195,13 @@ export const useSettingsStore = create<SettingsState>()(
       }),
     }),
     { 
-       name: 'whitewash-settings',
-       version: 2,
-       migrate: (persistedState: any, version) => {
+        name: 'whitewash-settings',
+        version: 2,
+        partialize: (state) => {
+          const { syncPassword, syncPasswordE2EE, ...rest } = state;
+          return rest;
+        },
+        migrate: (persistedState: any, version) => {
          if (version < 1) {
             if (!persistedState.configs) {
                persistedState.configs = {};
