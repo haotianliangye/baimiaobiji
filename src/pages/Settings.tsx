@@ -903,7 +903,8 @@ export default function Settings() {
                    选择文件并合并导入
                  </label>
                </div>
-            </section>
+              </section>
+            </div>
           )}
         </div>
 
