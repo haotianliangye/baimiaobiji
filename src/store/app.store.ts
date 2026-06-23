@@ -54,7 +54,7 @@ interface AppState {
   syncStatus: 'idle' | 'syncing' | 'error' | 'disabled';
   syncErrorMessage: string;
 
-  syncNow: () => Promise<void>;
+  syncNow: (forcePolicy?: 'local_wins' | 'cloud_wins' | 'merge') => Promise<void>;
   setSyncStatus: (status: 'idle' | 'syncing' | 'error' | 'disabled', errorMsg?: string) => void;
 
   generateDiaryTimeline: (dateStr: string, logs: any[], idToOverwrite?: string, targetPromptIndex?: number) => Promise<void>;
@@ -614,7 +614,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setSyncStatus: (status, errorMsg) => set({ syncStatus: status, syncErrorMessage: errorMsg || '' }),
 
-  syncNow: async () => {
+  syncNow: async (forcePolicy) => {
     const settings = useSettingsStore.getState();
     if (!settings.syncEnabled) {
       set({ syncStatus: 'disabled', syncErrorMessage: '' });
@@ -686,8 +686,18 @@ export const useAppStore = create<AppState>((set, get) => ({
       const localReviews = await db.daily_reviews.toArray();
       const localInsights = await db.insights.toArray();
 
-      // 4. 数据合并 (双向合并以本地 IndexedDB 为基准，并合并云端)
-      if (cloudData && cloudData.version === 1) {
+      // 4. 数据合并
+      const policy = forcePolicy || settings.syncConflictPolicy || 'merge';
+
+      if (cloudData && cloudData.version === 1 && policy !== 'local_wins') {
+        if (policy === 'cloud_wins') {
+          // 清空本地数据，以云端为绝对基准
+          await db.raw_logs.clear();
+          await db.daily_diaries.clear();
+          await db.daily_reviews.clear();
+          await db.insights.clear();
+        }
+
         // 合并 logs
         if (cloudData.logs && Array.isArray(cloudData.logs)) {
           for (const cLog of cloudData.logs) {
@@ -712,7 +722,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             const exist = await db.daily_diaries.get(cDiary.id);
             if (!exist) {
               await db.daily_diaries.add(cDiary);
-            } else if (cDiary.updated_at > exist.updated_at) {
+            } else if (policy === 'cloud_wins' || cDiary.updated_at > exist.updated_at) {
               await db.daily_diaries.put(cDiary);
             }
           }
@@ -723,7 +733,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             const exist = await db.daily_reviews.get(cReview.id);
             if (!exist) {
               await db.daily_reviews.add(cReview);
-            } else if (cReview.updated_at > exist.updated_at) {
+            } else if (policy === 'cloud_wins' || cReview.updated_at > exist.updated_at) {
               await db.daily_reviews.put(cReview);
             }
           }
@@ -734,7 +744,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             const exist = await db.insights.get(cInsight.id);
             if (!exist) {
               await db.insights.add(cInsight);
-            } else if (cInsight.created_at > exist.created_at) {
+            } else if (policy === 'cloud_wins' || cInsight.created_at > exist.created_at) {
               await db.insights.put(cInsight);
             }
           }
