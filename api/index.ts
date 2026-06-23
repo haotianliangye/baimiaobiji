@@ -718,9 +718,57 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
     } catch (err: any) {
        console.error("Transcription error:", err);
        res.status(500).json({ error: err.message });
+     }
+   });
+
+  app.post('/api/webdav-proxy', async (req, res) => {
+    try {
+      const { endpoint, method, path: filePath, auth, body, headers } = req.body;
+      if (!endpoint || !method) {
+        return res.status(400).json({ error: 'Missing endpoint or method' });
+      }
+
+      const cleanEndpoint = endpoint.endsWith('/') ? endpoint : endpoint + '/';
+      const cleanPath = filePath.startsWith('/') ? filePath.slice(1) : filePath;
+      const url = cleanEndpoint + cleanPath;
+
+      const requestHeaders: Record<string, string> = {
+        'Authorization': auth,
+        ...headers
+      };
+
+      let requestBody: any = undefined;
+      if (body) {
+        if (method === 'PUT') {
+          requestBody = Buffer.from(body, 'base64');
+        } else {
+          requestBody = body;
+        }
+      }
+
+      const response = await fetch(url, {
+        method,
+        headers: requestHeaders,
+        body: requestBody
+      });
+
+      if (method === 'GET') {
+        if (response.status === 404) {
+          return res.status(404).json({ error: 'FILE_NOT_FOUND' });
+        }
+        if (!response.ok) {
+          return res.status(response.status).json({ error: `Fetch failed: ${response.statusText}` });
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        const base64 = Buffer.from(arrayBuffer).toString('base64');
+        return res.json({ status: response.status, data: base64 });
+      }
+
+      return res.json({ status: response.status });
+    } catch (err: any) {
+      console.error("WebDAV Proxy Error:", err);
+      res.status(500).json({ error: err.message });
     }
   });
-
-  
 
 export default app;
