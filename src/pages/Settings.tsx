@@ -40,6 +40,7 @@ export default function Settings() {
 
   // Cloud Sync Form States
   const [localSyncEnabled, setLocalSyncEnabled] = useState(settingsStore.syncEnabled);
+  const [localSyncProvider, setLocalSyncProvider] = useState<'webdav' | 'onedrive' | 'gdrive'>(settingsStore.syncProvider || 'webdav');
   const [localSyncEndpoint, setLocalSyncEndpoint] = useState(settingsStore.syncEndpoint);
   const [localSyncUsername, setLocalSyncUsername] = useState(settingsStore.syncUsername);
   const [localSyncPassword, setLocalSyncPassword] = useState(settingsStore.syncPassword);
@@ -655,13 +656,21 @@ export default function Settings() {
                     <div className="space-y-1">
                       <label className="text-[12px] font-medium text-stone-500">云存储服务商</label>
                       <select 
-                        value="webdav" 
-                        disabled 
-                        className="w-full bg-stone-100 border border-black/5 outline-none px-3 py-1.5 rounded-lg text-[13px] text-stone-600 cursor-not-allowed font-mono"
+                        value={localSyncProvider} 
+                        onChange={(e) => setLocalSyncProvider(e.target.value as any)}
+                        className="w-full bg-white border border-black/5 outline-none px-3 py-1.5 rounded-lg text-[13px] text-stone-850 font-mono shadow-sm cursor-pointer focus:border-black focus:ring-1 focus:ring-black"
                       >
                         <option value="webdav">WebDAV (兼容坚果云、自建 NAS、Nextcloud)</option>
+                        <option value="onedrive">OneDrive (暂不可用)</option>
+                        <option value="gdrive">Google Drive (暂不可用)</option>
                       </select>
                     </div>
+
+                    {localSyncProvider !== 'webdav' && (
+                      <div className="bg-amber-50 text-amber-800 text-[11.5px] p-3 rounded-xl border border-amber-100/60 leading-relaxed animate-in fade-in duration-200">
+                        ⚠️ 目前仅支持 WebDAV 协议。OneDrive 和 Google Drive 同步功能将在后续更新中推出，敬请期待！
+                      </div>
+                    )}
 
                     <div className="space-y-1">
                       <label className="text-[12px] font-medium text-stone-500">服务器连接地址 (Endpoint URL)</label>
@@ -669,8 +678,9 @@ export default function Settings() {
                         type="text"
                         placeholder="https://dav.jianguoyun.com/dav/"
                         value={localSyncEndpoint}
+                        disabled={localSyncProvider !== 'webdav'}
                         onChange={(e) => setLocalSyncEndpoint(e.target.value)}
-                        className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-850 transition-all font-mono"
+                        className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-850 transition-all font-mono disabled:bg-stone-150 disabled:text-stone-400 disabled:cursor-not-allowed"
                       />
                     </div>
 
@@ -681,8 +691,9 @@ export default function Settings() {
                           type="text"
                           placeholder="Your account"
                           value={localSyncUsername}
+                          disabled={localSyncProvider !== 'webdav'}
                           onChange={(e) => setLocalSyncUsername(e.target.value)}
-                          className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-850 transition-all font-mono"
+                          className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-850 transition-all font-mono disabled:bg-stone-150 disabled:text-stone-400 disabled:cursor-not-allowed"
                         />
                       </div>
                       <div className="space-y-1">
@@ -692,13 +703,15 @@ export default function Settings() {
                             type={showSyncPass ? "text" : "password"}
                             placeholder="App Password"
                             value={localSyncPassword}
+                            disabled={localSyncProvider !== 'webdav'}
                             onChange={(e) => setLocalSyncPassword(e.target.value)}
-                            className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 pr-8 rounded-lg text-[13px] text-stone-850 transition-all font-mono"
+                            className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 pr-8 rounded-lg text-[13px] text-stone-850 transition-all font-mono disabled:bg-stone-150 disabled:text-stone-400 disabled:cursor-not-allowed"
                           />
                           <button
                             type="button"
                             onClick={() => setShowSyncPass(!showSyncPass)}
-                            className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-stone-400 hover:text-stone-600 focus:outline-none"
+                            disabled={localSyncProvider !== 'webdav'}
+                            className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-stone-400 hover:text-stone-600 focus:outline-none disabled:opacity-30"
                           >
                             {showSyncPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                           </button>
@@ -712,8 +725,9 @@ export default function Settings() {
                         type="text"
                         placeholder="/baimiaobiji/"
                         value={localSyncDirectory}
+                        disabled={localSyncProvider !== 'webdav'}
                         onChange={(e) => setLocalSyncDirectory(e.target.value)}
-                        className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-800 transition-all font-mono"
+                        className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-800 transition-all font-mono disabled:bg-stone-150 disabled:text-stone-400 disabled:cursor-not-allowed"
                       />
                     </div>
 
@@ -726,13 +740,15 @@ export default function Settings() {
                           type={showE2eePass ? "text" : "password"}
                           placeholder="多设备间解密数据使用，防窥探"
                           value={localSyncPasswordE2EE}
+                          disabled={localSyncProvider !== 'webdav'}
                           onChange={(e) => setLocalSyncPasswordE2EE(e.target.value)}
-                          className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 pr-8 rounded-lg text-[13px] text-stone-850 transition-all font-mono"
+                          className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 pr-8 rounded-lg text-[13px] text-stone-850 transition-all font-mono disabled:bg-stone-150 disabled:text-stone-400 disabled:cursor-not-allowed"
                         />
                         <button
                           type="button"
                           onClick={() => setShowE2eePass(!showE2eePass)}
-                          className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-stone-400 hover:text-stone-600 focus:outline-none"
+                          disabled={localSyncProvider !== 'webdav'}
+                          className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-stone-400 hover:text-stone-600 focus:outline-none disabled:opacity-30"
                         >
                           {showE2eePass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                         </button>
@@ -760,6 +776,7 @@ export default function Settings() {
                         onClick={async () => {
                           settingsStore.setSettings({
                             syncEnabled: localSyncEnabled,
+                            syncProvider: localSyncProvider,
                             syncEndpoint: localSyncEndpoint,
                             syncUsername: localSyncUsername,
                             syncPassword: localSyncPassword,
@@ -769,8 +786,8 @@ export default function Settings() {
                           await new Promise(r => setTimeout(r, 50)); 
                           await syncNow();
                         }}
-                        disabled={syncStatus === 'syncing'}
-                        className="w-full mt-1 bg-stone-900 text-white hover:bg-black transition-colors rounded-xl text-[12.5px] font-medium active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-1.5 py-2.5"
+                        disabled={syncStatus === 'syncing' || localSyncProvider !== 'webdav'}
+                        className="w-full mt-1 bg-stone-900 text-white hover:bg-black transition-colors rounded-xl text-[12.5px] font-medium active:scale-[0.98] disabled:opacity-30 disabled:bg-stone-300 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 py-2.5"
                       >
                         {syncStatus === 'syncing' ? (
                           <>
@@ -923,6 +940,7 @@ export default function Settings() {
                 insightPrompt: localInsightPrompts[localInsightIndex],
                 summaryPrompt: localSummaryPrompt,
                 syncEnabled: localSyncEnabled,
+                syncProvider: localSyncProvider,
                 syncEndpoint: localSyncEndpoint,
                 syncUsername: localSyncUsername,
                 syncPassword: localSyncPassword,
