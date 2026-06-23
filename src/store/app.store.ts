@@ -4,6 +4,7 @@ import { generateUUID } from '../lib/utils';
 import { useSettingsStore, getActivePromptIndices } from './settings.store';
 import { encryptData, decryptData } from '../lib/crypto';
 import { WebDAVClient } from '../lib/webdav';
+import { OneDriveClient, GDriveClient, DropboxClient } from '../lib/cloudClients';
 import { 
   startOfWeek, 
   endOfWeek, 
@@ -620,15 +621,45 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
 
-    if (!settings.syncEndpoint || !settings.syncUsername || !settings.syncPassword || !settings.syncPasswordE2EE) {
-      set({ syncStatus: 'error', syncErrorMessage: '云同步配置不完整，请检查设置。' });
+    // 1. 根据不同服务商做针对性的配置校验
+    if (settings.syncProvider === 'webdav') {
+      if (!settings.syncEndpoint || !settings.syncUsername || !settings.syncPassword || !settings.syncPasswordE2EE) {
+        set({ syncStatus: 'error', syncErrorMessage: 'WebDAV 云同步配置不完整，请检查设置。' });
+        return;
+      }
+    } else if (settings.syncProvider === 'onedrive') {
+      if (!settings.syncOneDriveToken || !settings.syncPasswordE2EE) {
+        set({ syncStatus: 'error', syncErrorMessage: 'OneDrive 尚未授权，或端到端加密密码未配置。' });
+        return;
+      }
+    } else if (settings.syncProvider === 'gdrive') {
+      if (!settings.syncGDriveToken || !settings.syncPasswordE2EE) {
+        set({ syncStatus: 'error', syncErrorMessage: 'Google Drive 尚未授权，或端到端加密密码未配置。' });
+        return;
+      }
+    } else if (settings.syncProvider === 'dropbox') {
+      if (!settings.syncDropboxToken || !settings.syncPasswordE2EE) {
+        set({ syncStatus: 'error', syncErrorMessage: 'Dropbox 尚未授权，或端到端加密密码未配置。' });
+        return;
+      }
+    } else {
+      set({ syncStatus: 'error', syncErrorMessage: '未知的云同步服务商。' });
       return;
     }
 
     set({ syncStatus: 'syncing', syncErrorMessage: '' });
 
     try {
-      const client = new WebDAVClient(settings.syncEndpoint, settings.syncUsername, settings.syncPassword);
+      let client: any;
+      if (settings.syncProvider === 'webdav') {
+        client = new WebDAVClient(settings.syncEndpoint, settings.syncUsername, settings.syncPassword);
+      } else if (settings.syncProvider === 'onedrive') {
+        client = new OneDriveClient(settings.syncOneDriveToken || '');
+      } else if (settings.syncProvider === 'gdrive') {
+        client = new GDriveClient(settings.syncGDriveToken || '');
+      } else if (settings.syncProvider === 'dropbox') {
+        client = new DropboxClient(settings.syncDropboxToken || '');
+      }
       
       // 1. 确保云端目录存在
       const dirExists = await client.checkDir(settings.syncDirectory);
