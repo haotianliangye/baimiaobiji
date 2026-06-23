@@ -24,7 +24,7 @@ import {
   ListChecks,
   Keyboard,
 } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { db } from "../db/db";
 import { generateUUID } from "../lib/utils";
 import { useSettingsStore } from "../store/settings.store";
@@ -120,9 +120,24 @@ async function fetchTranscriptionWithRetry(body: any, maxRetries = 3) {
 }
 
 export default function Record() {
+  const [isPersisted, setIsPersisted] = useState<boolean | null>(null);
+  const navigate = useNavigate();
   const [inputText, setInputText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isListening, setIsListening] = useState(false);
+
+  useEffect(() => {
+    async function checkPersist() {
+      try {
+        const { checkStorageStatus } = await import("../lib/storage");
+        const status = await checkStorageStatus();
+        setIsPersisted(status.persisted);
+      } catch (e) {
+        console.error("Storage persist check failed", e);
+      }
+    }
+    checkPersist();
+  }, []);
   const [searchParams, setSearchParams] = useSearchParams();
   const [showHeatmap, setShowHeatmap] = useState(false);
 
@@ -581,6 +596,20 @@ export default function Record() {
           </button>
         </div>
       </div>
+
+      {isPersisted === false && (
+        <div className="bg-amber-50 border-b border-amber-100/60 px-4 py-2 flex items-center justify-between text-[11px] text-amber-800 animate-in slide-in-from-top duration-200">
+          <span className="flex items-center gap-1.5 font-medium">
+            ⚠️ 您的浏览器当前未激活「永久存储保护」，数据可能被系统自动清理。
+          </span>
+          <button
+            onClick={() => navigate('/settings')} 
+            className="text-amber-950 font-bold hover:underline shrink-0 pl-3"
+          >
+            立即保护 →
+          </button>
+        </div>
+      )}
 
       <div 
         className="flex-1 overflow-y-auto thin-scrollbar px-5 py-5 pb-6 w-full relative z-0 flex flex-col"
