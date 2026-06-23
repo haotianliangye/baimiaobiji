@@ -848,3 +848,38 @@ const getHighlightSnippet = (text: string, query: string): string => {
   const regex = new RegExp(`(${escapedQuery})`, 'gi');
   return snippet.replace(regex, '<mark class="bg-amber-100 text-amber-900 rounded-[3px] px-0.5 font-medium">$1</mark>');
 };
+
+// === Dexie Mutation Hooks for Auto-Sync ===
+let autoSyncTimer: any = null;
+
+const triggerAutoSync = () => {
+  const appStore = useAppStore.getState();
+  if (appStore.syncStatus === 'syncing') {
+    return; // Ignore database mutations generated during alignment sync process
+  }
+  const settings = useSettingsStore.getState();
+  if (settings.syncEnabled && settings.syncAutoChange) {
+    if (autoSyncTimer) clearTimeout(autoSyncTimer);
+    autoSyncTimer = setTimeout(() => {
+      if (useAppStore.getState().syncStatus !== 'syncing') {
+        useAppStore.getState().syncNow();
+      }
+    }, 2000); // 2s debounce window
+  }
+};
+
+db.raw_logs.hook('creating', () => { triggerAutoSync(); });
+db.raw_logs.hook('updating', () => { triggerAutoSync(); });
+db.raw_logs.hook('deleting', () => { triggerAutoSync(); });
+
+db.daily_diaries.hook('creating', () => { triggerAutoSync(); });
+db.daily_diaries.hook('updating', () => { triggerAutoSync(); });
+db.daily_diaries.hook('deleting', () => { triggerAutoSync(); });
+
+db.daily_reviews.hook('creating', () => { triggerAutoSync(); });
+db.daily_reviews.hook('updating', () => { triggerAutoSync(); });
+db.daily_reviews.hook('deleting', () => { triggerAutoSync(); });
+
+db.insights.hook('creating', () => { triggerAutoSync(); });
+db.insights.hook('updating', () => { triggerAutoSync(); });
+db.insights.hook('deleting', () => { triggerAutoSync(); });
