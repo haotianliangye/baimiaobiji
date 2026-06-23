@@ -56,6 +56,26 @@ export default function Layout() {
     };
   }, []);
 
+  // Global Keyboard Shortcuts (Ctrl + Shift + S -> Sync Now)
+  useEffect(() => {
+    const handleGlobalShortcuts = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        const settings = useSettingsStore.getState();
+        if (settings.syncEnabled) {
+          syncNow();
+          alert("已通过快捷键触发云同步对齐！");
+        } else {
+          alert("云同步未启用，请先前往设置进行配置。");
+        }
+      }
+    };
+    window.addEventListener('keydown', handleGlobalShortcuts);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalShortcuts);
+    };
+  }, [syncNow]);
+
   useEffect(() => {
     if (showDateDropdown) {
       setTempStartDate(searchFilters.customStartDate || '');
