@@ -85,6 +85,20 @@ interface SettingsState {
   insightPrompts: string[];
   insightPromptIndex: number;
   summaryPrompt: string;
+  
+  // 云同步配置
+  syncEnabled: boolean;
+  syncProvider: 'webdav' | 'onedrive' | 'gdrive';
+  syncEndpoint: string;
+  syncUsername: string;
+  syncPassword: string;
+  syncDirectory: string;
+  syncPasswordE2EE: string;
+  syncConflictPolicy: 'local_wins' | 'cloud_wins' | 'merge';
+  syncAutoStartup: boolean;
+  syncAutoChange: boolean;
+  syncLastTime: number | null;
+
   setSettings: (settings: Partial<SettingsState>) => void;
 }
 
@@ -106,6 +120,19 @@ export const useSettingsStore = create<SettingsState>()(
       insightPrompts: [DEFAULT_INSIGHT_PROMPT, '', '', ''],
       insightPromptIndex: 0,
       summaryPrompt: DEFAULT_SUMMARY_PROMPT,
+
+      // 云同步配置默认值
+      syncEnabled: false,
+      syncProvider: 'webdav',
+      syncEndpoint: '',
+      syncUsername: '',
+      syncPassword: '',
+      syncDirectory: '/baimiaobiji/',
+      syncPasswordE2EE: '',
+      syncConflictPolicy: 'merge',
+      syncAutoStartup: true,
+      syncAutoChange: true,
+      syncLastTime: null,
       setSettings: (newSettings) => set((state) => {
          const nextConfigs = { ...state.configs };
          const providerToUpdate = state.provider;
