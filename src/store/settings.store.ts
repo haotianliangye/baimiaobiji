@@ -88,7 +88,7 @@ interface SettingsState {
   
   // 云同步配置
   syncEnabled: boolean;
-  syncProvider: 'webdav' | 'onedrive' | 'gdrive';
+  syncProvider: 'webdav' | 'onedrive' | 'gdrive' | 'dropbox';
   syncEndpoint: string;
   syncUsername: string;
   syncPassword: string;
@@ -98,6 +98,14 @@ interface SettingsState {
   syncAutoStartup: boolean;
   syncAutoChange: boolean;
   syncLastTime: number | null;
+
+  // OAuth Tokens & Client IDs
+  syncOneDriveToken?: string;
+  syncOneDriveClientId?: string;
+  syncGDriveToken?: string;
+  syncGDriveClientId?: string;
+  syncDropboxToken?: string;
+  syncDropboxClientId?: string;
 
   setSettings: (settings: Partial<SettingsState>) => void;
 }
@@ -133,6 +141,14 @@ export const useSettingsStore = create<SettingsState>()(
       syncAutoStartup: true,
       syncAutoChange: true,
       syncLastTime: null,
+
+      // OAuth 默认值
+      syncOneDriveToken: '',
+      syncOneDriveClientId: '',
+      syncGDriveToken: '',
+      syncGDriveClientId: '',
+      syncDropboxToken: '',
+      syncDropboxClientId: '',
       setSettings: (newSettings) => set((state) => {
          const nextConfigs = { ...state.configs };
          const providerToUpdate = state.provider;
