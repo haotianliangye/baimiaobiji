@@ -40,12 +40,17 @@ export default function Settings() {
 
   // Cloud Sync Form States
   const [localSyncEnabled, setLocalSyncEnabled] = useState(settingsStore.syncEnabled);
-  const [localSyncProvider, setLocalSyncProvider] = useState<'webdav' | 'onedrive' | 'gdrive'>(settingsStore.syncProvider || 'webdav');
+  const [localSyncProvider, setLocalSyncProvider] = useState<'webdav' | 'onedrive' | 'gdrive' | 'dropbox'>(settingsStore.syncProvider || 'webdav');
   const [localSyncEndpoint, setLocalSyncEndpoint] = useState(settingsStore.syncEndpoint);
   const [localSyncUsername, setLocalSyncUsername] = useState(settingsStore.syncUsername);
   const [localSyncPassword, setLocalSyncPassword] = useState(settingsStore.syncPassword);
   const [localSyncDirectory, setLocalSyncDirectory] = useState(settingsStore.syncDirectory || '/baimiaobiji/');
   const [localSyncPasswordE2EE, setLocalSyncPasswordE2EE] = useState(settingsStore.syncPasswordE2EE);
+
+  // OAuth Client IDs local states
+  const [localSyncOneDriveClientId, setLocalSyncOneDriveClientId] = useState(settingsStore.syncOneDriveClientId || '');
+  const [localSyncGDriveClientId, setLocalSyncGDriveClientId] = useState(settingsStore.syncGDriveClientId || '');
+  const [localSyncDropboxClientId, setLocalSyncDropboxClientId] = useState(settingsStore.syncDropboxClientId || '');
 
   useEffect(() => {
     async function loadStorageInfo() {
@@ -53,6 +58,48 @@ export default function Settings() {
       setStorageInfo(info);
     }
     loadStorageInfo();
+  }, []);
+
+  // OAuth Callback Hash Parser
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && hash.includes('access_token=')) {
+      const params = new URLSearchParams(hash.replace(/^#/, '?'));
+      const token = params.get('access_token');
+      const state = params.get('state');
+
+      if (token && state) {
+        if (state === 'onedrive') {
+          settingsStore.setSettings({
+            syncOneDriveToken: token,
+            syncProvider: 'onedrive',
+            syncEnabled: true
+          });
+          setLocalSyncProvider('onedrive');
+          setLocalSyncEnabled(true);
+        } else if (state === 'gdrive') {
+          settingsStore.setSettings({
+            syncGDriveToken: token,
+            syncProvider: 'gdrive',
+            syncEnabled: true
+          });
+          setLocalSyncProvider('gdrive');
+          setLocalSyncEnabled(true);
+        } else if (state === 'dropbox') {
+          settingsStore.setSettings({
+            syncDropboxToken: token,
+            syncProvider: 'dropbox',
+            syncEnabled: true
+          });
+          setLocalSyncProvider('dropbox');
+          setLocalSyncEnabled(true);
+        }
+
+        // Clean up hash from URL
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        alert(`已成功连接到 ${state === 'gdrive' ? 'Google Drive' : state === 'onedrive' ? 'OneDrive' : 'Dropbox'} 网盘！`);
+      }
+    }
   }, []);
 
   const handlePersist = async () => {
@@ -66,6 +113,43 @@ export default function Settings() {
     } else {
       alert("永久存储申请被浏览器拒绝。某些浏览器（如在无痕浏览模式下）不支持此特性。");
     }
+  };
+
+  const handleOAuthAuthorize = (provider: 'onedrive' | 'gdrive' | 'dropbox') => {
+    const redirectUri = window.location.origin + window.location.pathname;
+    
+    let authUrl = '';
+    if (provider === 'onedrive') {
+      const clientId = localSyncOneDriveClientId || 'e74f3468-f9b8-4903-b054-0dc55034c56e';
+      authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent('files.readwrite')}&state=onedrive`;
+    } else if (provider === 'gdrive') {
+      const clientId = localSyncGDriveClientId || '937286392305-juh5263124874p82g4c4983057v4b518.apps.googleusercontent.com';
+      authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent('https://www.googleapis.com/auth/drive.file')}&state=gdrive`;
+    } else if (provider === 'dropbox') {
+      const clientId = localSyncDropboxClientId || '3qy6q5w6sc1m22l';
+      authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&state=dropbox`;
+    }
+    
+    if (authUrl) {
+      settingsStore.setSettings({
+        syncOneDriveClientId: localSyncOneDriveClientId,
+        syncGDriveClientId: localSyncGDriveClientId,
+        syncDropboxClientId: localSyncDropboxClientId,
+        syncProvider: provider
+      });
+      window.location.href = authUrl;
+    }
+  };
+
+  const handleOAuthDisconnect = (provider: 'onedrive' | 'gdrive' | 'dropbox') => {
+    if (provider === 'onedrive') {
+      settingsStore.setSettings({ syncOneDriveToken: '' });
+    } else if (provider === 'gdrive') {
+      settingsStore.setSettings({ syncGDriveToken: '' });
+    } else if (provider === 'dropbox') {
+      settingsStore.setSettings({ syncDropboxToken: '' });
+    }
+    alert(`已断开与 ${provider.toUpperCase()} 网盘的连接。`);
   };
 
   const formatBytes = (bytes: number) => {
@@ -661,75 +745,149 @@ export default function Settings() {
                         className="w-full bg-white border border-black/5 outline-none px-3 py-1.5 rounded-lg text-[13px] text-stone-850 font-mono shadow-sm cursor-pointer focus:border-black focus:ring-1 focus:ring-black"
                       >
                         <option value="webdav">WebDAV (兼容坚果云、自建 NAS、Nextcloud)</option>
-                        <option value="onedrive">OneDrive (暂不可用)</option>
-                        <option value="gdrive">Google Drive (暂不可用)</option>
+                        <option value="onedrive">OneDrive (微软云盘)</option>
+                        <option value="gdrive">Google Drive (谷歌云盘)</option>
+                        <option value="dropbox">Dropbox (多端同步)</option>
                       </select>
                     </div>
 
                     {localSyncProvider !== 'webdav' && (
-                      <div className="bg-amber-50 text-amber-800 text-[11.5px] p-3 rounded-xl border border-amber-100/60 leading-relaxed animate-in fade-in duration-200">
-                        ⚠️ 目前仅支持 WebDAV 协议。OneDrive 和 Google Drive 同步功能将在后续更新中推出，敬请期待！
+                      <div className="space-y-3 pt-1 animate-in fade-in duration-200">
+                        {/* OAuth Status Card */}
+                        <div className="bg-stone-50 border border-stone-200/60 p-3 rounded-xl flex flex-col gap-2.5 shadow-inner">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[12px] font-medium text-stone-500">网盘授权状态</span>
+                            {((localSyncProvider === 'onedrive' && settingsStore.syncOneDriveToken) ||
+                              (localSyncProvider === 'gdrive' && settingsStore.syncGDriveToken) ||
+                              (localSyncProvider === 'dropbox' && settingsStore.syncDropboxToken)) ? (
+                              <span className="text-[11.5px] font-semibold text-emerald-600 flex items-center gap-1">
+                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> 已连接
+                              </span>
+                            ) : (
+                              <span className="text-[11.5px] font-medium text-stone-400">未授权</span>
+                            )}
+                          </div>
+
+                          {((localSyncProvider === 'onedrive' && settingsStore.syncOneDriveToken) ||
+                            (localSyncProvider === 'gdrive' && settingsStore.syncGDriveToken) ||
+                            (localSyncProvider === 'dropbox' && settingsStore.syncDropboxToken)) ? (
+                            <button
+                              type="button"
+                              onClick={() => handleOAuthDisconnect(localSyncProvider)}
+                              className="w-full bg-stone-100 hover:bg-stone-200 text-stone-700 transition-colors py-2 rounded-lg text-[12px] font-medium active:scale-[0.99]"
+                            >
+                              断开网盘连接 (Disconnect)
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleOAuthAuthorize(localSyncProvider)}
+                              className="w-full bg-stone-900 text-white hover:bg-black transition-colors py-2 rounded-lg text-[12px] font-medium active:scale-[0.99] flex items-center justify-center gap-1"
+                            >
+                              🔑 连接并授权网盘 (Authorize)
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Client ID Customization */}
+                        <div className="space-y-1">
+                          <label className="text-[12px] font-medium text-stone-500 flex items-center justify-between">
+                            <span>OAuth 客户端 ID (Client ID)</span>
+                            <span className="text-[10px] text-stone-400 font-normal">(可选/高级设置)</span>
+                          </label>
+                          {localSyncProvider === 'onedrive' && (
+                            <input
+                              type="text"
+                              placeholder="e74f3468-f9b8-4903-b054-0dc55034c56e"
+                              value={localSyncOneDriveClientId}
+                              onChange={(e) => setLocalSyncOneDriveClientId(e.target.value)}
+                              className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-850 font-mono"
+                            />
+                          )}
+                          {localSyncProvider === 'gdrive' && (
+                            <input
+                              type="text"
+                              placeholder="937286392305-juh5263124874p82g4c4983057v4b518.apps.googleusercontent.com"
+                              value={localSyncGDriveClientId}
+                              onChange={(e) => setLocalSyncGDriveClientId(e.target.value)}
+                              className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-850 font-mono"
+                            />
+                          )}
+                          {localSyncProvider === 'dropbox' && (
+                            <input
+                              type="text"
+                              placeholder="3qy6q5w6sc1m22l"
+                              value={localSyncDropboxClientId}
+                              onChange={(e) => setLocalSyncDropboxClientId(e.target.value)}
+                              className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-850 font-mono"
+                            />
+                          )}
+                          <p className="text-[10px] text-stone-400 leading-normal mt-0.5">
+                            本地开发默认已内置 ID。如果您部署在自己的生产域名，请申请开发者 Client ID 填入。
+                          </p>
+                        </div>
                       </div>
                     )}
 
-                    <div className="space-y-1">
-                      <label className="text-[12px] font-medium text-stone-500">服务器连接地址 (Endpoint URL)</label>
-                      <input
-                        type="text"
-                        placeholder="https://dav.jianguoyun.com/dav/"
-                        value={localSyncEndpoint}
-                        disabled={localSyncProvider !== 'webdav'}
-                        onChange={(e) => setLocalSyncEndpoint(e.target.value)}
-                        className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-850 transition-all font-mono disabled:bg-stone-150 disabled:text-stone-400 disabled:cursor-not-allowed"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <label className="text-[12px] font-medium text-stone-500">云盘账号</label>
-                        <input
-                          type="text"
-                          placeholder="Your account"
-                          value={localSyncUsername}
-                          disabled={localSyncProvider !== 'webdav'}
-                          onChange={(e) => setLocalSyncUsername(e.target.value)}
-                          className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-850 transition-all font-mono disabled:bg-stone-150 disabled:text-stone-400 disabled:cursor-not-allowed"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[12px] font-medium text-stone-500">应用密码/密钥</label>
-                        <div className="relative">
+                    {localSyncProvider === 'webdav' && (
+                      <div className="space-y-3 pt-1 animate-in fade-in duration-200">
+                        <div className="space-y-1">
+                          <label className="text-[12px] font-medium text-stone-500">服务器连接地址 (Endpoint URL)</label>
                           <input
-                            type={showSyncPass ? "text" : "password"}
-                            placeholder="App Password"
-                            value={localSyncPassword}
-                            disabled={localSyncProvider !== 'webdav'}
-                            onChange={(e) => setLocalSyncPassword(e.target.value)}
-                            className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 pr-8 rounded-lg text-[13px] text-stone-850 transition-all font-mono disabled:bg-stone-150 disabled:text-stone-400 disabled:cursor-not-allowed"
+                            type="text"
+                            placeholder="https://dav.jianguoyun.com/dav/"
+                            value={localSyncEndpoint}
+                            onChange={(e) => setLocalSyncEndpoint(e.target.value)}
+                            className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-850 transition-all font-mono"
                           />
-                          <button
-                            type="button"
-                            onClick={() => setShowSyncPass(!showSyncPass)}
-                            disabled={localSyncProvider !== 'webdav'}
-                            className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-stone-400 hover:text-stone-600 focus:outline-none disabled:opacity-30"
-                          >
-                            {showSyncPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-[12px] font-medium text-stone-500">云盘账号</label>
+                            <input
+                              type="text"
+                              placeholder="Your account"
+                              value={localSyncUsername}
+                              onChange={(e) => setLocalSyncUsername(e.target.value)}
+                              className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-850 transition-all font-mono"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[12px] font-medium text-stone-500">应用密码/密钥</label>
+                            <div className="relative">
+                              <input
+                                type={showSyncPass ? "text" : "password"}
+                                placeholder="App Password"
+                                value={localSyncPassword}
+                                onChange={(e) => setLocalSyncPassword(e.target.value)}
+                                className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 pr-8 rounded-lg text-[13px] text-stone-850 transition-all font-mono"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowSyncPass(!showSyncPass)}
+                                className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-stone-400 hover:text-stone-600 focus:outline-none"
+                              >
+                                {showSyncPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
 
-                    <div className="space-y-1">
-                      <label className="text-[12px] font-medium text-stone-500">云端同步文件夹目录</label>
-                      <input
-                        type="text"
-                        placeholder="/baimiaobiji/"
-                        value={localSyncDirectory}
-                        disabled={localSyncProvider !== 'webdav'}
-                        onChange={(e) => setLocalSyncDirectory(e.target.value)}
-                        className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-800 transition-all font-mono disabled:bg-stone-150 disabled:text-stone-400 disabled:cursor-not-allowed"
-                      />
-                    </div>
+                    {localSyncProvider !== 'gdrive' && (
+                      <div className="space-y-1">
+                        <label className="text-[12px] font-medium text-stone-500">云端同步文件夹目录</label>
+                        <input
+                          type="text"
+                          placeholder="/baimiaobiji/"
+                          value={localSyncDirectory}
+                          onChange={(e) => setLocalSyncDirectory(e.target.value)}
+                          className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-800 transition-all font-mono"
+                        />
+                      </div>
+                    )}
 
                     <div className="space-y-1 pt-2 border-t border-stone-100">
                       <label className="text-[12px] font-medium text-stone-500 flex items-center gap-1">
@@ -740,15 +898,13 @@ export default function Settings() {
                           type={showE2eePass ? "text" : "password"}
                           placeholder="多设备间解密数据使用，防窥探"
                           value={localSyncPasswordE2EE}
-                          disabled={localSyncProvider !== 'webdav'}
                           onChange={(e) => setLocalSyncPasswordE2EE(e.target.value)}
-                          className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 pr-8 rounded-lg text-[13px] text-stone-850 transition-all font-mono disabled:bg-stone-150 disabled:text-stone-400 disabled:cursor-not-allowed"
+                          className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 pr-8 rounded-lg text-[13px] text-stone-850 transition-all font-mono"
                         />
                         <button
                           type="button"
                           onClick={() => setShowE2eePass(!showE2eePass)}
-                          disabled={localSyncProvider !== 'webdav'}
-                          className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-stone-400 hover:text-stone-600 focus:outline-none disabled:opacity-30"
+                          className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-stone-400 hover:text-stone-600 focus:outline-none"
                         >
                           {showE2eePass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                         </button>
@@ -781,12 +937,23 @@ export default function Settings() {
                             syncUsername: localSyncUsername,
                             syncPassword: localSyncPassword,
                             syncDirectory: localSyncDirectory,
-                            syncPasswordE2EE: localSyncPasswordE2EE
+                            syncPasswordE2EE: localSyncPasswordE2EE,
+                            syncOneDriveClientId: localSyncOneDriveClientId,
+                            syncGDriveClientId: localSyncGDriveClientId,
+                            syncDropboxClientId: localSyncDropboxClientId,
                           });
                           await new Promise(r => setTimeout(r, 50)); 
                           await syncNow();
                         }}
-                        disabled={syncStatus === 'syncing' || localSyncProvider !== 'webdav'}
+                        disabled={
+                          syncStatus === 'syncing' || 
+                          !(
+                            (localSyncProvider === 'webdav' && localSyncEndpoint && localSyncUsername && localSyncPassword && localSyncPasswordE2EE) ||
+                            (localSyncProvider === 'onedrive' && settingsStore.syncOneDriveToken && localSyncPasswordE2EE) ||
+                            (localSyncProvider === 'gdrive' && settingsStore.syncGDriveToken && localSyncPasswordE2EE) ||
+                            (localSyncProvider === 'dropbox' && settingsStore.syncDropboxToken && localSyncPasswordE2EE)
+                          )
+                        }
                         className="w-full mt-1 bg-stone-900 text-white hover:bg-black transition-colors rounded-xl text-[12.5px] font-medium active:scale-[0.98] disabled:opacity-30 disabled:bg-stone-300 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 py-2.5"
                       >
                         {syncStatus === 'syncing' ? (
@@ -945,7 +1112,10 @@ export default function Settings() {
                 syncUsername: localSyncUsername,
                 syncPassword: localSyncPassword,
                 syncDirectory: localSyncDirectory,
-                syncPasswordE2EE: localSyncPasswordE2EE
+                syncPasswordE2EE: localSyncPasswordE2EE,
+                syncOneDriveClientId: localSyncOneDriveClientId,
+                syncGDriveClientId: localSyncGDriveClientId,
+                syncDropboxClientId: localSyncDropboxClientId
               });
               navigate(-1);
             }}
