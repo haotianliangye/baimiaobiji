@@ -7,7 +7,7 @@ import { db } from '../db/db';
 import CalendarHeatmap from '../components/CalendarHeatmap';
 import ActionSheet from '../components/ActionSheet';
 import ContextChat from '../components/ContextChat';
-import { Trash2, ChevronDown, ChevronUp, RefreshCw, X, Sparkles, MessageCircle, Copy } from 'lucide-react';
+import { Trash2, ChevronDown, ChevronUp, RefreshCw, X, Sparkles, MessageCircle, Copy, Upload, Download } from 'lucide-react';
 import { useAppStore } from '../store/app.store';
 import { useSettingsStore, getActivePromptIndices } from '../store/settings.store';
 
@@ -599,10 +599,34 @@ export default function Review() {
             className="absolute bg-[#2a2a2a]/95 backdrop-blur-xl rounded-xl shadow-2xl flex items-center p-1 animate-in zoom-in-95 duration-100 divide-x divide-white/10"
             style={{
               top: contextMenuState.y > 100 ? contextMenuState.y - 75 : contextMenuState.y + 20,
-              left: Math.max(16, Math.min(contextMenuState.x - 40, window.innerWidth - 86)),
+              left: Math.max(16, Math.min(contextMenuState.x - 100, window.innerWidth - 210)),
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            <button
+              onClick={async () => {
+                setContextMenuState({ ...contextMenuState, isOpen: false });
+                if (confirm("确定要用本地数据强制覆盖云端备份吗？此操作将以本地数据为准对齐云网盘。")) {
+                  useAppStore.getState().syncNow('local_wins');
+                }
+              }}
+              className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 rounded-l-lg disabled:opacity-50"
+            >
+              <Upload className="w-3.5 h-3.5 mb-1.5 text-white/80" />
+              <span className="text-[10px] font-medium tracking-wide">强制上传</span>
+            </button>
+            <button
+              onClick={async () => {
+                setContextMenuState({ ...contextMenuState, isOpen: false });
+                if (confirm("确定要用云端备份强制覆盖本地数据吗？此操作将完全抹除本地数据，拉取云盘。")) {
+                  useAppStore.getState().syncNow('cloud_wins');
+                }
+              }}
+              className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 disabled:opacity-50"
+            >
+              <Download className="w-3.5 h-3.5 mb-1.5 text-white/80" />
+              <span className="text-[10px] font-medium tracking-wide">强制下载</span>
+            </button>
             <button
               onClick={async () => {
                 if (activeReview && confirm('确认删除这篇回顾吗？(日记内容不受影响)')) {
@@ -610,7 +634,7 @@ export default function Review() {
                 }
                 setContextMenuState({ ...contextMenuState, isOpen: false });
               }}
-              className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-rose-400 hover:text-rose-300 transition-colors hover:bg-white/10 rounded-lg"
+              className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-rose-400 hover:text-rose-300 transition-colors hover:bg-white/10 rounded-r-lg"
             >
               <Trash2 className="w-3.5 h-3.5 mb-1.5" />
               <span className="text-[10px] font-medium tracking-wide">删除回顾</span>
