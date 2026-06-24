@@ -23,6 +23,7 @@ import {
   Check,
   ListChecks,
   Keyboard,
+  X,
 } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { db } from "../db/db";
@@ -128,6 +129,7 @@ export default function Record() {
   const [inputText, setInputText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [hideStorageWarning, setHideStorageWarning] = useState(() => localStorage.getItem('baimiao_dismiss_storage_warning') === 'true');
 
   useEffect(() => {
     async function checkPersist() {
@@ -600,17 +602,29 @@ export default function Record() {
         </div>
       </div>
 
-      {isPersisted === false && (
+      {isPersisted === false && !hideStorageWarning && (
         <div className="bg-amber-50 border-b border-amber-100/60 px-4 py-2 flex items-center justify-between text-[11px] text-amber-800 animate-in slide-in-from-top duration-200">
           <span className="flex items-center gap-1.5 font-medium">
-            ⚠️ 您的浏览器当前未激活「永久存储保护」，数据可能被系统自动清理。
+            ⚠️ 未激活永久存储保护，数据可能被系统自动清理。
           </span>
-          <button
-            onClick={() => navigate('/settings')} 
-            className="text-amber-950 font-bold hover:underline shrink-0 pl-3"
-          >
-            立即保护 →
-          </button>
+          <div className="flex items-center gap-1 shrink-0 pl-2">
+            <button
+              onClick={() => navigate('/settings')} 
+              className="text-amber-950 font-bold hover:underline px-1 py-0.5"
+            >
+              设置
+            </button>
+            <button 
+              onClick={() => {
+                localStorage.setItem('baimiao_dismiss_storage_warning', 'true');
+                setHideStorageWarning(true);
+              }}
+              className="p-1 hover:bg-amber-200/50 rounded-md text-amber-700/60 hover:text-amber-900 transition-colors"
+              title="不再提示"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       )}
 
