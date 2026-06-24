@@ -56,7 +56,6 @@ export default function Layout() {
     };
   }, []);
 
-  // Global Keyboard Shortcuts (Ctrl + Shift + S -> Sync Now)
   useEffect(() => {
     if (showDateDropdown) {
       setTempStartDate(searchFilters.customStartDate || '');
@@ -135,19 +134,7 @@ export default function Layout() {
       }
     };
 
-    const checkAndAutoSync = async () => {
-      const settings = useSettingsStore.getState();
-      if (settings.syncEnabled && settings.syncAutoStartup) {
-        try {
-          await syncNow();
-        } catch (e) {
-          console.error("Auto sync on startup failed:", e);
-        }
-      }
-    };
-
     checkAndAutoGenerate();
-    checkAndAutoSync();
   }, []);
 
   const handleForceUpdate = async () => {

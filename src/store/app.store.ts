@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { db } from '../db/db';
 import { generateUUID } from '../lib/utils';
+import { SYNC_CONSTANTS } from '../config/constants';
 import { useSettingsStore, getActivePromptIndices } from './settings.store';
 import { encryptData, decryptData } from '../lib/crypto';
 import { WebDAVClient } from '../lib/webdav';
@@ -304,7 +305,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         const activePromptName = promptNames[activePromptIndex];
         
         if (i > 0) {
-          await new Promise(r => setTimeout(r, 3000));
+          await new Promise(r => setTimeout(r, SYNC_CONSTANTS.API_RATE_LIMIT_DELAY_MS));
         }
 
         settings.diaryPromptIndex = activePromptIndex;
@@ -380,7 +381,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         const activePromptName = promptNames[activePromptIndex];
 
         if (i > 0) {
-          await new Promise(r => setTimeout(r, 3000));
+          await new Promise(r => setTimeout(r, SYNC_CONSTANTS.API_RATE_LIMIT_DELAY_MS));
         }
 
         settings.reviewPromptIndex = activePromptIndex;
@@ -448,7 +449,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     for (let i = 0; i < indices.length; i++) {
       set({ batchProgress: { current: i + 1, total, type: 'diary' } });
       if (i > 0) {
-        await new Promise(r => setTimeout(r, 3000));
+        await new Promise(r => setTimeout(r, SYNC_CONSTANTS.API_RATE_LIMIT_DELAY_MS));
       }
       try {
         await get().generateDiaryTimeline(dateStr, logs, undefined, indices[i]);
@@ -469,7 +470,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     for (let i = 0; i < indices.length; i++) {
       set({ batchProgress: { current: i + 1, total, type: 'review' } });
       if (i > 0) {
-        await new Promise(r => setTimeout(r, 3000));
+        await new Promise(r => setTimeout(r, SYNC_CONSTANTS.API_RATE_LIMIT_DELAY_MS));
       }
       try {
         const tempId = generateUUID();

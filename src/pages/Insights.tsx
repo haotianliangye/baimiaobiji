@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { PieChart, Loader2, Sparkles, ChevronLeft, Calendar, AlertCircle, ChevronDown, ChevronUp, Trash2, Copy, RefreshCw, MessageCircle, Edit2 } from 'lucide-react';
+import { PieChart, Loader2, Sparkles, ChevronLeft, Calendar, AlertCircle, ChevronDown, ChevronUp, Trash2, Copy, RefreshCw, MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import ContextChat from '../components/ContextChat';
@@ -9,6 +9,9 @@ import { format, subDays } from 'date-fns';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { generateUUID } from '../lib/utils';
 import ActionSheet from '../components/ActionSheet';
+
+const MENU_HALF_WIDTH = 140;
+const MENU_SAFE_MARGIN = 296;
 
 const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, onDelete: (id: string) => void, onRegenerate: (insight: Insight) => void }) => {
   const [expanded, setExpanded] = useState(false);
@@ -22,9 +25,6 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
     x: 0,
     y: 0,
   });
-  const [isEditing, setIsEditing] = useState(false);
-  const [editText, setEditText] = useState('');
-  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
   const holdTimeoutRef = useRef<any>(null);
 
   useEffect(() => {
@@ -32,13 +32,6 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
        setShowChat(false);
     }
   }, [expanded]);
-
-  useEffect(() => {
-    if (isEditing && editTextareaRef.current) {
-      editTextareaRef.current.style.height = 'auto';
-      editTextareaRef.current.style.height = editTextareaRef.current.scrollHeight + 'px';
-    }
-  }, [editText, isEditing]);
 
   return (
     <>
@@ -75,51 +68,16 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
           </div>
         </div>
         
-        {isEditing ? (
-          <div className="flex flex-col mt-3 relative z-10" onClick={(e) => e.stopPropagation()}>
-            <textarea
-              ref={editTextareaRef}
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              className="w-full bg-stone-50 border border-stone-200 rounded-xl p-4 text-[15px] leading-relaxed text-stone-700 resize-none focus:outline-none focus:ring-2 focus:ring-stone-400 focus:border-transparent min-h-[200px]"
-              placeholder="输入洞察内容..."
-            />
-            <div className="flex justify-end gap-2 mt-3">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsEditing(false);
-                }}
-                className="px-4 py-1.5 text-[13px] font-medium text-stone-500 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors"
-              >
-                取消
-              </button>
-              <button
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  if (insight.id) {
-                    await db.insights.update(insight.id, { content: editText });
-                  }
-                  setIsEditing(false);
-                }}
-                className="px-4 py-1.5 text-[13px] font-medium text-white bg-stone-800 hover:bg-stone-900 rounded-lg transition-colors shadow-sm"
-              >
-                保存
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div 
-            className={`markdown-body prose prose-stone prose-h1:text-[18px] prose-h2:text-[17px] prose-h3:text-[16px] prose-headings:font-bold prose-headings:text-stone-900 prose-p:text-stone-600 prose-li:text-stone-600 text-[16px] leading-relaxed relative z-10 selection:bg-stone-200 cursor-pointer ${expanded ? '' : 'line-clamp-4 before:absolute before:bottom-0 before:left-0 before:right-0 before:h-12 before:bg-gradient-to-t before:from-white before:to-transparent'}`}
-            onClick={(e) => {
-              // 避免点击内部链接时触发收起
-              if ((e.target as HTMLElement).tagName.toLowerCase() === 'a') return;
-              setExpanded(!expanded);
-            }}
-          >
-             <ReactMarkdown>{insight.content}</ReactMarkdown>
-          </div>
-        )}
+        <div 
+          className={`markdown-body prose prose-stone prose-h1:text-[18px] prose-h2:text-[17px] prose-h3:text-[16px] prose-headings:font-bold prose-headings:text-stone-900 prose-p:text-stone-600 prose-li:text-stone-600 text-[16px] leading-relaxed relative z-10 selection:bg-stone-200 cursor-pointer ${expanded ? '' : 'line-clamp-4 before:absolute before:bottom-0 before:left-0 before:right-0 before:h-12 before:bg-gradient-to-t before:from-white before:to-transparent'}`}
+          onClick={(e) => {
+            // 避免点击内部链接时触发收起
+            if ((e.target as HTMLElement).tagName.toLowerCase() === 'a') return;
+            setExpanded(!expanded);
+          }}
+        >
+           <ReactMarkdown>{insight.content}</ReactMarkdown>
+        </div>
       </div>
 
       {expanded && (
@@ -149,17 +107,6 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
             >
                <Copy className="w-4 h-4" />
                复制
-            </button>
-            <button
-               onClick={(e) => {
-                  e.stopPropagation();
-                  setEditText(insight.content || '');
-                  setIsEditing(true);
-               }}
-               className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
-            >
-               <Edit2 className="w-4 h-4" />
-               编辑
             </button>
             <button
                onClick={(e) => { e.stopPropagation(); onRegenerate(insight); }}
@@ -221,7 +168,7 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
             className="absolute bg-[#2a2a2a]/95 backdrop-blur-xl rounded-xl shadow-2xl flex items-center p-1 animate-in zoom-in-95 duration-100 divide-x divide-white/10"
             style={{
               top: contextMenuState.y > 100 ? contextMenuState.y - 75 : contextMenuState.y + 20,
-              left: Math.max(16, Math.min(contextMenuState.x - 140, window.innerWidth - 296)),
+              left: Math.max(16, Math.min(contextMenuState.x - MENU_HALF_WIDTH, window.innerWidth - MENU_SAFE_MARGIN)),
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -236,17 +183,6 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
             >
               <Copy className="w-3.5 h-3.5 mb-1.5 text-white/80" />
               <span className="text-[10px] font-medium tracking-wide">复制内容</span>
-            </button>
-            <button
-              onClick={() => {
-                setEditText(insight.content || '');
-                setIsEditing(true);
-                setContextMenuState({ ...contextMenuState, isOpen: false });
-              }}
-              className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 disabled:opacity-50"
-            >
-              <Edit2 className="w-3.5 h-3.5 mb-1.5 text-white/80" />
-              <span className="text-[10px] font-medium tracking-wide">编辑洞察</span>
             </button>
             <button
               onClick={() => {

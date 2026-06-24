@@ -129,7 +129,7 @@ export default function Record() {
   const [inputText, setInputText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [hideStorageWarning, setHideStorageWarning] = useState(() => localStorage.getItem('baimiao_dismiss_storage_warning') === 'true');
+  const [hideStorageWarning, setHideStorageWarning] = useState(false);
 
   useEffect(() => {
     async function checkPersist() {
@@ -616,7 +616,6 @@ export default function Record() {
             </button>
             <button 
               onClick={() => {
-                localStorage.setItem('baimiao_dismiss_storage_warning', 'true');
                 setHideStorageWarning(true);
               }}
               className="p-1 hover:bg-amber-200/50 rounded-md text-amber-700/60 hover:text-amber-900 transition-colors"

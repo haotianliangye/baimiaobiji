@@ -7,6 +7,9 @@ import { checkStorageStatus, requestStoragePersistence, StorageEstimateInfo } fr
 import { useAppStore } from '../store/app.store';
 import { SYNC_CONSTANTS } from '../config/constants';
 
+const SYNC_START_DELAY_MS = 500;
+const OAUTH_CHECK_INTERVAL_MS = 50;
+
 export default function Settings() {
   const navigate = useNavigate();
   const settingsStore = useSettingsStore();
@@ -122,10 +125,10 @@ export default function Settings() {
         window.history.replaceState(null, '', window.location.pathname + window.location.search);
         alert(`已成功连接到 ${state === 'gdrive' ? 'Google Drive' : state === 'onedrive' ? 'OneDrive' : 'Dropbox'} 网盘！`);
         
-        // Trigger initial sync automatically after oauth success
+        // Delay syncNow to give React state time to flush to Zustand
         setTimeout(() => {
           syncNow();
-        }, 500);
+        }, SYNC_START_DELAY_MS);
       }
     }
   }, []);
@@ -994,7 +997,19 @@ export default function Settings() {
                             syncGDriveClientId: localSyncGDriveClientId,
                             syncDropboxClientId: localSyncDropboxClientId,
                           });
-                          await new Promise(r => setTimeout(r, 50)); 
+                          if (localSyncProvider === 'gdrive' && !localSyncGDriveClientId) {
+                            setLocalSyncGDriveClientId(SYNC_CONSTANTS.DEFAULT_GDRIVE_CLIENT_ID);
+                            await new Promise(r => setTimeout(r, OAUTH_CHECK_INTERVAL_MS)); 
+                          }
+                          if (localSyncProvider === 'onedrive' && !localSyncOneDriveClientId) {
+                            setLocalSyncOneDriveClientId(SYNC_CONSTANTS.DEFAULT_ONEDRIVE_CLIENT_ID);
+                            await new Promise(r => setTimeout(r, OAUTH_CHECK_INTERVAL_MS)); 
+                          }
+                          if (localSyncProvider === 'dropbox' && !localSyncDropboxClientId) {
+                            setLocalSyncDropboxClientId(SYNC_CONSTANTS.DEFAULT_DROPBOX_CLIENT_ID);
+                            await new Promise(r => setTimeout(r, OAUTH_CHECK_INTERVAL_MS)); 
+                          }
+                          await new Promise(r => setTimeout(r, OAUTH_CHECK_INTERVAL_MS)); 
                           await syncNow();
                         }}
                         disabled={

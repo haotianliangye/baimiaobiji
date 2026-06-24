@@ -1,6 +1,7 @@
 export const SYNC_CONSTANTS = {
   // Sync
   AUTO_SYNC_DEBOUNCE_MS: 2000,
+  API_RATE_LIMIT_DELAY_MS: 3000,
   
   // Storage
   BACKUP_FILENAME_ZIP: 'baimiao_data.enc',
