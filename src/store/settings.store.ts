@@ -69,6 +69,16 @@ const DEFAULT_PROVIDER_CONFIGS: Record<string, { apiKey: string; baseUrl: string
   custom: { apiKey: '', baseUrl: 'http://127.0.0.1:11434/v1', model: 'llama3' }
 };
 
+const obfuscate = (str: string) => {
+  if (!str) return str;
+  try { return btoa(encodeURIComponent(str)); } catch(e) { return str; }
+};
+
+const deobfuscate = (str: string) => {
+  if (!str) return str;
+  try { return decodeURIComponent(atob(str)); } catch(e) { return str; }
+};
+
 interface SettingsState {
   provider: 'gemini' | 'openai' | 'volcengine' | 'kimi' | 'zhipu' | 'minimax' | 'mimo' | 'custom';
   apiKey: string;
@@ -97,6 +107,7 @@ interface SettingsState {
   syncConflictPolicy: 'local_wins' | 'cloud_wins' | 'merge';
   syncAutoStartup: boolean;
   syncAutoChange: boolean;
+  syncRememberCredentials: boolean;
   syncLastTime: number | null;
 
   // OAuth Tokens & Client IDs
@@ -140,6 +151,7 @@ export const useSettingsStore = create<SettingsState>()(
       syncConflictPolicy: 'merge',
       syncAutoStartup: true,
       syncAutoChange: true,
+      syncRememberCredentials: false,
       syncLastTime: null,
 
       // OAuth 默认值
@@ -196,10 +208,30 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     { 
         name: 'whitewash-settings',
-        version: 2,
+        version: 3,
         partialize: (state) => {
           const { syncPassword, syncPasswordE2EE, ...rest } = state;
+          if (state.syncRememberCredentials) {
+            return { 
+              ...rest, 
+              syncPassword: obfuscate(syncPassword), 
+              syncPasswordE2EE: obfuscate(syncPasswordE2EE) 
+            };
+          }
           return rest;
+        },
+        merge: (persistedState: any, currentState: SettingsState) => {
+          if (persistedState.syncRememberCredentials) {
+            if (persistedState.syncPassword) {
+              persistedState.syncPassword = deobfuscate(persistedState.syncPassword);
+              sessionStorage.setItem('baimiao_syncPassword', persistedState.syncPassword);
+            }
+            if (persistedState.syncPasswordE2EE) {
+              persistedState.syncPasswordE2EE = deobfuscate(persistedState.syncPasswordE2EE);
+              sessionStorage.setItem('baimiao_syncPasswordE2EE', persistedState.syncPasswordE2EE);
+            }
+          }
+          return { ...currentState, ...persistedState };
         },
         migrate: (persistedState: any, version) => {
          if (version < 1) {

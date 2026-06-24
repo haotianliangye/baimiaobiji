@@ -28,6 +28,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { db } from "../db/db";
 import { generateUUID } from "../lib/utils";
 import { useSettingsStore } from "../store/settings.store";
+import { useAppStore } from "../store/app.store";
 import CalendarHeatmap from "../components/CalendarHeatmap";
 import ActionSheet from "../components/ActionSheet";
 
@@ -121,6 +122,8 @@ async function fetchTranscriptionWithRetry(body: any, maxRetries = 3) {
 
 export default function Record() {
   const [isPersisted, setIsPersisted] = useState<boolean | null>(null);
+  const syncStatus = useAppStore(state => state.syncStatus);
+  const syncErrorMessage = useAppStore(state => state.syncErrorMessage);
   const navigate = useNavigate();
   const [inputText, setInputText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -607,6 +610,20 @@ export default function Record() {
             className="text-amber-950 font-bold hover:underline shrink-0 pl-3"
           >
             立即保护 →
+          </button>
+        </div>
+      )}
+
+      {syncStatus === 'credentials_missing' && (
+        <div className="bg-red-50 border-b border-red-100/60 px-4 py-2 flex items-center justify-between text-[11px] text-red-800 animate-in slide-in-from-top duration-200 shadow-sm relative z-10">
+          <span className="flex items-center gap-1.5 font-medium line-clamp-1">
+            🔒 {syncErrorMessage || '为保障安全，后台同步暂时挂起：请补充密码'}
+          </span>
+          <button
+            onClick={() => navigate('/settings')} 
+            className="text-red-950 font-bold hover:underline shrink-0 pl-3"
+          >
+            立即补充 →
           </button>
         </div>
       )}

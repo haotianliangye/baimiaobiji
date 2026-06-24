@@ -51,11 +51,11 @@ interface AppState {
   searchResults: SearchItem[];
 
   // 云同步状态
-  syncStatus: 'idle' | 'syncing' | 'error' | 'disabled';
+  syncStatus: 'idle' | 'syncing' | 'error' | 'disabled' | 'credentials_missing';
   syncErrorMessage: string;
 
   syncNow: (forcePolicy?: 'local_wins' | 'cloud_wins' | 'merge') => Promise<void>;
-  setSyncStatus: (status: 'idle' | 'syncing' | 'error' | 'disabled', errorMsg?: string) => void;
+  setSyncStatus: (status: 'idle' | 'syncing' | 'error' | 'disabled' | 'credentials_missing', errorMsg?: string) => void;
 
   generateDiaryTimeline: (dateStr: string, logs: any[], idToOverwrite?: string, targetPromptIndex?: number) => Promise<void>;
   generateReview: (tempId: string, dateStr: string, logs: any[], diaryContent: string, targetPromptIndex?: number) => Promise<void>;
@@ -623,23 +623,39 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     // 1. 根据不同服务商做针对性的配置校验
     if (settings.syncProvider === 'webdav') {
-      if (!settings.syncEndpoint || !settings.syncUsername || !settings.syncPassword || !settings.syncPasswordE2EE) {
+      if (!settings.syncPassword || !settings.syncPasswordE2EE) {
+        set({ syncStatus: 'credentials_missing', syncErrorMessage: '同步密码未保存，请补充密码以恢复自动同步。' });
+        return;
+      }
+      if (!settings.syncEndpoint || !settings.syncUsername) {
         set({ syncStatus: 'error', syncErrorMessage: 'WebDAV 云同步配置不完整，请检查设置。' });
         return;
       }
     } else if (settings.syncProvider === 'onedrive') {
-      if (!settings.syncOneDriveToken || !settings.syncPasswordE2EE) {
-        set({ syncStatus: 'error', syncErrorMessage: 'OneDrive 尚未授权，或端到端加密密码未配置。' });
+      if (!settings.syncPasswordE2EE) {
+        set({ syncStatus: 'credentials_missing', syncErrorMessage: '加密密码未保存，请补充密码以恢复自动同步。' });
+        return;
+      }
+      if (!settings.syncOneDriveToken) {
+        set({ syncStatus: 'error', syncErrorMessage: 'OneDrive 尚未授权，请先授权。' });
         return;
       }
     } else if (settings.syncProvider === 'gdrive') {
-      if (!settings.syncGDriveToken || !settings.syncPasswordE2EE) {
-        set({ syncStatus: 'error', syncErrorMessage: 'Google Drive 尚未授权，或端到端加密密码未配置。' });
+      if (!settings.syncPasswordE2EE) {
+        set({ syncStatus: 'credentials_missing', syncErrorMessage: '加密密码未保存，请补充密码以恢复自动同步。' });
+        return;
+      }
+      if (!settings.syncGDriveToken) {
+        set({ syncStatus: 'error', syncErrorMessage: 'Google Drive 尚未授权，请先授权。' });
         return;
       }
     } else if (settings.syncProvider === 'dropbox') {
-      if (!settings.syncDropboxToken || !settings.syncPasswordE2EE) {
-        set({ syncStatus: 'error', syncErrorMessage: 'Dropbox 尚未授权，或端到端加密密码未配置。' });
+      if (!settings.syncPasswordE2EE) {
+        set({ syncStatus: 'credentials_missing', syncErrorMessage: '加密密码未保存，请补充密码以恢复自动同步。' });
+        return;
+      }
+      if (!settings.syncDropboxToken) {
+        set({ syncStatus: 'error', syncErrorMessage: 'Dropbox 尚未授权，请先授权。' });
         return;
       }
     } else {

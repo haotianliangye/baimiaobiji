@@ -46,6 +46,7 @@ export default function Settings() {
   const [localSyncPassword, setLocalSyncPassword] = useState(settingsStore.syncPassword);
   const [localSyncDirectory, setLocalSyncDirectory] = useState(settingsStore.syncDirectory || '/baimiaobiji/');
   const [localSyncPasswordE2EE, setLocalSyncPasswordE2EE] = useState(settingsStore.syncPasswordE2EE);
+  const [localSyncRememberCredentials, setLocalSyncRememberCredentials] = useState(settingsStore.syncRememberCredentials || false);
 
   // OAuth Client IDs local states
   const [localSyncOneDriveClientId, setLocalSyncOneDriveClientId] = useState(settingsStore.syncOneDriveClientId || '');
@@ -69,6 +70,25 @@ export default function Settings() {
       const state = params.get('state');
 
       if (token && state) {
+        // Restore pre-oauth backup
+        try {
+          const backupStr = localStorage.getItem('baimiao_oauth_backup');
+          if (backupStr) {
+            const backup = JSON.parse(backupStr);
+            if (backup.syncEndpoint) setLocalSyncEndpoint(backup.syncEndpoint);
+            if (backup.syncUsername) setLocalSyncUsername(backup.syncUsername);
+            if (backup.syncDirectory) setLocalSyncDirectory(backup.syncDirectory);
+            if (backup.syncRememberCredentials !== undefined) setLocalSyncRememberCredentials(backup.syncRememberCredentials);
+            settingsStore.setSettings({
+              syncEndpoint: backup.syncEndpoint,
+              syncUsername: backup.syncUsername,
+              syncDirectory: backup.syncDirectory,
+              syncRememberCredentials: backup.syncRememberCredentials
+            });
+            localStorage.removeItem('baimiao_oauth_backup');
+          }
+        } catch (err) {}
+
         if (state === 'onedrive') {
           settingsStore.setSettings({
             syncOneDriveToken: token,
@@ -137,6 +157,14 @@ export default function Settings() {
         syncDropboxClientId: localSyncDropboxClientId,
         syncProvider: provider
       });
+      // Backup state before redirect to survive cross-origin returns
+      localStorage.setItem('baimiao_oauth_backup', JSON.stringify({
+        syncProvider: provider,
+        syncEndpoint: localSyncEndpoint,
+        syncUsername: localSyncUsername,
+        syncDirectory: localSyncDirectory,
+        syncRememberCredentials: localSyncRememberCredentials
+      }));
       window.location.href = authUrl;
     }
   };
@@ -910,6 +938,22 @@ export default function Settings() {
                         </button>
                       </div>
                       <p className="text-[10px] text-stone-400 leading-normal mt-0.5">本地使用此密码以 AES-GCM-256 加密所有文本与音频，密码丢失将无法解密。</p>
+                      
+                      <label className="flex items-start gap-2 cursor-pointer mt-3 bg-stone-50 p-2.5 rounded-lg border border-stone-200/60 transition-colors hover:bg-stone-100/50">
+                        <input
+                          type="checkbox"
+                          checked={localSyncRememberCredentials}
+                          onChange={(e) => setLocalSyncRememberCredentials(e.target.checked)}
+                          className="w-4 h-4 mt-0.5 rounded border-stone-300 text-stone-900 focus:ring-black accent-black cursor-pointer shrink-0"
+                        />
+                        <div className="flex flex-col select-none">
+                          <span className="text-[12px] font-medium text-stone-800 leading-tight">在这台设备上记住密码以支持后台无感同步</span>
+                          <span className="text-[10px] text-stone-500 mt-1 leading-tight tracking-wide">
+                            <span className="text-amber-600 font-medium">警告：</span>
+                            请确保持久化存储仅在您个人的受信任设备上开启，且设备设有屏幕锁。
+                          </span>
+                        </div>
+                      </label>
                     </div>
 
                     <div className="pt-2 border-t border-stone-100 flex flex-col gap-2">
@@ -1113,6 +1157,7 @@ export default function Settings() {
                 syncPassword: localSyncPassword,
                 syncDirectory: localSyncDirectory,
                 syncPasswordE2EE: localSyncPasswordE2EE,
+                syncRememberCredentials: localSyncRememberCredentials,
                 syncOneDriveClientId: localSyncOneDriveClientId,
                 syncGDriveClientId: localSyncGDriveClientId,
                 syncDropboxClientId: localSyncDropboxClientId
