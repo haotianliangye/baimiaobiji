@@ -5,6 +5,7 @@ import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_LYUBISHCHEV_PROMPT, DEF
 import { db } from '../db/db';
 import { checkStorageStatus, requestStoragePersistence, StorageEstimateInfo } from '../lib/storage';
 import { useAppStore } from '../store/app.store';
+import { SYNC_CONSTANTS } from '../config/constants';
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -120,6 +121,11 @@ export default function Settings() {
         // Clean up hash from URL
         window.history.replaceState(null, '', window.location.pathname + window.location.search);
         alert(`已成功连接到 ${state === 'gdrive' ? 'Google Drive' : state === 'onedrive' ? 'OneDrive' : 'Dropbox'} 网盘！`);
+        
+        // Trigger initial sync automatically after oauth success
+        setTimeout(() => {
+          syncNow();
+        }, 500);
       }
     }
   }, []);
@@ -142,13 +148,13 @@ export default function Settings() {
     
     let authUrl = '';
     if (provider === 'onedrive') {
-      const clientId = localSyncOneDriveClientId || 'e74f3468-f9b8-4903-b054-0dc55034c56e';
+      const clientId = localSyncOneDriveClientId || SYNC_CONSTANTS.DEFAULT_ONEDRIVE_CLIENT_ID;
       authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent('files.readwrite')}&state=onedrive`;
     } else if (provider === 'gdrive') {
-      const clientId = localSyncGDriveClientId || '937286392305-juh5263124874p82g4c4983057v4b518.apps.googleusercontent.com';
+      const clientId = localSyncGDriveClientId || SYNC_CONSTANTS.DEFAULT_GDRIVE_CLIENT_ID;
       authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent('https://www.googleapis.com/auth/drive.file')}&state=gdrive`;
     } else if (provider === 'dropbox') {
-      const clientId = localSyncDropboxClientId || '3qy6q5w6sc1m22l';
+      const clientId = localSyncDropboxClientId || SYNC_CONSTANTS.DEFAULT_DROPBOX_CLIENT_ID;
       authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&state=dropbox`;
     }
     

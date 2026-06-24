@@ -1,0 +1,27 @@
+export const SYNC_CONSTANTS = {
+  // Sync
+  AUTO_SYNC_DEBOUNCE_MS: 2000,
+  
+  // Storage
+  BACKUP_FILENAME_ZIP: 'baimiao_data.enc',
+  BACKUP_FILENAME_JSON: 'data.enc',
+
+  // Google Drive
+  GDRIVE_MULTIPART_BOUNDARY: '314159265358979323846',
+  
+  // Default OAuth Client IDs
+  DEFAULT_ONEDRIVE_CLIENT_ID: 'e74f3468-f9b8-4903-b097-d86b037dfc89', // Use VITE_ONEDRIVE_CLIENT_ID in env
+  DEFAULT_GDRIVE_CLIENT_ID: '575661159981-d13lnd7t0gblvobq63o15vtsq5q245p7.apps.googleusercontent.com', // Use VITE_GDRIVE_CLIENT_ID in env
+  DEFAULT_DROPBOX_CLIENT_ID: '3qy6q5w6sc1m22l', // Use VITE_DROPBOX_CLIENT_ID in env
+};
+
+export const CRYPTO_CONSTANTS = {
+  // Key Derivation
+  PBKDF2_ITERATIONS: 100000,
+  KEY_LENGTH_BITS: 256,
+  SALT_LENGTH_BYTES: 16,
+  
+  // Encryption
+  IV_LENGTH_BYTES: 12,
+  ALGORITHM: 'AES-GCM',
+};

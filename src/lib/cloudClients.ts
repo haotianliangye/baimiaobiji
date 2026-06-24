@@ -22,7 +22,7 @@ export class OneDriveClient {
 
   async putFile(path: string, content: ArrayBuffer): Promise<void> {
     const cleanDir = this.getCleanPath(path);
-    const url = `https://graph.microsoft.com/v1.0/me/drive/root:${cleanDir}data.enc:/content`;
+    const url = `https://graph.microsoft.com/v1.0/me/drive/root:${cleanDir}${SYNC_CONSTANTS.BACKUP_FILENAME_JSON}:/content`;
     const res = await fetch(url, {
       method: 'PUT',
       headers: {
@@ -38,7 +38,7 @@ export class OneDriveClient {
 
   async getFile(path: string): Promise<ArrayBuffer> {
     const cleanDir = this.getCleanPath(path);
-    const url = `https://graph.microsoft.com/v1.0/me/drive/root:${cleanDir}data.enc:/content`;
+    const url = `https://graph.microsoft.com/v1.0/me/drive/root:${cleanDir}${SYNC_CONSTANTS.BACKUP_FILENAME_JSON}:/content`;
     const res = await fetch(url, {
       headers: {
         'Authorization': `Bearer ${this.token}`
@@ -81,7 +81,7 @@ export class DropboxClient {
       headers: {
         'Authorization': `Bearer ${this.token}`,
         'Dropbox-API-Arg': JSON.stringify({
-          path: `${cleanDir}data.enc`,
+          path: `${cleanDir}${SYNC_CONSTANTS.BACKUP_FILENAME_JSON}`,
           mode: 'overwrite',
           autorename: false,
           mute: false
@@ -103,7 +103,7 @@ export class DropboxClient {
       headers: {
         'Authorization': `Bearer ${this.token}`,
         'Dropbox-API-Arg': JSON.stringify({
-          path: `${cleanDir}data.enc`
+          path: `${cleanDir}${SYNC_CONSTANTS.BACKUP_FILENAME_JSON}`
         })
       }
     });
@@ -186,6 +186,15 @@ export class GDriveClient {
     return data.files && data.files.length > 0 ? data.files[0].id : null;
   }
 
+  async getBackupFile(): Promise<{ id: string, name: string } | null> {
+    const query = encodeURIComponent(`name='${SYNC_CONSTANTS.BACKUP_FILENAME_JSON}' or name='${SYNC_CONSTANTS.BACKUP_FILENAME_ZIP}'`);
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)`, {
+        headers: { 'Authorization': `Bearer ${this.token}` }
+    });
+    const data = await res.json();
+    return data?.files?.[0] || null;
+  }
+
   async checkDir(path: string): Promise<boolean> {
     return true; 
   }
@@ -194,7 +203,7 @@ export class GDriveClient {
   }
 
   async putFile(path: string, content: ArrayBuffer): Promise<void> {
-    const filename = 'baimiao_data.enc';
+    const filename = SYNC_CONSTANTS.BACKUP_FILENAME_ZIP;
     const parentId = await this.getOrCreateFolderId(path);
     const fileId = await this.getFileId(filename, parentId);
     
@@ -212,7 +221,7 @@ export class GDriveClient {
         throw new Error(`Google Drive 上传更新失败: ${res.statusText}`);
       }
     } else {
-      const boundary = '314159265358979323846';
+      const boundary = SYNC_CONSTANTS.GDRIVE_MULTIPART_BOUNDARY;
       const delimiter = `--${boundary}\r\n`;
       const closeDelimiter = `\r\n--${boundary}--\r\n`;
       
@@ -247,7 +256,7 @@ export class GDriveClient {
   }
 
   async getFile(path: string): Promise<ArrayBuffer> {
-    const filename = 'baimiao_data.enc';
+    const filename = SYNC_CONSTANTS.BACKUP_FILENAME_ZIP;
     const parentId = await this.getOrCreateFolderId(path);
     const fileId = await this.getFileId(filename, parentId);
     if (!fileId) {

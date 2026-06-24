@@ -13,11 +13,11 @@ async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey>
     {
       name: "PBKDF2",
       salt: salt,
-      iterations: 100000,
+      iterations: CRYPTO_CONSTANTS.PBKDF2_ITERATIONS,
       hash: "SHA-256"
     },
     baseKey,
-    { name: "AES-GCM", length: 256 },
+    { name: CRYPTO_CONSTANTS.ALGORITHM, length: CRYPTO_CONSTANTS.KEY_LENGTH_BITS },
     false,
     ["encrypt", "decrypt"]
   );
@@ -28,13 +28,13 @@ export async function encryptData(plainText: string, password: string): Promise<
   const compressedBuffer = await compressText(plainText);
   const compressedArr = new Uint8Array(compressedBuffer);
   
-  const salt = window.crypto.getRandomValues(new Uint8Array(16));
-  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const salt = window.crypto.getRandomValues(new Uint8Array(CRYPTO_CONSTANTS.SALT_LENGTH_BYTES));
+  const iv = window.crypto.getRandomValues(new Uint8Array(CRYPTO_CONSTANTS.IV_LENGTH_BYTES));
   
   const key = await deriveKey(password, salt);
   const cipherBuffer = await window.crypto.subtle.encrypt(
     {
-      name: "AES-GCM",
+      name: CRYPTO_CONSTANTS.ALGORITHM,
       iv: iv
     },
     key,
@@ -52,20 +52,20 @@ export async function encryptData(plainText: string, password: string): Promise<
 // Decrypt encrypted ArrayBuffer back to plainText
 export async function decryptData(encryptedBuffer: ArrayBuffer, password: string): Promise<string> {
   const encryptedArr = new Uint8Array(encryptedBuffer);
-  if (encryptedArr.byteLength < 28) {
+  if (encryptedArr.byteLength < (CRYPTO_CONSTANTS.SALT_LENGTH_BYTES + CRYPTO_CONSTANTS.IV_LENGTH_BYTES)) {
     throw new Error("加密数据长度过短，可能已损坏");
   }
   
-  const salt = encryptedArr.slice(0, 16);
-  const iv = encryptedArr.slice(16, 28);
-  const cipherText = encryptedArr.slice(28);
+  const salt = encryptedArr.slice(0, CRYPTO_CONSTANTS.SALT_LENGTH_BYTES);
+  const iv = encryptedArr.slice(CRYPTO_CONSTANTS.SALT_LENGTH_BYTES, CRYPTO_CONSTANTS.SALT_LENGTH_BYTES + CRYPTO_CONSTANTS.IV_LENGTH_BYTES);
+  const cipherText = encryptedArr.slice(CRYPTO_CONSTANTS.SALT_LENGTH_BYTES + CRYPTO_CONSTANTS.IV_LENGTH_BYTES);
   
   const key = await deriveKey(password, salt);
   
   try {
     const decryptedBuffer = await window.crypto.subtle.decrypt(
       {
-        name: "AES-GCM",
+        name: CRYPTO_CONSTANTS.ALGORITHM,
         iv: iv
       },
       key,

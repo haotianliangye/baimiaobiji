@@ -162,11 +162,18 @@ export const useSettingsStore = create<SettingsState>()(
       syncDropboxToken: '',
       syncDropboxClientId: '',
       setSettings: (newSettings) => set((state) => {
-         if (newSettings.syncPassword !== undefined) {
-           sessionStorage.setItem('baimiao_syncPassword', newSettings.syncPassword);
-         }
-         if (newSettings.syncPasswordE2EE !== undefined) {
-           sessionStorage.setItem('baimiao_syncPasswordE2EE', newSettings.syncPasswordE2EE);
+         const nextRemember = newSettings.syncRememberCredentials !== undefined ? newSettings.syncRememberCredentials : state.syncRememberCredentials;
+         
+         if (nextRemember) {
+           if (newSettings.syncPassword !== undefined) {
+             sessionStorage.setItem('baimiao_syncPassword', newSettings.syncPassword);
+           }
+           if (newSettings.syncPasswordE2EE !== undefined) {
+             sessionStorage.setItem('baimiao_syncPasswordE2EE', newSettings.syncPasswordE2EE);
+           }
+         } else {
+           sessionStorage.removeItem('baimiao_syncPassword');
+           sessionStorage.removeItem('baimiao_syncPasswordE2EE');
          }
 
          const nextConfigs = { ...state.configs };

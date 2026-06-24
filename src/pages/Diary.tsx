@@ -641,30 +641,7 @@ export default function Diary() {
               <RefreshCw className="w-3.5 h-3.5 mb-1.5 text-white/80" />
               <span className="text-[10px] font-medium tracking-wide">重新生成</span>
             </button>
-             <button
-              onClick={async () => {
-                setContextMenuState({ ...contextMenuState, isOpen: false });
-                if (confirm("确定要用本地数据强制覆盖云端备份吗？此操作将以本地数据为准对齐云网盘。")) {
-                  useAppStore.getState().syncNow('local_wins');
-                }
-              }}
-              className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 disabled:opacity-50"
-            >
-              <Upload className="w-3.5 h-3.5 mb-1.5 text-white/80" />
-              <span className="text-[10px] font-medium tracking-wide">强制上传</span>
-            </button>
-            <button
-              onClick={async () => {
-                setContextMenuState({ ...contextMenuState, isOpen: false });
-                if (confirm("确定要用云端备份强制覆盖本地数据吗？此操作将完全抹除本地数据，拉取云盘。")) {
-                  useAppStore.getState().syncNow('cloud_wins');
-                }
-              }}
-              className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 disabled:opacity-50"
-            >
-              <Download className="w-3.5 h-3.5 mb-1.5 text-white/80" />
-              <span className="text-[10px] font-medium tracking-wide">强制下载</span>
-            </button>
+
             <button
               onClick={async () => {
                 if (activeDiary) {
