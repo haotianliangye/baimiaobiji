@@ -69,6 +69,13 @@
 ### 🔒 隐私优先与本地全掌控
 基于 IndexedDB 的本地存储架构，音频文件与笔记数据默认留存在您的设备本地。所有 AI 请求通过后端安全代理层透传，API Key 等配置信息由前端注入，不在服务端存储。提供完善的数据导出能力，您的数据属于您。
 
+### ☁️ 多云盘端到端加密同步
+不仅支持纯本地使用，还内置了强大的本地优先云端同步矩阵：
+- 支持 **WebDAV、Google Drive、OneDrive、Dropbox** 四大主流云盘。
+- 支持 **端到端加密 (E2EE)**，备份至云端的数据（AES-GCM 加密）即使被获取也无法被解密。
+- 提供手动、强制覆盖和自动合并同步能力，防篡改和数据主权并重。
+- 内置针对浏览器永久存储配额（Storage Persistence）的保护检测与防护护航。
+
 ---
 
 ## 🏗️ 技术架构
@@ -202,6 +209,7 @@ npm start
 | `POST /api/diary-chat` | 基于个人日记上下文的 AI 追问 |
 | `POST /api/review-chat` | 基于反思回顾上下文的 AI 追问 |
 | `POST /api/transcribe` | 语音转写代理（支持 ffmpeg 格式转换） |
+| `ALL /api/webdav-proxy`| WebDAV 代理端点（绕过浏览器 CORS 限制）|
 
 所有接口的 API Key、Base URL、Model 均通过请求体中的 `settings` 对象由前端透传，后端不保留任何密钥。
 
