@@ -609,7 +609,7 @@ export default function Record() {
           </span>
           <div className="flex items-center gap-1 shrink-0 pl-2">
             <button
-              onClick={() => navigate('/settings')} 
+              onClick={() => navigate('/settings', { state: { tab: 'data' } })} 
               className="text-amber-950 font-bold hover:underline px-1 py-0.5"
             >
               设置

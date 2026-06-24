@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning } from 'lucide-react';
 import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_LYUBISHCHEV_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_SUMMARY_PROMPT } from '../store/settings.store';
 import { db } from '../db/db';
@@ -28,8 +28,10 @@ export default function Settings() {
   } = settingsStore;
 
   const { syncStatus, syncErrorMessage, syncNow } = useAppStore();
-  
-  const [activeTab, setActiveTab] = useState<'model' | 'data' | 'prompt'>('model');
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState<'model' | 'data' | 'prompt'>(
+    (location.state as any)?.tab || 'model'
+  );
   const [showApiKey, setShowApiKey] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
