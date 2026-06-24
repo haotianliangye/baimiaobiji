@@ -815,7 +815,7 @@ export default function Settings() {
                               onClick={() => handleOAuthDisconnect(localSyncProvider)}
                               className="w-full bg-stone-100 hover:bg-stone-200 text-stone-700 transition-colors py-2 rounded-lg text-[12px] font-medium active:scale-[0.99]"
                             >
-                              断开网盘连接 (Disconnect)
+                              断开网盘连接
                             </button>
                           ) : (
                             <button
@@ -823,7 +823,7 @@ export default function Settings() {
                               onClick={() => handleOAuthAuthorize(localSyncProvider)}
                               className="w-full bg-stone-900 text-white hover:bg-black transition-colors py-2 rounded-lg text-[12px] font-medium active:scale-[0.99] flex items-center justify-center gap-1"
                             >
-                              🔑 连接并授权网盘 (Authorize)
+                              🔑 连接并授权网盘
                             </button>
                           )}
                         </div>
@@ -1029,7 +1029,7 @@ export default function Settings() {
                             同步进行中...
                           </>
                         ) : (
-                          '🔄 立即执行手动同步 (Sync Now)'
+                          '🔄 立即执行手动同步'
                         )}
                       </button>
                     </div>
