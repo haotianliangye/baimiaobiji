@@ -79,70 +79,30 @@ ${logs.map((l: any) => `- [${new Date(l.created_at).toLocaleTimeString('zh-CN', 
          }
 
       } else {
-         let defBase = 'http://127.0.0.1:11434/v1';
-         let defModel = 'llama3';
-         switch(provider) {
-           case 'openai': defBase = 'https://api.openai.com/v1'; defModel = 'gpt-4o-mini'; break;
-           case 'deepseek': defBase = 'https://api.deepseek.com/v1'; defModel = 'deepseek-chat'; break;
-           case 'volcengine': defBase = 'https://ark.cn-beijing.volces.com/api/v3'; defModel = 'doubao-seed-2-0-lite-260428'; break;
-           case 'kimi': defBase = 'https://api.moonshot.cn/v1'; defModel = 'moonshot-v1-8k'; break;
-           case 'zhipu': defBase = 'https://open.bigmodel.cn/api/paas/v4'; defModel = 'glm-4-flash'; break;
-           case 'minimax': defBase = 'https://api.minimax.chat/v1'; defModel = 'abab6.5s-chat'; break;
-           case 'mimo': defBase = 'https://ai.xiaomi.com/v1'; defModel = 'mimo-chat'; break;
-         }
-         
-         const baseStr = baseUrl || defBase;
-         const apiUrl = baseStr.endsWith('/chat/completions') ? baseStr : `${baseStr.replace(/\/$/, '')}/chat/completions`;
-         const actualModel = model || defModel;
-         
-         if (!apiUrl || !actualModel) {
-            return res.status(400).json({ error: '缺少自定义 API 配置信息' });
-         }
-
-         const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-               'Content-Type': 'application/json',
-               'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-               model: actualModel,
-               messages: [
-                 { role: "system", content: "You output well-formatted Markdown text." },
-                 { role: "user", content: promptContext }
-               ]
-            })
-         });
-
-         if (!response.ok) {
-            const errBody = await response.text();
-            throw new Error(`模型接口报错: ${response.status} ${errBody}`);
-         }
-         
-         const data = await response.json();
-         diaryMarkdown = data.choices?.[0]?.message?.content || "";
+         diaryMarkdown = await sendLLMRequest(
+            provider,
+            baseUrl,
+            apiKey,
+            model,
+            "You output well-formatted Markdown text.",
+            [{ role: "user", content: promptContext }]
+         );
 
          if (diaryMarkdown) {
             const summaryPromptStr = settings?.summaryPrompt || `You are an assistant that creates a concise, one-sentence summary of a daily diary. Based on the provided diary text, generate a short, beautiful, and poetic summary in Chinese (no more than 30 characters).`;
-            const summaryRes = await fetch(apiUrl, {
-               method: 'POST',
-               headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${apiKey}`
-               },
-               body: JSON.stringify({
-                  model: actualModel,
-                  messages: [
-                    { role: "system", content: summaryPromptStr },
-                    { role: "user", content: `Diary Text:\n${diaryMarkdown}` }
-                  ]
-               })
-            });
-            if (summaryRes.ok) {
-               const sData = await summaryRes.json();
-               summaryMarkdown = sData.choices?.[0]?.message?.content || "";
+            try {
+               summaryMarkdown = await sendLLMRequest(
+                  provider,
+                  baseUrl,
+                  apiKey,
+                  model,
+                  summaryPromptStr,
+                  [{ role: "user", content: `Diary Text:\n${diaryMarkdown}` }],
+                  1024
+               );
+            } catch (err) {
+               console.error("Failed to generate diary summary:", err);
             }
-
             reviewMarkdown = "";
          }
       }
@@ -210,69 +170,31 @@ ${diaryContent || ""}
           }
 
       } else {
-         let defBase = 'http://127.0.0.1:11434/v1';
-         let defModel = 'llama3';
-         switch(provider) {
-           case 'openai': defBase = 'https://api.openai.com/v1'; defModel = 'gpt-4o-mini'; break;
-           case 'deepseek': defBase = 'https://api.deepseek.com/v1'; defModel = 'deepseek-chat'; break;
-           case 'volcengine': defBase = 'https://ark.cn-beijing.volces.com/api/v3'; defModel = 'doubao-seed-2-0-lite-260428'; break;
-           case 'kimi': defBase = 'https://api.moonshot.cn/v1'; defModel = 'moonshot-v1-8k'; break;
-           case 'zhipu': defBase = 'https://open.bigmodel.cn/api/paas/v4'; defModel = 'glm-4-flash'; break;
-           case 'minimax': defBase = 'https://api.minimax.chat/v1'; defModel = 'abab6.5s-chat'; break;
-           case 'mimo': defBase = 'https://ai.xiaomi.com/v1'; defModel = 'mimo-chat'; break;
-         }
-         
-         const baseStr = baseUrl || defBase;
-         const apiUrl = baseStr.endsWith('/chat/completions') ? baseStr : `${baseStr.replace(/\/$/, '')}/chat/completions`;
-         const actualModel = model || defModel;
-         
-         if (!apiUrl || !actualModel) {
-            return res.status(400).json({ error: '缺少自定义 API 配置信息' });
-         }
+         reviewMarkdown = await sendLLMRequest(
+            provider,
+            baseUrl,
+            apiKey,
+            model,
+            "You output well-formatted Markdown text.",
+            [{ role: "user", content: promptReviewContext }]
+         );
 
-         const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-               'Content-Type': 'application/json',
-               'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-               model: actualModel,
-               messages: [
-                 { role: "system", content: "You output well-formatted Markdown text." },
-                 { role: "user", content: promptReviewContext }
-               ]
-            })
-         });
-
-         if (!response.ok) {
-            const errBody = await response.text();
-            throw new Error(`模型接口报错: ${response.status} ${errBody}`);
+         if (reviewMarkdown) {
+            const summaryPromptStr = settings?.summaryPrompt || `You are an assistant that creates a concise, one-sentence summary. Based on the provided text, generate a short, beautiful, and poetic summary in Chinese (no more than 30 characters).`;
+            try {
+               summaryMarkdown = await sendLLMRequest(
+                  provider,
+                  baseUrl,
+                  apiKey,
+                  model,
+                  summaryPromptStr,
+                  [{ role: "user", content: `Review Text:\n${reviewMarkdown}` }],
+                  1024
+               );
+            } catch (err) {
+               console.error("Failed to generate review summary:", err);
+            }
          }
-         
-         const data = await response.json();
-          reviewMarkdown = data.choices?.[0]?.message?.content || "";
-          if (reviewMarkdown) {
-             const summaryPromptStr = settings?.summaryPrompt || `You are an assistant that creates a concise, one-sentence summary. Based on the provided text, generate a short, beautiful, and poetic summary in Chinese (no more than 30 characters).`;
-             const summaryRes = await fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                   'Content-Type': 'application/json',
-                   'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                   model: actualModel,
-                   messages: [
-                     { role: "system", content: summaryPromptStr },
-                     { role: "user", content: `Review Text:\n${reviewMarkdown}` }
-                   ]
-                })
-             });
-             if (summaryRes.ok) {
-                const sData = await summaryRes.json();
-                summaryMarkdown = sData.choices?.[0]?.message?.content || "";
-             }
-          }
       }
 
       res.json({ ai_review: reviewMarkdown, ai_summary: summaryMarkdown });
@@ -328,48 +250,14 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
          insightMarkdown = response.text || "";
 
       } else {
-         let defBase = 'http://127.0.0.1:11434/v1';
-         let defModel = 'llama3';
-         switch(provider) {
-           case 'openai': defBase = 'https://api.openai.com/v1'; defModel = 'gpt-4o-mini'; break;
-           case 'deepseek': defBase = 'https://api.deepseek.com/v1'; defModel = 'deepseek-chat'; break;
-           case 'volcengine': defBase = 'https://ark.cn-beijing.volces.com/api/v3'; defModel = 'doubao-seed-2-0-lite-260428'; break;
-           case 'kimi': defBase = 'https://api.moonshot.cn/v1'; defModel = 'moonshot-v1-8k'; break;
-           case 'zhipu': defBase = 'https://open.bigmodel.cn/api/paas/v4'; defModel = 'glm-4-flash'; break;
-           case 'minimax': defBase = 'https://api.minimax.chat/v1'; defModel = 'abab6.5s-chat'; break;
-           case 'mimo': defBase = 'https://ai.xiaomi.com/v1'; defModel = 'mimo-chat'; break;
-         }
-         
-         const baseStr = baseUrl || defBase;
-         const apiUrl = baseStr.endsWith('/chat/completions') ? baseStr : `${baseStr.replace(/\/$/, '')}/chat/completions`;
-         const actualModel = model || defModel;
-         
-         if (!apiUrl || !actualModel) {
-            return res.status(400).json({ error: '缺少自定义 API 配置信息' });
-         }
-
-         const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-               'Content-Type': 'application/json',
-               'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-               model: actualModel,
-               messages: [
-                 { role: "system", content: "You output well-formatted Markdown text." },
-                 { role: "user", content: promptContext }
-               ]
-            })
-         });
-
-         if (!response.ok) {
-            const errBody = await response.text();
-            throw new Error(`模型接口报错: ${response.status} ${errBody}`);
-         }
-         
-         const data = await response.json();
-         insightMarkdown = data.choices?.[0]?.message?.content || "";
+         insightMarkdown = await sendLLMRequest(
+            provider,
+            baseUrl,
+            apiKey,
+            model,
+            "You output well-formatted Markdown text.",
+            [{ role: "user", content: promptContext }]
+         );
       }
 
       res.json({ report: insightMarkdown });
@@ -420,51 +308,18 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
          replyMarkdown = response.text || "";
 
       } else {
-         let defBase = 'http://127.0.0.1:11434/v1';
-         let defModel = 'llama3';
-         switch(provider) {
-           case 'openai': defBase = 'https://api.openai.com/v1'; defModel = 'gpt-4o-mini'; break;
-           case 'deepseek': defBase = 'https://api.deepseek.com/v1'; defModel = 'deepseek-chat'; break;
-           case 'volcengine': defBase = 'https://ark.cn-beijing.volces.com/api/v3'; defModel = 'doubao-seed-2-0-lite-260428'; break;
-           case 'kimi': defBase = 'https://api.moonshot.cn/v1'; defModel = 'moonshot-v1-8k'; break;
-           case 'zhipu': defBase = 'https://open.bigmodel.cn/api/paas/v4'; defModel = 'glm-4-flash'; break;
-           case 'minimax': defBase = 'https://api.minimax.chat/v1'; defModel = 'abab6.5s-chat'; break;
-           case 'mimo': defBase = 'https://ai.xiaomi.com/v1'; defModel = 'mimo-chat'; break;
-         }
-         
-         const baseStr = baseUrl || defBase;
-         const apiUrl = baseStr.endsWith('/chat/completions') ? baseStr : `${baseStr.replace(/\/$/, '')}/chat/completions`;
-         const actualModel = model || defModel;
-         
-         if (!apiUrl || !actualModel) {
-            return res.status(400).json({ error: '缺少自定义 API 配置信息' });
-         }
-
-         const messages = [
-             { role: "system", content: systemPrompt },
+         const chatMessages = [
              ...(chatHistory || []).map((msg: any) => ({ role: msg.role, content: msg.content })),
              { role: "user", content: userMessage }
          ];
-
-         const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-               'Content-Type': 'application/json',
-               'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-               model: actualModel,
-               messages: messages
-            })
-         });
-
-         if (!response.ok) {
-            const errBody = await response.text();
-            throw new Error(`模型接口报错: ${response.status} ${errBody}`);
-         }
-         
-         const data = await response.json();
-         replyMarkdown = data.choices?.[0]?.message?.content || "";
+         replyMarkdown = await sendLLMRequest(
+            provider,
+            baseUrl,
+            apiKey,
+            model,
+            systemPrompt,
+            chatMessages
+         );
       }
 
       res.json({ reply: replyMarkdown });
@@ -770,5 +625,85 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
       res.status(500).json({ error: err.message });
     }
   });
+
+async function sendLLMRequest(
+  provider: string,
+  baseUrl: string,
+  apiKey: string,
+  model: string,
+  systemPrompt: string,
+  messages: Array<{ role: string; content: string }>,
+  maxTokens = 4096
+): Promise<string> {
+   let defBase = 'http://127.0.0.1:11434/v1';
+   let defModel = 'llama3';
+   switch(provider) {
+     case 'openai': defBase = 'https://api.openai.com/v1'; defModel = 'gpt-4o-mini'; break;
+     case 'deepseek': defBase = 'https://api.deepseek.com/v1'; defModel = 'deepseek-chat'; break;
+     case 'volcengine': defBase = 'https://ark.cn-beijing.volces.com/api/v3'; defModel = 'doubao-seed-2-0-lite-260428'; break;
+     case 'kimi': defBase = 'https://api.moonshot.cn/v1'; defModel = 'moonshot-v1-8k'; break;
+     case 'zhipu': defBase = 'https://open.bigmodel.cn/api/paas/v4'; defModel = 'glm-4-flash'; break;
+     case 'minimax': defBase = 'https://api.minimax.chat/v1'; defModel = 'abab6.5s-chat'; break;
+     case 'mimo': defBase = 'https://ai.xiaomi.com/v1'; defModel = 'mimo-chat'; break;
+     case 'anthropic': defBase = 'https://api.anthropic.com/v1'; defModel = 'claude-3-5-sonnet-latest'; break;
+   }
+   
+   const baseStr = baseUrl || defBase;
+   const actualModel = model || defModel;
+   let apiUrl = '';
+   const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+   };
+   let bodyPayload: any;
+
+   if (provider === 'anthropic') {
+      apiUrl = baseStr.endsWith('/messages') ? baseStr : `${baseStr.replace(/\/$/, '')}/messages`;
+      headers['x-api-key'] = apiKey;
+      headers['anthropic-version'] = '2023-06-01';
+      const cleanMessages = messages
+        .filter(m => m.role !== 'system')
+        .map(m => ({
+          role: m.role === 'model' || m.role === 'assistant' ? 'assistant' : 'user',
+          content: m.content
+        }));
+
+      bodyPayload = {
+         model: actualModel,
+         max_tokens: maxTokens,
+         system: systemPrompt,
+         messages: cleanMessages
+      };
+   } else {
+      apiUrl = baseStr.endsWith('/chat/completions') ? baseStr : `${baseStr.replace(/\/$/, '')}/chat/completions`;
+      headers['Authorization'] = `Bearer ${apiKey}`;
+      const cleanMessages = [
+         { role: 'system', content: systemPrompt },
+         ...messages.map(m => ({
+           role: m.role === 'model' || m.role === 'assistant' ? 'assistant' : 'user',
+           content: m.content
+         }))
+      ];
+      bodyPayload = {
+         model: actualModel,
+         messages: cleanMessages
+      };
+   }
+
+   const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(bodyPayload)
+   });
+
+   if (!response.ok) {
+      const errBody = await response.text();
+      throw new Error(`LLM API error: ${response.status} ${errBody}`);
+   }
+   
+   const data = await response.json();
+   return provider === 'anthropic'
+      ? data.content?.[0]?.text || ""
+      : data.choices?.[0]?.message?.content || "";
+}
 
 export default app;

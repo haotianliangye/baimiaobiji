@@ -389,6 +389,8 @@ export default function Settings() {
                       { id: 'zhipu', label: '智谱', defaultBase: 'https://open.bigmodel.cn/api/paas/v4', defaultModel: 'glm-4-flash', link: 'https://bigmodel.cn/usercenter/apikeys' },
                       { id: 'minimax', label: 'MiniMax', defaultBase: 'https://api.minimax.chat/v1', defaultModel: 'abab6.5s-chat', link: 'https://platform.minimaxi.com/user-center/basic-information' },
                       { id: 'mimo', label: 'MIMO', defaultBase: 'https://ai.xiaomi.com/v1', defaultModel: 'mimo-chat', link: 'https://open.xiaomi.com/' },
+                      { id: 'anthropic', label: 'Anthropic', defaultBase: 'https://api.anthropic.com/v1', defaultModel: 'claude-3-5-sonnet-latest', link: 'https://console.anthropic.com/' },
+                      { id: 'deepseek', label: 'DeepSeek', defaultBase: 'https://api.deepseek.com/v1', defaultModel: 'deepseek-chat', link: 'https://platform.deepseek.com/' },
                       { id: 'custom', label: '自定义', defaultBase: 'http://127.0.0.1:11434/v1', defaultModel: 'llama3', link: '' }
                     ].map(p => (
                        <button
@@ -429,6 +431,8 @@ export default function Settings() {
                           { id: 'zhipu', link: 'https://bigmodel.cn/usercenter/apikeys' },
                           { id: 'minimax', link: 'https://platform.minimaxi.com/user-center/basic-information' },
                           { id: 'mimo', link: 'https://open.xiaomi.com/' },
+                          { id: 'anthropic', link: 'https://console.anthropic.com/' },
+                          { id: 'deepseek', link: 'https://platform.deepseek.com/' },
                         ].find(x => x.id === provider)?.link;
                         
                         return linkInfo ? (
@@ -458,7 +462,7 @@ export default function Settings() {
                     </div>
                     <p className="text-[11px] text-stone-400 leading-tight">安全说明：密钥直接存储于浏览器本地，不会上传至任何中转服务器。</p>
                   </div>
-
+ 
                   {/* Base URL */}
                   <div className="space-y-1.5 pt-2 border-t border-stone-100">
                     <label className="flex items-center gap-2 text-[13px] font-medium text-stone-700">
@@ -475,6 +479,8 @@ export default function Settings() {
                         { id: 'zhipu', defaultBase: 'https://open.bigmodel.cn/api/paas/v4' },
                         { id: 'minimax', defaultBase: 'https://api.minimax.chat/v1' },
                         { id: 'mimo', defaultBase: 'https://ai.xiaomi.com/v1' },
+                        { id: 'anthropic', defaultBase: 'https://api.anthropic.com/v1' },
+                        { id: 'deepseek', defaultBase: 'https://api.deepseek.com/v1' },
                         { id: 'custom', defaultBase: 'http://127.0.0.1:11434/v1' }
                       ].find(x => x.id === provider)?.defaultBase || ''}
                       value={baseUrl}
@@ -482,7 +488,7 @@ export default function Settings() {
                       className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-lg text-[14px] text-stone-900 transition-all font-mono placeholder:text-stone-300"
                     />
                   </div>
-
+ 
                   {/* Model Name */}
                   <div className="space-y-1.5 pt-2 border-t border-stone-100">
                     <label className="flex items-center gap-2 text-[13px] font-medium text-stone-700">
@@ -499,6 +505,8 @@ export default function Settings() {
                         { id: 'zhipu', defaultModel: 'glm-4-flash' },
                         { id: 'minimax', defaultModel: 'abab6.5s-chat' },
                         { id: 'mimo', defaultModel: 'mimo-chat' },
+                        { id: 'anthropic', defaultModel: 'claude-3-5-sonnet-latest' },
+                        { id: 'deepseek', defaultModel: 'deepseek-chat' },
                         { id: 'custom', defaultModel: 'llama3' }
                       ].find(x => x.id === provider)?.defaultModel || ''}
                       value={model}
