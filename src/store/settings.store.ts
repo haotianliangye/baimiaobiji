@@ -268,7 +268,30 @@ export const useSettingsStore = create<SettingsState>()(
               sessionStorage.setItem('baimiao_syncPasswordE2EE', persistedState.syncPasswordE2EE);
             }
           }
-          return { ...currentState, ...persistedState };
+          
+          const merged = { ...currentState, ...persistedState };
+          
+          // 强力防污染：0号槽位作为只读的默认出厂设置，每次合并时必须强行同步为代码中最新的默认常量
+          if (merged.diaryPrompts && merged.diaryPrompts.length === 4) {
+            merged.diaryPrompts[0] = DEFAULT_DIARY_PROMPT;
+            if (merged.diaryPromptIndex === 0) {
+              merged.diaryPrompt = DEFAULT_DIARY_PROMPT;
+            }
+          }
+          if (merged.reviewPrompts && merged.reviewPrompts.length > 0) {
+            merged.reviewPrompts[0] = DEFAULT_REVIEW_PROMPT;
+            if (merged.reviewPromptIndex === 0) {
+              merged.reviewPrompt = DEFAULT_REVIEW_PROMPT;
+            }
+          }
+          if (merged.insightPrompts && merged.insightPrompts.length > 0) {
+            merged.insightPrompts[0] = DEFAULT_INSIGHT_PROMPT;
+            if (merged.insightPromptIndex === 0) {
+              merged.insightPrompt = DEFAULT_INSIGHT_PROMPT;
+            }
+          }
+          
+          return merged;
         },
         migrate: (persistedState: any, version) => {
          if (version < 1) {
