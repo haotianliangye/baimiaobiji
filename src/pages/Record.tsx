@@ -671,7 +671,7 @@ export default function Record() {
                 <div
                   key={log.id}
                   id={`log-${log.id}`}
-                  className={`flex gap-3 group items-start px-2 py-1 rounded-lg transition-colors relative active:bg-stone-200/50 ${isMultiSelectMode ? "cursor-pointer" : ""}`}
+                  className={`flex gap-3 group items-start px-2 py-1 rounded-lg relative ${isMultiSelectMode ? "cursor-pointer" : ""} animate-in fade-in slide-in-from-bottom-2 duration-300`}
                   onClick={() => {
                     if (isMultiSelectMode) {
                       const newSelected = new Set(selectedLogIds);
@@ -712,7 +712,7 @@ export default function Record() {
                    </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <div className="inline-block bg-[#fdfdfc]/85 border border-stone-200/40 rounded-2xl px-4 py-3 pb-2 shadow-[0_2px_12px_rgba(27,25,56,0.012)] hover:border-stone-200/60 max-w-full text-left relative">
+                  <div className="inline-block bg-[#fdfdfc]/85 border border-stone-200/40 rounded-2xl px-4 py-3 pb-2 shadow-[0_2px_12px_rgba(27,25,56,0.012)] max-w-full text-left relative transition-all duration-300 hover:-translate-y-[1px] hover:shadow-[0_4px_16px_rgba(27,25,56,0.035)] hover:border-stone-200/60 active:scale-[0.99] active:duration-75">
                     <p className="text-[15.5px] leading-relaxed text-baimiao-ink font-sans tracking-tight break-all pr-8">
                       {log.content}
                     </p>
