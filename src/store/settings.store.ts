@@ -245,7 +245,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     { 
         name: 'whitewash-settings',
-        version: 3,
+        version: 4,
         partialize: (state) => {
           const { syncPassword, syncPasswordE2EE, ...rest } = state;
           if (state.syncRememberCredentials) {
@@ -381,6 +381,52 @@ export const useSettingsStore = create<SettingsState>()(
             const oldSlots = persistedState.insightPrompts;
             persistedState.insightPrompts = [DEFAULT_INSIGHT_PROMPT, oldSlots[0] || '', oldSlots[1] || '', oldSlots[2] || ''];
             persistedState.insightPromptIndex = persistedState.insightPromptIndex !== undefined ? persistedState.insightPromptIndex + 1 : 0;
+         }
+         
+         if (version < 4) {
+            // 1. 对调日记提示词：把默认（贴心助手）与自定义 1（柳比歇夫）互换
+            if (persistedState.diaryPrompts && persistedState.diaryPrompts.length === 4) {
+               const slot0 = persistedState.diaryPrompts[0];
+               const slot1 = persistedState.diaryPrompts[1];
+               
+               const isSlot0Warm = slot0 && slot0.includes("贴心的日记助手");
+               const isSlot1Lyubishchev = slot1 && slot1.includes("柳比歇夫时间管理法");
+               
+               if (isSlot0Warm || isSlot1Lyubishchev) {
+                  // 进行对调
+                  persistedState.diaryPrompts[0] = DEFAULT_DIARY_PROMPT; // 新的默认，即柳比歇夫
+                  persistedState.diaryPrompts[1] = DEFAULT_WARM_DIARY_PROMPT; // 新的自定义 1，即贴心助手
+                  
+                  // 同步更新单文本状态
+                  if (persistedState.diaryPromptIndex === 0) {
+                     persistedState.diaryPrompt = DEFAULT_DIARY_PROMPT;
+                  } else if (persistedState.diaryPromptIndex === 1) {
+                     persistedState.diaryPrompt = DEFAULT_WARM_DIARY_PROMPT;
+                  }
+               }
+            }
+            
+            // 2. 升级默认回顾 Prompt 为科学心理学版本
+            if (persistedState.reviewPrompts && persistedState.reviewPrompts.length > 0) {
+               const slot0 = persistedState.reviewPrompts[0];
+               if (!slot0 || slot0.includes("你是一个有深度的反思助手") || slot0.trim() === '') {
+                  persistedState.reviewPrompts[0] = DEFAULT_REVIEW_PROMPT;
+                  if (persistedState.reviewPromptIndex === 0) {
+                     persistedState.reviewPrompt = DEFAULT_REVIEW_PROMPT;
+                  }
+               }
+            }
+            
+            // 3. 升级默认洞察 Prompt 为科学精力管理与习惯回路版本
+            if (persistedState.insightPrompts && persistedState.insightPrompts.length > 0) {
+               const slot0 = persistedState.insightPrompts[0];
+               if (!slot0 || slot0.includes("你是一个生产力与生活教练助手") || slot0.trim() === '') {
+                  persistedState.insightPrompts[0] = DEFAULT_INSIGHT_PROMPT;
+                  if (persistedState.insightPromptIndex === 0) {
+                     persistedState.insightPrompt = DEFAULT_INSIGHT_PROMPT;
+                  }
+               }
+            }
          }
          
          return persistedState;
