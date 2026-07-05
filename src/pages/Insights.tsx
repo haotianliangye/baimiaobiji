@@ -443,9 +443,9 @@ export default function Insights() {
 
   return (
     <div className="flex flex-col h-full bg-transparent relative overflow-hidden">
-      <div className="flex h-[52px] items-center px-4 bg-[#f4f4f0]/80 backdrop-blur border-b border-stone-200/50 z-20 shrink-0 w-full justify-between">
-         <h2 className="text-[14px] font-semibold tracking-wide text-stone-800 flex items-center gap-2">
-           <Sparkles className="w-4 h-4 text-stone-400" />
+      <div className="flex h-[52px] items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 z-20 shrink-0 w-full justify-between">
+         <h2 className="text-[13.5px] font-bold tracking-wide text-baimiao-mysteria flex items-center gap-1.5 font-serif baimiao-editorial-title">
+           <Sparkles className="w-4 h-4 text-baimiao-mysteria/70 stroke-[2.2px]" />
            时光洞察
          </h2>
          <div className="relative" ref={dropdownRef}>

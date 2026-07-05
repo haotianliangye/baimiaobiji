@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Book, Clock, Edit3, Loader2, PieChart, Settings as SettingsIcon, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning } from 'lucide-react';
+import { Book, Clock, Edit3, Loader2, PieChart, SlidersHorizontal, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning } from 'lucide-react';
 import { subDays, startOfDay, endOfDay, format } from 'date-fns';
 import { db } from '../db/db';
 import { useAppStore } from '../store/app.store';
@@ -168,7 +168,7 @@ export default function Layout() {
               onClick={() => navigate('/settings')} 
               className="p-1.5 hover:opacity-70 transition-opacity -mr-1.5 active:scale-95"
             >
-              <SettingsIcon className="w-[18px] h-[18px]" />
+              <SlidersHorizontal className="w-[18px] h-[18px]" />
             </button>
           </div>
         </header>

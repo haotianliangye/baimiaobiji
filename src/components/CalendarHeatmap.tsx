@@ -45,12 +45,12 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose }: 
   }
 
   const getIntensityClass = (count: number, isSelected: boolean) => {
-    if (isSelected) return 'bg-black border-2 border-black/50 scale-110 z-10 rounded-[5px] shadow-sm';
-    if (count === 0) return 'bg-[#e5e4df] border border-black/[0.01] rounded-[4px]';
-    if (count < 3) return 'bg-[#e2dce3] rounded-[4px]';
-    if (count < 8) return 'bg-[#a99fb1] rounded-[4px]';
-    if (count < 15) return 'bg-[#706478] rounded-[4px]';
-    return 'bg-[#2a2a2a] rounded-[4px]';
+    if (isSelected) return 'bg-baimiao-mysteria border-2 border-baimiao-mysteria/40 scale-110 z-10 rounded-[5px] shadow-[0_2px_8px_rgba(27,25,56,0.35)]';
+    if (count === 0) return 'bg-[#f0edf4] border border-black/[0.005] rounded-[4px]';
+    if (count < 3) return 'bg-baimiao-mysteria/15 rounded-[4px]';
+    if (count < 8) return 'bg-baimiao-mysteria/40 rounded-[4px]';
+    if (count < 15) return 'bg-baimiao-mysteria/65 rounded-[4px]';
+    return 'bg-baimiao-mysteria rounded-[4px]';
   };
 
   const allLogs = useLiveQuery(() => db.raw_logs.toArray());
@@ -70,7 +70,7 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose }: 
   return (
     <div className="fixed inset-x-0 top-[52px] bottom-0 z-50 flex flex-col items-center p-4 bg-black/20 backdrop-blur-sm transition-all animate-in fade-in duration-200" onClick={onClose}>
       <div 
-        className="w-[360px] h-[340px] bg-white rounded-3xl overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.12)] border border-stone-100 p-6 flex flex-col justify-between"
+        className="w-[360px] h-[340px] bg-gradient-to-br from-white via-white to-[#faf9fc] rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(27,25,56,0.12)] border border-baimiao-border/70 p-6 flex flex-col justify-between"
         onClick={e => e.stopPropagation()}
       >
         {/* Top Stats */}
@@ -126,16 +126,16 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose }: 
 
         {/* Action Button */}
         <div className="select-none w-full">
-           <button 
-             onClick={() => {
-               onSelectDate(format(today, 'yyyy-MM-dd'));
-               onClose();
-             }}
-             className="w-full bg-[#2a2a2a] text-white py-3 rounded-2xl text-[13px] font-semibold tracking-wide shadow-sm hover:bg-[#222222] transition-colors active:scale-[0.98] flex items-center justify-center gap-2"
-           >
-             <svg className="w-4 h-4 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-             回到今天
-           </button>
+            <button 
+              onClick={() => {
+                onSelectDate(format(today, 'yyyy-MM-dd'));
+                onClose();
+              }}
+              className="w-full bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white py-3 rounded-2xl text-[13px] font-semibold tracking-wide shadow-md shadow-baimiao-mysteria/10 hover:brightness-110 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4 opacity-95" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+              回到今天
+            </button>
         </div>
       </div>
     </div>

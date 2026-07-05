@@ -25,6 +25,8 @@ import {
   Keyboard,
   X,
   Sparkles,
+  Clock,
+  ShieldAlert,
 } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { db } from "../db/db";
@@ -576,8 +578,9 @@ export default function Record() {
 
   return (
     <div className="flex flex-col h-full bg-transparent relative">
-      <div className="flex h-[52px] items-center px-4 bg-[#f4f4f0]/80 backdrop-blur border-b border-stone-200/50 z-20 shrink-0 w-full justify-between">
-        <h2 className="text-[13px] font-medium tracking-wide text-stone-500 uppercase">
+      <div className="flex h-[52px] items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 z-20 shrink-0 w-full justify-between">
+        <h2 className="text-[13.5px] font-bold tracking-wide text-baimiao-mysteria flex items-center gap-1.5 font-serif baimiao-editorial-title">
+          <Clock className="w-4 h-4 text-baimiao-mysteria/70 stroke-[2.2px]" />
           时间碎屑
         </h2>
         <div className="flex items-center gap-3">
@@ -604,14 +607,15 @@ export default function Record() {
       </div>
 
       {isPersisted === false && !hideStorageWarning && (
-        <div className="bg-amber-50 border-b border-amber-100/60 px-4 py-2 flex items-center justify-between text-[11px] text-amber-800 animate-in slide-in-from-top duration-200">
-          <span className="flex items-center gap-1.5 font-medium">
-            ⚠️ 未激活永久存储保护，数据可能被系统自动清理。
+        <div className="bg-[#fcf8fa]/95 backdrop-blur border-b border-rose-100/30 px-4 py-2 flex items-center justify-between text-[11px] text-rose-900 animate-in slide-in-from-top duration-200 z-10 relative">
+          <span className="flex items-center gap-1.5 font-medium leading-none">
+            <ShieldAlert className="w-3.5 h-3.5 text-rose-500 stroke-[2.2px] shrink-0" />
+            安全提示：未激活永久存储保护，数据可能被系统自动清理。
           </span>
-          <div className="flex items-center gap-1 shrink-0 pl-2">
+          <div className="flex items-center gap-1.5 shrink-0 pl-2">
             <button
               onClick={() => navigate('/settings', { state: { tab: 'data' } })} 
-              className="text-amber-950 font-bold hover:underline px-1 py-0.5"
+              className="text-rose-950 font-bold hover:underline px-1 py-0.5"
             >
               设置
             </button>
@@ -619,10 +623,10 @@ export default function Record() {
               onClick={() => {
                 setHideStorageWarning(true);
               }}
-              className="p-1 hover:bg-amber-200/50 rounded-md text-amber-700/60 hover:text-amber-900 transition-colors"
+              className="p-1 hover:bg-rose-100/50 rounded-md text-rose-700/60 hover:text-rose-900 transition-colors"
               title="不再提示"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-3 h-3" />
             </button>
           </div>
         </div>
@@ -701,29 +705,31 @@ export default function Record() {
                 {isMultiSelectMode && (
                    <div className="shrink-0 pt-[6px]">
                       <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${
-                        selectedLogIds.has(log.id) ? 'bg-[#2a2a2a] border-[#2a2a2a]' : 'border-stone-300'
+                        selectedLogIds.has(log.id) ? 'bg-baimiao-mysteria border-baimiao-mysteria' : 'border-stone-300'
                       }`}>
                          {selectedLogIds.has(log.id) && <Check className="w-2.5 h-2.5 text-white" />}
                       </div>
                    </div>
                 )}
-                <span className="text-[11px] font-mono text-stone-400 shrink-0 mt-[4px] w-10 text-right opacity-80">
+                <span className="text-[11px] font-mono text-stone-400 shrink-0 mt-[14px] w-10 text-right opacity-80">
                   {format(new Date(log.created_at), "HH:mm")}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[16px] leading-relaxed text-stone-900 font-sans tracking-tight break-all">
-                    {log.content}
-                  </p>
-                  {log.audioBlob && (
-                    <div className="mt-2 w-full max-w-[220px]">
-                      <AudioPlayer blob={log.audioBlob} />
-                      {log.audioDuration !== undefined && (
-                        <div className="text-[11px] font-mono text-stone-400 mt-1 pl-1">
-                          时长: {formatRecordTime(log.audioDuration)}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  <div className="inline-block bg-[#fdfdfc]/85 border border-stone-200/40 rounded-2xl px-4 py-3 shadow-[0_2px_12px_rgba(27,25,56,0.012)] hover:border-stone-200/60 max-w-full text-left">
+                    <p className="text-[15.5px] leading-relaxed text-baimiao-ink font-sans tracking-tight break-all">
+                      {log.content}
+                    </p>
+                    {log.audioBlob && (
+                      <div className="mt-2.5 w-full max-w-[220px]">
+                        <AudioPlayer blob={log.audioBlob} />
+                        {log.audioDuration !== undefined && (
+                          <div className="text-[11px] font-mono text-stone-400 mt-1 pl-1">
+                            时长: {formatRecordTime(log.audioDuration)}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   {typeof log.content === "string" && log.content.includes("解析失败") && log.audioBlob && (
                     <button
                       onClick={(e) => {
