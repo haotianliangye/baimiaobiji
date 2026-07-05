@@ -22,6 +22,12 @@
 6. **移动端 WebView 锁定与防回弹规约**：
    - 全局最基础容器（`html, body, #root`）必须强制设为 `overflow: hidden` 及 `overscroll-behavior: none`。
    - 严禁允许底层 body 原生滚动，以防在手机端（iOS/Safari 等）下拉刷新或滑动边界时引发 WebView 底座物理偏移导致页面被截断。所有页面的滚动手势必须收拢在其内部的子滚动容器（`overflow-y-auto`）中。
+7. **多 Prompt 后台自动生成队列**：
+   - 自动生成必须采用基于 LocalStorage 的持久化任务队列（Task Queue）管理机制。
+   - 这可以抵御移动端锁屏、切后台或网络波动造成的中断。
+   - 自动触发的检测必须采用“7 天滑动窗口历史检测”并支持手动触发“30 天补全”。
+   - 判断存在性时禁止依靠日期进行简易的“有无”检测。
+   - 必须通过当前启用的所有 Prompt 索引集与数据库现有记录的 Prompt 索引进行差集对比，实现精确的增量补全。
 
 ---
 
@@ -70,12 +76,30 @@
     raw_log_ids: string[]; // 整合进此日记的原始 logs id 列表
     timeline_json: string; // 序列化后的内容概要数据
     ai_editorial: string;  // [日记 Prompt] 生成的连贯日记 markdown
-    ai_review?: string;    // [回顾 Prompt] 生成的反思回顾 markdown
+    ai_review?: string;    // 废弃，仅用于历史数据迁移
     updated_at: number;    // 更新时间戳
+    prompt_index?: number; // 关联的日记 Prompt 索引
+    prompt_name?: string;  // 关联的日记 Prompt 名称
   }
   ```
 
-### 3. `insights` (洞察缓存表)
+### 3. `daily_reviews` (独立回顾表)
+* **索引键**：`id, review_date`
+* **接口定义**：
+  ```typescript
+  export interface DailyReview {
+    id: string;
+    review_date: string;          // YYYY-MM-DD
+    raw_log_ids: string[];        // 生成此回顾所关联的碎屑 logs ID 列表
+    ai_review: string;            // [回顾 Prompt] 生成的反思回顾 markdown
+    ai_summary: string;           // 一句话诗意摘要内容
+    review_prompt_index?: number; // 关联的回顾 Prompt 索引
+    review_prompt_name?: string;  // 关联的回顾 Prompt 名称
+    updated_at: number;           // 更新毫秒级时间戳
+  }
+  ```
+
+### 4. `insights` (洞察缓存表)
 * **索引键**：`id, range_type, created_at`
 * **接口定义**：
   ```typescript

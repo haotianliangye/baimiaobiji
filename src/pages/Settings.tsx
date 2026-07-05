@@ -31,7 +31,7 @@ export default function Settings() {
     setSettings 
   } = settingsStore;
 
-  const { syncStatus, syncErrorMessage, syncNow } = useAppStore();
+  const { syncStatus, syncErrorMessage, syncNow, checkAndGenerateHistoryTasks, isProcessingQueue, autoGenTasks } = useAppStore();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState<'model' | 'data' | 'prompt'>(
     (location.state as any)?.tab || 'model'
@@ -1035,6 +1035,30 @@ export default function Settings() {
                     </div>
                   </div>
                 )}
+              </section>
+
+              {/* AI Auto-Generation Maintenance section */}
+              <section className="bg-white rounded-xl border border-stone-100 p-3 shadow-sm space-y-3">
+                <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase mb-1">AI 自动整理维护</h3>
+                <p className="text-[12px] text-stone-500 leading-relaxed">
+                  如果您多天未打开应用，或者中途生成中断导致日记或回顾不全，可以点击下方按钮扫描过去 30 天并自动补齐生成。
+                </p>
+                <button
+                  onClick={async () => {
+                    await checkAndGenerateHistoryTasks(30);
+                  }}
+                  disabled={isProcessingQueue}
+                  className="w-full mt-1 bg-stone-900 text-white hover:bg-black transition-colors rounded-xl text-[12.5px] font-medium active:scale-[0.98] disabled:opacity-30 disabled:bg-stone-300 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 py-2.5"
+                >
+                  {isProcessingQueue ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      正在补全历史数据... (剩 {autoGenTasks.length} 项)
+                    </>
+                  ) : (
+                    '🪄 扫描并补全过去 30 天的日记与回顾'
+                  )}
+                </button>
               </section>
 
               {/* Data Export / Import section */}

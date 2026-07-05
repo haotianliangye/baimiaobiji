@@ -1,4 +1,5 @@
 // Browser Native E2EE encryption/decryption helper using Web Crypto API and CompressionStream
+import { CRYPTO_CONSTANTS } from '../config/constants';
 
 async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
   const enc = new TextEncoder();

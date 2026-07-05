@@ -155,7 +155,7 @@ export default function Record() {
 
   // New multi-select & context menu states
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
-  const [selectedLogIds, setSelectedLogIds] = useState<Set<number>>(new Set());
+  const [selectedLogIds, setSelectedLogIds] = useState<Set<string>>(new Set());
   const [contextMenuState, setContextMenuState] = useState<{
     isOpen: boolean;
     log: any;
