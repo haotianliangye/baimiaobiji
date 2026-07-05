@@ -52,6 +52,7 @@ interface AppState {
   // 任务队列状态
   autoGenTasks: AutoGenTask[];
   isProcessingQueue: boolean;
+  isQueuePaused: boolean;
   
   // 搜索状态
   isSearchMode: boolean;
@@ -87,6 +88,7 @@ interface AppState {
   checkAndGenerateHistoryTasks: (daysLimit?: number) => Promise<void>;
   processNextQueueTask: () => Promise<void>;
   clearQueue: () => void;
+  setQueuePaused: (paused: boolean) => void;
 
   // 搜索动作
   setSearchMode: (open: boolean) => void;
@@ -120,6 +122,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   })(),
   isProcessingQueue: false,
+  isQueuePaused: false,
 
   // 云同步状态
   syncStatus: 'disabled',
@@ -629,6 +632,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   processNextQueueTask: async () => {
+    if (get().isQueuePaused) return;
     if (get().isProcessingQueue) return;
     set({ isProcessingQueue: true });
     
@@ -636,6 +640,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     const promptNames = ['默认', '自定义 1', '自定义 2', '自定义 3'];
     
     while (true) {
+      if (get().isQueuePaused) {
+        break;
+      }
       const currentTasks = get().autoGenTasks;
       const nextTaskIndex = currentTasks.findIndex(
         t => t.status === 'pending' || (t.status === 'failed' && t.retryCount < 3)
@@ -820,7 +827,14 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   clearQueue: () => {
     localStorage.removeItem('baimiao_autogen_tasks');
-    set({ autoGenTasks: [], isProcessingQueue: false });
+    set({ autoGenTasks: [], isProcessingQueue: false, isQueuePaused: false });
+  },
+
+  setQueuePaused: (paused: boolean) => {
+    set({ isQueuePaused: paused });
+    if (!paused) {
+      get().processNextQueueTask();
+    }
   },
 
   setSearchMode: (open) => {

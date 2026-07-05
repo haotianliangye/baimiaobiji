@@ -31,7 +31,7 @@ export default function Settings() {
     setSettings 
   } = settingsStore;
 
-  const { syncStatus, syncErrorMessage, syncNow, checkAndGenerateHistoryTasks, isProcessingQueue, autoGenTasks } = useAppStore();
+  const { syncStatus, syncErrorMessage, syncNow, checkAndGenerateHistoryTasks, isProcessingQueue, autoGenTasks, isQueuePaused, setQueuePaused, clearQueue } = useAppStore();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState<'model' | 'data' | 'prompt'>(
     (location.state as any)?.tab || 'model'
@@ -1055,22 +1055,42 @@ export default function Settings() {
                 <p className="text-[12px] text-stone-500 leading-relaxed">
                   如果您多天未打开应用，或者中途生成中断导致日记或回顾不全，可以点击下方按钮扫描过去 30 天并自动补齐生成。
                 </p>
-                <button
-                  onClick={async () => {
-                    await checkAndGenerateHistoryTasks(30);
-                  }}
-                  disabled={isProcessingQueue}
-                  className="w-full mt-1 bg-stone-900 text-white hover:bg-black transition-colors rounded-xl text-[12.5px] font-medium active:scale-[0.98] disabled:opacity-30 disabled:bg-stone-300 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 py-2.5"
-                >
-                  {isProcessingQueue ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      正在补全历史数据... (剩 {autoGenTasks.length} 项)
-                    </>
-                  ) : (
-                    '🪄 扫描并补全过去 30 天的日记与回顾'
-                  )}
-                </button>
+                {autoGenTasks.length > 0 ? (
+                  <div className="space-y-2 mt-2 bg-stone-50 rounded-xl p-3 border border-stone-100">
+                    <div className="flex items-center justify-between text-[12px] font-medium text-stone-600">
+                      <span className="flex items-center gap-1.5">
+                        <Loader2 className={`w-3.5 h-3.5 ${isQueuePaused ? 'text-stone-400' : 'animate-spin text-stone-900'}`} />
+                        {isQueuePaused ? '⏸️ 自动整理已暂停' : '🪄 正在后台自动整理中...'}
+                      </span>
+                      <span className="bg-stone-200/60 text-stone-700 px-2 py-0.5 rounded-full text-[11px] font-semibold">
+                        剩余 {autoGenTasks.length} 项
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <button
+                        onClick={() => setQueuePaused(!isQueuePaused)}
+                        className="py-2 px-3 bg-white border border-stone-200 hover:bg-stone-100 transition-colors rounded-lg text-[12px] font-semibold text-stone-700 flex items-center justify-center gap-1"
+                      >
+                        {isQueuePaused ? '▶️ 恢复整理' : '⏸️ 暂停整理'}
+                      </button>
+                      <button
+                        onClick={() => clearQueue()}
+                        className="py-2 px-3 bg-red-50 hover:bg-red-100 transition-colors rounded-lg text-[12px] font-semibold text-red-600 border border-red-100 flex items-center justify-center gap-1"
+                      >
+                        🛑 停止并清空
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      await checkAndGenerateHistoryTasks(30);
+                    }}
+                    className="w-full mt-1 bg-stone-900 text-white hover:bg-black transition-colors rounded-xl text-[12.5px] font-medium active:scale-[0.98] flex items-center justify-center gap-1.5 py-2.5"
+                  >
+                    🪄 扫描并补全过去 30 天的日记与回顾
+                  </button>
+                )}
               </section>
 
               {/* Data Export / Import section */}
