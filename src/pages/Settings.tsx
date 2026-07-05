@@ -1247,7 +1247,7 @@ export default function Settings() {
               });
               navigate(-1);
             }}
-            className="w-full baimiao-btn-cream py-3.5 rounded-xl text-[14px] font-medium tracking-wide transition-all active:scale-[0.98] shadow-sm"
+            className="w-full py-3.5 rounded-xl text-[14px] font-medium tracking-wide text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 active:scale-[0.98] shadow-md shadow-baimiao-mysteria/10 transition-all"
           >
              保存并返回
           </button>
