@@ -133,7 +133,7 @@ export default function Layout() {
           <div className="flex items-center gap-2">
             <h1 
               onClick={() => setShowAboutModal(true)} 
-              className="text-[18px] font-bold font-serif tracking-widest cursor-pointer hover:opacity-80 transition-opacity active:scale-[0.98] select-none"
+              className="text-[18px] font-bold font-serif tracking-widest cursor-pointer hover:opacity-80 transition-opacity active:scale-[0.98] select-none translate-y-[-1px]"
             >
               白描笔记
             </h1>
