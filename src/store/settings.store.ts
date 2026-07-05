@@ -277,6 +277,15 @@ export const useSettingsStore = create<SettingsState>()(
             if (merged.diaryPromptIndex === 0) {
               merged.diaryPrompt = DEFAULT_DIARY_PROMPT;
             }
+            
+            // 强力纠偏：如果 1 号槽位（自定义 1）依然残留着柳比歇夫提示词（与 0 号位重复），则强制将其纠正为最新的“贴心日记助手”
+            const slot1 = merged.diaryPrompts[1];
+            if (slot1 && (slot1.includes("柳比歇夫时间管理") || slot1.includes("柳比歇夫时间日志"))) {
+              merged.diaryPrompts[1] = DEFAULT_WARM_DIARY_PROMPT;
+              if (merged.diaryPromptIndex === 1) {
+                merged.diaryPrompt = DEFAULT_WARM_DIARY_PROMPT;
+              }
+            }
           }
           if (merged.reviewPrompts && merged.reviewPrompts.length > 0) {
             merged.reviewPrompts[0] = DEFAULT_REVIEW_PROMPT;
