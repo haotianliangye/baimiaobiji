@@ -1,0 +1,158 @@
+﻿diff --git a/src/index.css b/src/index.css
+index 2ab3028..d8cae54 100644
+--- a/src/index.css
++++ b/src/index.css
+@@ -1,9 +1,17 @@
+-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
++@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Inter:wght@400;500;600&family=Noto+Serif+SC:wght@400;500&display=swap');
+ @import "tailwindcss";
+ @plugin "@tailwindcss/typography";
+ 
+ @theme {
+   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
++  --font-serif: "Cormorant Garamond", "Noto Serif SC", "Source Han Serif SC", "IPAPMincho", "瀹嬩綋", serif;
++  
++  /* Superhuman Color Tokens */
++  --color-baimiao-mysteria: #1b1938;      /* 鏆厜娣辩传 */
++  --color-baimiao-cream: #e9e5dd;         /* 娓╂殩濂舵补 */
++  --color-baimiao-ink: #292827;           /* 娓╂殩鐐粦 */
++  --color-baimiao-glow: #cbb7fb;          /* 钖拌。鑽夌传寰厜 */
++  --color-baimiao-border: #dcd7d3;        /* 娓╂殩鍗＄焊 border */
+ }
+ 
+ html, body, #root {
+@@ -13,7 +21,7 @@ html, body, #root {
+   padding: 0;
+   overflow: hidden;
+   overscroll-behavior: none;
+-  background-color: #fafaf9; /* stone-50 */
++  background-color: #ffffff !important; /* 绾櫧鐢诲竷 */
+ }
+ 
+ @layer utilities {
+@@ -43,3 +51,125 @@ html, body, #root {
+     scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+   }
+ }
++
++/* ==========================================================================
++   Baimiao Superhuman Custom UI Classes
++   ========================================================================== */
++
++/* 绾歌川绀捐鎺掔増姝ｆ枃 */
++.baimiao-editorial-body {
++  color: var(--color-baimiao-ink) !important;
++  line-height: 1.625 !important;
++  letter-spacing: 0.015em !important;
++  /* 寮鸿浣挎墍鏈夋暟瀛椾笂涓嬪榻愶紙绛夐珮瀵归綈鏁板瓧锛夛紝闃叉 Garamond 榛樿鐨勯敊钀藉彜椋庝綋鏁板瓧鍦ㄤ腑鏂囨贩鎺掍腑鏄惧緱鏉備贡 */
++  font-variant-numeric: lining-nums !important;
++  -moz-font-feature-settings: "lnum" 1 !important;
++  -webkit-font-feature-settings: "lnum" 1 !important;
++  font-feature-settings: "lnum" 1 !important;
++}
++
++/* 绾歌川绀捐鎺掔増鏍囬 */
++.baimiao-editorial-title {
++  font-family: var(--font-serif) !important;
++  color: var(--color-baimiao-ink) !important;
++  font-weight: 500 !important;
++  font-variant-numeric: lining-nums !important;
++  font-feature-settings: "lnum" 1 !important;
++}
++
++/* 鏃ヨ鎮诞鍗＄墖 (鍋忔贰绱井鍏夋贩鍚堥槾褰? */
++.baimiao-card-diary {
++  background: rgba(255, 255, 255, 0.75) !important;
++  border: 1px solid rgba(220, 215, 211, 0.6) !important;
++  border-radius: 16px !important;
++  box-shadow: 0 10px 30px -10px rgba(203, 183, 251, 0.12), 0 1px 3px rgba(41, 40, 39, 0.04) !important;
++  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.4s ease, border-color 0.4s ease !important;
++  backface-visibility: hidden;
++  -webkit-font-smoothing: subpixel-antialiased !important;
++  transform: translate3d(0, 0, 0);
++  will-change: transform, box-shadow;
++}
++
++/* 鍙嶆€濆洖椤炬偓娴崱鐗?*/
++.baimiao-card-review {
++  background: rgba(255, 255, 255, 0.75) !important;
++  border: 1px solid rgba(220, 215, 211, 0.6) !important;
++  border-radius: 16px !important;
++  box-shadow: 0 10px 30px -10px rgba(168, 85, 247, 0.12), 0 1px 3px rgba(41, 40, 39, 0.04) !important;
++  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.4s ease, border-color 0.4s ease !important;
++  backface-visibility: hidden;
++  -webkit-font-smoothing: subpixel-antialiased !important;
++  transform: translate3d(0, 0, 0);
++  will-change: transform, box-shadow;
++}
++
++/* PC 绔?Hover 涓婃诞涓庣传鍏夊彂鍏?*/
++@media (hover: hover) {
++  .baimiao-card-diary:hover {
++    transform: translate3d(0, -2px, 0);
++    border-color: rgba(203, 183, 251, 0.6) !important;
++    box-shadow: 0 20px 35px -10px rgba(203, 183, 251, 0.22) !important;
++  }
++  .baimiao-card-review:hover {
++    transform: translate3d(0, -2px, 0);
++    border-color: rgba(168, 85, 247, 0.6) !important;
++    box-shadow: 0 20px 35px -10px rgba(168, 85, 247, 0.22) !important;
++  }
++}
++
++/* 绉诲姩绔?Touch 鍙嶉锛岄槻 hover 绮樿繛 */
++@media (hover: none) {
++  .baimiao-card-diary:active, .baimiao-card-review:active {
++    transform: scale(0.985);
++    background: rgba(255, 255, 255, 0.95) !important;
++  }
++}
++
++/* 纰庡睉鑷€傚簲姘旀场鍗＄墖 (娓╂鼎绱皟娓愬彉鍙戝厜锛屾枃鏈粷鏃犳姈鍔? */
++.baimiao-card-bubble {
++  background: rgba(253, 253, 252, 0.85) !important;
++  border: 1px solid rgba(220, 215, 211, 0.6) !important;
++  border-radius: 16px !important;
++  box-shadow: 0 4px 15px -5px rgba(203, 183, 251, 0.1), 0 1px 3px rgba(41, 40, 39, 0.02) !important;
++  transition: box-shadow 0.3s ease, border-color 0.3s ease !important;
++}
++
++@media (hover: hover) {
++  .baimiao-card-bubble:hover {
++    border-color: rgba(203, 183, 251, 0.65) !important;
++    box-shadow: 0 10px 25px -5px rgba(203, 183, 251, 0.22), 0 1px 3px rgba(41, 40, 39, 0.02) !important;
++  }
++}
++
++@media (hover: none) {
++  .baimiao-card-bubble:active {
++    background: rgba(246, 244, 249, 0.95) !important;
++    border-color: rgba(203, 183, 251, 0.4) !important;
++  }
++}
++
++/* 娓╂鼎濂舵补鑹叉寜閽?*/
++.baimiao-btn-cream {
++  background-color: var(--color-baimiao-cream) !important;
++  color: var(--color-baimiao-ink) !important;
++  border: none !important;
++  box-shadow: 0 1px 2px rgba(41, 40, 39, 0.06) !important;
++  transition: all 0.2s ease !important;
++}
++.baimiao-btn-cream:hover {
++  filter: brightness(0.96);
++}
++.baimiao-btn-cream:active {
++  filter: brightness(0.92);
++  transform: scale(0.97);
++}
++
++/* ==========================================================================
++   Tab Bar - Starlight Capsule Bounce Animation
++   ========================================================================== */
++@keyframes tabBounce {
++  0%   { transform: scale(0.85); }
++  50%  { transform: scale(1.08); }
++  75%  { transform: scale(0.97); }
++  100% { transform: scale(1); }
++}

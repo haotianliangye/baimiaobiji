@@ -1,0 +1,168 @@
+﻿diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 6de06ef..0c308fe 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,6 +1,6 @@
+ import React, { useState, useEffect, useRef } from 'react';
+ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+-import { Book, Clock, Edit3, Loader2, PieChart, Settings as SettingsIcon, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning } from 'lucide-react';
++import { Book, Clock, Edit3, Loader2, PieChart, SlidersHorizontal, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning } from 'lucide-react';
+ import { subDays, startOfDay, endOfDay, format } from 'date-fns';
+ import { db } from '../db/db';
+ import { useAppStore } from '../store/app.store';
+@@ -126,20 +126,20 @@ export default function Layout() {
+   };
+ 
+   return (
+-    <div className="flex flex-col h-full bg-stone-100 font-sans text-stone-900 overflow-hidden items-center justify-center">
+-      <div className="w-full max-w-md h-full bg-[#f4f4f0] shadow-sm ring-1 ring-black/5 flex flex-col relative overflow-hidden">
++    <div className="flex flex-col h-full bg-[#f0eef5] font-sans text-stone-900 overflow-hidden items-center justify-center">
++      <div className="w-full max-w-md h-full bg-white shadow-sm ring-1 ring-black/5 flex flex-col relative overflow-hidden">
+         {/* Global Nav */}
+-        <header className="flex h-[54px] shrink-0 items-center justify-between px-4 bg-black text-white">
++        <header className="flex h-[54px] shrink-0 items-center justify-between px-4 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white/95 border-b border-white/5">
+           <div className="flex items-center gap-2">
+             <h1 
+               onClick={() => setShowAboutModal(true)} 
+-              className="text-[17px] font-bold tracking-wide cursor-pointer hover:opacity-80 transition-opacity active:scale-[0.98] select-none"
++              className="text-[18px] font-normal font-serif tracking-widest cursor-pointer hover:opacity-80 transition-opacity active:scale-[0.98] select-none translate-y-[2px]"
+             >
+               鐧芥弿绗旇
+             </h1>
+             {autoGenTasks.length > 0 && (isProcessingQueue || isQueuePaused) && (
+-              <span className={`flex items-center gap-1 bg-stone-800 text-stone-300 text-[10px] px-2 py-0.5 rounded-full font-medium select-none tracking-wide ${isQueuePaused ? 'opacity-65' : 'animate-pulse'}`}>
+-                <Loader2 className={`w-2.5 h-2.5 text-stone-400 ${isQueuePaused ? '' : 'animate-spin'}`} />
++              <span className={`flex items-center gap-1 bg-white/10 text-white/90 border border-white/10 text-[10px] px-2 py-0.5 rounded-full font-medium select-none tracking-wide ${isQueuePaused ? 'opacity-65' : 'animate-pulse'}`}>
++                <Loader2 className={`w-2.5 h-2.5 text-white/60 ${isQueuePaused ? '' : 'animate-spin'}`} />
+                 {isQueuePaused ? `鏁寸悊宸叉殏鍋?(${autoGenTasks.length})` : `AI 鏁寸悊涓?(${autoGenTasks.length})`}
+               </span>
+             )}
+@@ -168,7 +168,7 @@ export default function Layout() {
+               onClick={() => navigate('/settings')} 
+               className="p-1.5 hover:opacity-70 transition-opacity -mr-1.5 active:scale-95"
+             >
+-              <SettingsIcon className="w-[18px] h-[18px]" />
++              <SlidersHorizontal className="w-[18px] h-[18px]" />
+             </button>
+           </div>
+         </header>
+@@ -227,12 +227,12 @@ export default function Layout() {
+         )}
+ 
+         {/* Main Canvas */}
+-        <main className="flex-1 overflow-hidden bg-[#f4f4f0] selection:bg-black selection:text-white flex flex-col relative">
++        <main className="flex-1 overflow-hidden bg-white selection:bg-black selection:text-white flex flex-col relative">
+           <Outlet />
+         </main>
+ 
+         {/* Tab Bar */}
+-        <nav className="h-[60px] shrink-0 border-t border-stone-200/60 bg-[#f4f4f0]/90 backdrop-blur pb-safe z-50 relative">
++        <nav className="h-[60px] shrink-0 border-t border-baimiao-border/50 bg-white/80 backdrop-blur-md pb-safe z-50 relative">
+           <div className="w-full h-full flex justify-around items-center px-2">
+             <TabItem to="/" icon={<Edit3 />} label="璁板綍" />
+             <TabItem to="/diary" icon={<Book />} label="鏃ヨ" />
+@@ -249,10 +249,10 @@ export default function Layout() {
+           onClick={() => !isUpdating && setShowAboutModal(false)}
+         >
+           <div 
+-            className="bg-[#f4f4f0] rounded-2xl w-full max-w-[280px] p-6 shadow-2xl border border-stone-200/30 flex flex-col items-center text-center animate-in zoom-in-95 duration-200 select-none"
++            className="bg-white rounded-2xl w-full max-w-[280px] p-6 shadow-2xl border border-baimiao-border flex flex-col items-center text-center animate-in zoom-in-95 duration-200 select-none"
+             onClick={(e) => e.stopPropagation()}
+           >
+-            <div className="w-12 h-12 bg-black text-white rounded-xl flex items-center justify-center font-bold text-lg mb-4 shadow-md">
++            <div className="w-12 h-12 bg-gradient-to-br from-baimiao-mysteria to-[#2c2957] text-white rounded-xl flex items-center justify-center font-bold text-lg mb-4 shadow-md">
+               鐧?             </div>
+             <h3 className="text-[16px] font-semibold text-stone-900 mb-1">鐧芥弿绗旇</h3>
+@@ -270,7 +270,7 @@ export default function Layout() {
+               <button 
+                 onClick={handleForceUpdate}
+                 disabled={isUpdating}
+-                className={`w-full py-2.5 bg-black text-white hover:bg-stone-900 transition-colors rounded-xl text-[13px] font-medium tracking-wide shadow-sm flex items-center justify-center gap-1.5 ${
++                className={`w-full py-2.5 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white hover:brightness-110 transition-all rounded-xl text-[13px] font-medium tracking-wide shadow-sm flex items-center justify-center gap-1.5 ${
+                   isUpdating ? 'opacity-80 cursor-wait' : ''
+                 }`}
+               >
+@@ -310,9 +310,9 @@ export default function Layout() {
+ 
+       {/* Global Search Panel */}
+       {isSearchMode && (
+-        <div className="absolute inset-0 w-full max-w-md mx-auto left-0 right-0 bg-[#f4f4f0] z-[80] flex flex-col overflow-hidden animate-in fade-in duration-200">
++        <div className="absolute inset-0 w-full max-w-md mx-auto left-0 right-0 bg-white z-[80] flex flex-col overflow-hidden animate-in fade-in duration-200">
+           {/* Search Header */}
+-          <div className="flex h-[54px] shrink-0 items-center px-4 bg-black text-white gap-3 select-none">
++          <div className="flex h-[54px] shrink-0 items-center px-4 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white gap-3 select-none border-b border-white/5">
+             <div className="flex-1 bg-white/10 rounded-xl px-3 py-1 flex items-center gap-2 border border-white/5">
+               <Search className="w-[15px] h-[15px] text-stone-400 shrink-0" />
+               <input 
+@@ -381,10 +381,10 @@ export default function Layout() {
+                     }
+                     setSearchFilters({ ...searchFilters, modules: newModules });
+                   }}
+-                  className={`px-3 py-1 rounded-xl text-[12px] font-medium border transition-colors shrink-0 ${
++                  className={`px-3 py-1 rounded-xl text-[12px] font-medium border transition-all shrink-0 active:scale-95 ${
+                     isSelected 
+-                      ? 'bg-black text-white border-black' 
+-                      : 'bg-stone-100 text-stone-600 border-stone-200/40 hover:bg-stone-200/80'
++                      ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white border-transparent shadow-sm shadow-baimiao-mysteria/10' 
++                      : 'bg-[#f0edf4]/50 text-[#8a859e] border-stone-200/20 hover:bg-[#f0edf4]'
+                   }`}
+                 >
+                   {getLabel()}
+@@ -397,7 +397,7 @@ export default function Layout() {
+           {showDateDropdown && (
+             <div 
+               ref={dropdownCardRef}
+-              className="absolute left-4 top-[100px] w-60 bg-[#2a2a2a]/95 backdrop-blur-xl rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.15)] border border-white/5 flex flex-col p-1.5 animate-in fade-in zoom-in-95 duration-100 z-[90]"
++              className="absolute left-4 top-[100px] w-60 bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_10px_40px_rgba(27,25,56,0.15)] flex flex-col p-1.5 animate-in fade-in zoom-in-95 duration-100 z-[90]"
+             >
+               {calendarTarget === 'none' ? (
+                 <>
+@@ -468,7 +468,7 @@ export default function Layout() {
+                         });
+                         setShowDateDropdown(false);
+                       }}
+-                      className="w-full mt-1.5 py-1.5 bg-white text-black hover:bg-stone-200 transition-colors rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1 active:scale-[0.98]"
++                      className="w-full mt-1.5 py-1.5 baimiao-btn-cream rounded-xl text-[11.5px] font-semibold flex items-center justify-center gap-1 active:scale-[0.98]"
+                     >
+                       纭畾
+                     </button>
+@@ -596,17 +596,33 @@ function TabItem({ to, icon, label, disabled = false }: { to: string, icon: Reac
+     <NavLink
+       to={to}
+       className={({ isActive }) =>
+-        `flex flex-col items-center justify-center p-2 transition-colors duration-200 ${
+-          isActive ? 'text-black' : 'text-stone-400 hover:text-stone-600'
++        `relative flex flex-col items-center justify-center px-4 py-1.5 rounded-xl transition-all duration-200 select-none ${
++          isActive
++            ? 'text-baimiao-mysteria bg-baimiao-mysteria/[0.06]'
++            : 'text-[#8a859e] hover:text-baimiao-mysteria/70 active:scale-95'
+         }`
+       }
+     >
+       {({ isActive }) => (
+         <>
+-          {React.cloneElement(icon as React.ReactElement<any>, {
+-            className: `w-5 h-5 mb-1 ${isActive ? 'stroke-[2.5px]' : 'stroke-2'}`,
+-          })}
+-          <span className={`text-[12px] tracking-wide ${isActive ? 'font-medium' : ''}`}>{label}</span>
++          <div
++            className={`transition-transform duration-300 ${
++              isActive ? 'animate-[tabBounce_0.35s_cubic-bezier(0.34,1.56,0.64,1)_both]' : ''
++            }`}
++          >
++            {React.cloneElement(icon as React.ReactElement<any>, {
++              className: `w-[22px] h-[22px] mb-0.5 transition-all duration-200 ${
++                isActive ? 'stroke-[2.5px]' : 'stroke-[1.8px]'
++              }`,
++            })}
++          </div>
++          <span
++            className={`text-[10.5px] tracking-wider transition-all duration-200 ${
++              isActive ? 'font-semibold' : 'font-normal'
++            }`}
++          >
++            {label}
++          </span>
+         </>
+       )}
+     </NavLink>

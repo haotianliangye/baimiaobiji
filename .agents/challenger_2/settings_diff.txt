@@ -1,0 +1,193 @@
+﻿diff --git a/src/pages/Settings.tsx b/src/pages/Settings.tsx
+index 469f3b4..7133b8e 100644
+--- a/src/pages/Settings.tsx
++++ b/src/pages/Settings.tsx
+@@ -337,22 +337,22 @@ export default function Settings() {
+ 
+   return (
+     <div className="flex flex-col h-full bg-stone-100 font-sans text-stone-900 overflow-hidden items-center justify-center">
+-      <div className="flex flex-col h-full overflow-hidden bg-[#f4f4f0] relative z-50 mx-auto max-w-md w-full shadow-sm ring-1 ring-black/5">
+-        <div className="flex h-14 items-center px-4 bg-[#f4f4f0] border-b border-stone-200/50 shrink-0">
+-          <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-stone-500 hover:text-black">
++      <div className="flex flex-col h-full overflow-hidden bg-white relative z-50 mx-auto max-w-md w-full shadow-sm ring-1 ring-black/5">
++        <div className="flex h-14 items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 shrink-0">
++          <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-baimiao-mysteria/70 hover:text-baimiao-mysteria hover:bg-baimiao-mysteria/5 transition-all rounded-full active:scale-90">
+             <ArrowLeft className="w-5 h-5" />
+           </button>
+-          <h2 className="text-[15px] font-medium ml-2 text-stone-900">绯荤粺璁剧疆</h2>
++          <h2 className="text-[15.5px] font-bold ml-2 text-baimiao-mysteria font-serif baimiao-editorial-title">绯荤粺璁剧疆</h2>
+         </div>
+ 
+         <div className="flex-1 overflow-y-auto thin-scrollbar w-full p-3 space-y-4 pb-16">
+         
+         {/* Navigation Tabs */}
+-        <div className="flex bg-black/5 p-1 rounded-xl shadow-inner border border-black/5">
++        <div className="flex bg-[#f0edf4]/60 p-1 rounded-xl border border-baimiao-border/20">
+           <button
+             onClick={() => setActiveTab('model')}
+             className={`flex-1 flex justify-center py-2 text-[13px] font-medium rounded-lg transition-colors ${
+-              activeTab === 'model' ? 'bg-white shadow-sm ring-1 ring-black/5 text-black' : 'text-stone-500 hover:text-stone-700'
++              activeTab === 'model' ? 'bg-white shadow-md shadow-baimiao-mysteria/5 text-baimiao-mysteria font-bold' : 'text-[#8a859e] hover:text-stone-700'
+             }`}
+           >
+             绯荤粺璁剧疆
+@@ -360,7 +360,7 @@ export default function Settings() {
+           <button
+             onClick={() => setActiveTab('data')}
+             className={`flex-1 flex justify-center py-2 text-[13px] font-medium rounded-lg transition-colors ${
+-              activeTab === 'data' ? 'bg-white shadow-sm ring-1 ring-black/5 text-black' : 'text-stone-500 hover:text-stone-700'
++              activeTab === 'data' ? 'bg-white shadow-md shadow-baimiao-mysteria/5 text-baimiao-mysteria font-bold' : 'text-[#8a859e] hover:text-stone-700'
+             }`}
+           >
+             鏁版嵁绠＄悊
+@@ -368,7 +368,7 @@ export default function Settings() {
+           <button
+             onClick={() => setActiveTab('prompt')}
+             className={`flex-1 flex justify-center py-2 text-[13px] font-medium rounded-lg transition-colors ${
+-              activeTab === 'prompt' ? 'bg-white shadow-sm ring-1 ring-black/5 text-black' : 'text-stone-500 hover:text-stone-700'
++              activeTab === 'prompt' ? 'bg-white shadow-md shadow-baimiao-mysteria/5 text-baimiao-mysteria font-bold' : 'text-[#8a859e] hover:text-stone-700'
+             }`}
+           >
+             鎻愮ず璇?(Prompt)
+@@ -379,7 +379,7 @@ export default function Settings() {
+           {activeTab === 'model' && (
+             <>
+               {/* Provider Selection */}
+-              <section className="bg-white rounded-2xl border border-stone-100 p-1 shadow-sm">
++              <section className="baimiao-card-diary p-1.5">
+                  <div className="grid grid-cols-4 gap-1 p-1">
+                     {[
+                       { id: 'gemini', label: 'Gemini', defaultBase: 'https://generativelanguage.googleapis.com/v1beta', defaultModel: 'gemini-3.1-flash-lite', link: 'https://aistudio.google.com/app/apikey' },
+@@ -401,8 +401,8 @@ export default function Settings() {
+                          }}
+                          className={`flex items-center justify-center py-1.5 px-1 rounded-lg text-[12px] font-medium transition-all ${
+                            provider === p.id 
+-                             ? 'bg-black text-white shadow-md' 
+-                             : 'text-stone-500 hover:bg-stone-50'
++                             ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-md' 
++                             : 'text-stone-500 hover:bg-baimiao-mysteria/5 hover:text-baimiao-mysteria transition-all'
+                          }`}
+                        >
+                          {p.label}
+@@ -413,7 +413,7 @@ export default function Settings() {
+ 
+               {/* Dynamic Fields */}
+               <section className="space-y-3">
+-                <div className="bg-white rounded-xl border border-stone-100 p-3 shadow-sm space-y-2">
++                <div className="baimiao-card-diary p-4 space-y-3">
+                   <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase mb-1">閰嶇疆璇︽儏</h3>
+                   
+                   {/* API Key */}
+@@ -524,7 +524,7 @@ export default function Settings() {
+           )}
+ 
+           {activeTab === 'prompt' && (
+-            <section className="bg-white rounded-xl border border-stone-100 p-3 shadow-sm space-y-3">
++            <section className="baimiao-card-diary p-4 space-y-4">
+                <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase mb-2">鍚庡彴鎻愮ず璇嶉厤缃?(Prompt)</h3>
+                <div className="space-y-3">
+                   <div className="space-y-1.5">
+@@ -720,29 +720,33 @@ export default function Settings() {
+           {activeTab === 'data' && (
+             <div className="space-y-4">
+               {/* Storage Protection card */}
+-              <section className="bg-white rounded-xl border border-stone-100 p-3 shadow-sm space-y-2">
+-                <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase flex items-center gap-1.5 mb-2">
++              <section className="baimiao-card-diary p-4 space-y-3">
++                <h3 className="text-[12.5px] font-semibold text-stone-400 tracking-wider uppercase flex items-center gap-1.5 mb-1.5">
+                   <Shield className="w-4 h-4 text-stone-400" />
+                   鏈湴瀛樺偍淇濇姢
+                 </h3>
+                 {storageInfo ? (
+                   <div className="space-y-3">
+-                    <div className="flex items-start gap-2.5">
++                    <div className={`p-3 rounded-xl border flex items-start gap-2.5 transition-all ${
++                      storageInfo.persisted
++                        ? "bg-emerald-50/30 border-emerald-100 text-emerald-800"
++                        : "bg-amber-50/50 border-amber-100/70 text-amber-800"
++                    }`}>
+                       {storageInfo.persisted ? (
+-                        <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
++                        <ShieldCheck className="w-4.5 h-4.5 text-emerald-600 shrink-0 mt-0.5" />
+                       ) : (
+-                        <Shield className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
++                        <Shield className="w-4.5 h-4.5 text-amber-600 shrink-0 mt-0.5" />
+                       )}
+                       <div className="flex flex-col">
+-                        <span className="text-[13.5px] font-semibold text-stone-850">
++                        <span className="text-[13px] font-medium leading-normal">
+                           鐘舵€侊細{storageInfo.persisted ? (
+-                            <span className="text-emerald-600">馃煝 姘镐箙瀛樺偍淇濇姢涓?/span>
++                            <span className="text-emerald-700 font-semibold">姘镐箙瀛樺偍宸插惎鐢?/span>
+                           ) : (
+-                            <span className="text-amber-600">馃煛 涓存椂瀛樺偍 (绯荤粺鍦ㄧ┖闂翠笉瓒虫椂鍙兘浼氳嚜鍔ㄦ竻鐞嗘暟鎹?</span>
++                            <span className="text-amber-700 font-semibold">涓存椂瀛樺偍宸插惎鐢?(绯荤粺鍦ㄧ┖闂存瀬浣庢椂鍙兘娓呯悊鏁版嵁)</span>
+                           )}
+                         </span>
+-                        <span className="text-[12px] text-stone-450 mt-1">
+-                          褰撳墠搴旂敤宸插崰鐢細{formatBytes(storageInfo.usedBytes)} / 鍙敤浼扮畻锛歿formatBytes(storageInfo.quotaBytes)}
++                        <span className="text-[11px] text-stone-500 mt-1">
++                          宸插崰鐢細{formatBytes(storageInfo.usedBytes)} / 鍙敤绌洪棿绾?{formatBytes(storageInfo.quotaBytes)}
+                         </span>
+                       </div>
+                     </div>
+@@ -750,7 +754,7 @@ export default function Settings() {
+                       <button
+                         onClick={handlePersist}
+                         disabled={isPersisting}
+-                        className="w-full py-2 bg-black hover:bg-stone-900 text-white transition-colors rounded-xl text-[12.5px] font-medium active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-1.5"
++                        className="w-full py-2.5 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 text-white transition-all rounded-xl text-[13px] font-medium active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-sm"
+                       >
+                         {isPersisting ? (
+                           <>
+@@ -769,7 +773,7 @@ export default function Settings() {
+               </section>
+ 
+               {/* Encrypted Cloud Sync card */}
+-              <section className="bg-white rounded-xl border border-stone-100 p-3 shadow-sm space-y-3">
++              <section className="baimiao-card-diary p-4 space-y-3">
+                 <div className="flex items-center justify-between">
+                   <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase flex items-center gap-1.5">
+                     <Cloud className="w-4 h-4 text-stone-400" />
+@@ -1050,7 +1054,7 @@ export default function Settings() {
+               </section>
+ 
+               {/* AI Auto-Generation Maintenance section */}
+-              <section className="bg-white rounded-xl border border-stone-100 p-3 shadow-sm space-y-3">
++              <section className="baimiao-card-diary p-4 space-y-3">
+                 <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase mb-1">AI 鑷姩鏁寸悊缁存姢</h3>
+                 <p className="text-[12px] text-stone-500 leading-relaxed">
+                   濡傛灉鎮ㄥ澶╂湭鎵撳紑搴旂敤锛屾垨鑰呬腑閫旂敓鎴愪腑鏂鑷存棩璁版垨鍥為【涓嶅叏锛屽彲浠ョ偣鍑讳笅鏂规寜閽壂鎻忚繃鍘?30 澶╁苟鑷姩琛ラ綈鐢熸垚銆?@@ -1069,7 +1073,7 @@ export default function Settings() {
+                     <div className="grid grid-cols-2 gap-2 pt-1">
+                       <button
+                         onClick={() => setQueuePaused(!isQueuePaused)}
+-                        className="py-2 px-3 bg-white border border-stone-200 hover:bg-stone-100 transition-colors rounded-lg text-[12px] font-semibold text-stone-700 flex items-center justify-center gap-1"
++                        className="py-2 px-3 baimiao-btn-cream transition-colors rounded-lg text-[12px] font-semibold flex items-center justify-center gap-1"
+                       >
+                         {isQueuePaused ? '鈻讹笍 鎭㈠鏁寸悊' : '鈴革笍 鏆傚仠鏁寸悊'}
+                       </button>
+@@ -1086,7 +1090,7 @@ export default function Settings() {
+                     onClick={async () => {
+                       await checkAndGenerateHistoryTasks(30);
+                     }}
+-                    className="w-full mt-1 bg-stone-900 text-white hover:bg-black transition-colors rounded-xl text-[12.5px] font-medium active:scale-[0.98] flex items-center justify-center gap-1.5 py-2.5"
++                    className="w-full mt-1 bg-baimiao-mysteria/[0.03] hover:bg-baimiao-mysteria/[0.06] border border-baimiao-mysteria/10 hover:border-baimiao-mysteria/20 text-baimiao-mysteria transition-colors rounded-xl text-[12.5px] font-medium active:scale-[0.98] flex items-center justify-center gap-1.5 py-2.5"
+                   >
+                     馃獎 鎵弿骞惰ˉ鍏ㄨ繃鍘?30 澶╃殑鏃ヨ涓庡洖椤?                   </button>
+@@ -1094,7 +1098,7 @@ export default function Settings() {
+               </section>
+ 
+               {/* Data Export / Import section */}
+-              <section className="bg-white rounded-xl border border-stone-100 p-3 shadow-sm space-y-4">
++              <section className="baimiao-card-diary p-4 space-y-4">
+                  <div>
+                    <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase mb-3">鏁版嵁瀵煎嚭</h3>
+                  
+@@ -1243,7 +1247,7 @@ export default function Settings() {
+               });
+               navigate(-1);
+             }}
+-            className="w-full bg-[#2a2a2a] text-white py-3.5 rounded-xl text-[14px] font-medium tracking-wide hover:bg-[#222222] transition-all active:scale-[0.98] shadow-sm"
++            className="w-full py-3.5 rounded-xl text-[14px] font-medium tracking-wide text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 active:scale-[0.98] shadow-md shadow-baimiao-mysteria/10 transition-all"
+           >
+              淇濆瓨骞惰繑鍥?           </button>
