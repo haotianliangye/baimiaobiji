@@ -61,6 +61,11 @@ html, body, #root {
   color: var(--color-baimiao-ink) !important;
   line-height: 1.625 !important;
   letter-spacing: 0.015em !important;
+  /* 强行使所有数字上下对齐（等高对齐数字），防止 Garamond 默认的错落古风体数字在中文混排中显得杂乱 */
+  font-variant-numeric: lining-nums !important;
+  -moz-font-feature-settings: "lnum" 1 !important;
+  -webkit-font-feature-settings: "lnum" 1 !important;
+  font-feature-settings: "lnum" 1 !important;
 }
 
 /* 纸质社论排版标题 */
@@ -68,6 +73,8 @@ html, body, #root {
   font-family: var(--font-serif) !important;
   color: var(--color-baimiao-ink) !important;
   font-weight: 500 !important;
+  font-variant-numeric: lining-nums !important;
+  font-feature-settings: "lnum" 1 !important;
 }
 
 /* 日记悬浮卡片 (偏淡紫微光混合阴影) */
