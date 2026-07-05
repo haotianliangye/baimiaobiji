@@ -379,7 +379,7 @@ export default function Settings() {
           {activeTab === 'model' && (
             <>
               {/* Provider Selection */}
-              <section className="bg-white rounded-2xl border border-stone-100 p-1 shadow-sm">
+              <section className="baimiao-card-diary p-1.5">
                  <div className="grid grid-cols-4 gap-1 p-1">
                     {[
                       { id: 'gemini', label: 'Gemini', defaultBase: 'https://generativelanguage.googleapis.com/v1beta', defaultModel: 'gemini-3.1-flash-lite', link: 'https://aistudio.google.com/app/apikey' },
@@ -402,7 +402,7 @@ export default function Settings() {
                          className={`flex items-center justify-center py-1.5 px-1 rounded-lg text-[12px] font-medium transition-all ${
                            provider === p.id 
                              ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-md' 
-                             : 'text-stone-500 hover:bg-stone-50'
+                             : 'text-stone-500 hover:bg-baimiao-mysteria/5 hover:text-baimiao-mysteria transition-all'
                          }`}
                        >
                          {p.label}
@@ -413,7 +413,7 @@ export default function Settings() {
 
               {/* Dynamic Fields */}
               <section className="space-y-3">
-                <div className="bg-white rounded-xl border border-stone-100 p-3 shadow-sm space-y-2">
+                <div className="baimiao-card-diary p-4 space-y-3">
                   <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase mb-1">配置详情</h3>
                   
                   {/* API Key */}
@@ -524,7 +524,7 @@ export default function Settings() {
           )}
 
           {activeTab === 'prompt' && (
-            <section className="bg-white rounded-xl border border-stone-100 p-3 shadow-sm space-y-3">
+            <section className="baimiao-card-diary p-4 space-y-4">
                <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase mb-2">后台提示词配置 (Prompt)</h3>
                <div className="space-y-3">
                   <div className="space-y-1.5">
@@ -720,7 +720,7 @@ export default function Settings() {
           {activeTab === 'data' && (
             <div className="space-y-4">
               {/* Storage Protection card */}
-              <section className="bg-white rounded-xl border border-stone-100 p-4 shadow-[0_2px_12px_rgba(0,0,0,0.015)] space-y-3">
+              <section className="baimiao-card-diary p-4 space-y-3">
                 <h3 className="text-[12.5px] font-semibold text-stone-400 tracking-wider uppercase flex items-center gap-1.5 mb-1.5">
                   <Shield className="w-4 h-4 text-stone-400" />
                   本地存储保护
@@ -773,7 +773,7 @@ export default function Settings() {
               </section>
 
               {/* Encrypted Cloud Sync card */}
-              <section className="bg-white rounded-xl border border-stone-100 p-3 shadow-sm space-y-3">
+              <section className="baimiao-card-diary p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase flex items-center gap-1.5">
                     <Cloud className="w-4 h-4 text-stone-400" />
@@ -1054,7 +1054,7 @@ export default function Settings() {
               </section>
 
               {/* AI Auto-Generation Maintenance section */}
-              <section className="bg-white rounded-xl border border-stone-100 p-3 shadow-sm space-y-3">
+              <section className="baimiao-card-diary p-4 space-y-3">
                 <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase mb-1">AI 自动整理维护</h3>
                 <p className="text-[12px] text-stone-500 leading-relaxed">
                   如果您多天未打开应用，或者中途生成中断导致日记或回顾不全，可以点击下方按钮扫描过去 30 天并自动补齐生成。
@@ -1098,7 +1098,7 @@ export default function Settings() {
               </section>
 
               {/* Data Export / Import section */}
-              <section className="bg-white rounded-xl border border-stone-100 p-3 shadow-sm space-y-4">
+              <section className="baimiao-card-diary p-4 space-y-4">
                  <div>
                    <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase mb-3">数据导出</h3>
                  

@@ -788,7 +788,7 @@ export default function Record() {
                 type="button"
                 onClick={handleToggleListen}
                 disabled={isSubmitting}
-                className="w-full h-[36px] flex items-center justify-center gap-2 rounded-lg font-medium text-[14.5px] transition-all select-none bg-[#2a2a2a] text-white shadow-sm disabled:opacity-50 active:bg-[#1a1a1a]"
+                className="w-full h-[36px] flex items-center justify-center gap-2 rounded-xl font-medium text-[14.5px] transition-all select-none bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 active:scale-[0.99] text-white shadow-md shadow-baimiao-mysteria/10 disabled:opacity-50"
               >
                 <div className="w-2 h-2 rounded-sm bg-red-500 animate-pulse" />
                 <span className="font-mono">{formatRecordTime(recordingDuration)}</span>
