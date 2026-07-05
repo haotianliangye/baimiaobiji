@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning } from 'lucide-react';
-import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_LYUBISHCHEV_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_SUMMARY_PROMPT } from '../store/settings.store';
+import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_WARM_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_SUMMARY_PROMPT } from '../store/settings.store';
 import { db } from '../db/db';
 import { checkStorageStatus, requestStoragePersistence, StorageEstimateInfo } from '../lib/storage';
 import { useAppStore } from '../store/app.store';
@@ -211,7 +211,7 @@ export default function Settings() {
 
   const [localDiaryPrompts, setLocalDiaryPrompts] = useState<string[]>(() => {
     if (diaryPrompts && diaryPrompts.length === 4) return [...diaryPrompts];
-    return [diaryPrompt || DEFAULT_DIARY_PROMPT, DEFAULT_LYUBISHCHEV_PROMPT, '', ''];
+    return [diaryPrompt || DEFAULT_DIARY_PROMPT, DEFAULT_WARM_DIARY_PROMPT, '', ''];
   });
   const [localDiaryIndex, setLocalDiaryIndex] = useState<number>(diaryPromptIndex ?? 0);
 
