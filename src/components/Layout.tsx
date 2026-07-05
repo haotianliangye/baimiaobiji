@@ -381,10 +381,10 @@ export default function Layout() {
                     }
                     setSearchFilters({ ...searchFilters, modules: newModules });
                   }}
-                  className={`px-3 py-1 rounded-xl text-[12px] font-medium border transition-colors shrink-0 ${
+                  className={`px-3 py-1 rounded-xl text-[12px] font-medium border transition-all shrink-0 active:scale-95 ${
                     isSelected 
-                      ? 'bg-black text-white border-black' 
-                      : 'bg-stone-100 text-stone-600 border-stone-200/40 hover:bg-stone-200/80'
+                      ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white border-transparent shadow-sm shadow-baimiao-mysteria/10' 
+                      : 'bg-[#f0edf4]/50 text-[#8a859e] border-stone-200/20 hover:bg-[#f0edf4]'
                   }`}
                 >
                   {getLabel()}
@@ -397,7 +397,7 @@ export default function Layout() {
           {showDateDropdown && (
             <div 
               ref={dropdownCardRef}
-              className="absolute left-4 top-[100px] w-60 bg-[#2a2a2a]/95 backdrop-blur-xl rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.15)] border border-white/5 flex flex-col p-1.5 animate-in fade-in zoom-in-95 duration-100 z-[90]"
+              className="absolute left-4 top-[100px] w-60 bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_10px_40px_rgba(27,25,56,0.15)] flex flex-col p-1.5 animate-in fade-in zoom-in-95 duration-100 z-[90]"
             >
               {calendarTarget === 'none' ? (
                 <>
@@ -468,7 +468,7 @@ export default function Layout() {
                         });
                         setShowDateDropdown(false);
                       }}
-                      className="w-full mt-1.5 py-1.5 bg-white text-black hover:bg-stone-200 transition-colors rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1 active:scale-[0.98]"
+                      className="w-full mt-1.5 py-1.5 baimiao-btn-cream rounded-xl text-[11.5px] font-semibold flex items-center justify-center gap-1 active:scale-[0.98]"
                     >
                       确定
                     </button>

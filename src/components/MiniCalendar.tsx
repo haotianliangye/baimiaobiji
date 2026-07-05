@@ -91,7 +91,7 @@ export default function MiniCalendar({ value, onChange, onBack, title }: MiniCal
 
         {/* 年份下拉菜单 */}
         {showYearDropdown && (
-          <div className="absolute top-[34px] left-1/2 -translate-x-1/2 w-28 bg-[#1e1e1e] border border-white/10 rounded-xl shadow-xl py-1 z-50 flex flex-col max-h-[160px] overflow-y-auto thin-scrollbar">
+          <div className="absolute top-[34px] left-1/2 -translate-x-1/2 w-28 bg-[#252243] border border-white/10 rounded-xl shadow-xl py-1 z-50 flex flex-col max-h-[160px] overflow-y-auto thin-scrollbar">
             {years.map((y) => (
               <button
                 key={y}
@@ -131,7 +131,7 @@ export default function MiniCalendar({ value, onChange, onBack, title }: MiniCal
               onClick={() => onChange(format(day, 'yyyy-MM-dd'))}
               className={`h-[28px] w-[28px] mx-auto flex items-center justify-center text-[11.5px] font-medium transition-all rounded-full relative cursor-pointer active:scale-90 ${
                 isSelected 
-                  ? 'bg-white text-black font-bold shadow-md' 
+                  ? 'bg-gradient-to-br from-white to-[#faf9fc] text-baimiao-mysteria font-bold shadow-md shadow-black/10' 
                   : isCurrentMonth
                     ? 'text-white/80 hover:bg-white/10 hover:text-white'
                     : 'text-white/20 hover:bg-white/5 hover:text-white/40'

@@ -580,7 +580,7 @@ export default function Record() {
     <div className="flex flex-col h-full bg-transparent relative">
       <div className="flex h-[52px] items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 z-20 shrink-0 w-full justify-between">
         <h2 className="text-[13.5px] font-bold tracking-wide text-baimiao-mysteria flex items-center gap-1.5 font-serif baimiao-editorial-title">
-          <Clock className="w-4 h-4 text-baimiao-mysteria/70 stroke-[2.2px]" />
+          <Clock className="w-4 h-4 text-baimiao-mysteria/70 stroke-[2.2px] translate-y-[-0.8px] shrink-0" />
           时间碎屑
         </h2>
         <div className="flex items-center gap-3">
@@ -711,24 +711,24 @@ export default function Record() {
                       </div>
                    </div>
                 )}
-                <span className="text-[11px] font-mono text-stone-400 shrink-0 mt-[14px] w-10 text-right opacity-80">
-                  {format(new Date(log.created_at), "HH:mm")}
-                </span>
                 <div className="flex-1 min-w-0">
-                  <div className="inline-block bg-[#fdfdfc]/85 border border-stone-200/40 rounded-2xl px-4 py-3 shadow-[0_2px_12px_rgba(27,25,56,0.012)] hover:border-stone-200/60 max-w-full text-left">
-                    <p className="text-[15.5px] leading-relaxed text-baimiao-ink font-sans tracking-tight break-all">
+                  <div className="inline-block bg-[#fdfdfc]/85 border border-stone-200/40 rounded-2xl px-4 py-3 pb-2 shadow-[0_2px_12px_rgba(27,25,56,0.012)] hover:border-stone-200/60 max-w-full text-left relative">
+                    <p className="text-[15.5px] leading-relaxed text-baimiao-ink font-sans tracking-tight break-all pr-8">
                       {log.content}
                     </p>
                     {log.audioBlob && (
-                      <div className="mt-2.5 w-full max-w-[220px]">
+                      <div className="mt-2.5 w-full max-w-[220px] pb-1">
                         <AudioPlayer blob={log.audioBlob} />
                         {log.audioDuration !== undefined && (
-                          <div className="text-[11px] font-mono text-stone-400 mt-1 pl-1">
+                          <div className="text-[10px] font-mono text-stone-400 mt-1 pl-1">
                             时长: {formatRecordTime(log.audioDuration)}
                           </div>
                         )}
                       </div>
                     )}
+                    <div className="text-[9px] font-mono text-stone-400/60 text-right mt-1 select-none">
+                      {format(new Date(log.created_at), "HH:mm")}
+                    </div>
                   </div>
                   {typeof log.content === "string" && log.content.includes("解析失败") && log.audioBlob && (
                     <button
