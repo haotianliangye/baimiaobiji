@@ -126,10 +126,10 @@ export default function Layout() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-stone-100 font-sans text-stone-900 overflow-hidden items-center justify-center">
-      <div className="w-full max-w-md h-full bg-[#f4f4f0] shadow-sm ring-1 ring-black/5 flex flex-col relative overflow-hidden">
+    <div className="flex flex-col h-full bg-[#f0eef5] font-sans text-stone-900 overflow-hidden items-center justify-center">
+      <div className="w-full max-w-md h-full bg-white shadow-sm ring-1 ring-black/5 flex flex-col relative overflow-hidden">
         {/* Global Nav */}
-        <header className="flex h-[54px] shrink-0 items-center justify-between px-4 bg-black text-white">
+        <header className="flex h-[54px] shrink-0 items-center justify-between px-4 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white/95 border-b border-white/5">
           <div className="flex items-center gap-2">
             <h1 
               onClick={() => setShowAboutModal(true)} 
@@ -138,8 +138,8 @@ export default function Layout() {
               白描笔记
             </h1>
             {autoGenTasks.length > 0 && (isProcessingQueue || isQueuePaused) && (
-              <span className={`flex items-center gap-1 bg-stone-800 text-stone-300 text-[10px] px-2 py-0.5 rounded-full font-medium select-none tracking-wide ${isQueuePaused ? 'opacity-65' : 'animate-pulse'}`}>
-                <Loader2 className={`w-2.5 h-2.5 text-stone-400 ${isQueuePaused ? '' : 'animate-spin'}`} />
+              <span className={`flex items-center gap-1 bg-white/10 text-white/90 border border-white/10 text-[10px] px-2 py-0.5 rounded-full font-medium select-none tracking-wide ${isQueuePaused ? 'opacity-65' : 'animate-pulse'}`}>
+                <Loader2 className={`w-2.5 h-2.5 text-white/60 ${isQueuePaused ? '' : 'animate-spin'}`} />
                 {isQueuePaused ? `整理已暂停 (${autoGenTasks.length})` : `AI 整理中 (${autoGenTasks.length})`}
               </span>
             )}
@@ -227,12 +227,12 @@ export default function Layout() {
         )}
 
         {/* Main Canvas */}
-        <main className="flex-1 overflow-hidden bg-[#f4f4f0] selection:bg-black selection:text-white flex flex-col relative">
+        <main className="flex-1 overflow-hidden bg-white selection:bg-black selection:text-white flex flex-col relative">
           <Outlet />
         </main>
 
         {/* Tab Bar */}
-        <nav className="h-[60px] shrink-0 border-t border-stone-200/60 bg-[#f4f4f0]/90 backdrop-blur pb-safe z-50 relative">
+        <nav className="h-[60px] shrink-0 border-t border-baimiao-border/50 bg-white/80 backdrop-blur-md pb-safe z-50 relative">
           <div className="w-full h-full flex justify-around items-center px-2">
             <TabItem to="/" icon={<Edit3 />} label="记录" />
             <TabItem to="/diary" icon={<Book />} label="日记" />
@@ -249,7 +249,7 @@ export default function Layout() {
           onClick={() => !isUpdating && setShowAboutModal(false)}
         >
           <div 
-            className="bg-[#f4f4f0] rounded-2xl w-full max-w-[280px] p-6 shadow-2xl border border-stone-200/30 flex flex-col items-center text-center animate-in zoom-in-95 duration-200 select-none"
+            className="bg-white rounded-2xl w-full max-w-[280px] p-6 shadow-2xl border border-baimiao-border flex flex-col items-center text-center animate-in zoom-in-95 duration-200 select-none"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-12 h-12 bg-black text-white rounded-xl flex items-center justify-center font-bold text-lg mb-4 shadow-md">
@@ -310,9 +310,9 @@ export default function Layout() {
 
       {/* Global Search Panel */}
       {isSearchMode && (
-        <div className="absolute inset-0 w-full max-w-md mx-auto left-0 right-0 bg-[#f4f4f0] z-[80] flex flex-col overflow-hidden animate-in fade-in duration-200">
+        <div className="absolute inset-0 w-full max-w-md mx-auto left-0 right-0 bg-white z-[80] flex flex-col overflow-hidden animate-in fade-in duration-200">
           {/* Search Header */}
-          <div className="flex h-[54px] shrink-0 items-center px-4 bg-black text-white gap-3 select-none">
+          <div className="flex h-[54px] shrink-0 items-center px-4 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white gap-3 select-none border-b border-white/5">
             <div className="flex-1 bg-white/10 rounded-xl px-3 py-1 flex items-center gap-2 border border-white/5">
               <Search className="w-[15px] h-[15px] text-stone-400 shrink-0" />
               <input 

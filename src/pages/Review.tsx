@@ -278,7 +278,7 @@ export default function Review() {
                 <button
                   disabled={logsCountForDate === 0}
                   onClick={(e) => openPromptMenu(e.currentTarget.getBoundingClientRect(), { dateStr })}
-                  className="w-full bg-[#2a2a2a] text-white px-5 py-2.5 rounded-full text-[13px] font-medium tracking-wide flex items-center justify-center gap-2 hover:bg-[#222222] disabled:opacity-30 disabled:hover:bg-[#2a2a2a] transition-all active:scale-[0.98]"
+                  className="w-full baimiao-btn-cream px-5 py-2.5 rounded-full text-[13px] font-medium tracking-wide flex items-center justify-center gap-2 disabled:opacity-30 transition-all"
                 >
                   <Sparkles className="w-4 h-4 stroke-[1.5px]" />
                   AI 智能回顾
@@ -304,7 +304,7 @@ export default function Review() {
                 return (
                   <div
                     key={review.id}
-                    className="bg-white rounded-2xl border border-black/5 shadow-[0_2px_10px_rgb(0_0_0_/_0.02)] transition-all flex flex-col block w-full overflow-hidden"
+                    className="w-full overflow-hidden baimiao-card-review"
                     onTouchStart={(e) => {
                       const touch = e.touches[0];
                       const x = touch.clientX;
@@ -362,7 +362,7 @@ export default function Review() {
                         ) : review.ai_review ? (
                           <>
                             <div 
-                              className="markdown-body prose prose-stone prose-h1:text-[18px] prose-h2:text-[17px] prose-h3:text-[16px] prose-h1:leading-snug prose-headings:font-bold max-w-none text-[16px] leading-relaxed select-text pointer-events-auto cursor-pointer"
+                              className="markdown-body prose prose-stone baimiao-editorial-body prose-h1:text-[19px] prose-h2:text-[17px] prose-h3:text-[16px] prose-h1:leading-snug prose-headings:font-medium prose-headings:font-serif baimiao-editorial-title max-w-none text-[15.5px] leading-relaxed select-text pointer-events-auto cursor-pointer"
                               onClick={(e) => {
                                 // 避免点击内部链接时触发收起
                                 if ((e.target as HTMLElement).tagName.toLowerCase() === 'a') return;

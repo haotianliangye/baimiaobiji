@@ -1069,7 +1069,7 @@ export default function Settings() {
                     <div className="grid grid-cols-2 gap-2 pt-1">
                       <button
                         onClick={() => setQueuePaused(!isQueuePaused)}
-                        className="py-2 px-3 bg-white border border-stone-200 hover:bg-stone-100 transition-colors rounded-lg text-[12px] font-semibold text-stone-700 flex items-center justify-center gap-1"
+                        className="py-2 px-3 baimiao-btn-cream transition-colors rounded-lg text-[12px] font-semibold flex items-center justify-center gap-1"
                       >
                         {isQueuePaused ? '▶️ 恢复整理' : '⏸️ 暂停整理'}
                       </button>
@@ -1086,7 +1086,7 @@ export default function Settings() {
                     onClick={async () => {
                       await checkAndGenerateHistoryTasks(30);
                     }}
-                    className="w-full mt-1 bg-stone-900 text-white hover:bg-black transition-colors rounded-xl text-[12.5px] font-medium active:scale-[0.98] flex items-center justify-center gap-1.5 py-2.5"
+                    className="w-full mt-1 baimiao-btn-cream transition-colors rounded-xl text-[12.5px] font-medium active:scale-[0.98] flex items-center justify-center gap-1.5 py-2.5"
                   >
                     🪄 扫描并补全过去 30 天的日记与回顾
                   </button>

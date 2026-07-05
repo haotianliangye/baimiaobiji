@@ -254,7 +254,7 @@ export default function Diary() {
              <button
                disabled={!hasLogs}
                onClick={handleGenerateClick}
-               className="w-full bg-[#2a2a2a] text-white px-5 py-2.5 rounded-full text-[13px] font-medium tracking-wide flex items-center justify-center gap-2 hover:bg-[#222222] disabled:opacity-30 disabled:hover:bg-[#2a2a2a] transition-all active:scale-[0.98]"
+               className="w-full baimiao-btn-cream px-5 py-2.5 rounded-full text-[13px] font-medium tracking-wide flex items-center justify-center gap-2 disabled:opacity-30 transition-all"
              >
                AI 智能整理
              </button>
@@ -282,10 +282,10 @@ export default function Diary() {
                const isEditing = editingDiaryId === diary.id;
                
                return (
-                 <div 
-                   key={diary.id} 
-                   className="w-full bg-white rounded-2xl border border-black/5 shadow-[0_2px_10px_rgb(0_0_0_/_0.02)] overflow-hidden transition-all duration-200"
-                 >
+                  <div 
+                    key={diary.id} 
+                    className="w-full overflow-hidden baimiao-card-diary"
+                  >
                    {/* Card Header */}
                    <button
                      onClick={() => setExpandedDiaryId(isExpanded ? null : diary.id)}
@@ -358,8 +358,8 @@ export default function Diary() {
                          </div>
                        ) : (
                          <>
-                           <div 
-                             className="markdown-body prose prose-stone prose-h1:text-[18px] prose-h2:text-[16px] prose-h3:text-[15px] prose-h1:leading-snug prose-headings:font-bold max-w-none text-[16px] leading-relaxed select-text pointer-events-auto mt-2 px-2 cursor-pointer"
+                            <div 
+                              className="markdown-body prose prose-stone baimiao-editorial-body prose-h1:text-[19px] prose-h2:text-[17px] prose-h3:text-[16px] prose-h1:leading-snug prose-headings:font-medium prose-headings:font-serif baimiao-editorial-title max-w-none text-[15.5px] leading-relaxed select-text pointer-events-auto mt-2 px-2 cursor-pointer"
                              onClick={(e) => {
                                // 避免点击内部链接时触发收起
                                if ((e.target as HTMLElement).tagName.toLowerCase() === 'a') return;
