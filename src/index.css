@@ -117,6 +117,30 @@ html, body, #root {
   }
 }
 
+/* 碎屑自适应气泡卡片 (温润紫调渐变上浮) */
+.baimiao-card-bubble {
+  background: rgba(253, 253, 252, 0.85) !important;
+  border: 1px solid rgba(220, 215, 211, 0.6) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 4px 15px -5px rgba(203, 183, 251, 0.1), 0 1px 3px rgba(41, 40, 39, 0.02) !important;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+@media (hover: hover) {
+  .baimiao-card-bubble:hover {
+    transform: translateY(-2px);
+    border-color: rgba(203, 183, 251, 0.65) !important;
+    box-shadow: 0 15px 30px -10px rgba(203, 183, 251, 0.22) !important;
+  }
+}
+
+@media (hover: none) {
+  .baimiao-card-bubble:active {
+    transform: scale(0.985);
+    background: rgba(253, 253, 252, 0.95) !important;
+  }
+}
+
 /* 温润奶油色按钮 */
 .baimiao-btn-cream {
   background-color: var(--color-baimiao-cream) !important;
