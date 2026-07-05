@@ -337,22 +337,22 @@ export default function Settings() {
 
   return (
     <div className="flex flex-col h-full bg-stone-100 font-sans text-stone-900 overflow-hidden items-center justify-center">
-      <div className="flex flex-col h-full overflow-hidden bg-[#f4f4f0] relative z-50 mx-auto max-w-md w-full shadow-sm ring-1 ring-black/5">
-        <div className="flex h-14 items-center px-4 bg-[#f4f4f0] border-b border-stone-200/50 shrink-0">
-          <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-stone-500 hover:text-black">
+      <div className="flex flex-col h-full overflow-hidden bg-white relative z-50 mx-auto max-w-md w-full shadow-sm ring-1 ring-black/5">
+        <div className="flex h-14 items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 shrink-0">
+          <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-baimiao-mysteria/70 hover:text-baimiao-mysteria hover:bg-baimiao-mysteria/5 transition-all rounded-full active:scale-90">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h2 className="text-[15px] font-medium ml-2 text-stone-900">系统设置</h2>
+          <h2 className="text-[15.5px] font-bold ml-2 text-baimiao-mysteria font-serif baimiao-editorial-title">系统设置</h2>
         </div>
 
         <div className="flex-1 overflow-y-auto thin-scrollbar w-full p-3 space-y-4 pb-16">
         
         {/* Navigation Tabs */}
-        <div className="flex bg-black/5 p-1 rounded-xl shadow-inner border border-black/5">
+        <div className="flex bg-[#f0edf4]/60 p-1 rounded-xl border border-baimiao-border/20">
           <button
             onClick={() => setActiveTab('model')}
             className={`flex-1 flex justify-center py-2 text-[13px] font-medium rounded-lg transition-colors ${
-              activeTab === 'model' ? 'bg-white shadow-sm ring-1 ring-black/5 text-black' : 'text-stone-500 hover:text-stone-700'
+              activeTab === 'model' ? 'bg-white shadow-md shadow-baimiao-mysteria/5 text-baimiao-mysteria font-bold' : 'text-[#8a859e] hover:text-stone-700'
             }`}
           >
             系统设置
@@ -360,7 +360,7 @@ export default function Settings() {
           <button
             onClick={() => setActiveTab('data')}
             className={`flex-1 flex justify-center py-2 text-[13px] font-medium rounded-lg transition-colors ${
-              activeTab === 'data' ? 'bg-white shadow-sm ring-1 ring-black/5 text-black' : 'text-stone-500 hover:text-stone-700'
+              activeTab === 'data' ? 'bg-white shadow-md shadow-baimiao-mysteria/5 text-baimiao-mysteria font-bold' : 'text-[#8a859e] hover:text-stone-700'
             }`}
           >
             数据管理
@@ -368,7 +368,7 @@ export default function Settings() {
           <button
             onClick={() => setActiveTab('prompt')}
             className={`flex-1 flex justify-center py-2 text-[13px] font-medium rounded-lg transition-colors ${
-              activeTab === 'prompt' ? 'bg-white shadow-sm ring-1 ring-black/5 text-black' : 'text-stone-500 hover:text-stone-700'
+              activeTab === 'prompt' ? 'bg-white shadow-md shadow-baimiao-mysteria/5 text-baimiao-mysteria font-bold' : 'text-[#8a859e] hover:text-stone-700'
             }`}
           >
             提示词 (Prompt)
