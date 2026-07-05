@@ -596,17 +596,33 @@ function TabItem({ to, icon, label, disabled = false }: { to: string, icon: Reac
     <NavLink
       to={to}
       className={({ isActive }) =>
-        `flex flex-col items-center justify-center p-2 transition-colors duration-200 ${
-          isActive ? 'text-black' : 'text-stone-400 hover:text-stone-600'
+        `relative flex flex-col items-center justify-center px-4 py-1.5 rounded-xl transition-all duration-200 select-none ${
+          isActive
+            ? 'text-baimiao-mysteria bg-baimiao-mysteria/[0.06]'
+            : 'text-[#8a859e] hover:text-baimiao-mysteria/70 active:scale-95'
         }`
       }
     >
       {({ isActive }) => (
         <>
-          {React.cloneElement(icon as React.ReactElement<any>, {
-            className: `w-5 h-5 mb-1 ${isActive ? 'stroke-[2.5px]' : 'stroke-2'}`,
-          })}
-          <span className={`text-[12px] tracking-wide ${isActive ? 'font-medium' : ''}`}>{label}</span>
+          <div
+            className={`transition-transform duration-300 ${
+              isActive ? 'animate-[tabBounce_0.35s_cubic-bezier(0.34,1.56,0.64,1)_both]' : ''
+            }`}
+          >
+            {React.cloneElement(icon as React.ReactElement<any>, {
+              className: `w-[22px] h-[22px] mb-0.5 transition-all duration-200 ${
+                isActive ? 'stroke-[2.5px]' : 'stroke-[1.8px]'
+              }`,
+            })}
+          </div>
+          <span
+            className={`text-[10.5px] tracking-wider transition-all duration-200 ${
+              isActive ? 'font-semibold' : 'font-normal'
+            }`}
+          >
+            {label}
+          </span>
         </>
       )}
     </NavLink>
