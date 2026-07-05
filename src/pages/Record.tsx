@@ -711,9 +711,12 @@ export default function Record() {
                       </div>
                    </div>
                 )}
+                <span className="text-[11.5px] font-mono text-stone-450 shrink-0 mt-[11px] w-10 text-right select-none opacity-80">
+                  {format(new Date(log.created_at), "HH:mm")}
+                </span>
                 <div className="flex-1 min-w-0">
                   <div className="inline-block baimiao-card-bubble px-4 py-3 pb-2 max-w-full text-left relative">
-                    <p className="text-[15.5px] leading-relaxed text-baimiao-ink font-sans tracking-tight break-all pr-8">
+                    <p className="text-[15.5px] leading-relaxed text-baimiao-ink font-sans tracking-tight break-all">
                       {log.content}
                     </p>
                     {log.audioBlob && (
@@ -726,9 +729,6 @@ export default function Record() {
                         )}
                       </div>
                     )}
-                    <div className="text-[9px] font-mono text-stone-450 text-right mt-1 select-none">
-                      {format(new Date(log.created_at), "HH:mm")}
-                    </div>
                   </div>
                   {typeof log.content === "string" && log.content.includes("解析失败") && log.audioBlob && (
                     <button
