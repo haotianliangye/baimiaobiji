@@ -36,7 +36,7 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
   return (
     <>
     <div 
-      className="bg-white rounded-2xl p-5 shadow-[0_2px_10px_rgb(0_0_0_/_0.03)] border border-black/5 mb-4 transition-all hover:shadow-[0_4px_16px_rgb(0_0_0_/_0.05)] relative overflow-hidden" 
+      className="p-5 mb-4 relative overflow-hidden baimiao-card-diary" 
     >
       <div 
         className="cursor-pointer select-none"
@@ -69,7 +69,7 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
         </div>
         
         <div 
-          className={`markdown-body prose prose-stone prose-h1:text-[18px] prose-h2:text-[17px] prose-h3:text-[16px] prose-headings:font-bold prose-headings:text-stone-900 prose-p:text-stone-600 prose-li:text-stone-600 text-[16px] leading-relaxed relative z-10 selection:bg-stone-200 cursor-pointer ${expanded ? '' : 'line-clamp-4 before:absolute before:bottom-0 before:left-0 before:right-0 before:h-12 before:bg-gradient-to-t before:from-white before:to-transparent'}`}
+          className={`markdown-body prose prose-stone baimiao-editorial-body prose-h1:text-[19px] prose-h2:text-[17px] prose-h3:text-[16px] prose-headings:font-medium prose-headings:font-serif baimiao-editorial-title prose-p:text-baimiao-ink prose-li:text-baimiao-ink text-[15.5px] leading-relaxed relative z-10 selection:bg-stone-200 cursor-pointer ${expanded ? '' : 'line-clamp-4 before:absolute before:bottom-0 before:left-0 before:right-0 before:h-12 before:bg-gradient-to-t before:from-white before:to-transparent'}`}
           onClick={(e) => {
             // 避免点击内部链接时触发收起
             if ((e.target as HTMLElement).tagName.toLowerCase() === 'a') return;
@@ -165,7 +165,7 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
           onWheel={(e) => { setContextMenuState({ ...contextMenuState, isOpen: false }) }}
         >
           <div
-            className="absolute bg-[#2a2a2a]/95 backdrop-blur-xl rounded-xl shadow-2xl flex items-center p-1 animate-in zoom-in-95 duration-100 divide-x divide-white/10"
+            className="absolute bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-xl rounded-xl shadow-2xl flex items-center p-1 animate-in zoom-in-95 duration-100 divide-x divide-white/10"
             style={{
               top: contextMenuState.y > 100 ? contextMenuState.y - 75 : contextMenuState.y + 20,
               left: Math.max(16, Math.min(contextMenuState.x - MENU_HALF_WIDTH, window.innerWidth - MENU_SAFE_MARGIN)),
@@ -457,7 +457,7 @@ export default function Insights() {
              <ChevronDown className="w-3.5 h-3.5" />
            </button>
            {showDropdown && (
-             <div className="absolute right-0 top-full mt-1 w-28 bg-[#2a2a2a]/95 backdrop-blur-xl rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.15)] flex flex-col p-1.5 animate-in fade-in zoom-in-95 duration-100 z-50">
+             <div className="absolute right-0 top-full mt-1 w-28 bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-xl rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.15)] flex flex-col p-1.5 animate-in fade-in zoom-in-95 duration-100 z-50">
                {rangeOptions.map((opt) => (
                  <button
                    key={opt.value}
@@ -549,7 +549,7 @@ export default function Insights() {
         <button 
           onClick={handleGenerate}
           disabled={isGenerating}
-          className={`bg-[#2a2a2a]/95 backdrop-blur-md border border-white/10 text-white px-6 py-2.5 rounded-full text-[13px] font-medium tracking-wide transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:active:scale-100 min-w-[160px] ${(showFloatBtn || isGenerating || (!insights || insights.length === 0)) ? 'pointer-events-auto' : 'pointer-events-none'}`}
+          className={`bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-md border border-white/10 text-white px-6 py-2.5 rounded-full text-[13px] font-medium tracking-wide transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:active:scale-100 min-w-[160px] ${(showFloatBtn || isGenerating || (!insights || insights.length === 0)) ? 'pointer-events-auto' : 'pointer-events-none'}`}
         >
           {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
           {isGenerating ? '深度整理中...' : '生成当前洞察'}

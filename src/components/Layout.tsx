@@ -252,7 +252,7 @@ export default function Layout() {
             className="bg-white rounded-2xl w-full max-w-[280px] p-6 shadow-2xl border border-baimiao-border flex flex-col items-center text-center animate-in zoom-in-95 duration-200 select-none"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-12 h-12 bg-black text-white rounded-xl flex items-center justify-center font-bold text-lg mb-4 shadow-md">
+            <div className="w-12 h-12 bg-gradient-to-br from-baimiao-mysteria to-[#2c2957] text-white rounded-xl flex items-center justify-center font-bold text-lg mb-4 shadow-md">
               白
             </div>
             <h3 className="text-[16px] font-semibold text-stone-900 mb-1">白描笔记</h3>
@@ -270,7 +270,7 @@ export default function Layout() {
               <button 
                 onClick={handleForceUpdate}
                 disabled={isUpdating}
-                className={`w-full py-2.5 bg-black text-white hover:bg-stone-900 transition-colors rounded-xl text-[13px] font-medium tracking-wide shadow-sm flex items-center justify-center gap-1.5 ${
+                className={`w-full py-2.5 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white hover:brightness-110 transition-all rounded-xl text-[13px] font-medium tracking-wide shadow-sm flex items-center justify-center gap-1.5 ${
                   isUpdating ? 'opacity-80 cursor-wait' : ''
                 }`}
               >

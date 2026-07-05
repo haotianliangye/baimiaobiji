@@ -401,7 +401,7 @@ export default function Settings() {
                          }}
                          className={`flex items-center justify-center py-1.5 px-1 rounded-lg text-[12px] font-medium transition-all ${
                            provider === p.id 
-                             ? 'bg-black text-white shadow-md' 
+                             ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-md' 
                              : 'text-stone-500 hover:bg-stone-50'
                          }`}
                        >
@@ -1243,7 +1243,7 @@ export default function Settings() {
               });
               navigate(-1);
             }}
-            className="w-full bg-[#2a2a2a] text-white py-3.5 rounded-xl text-[14px] font-medium tracking-wide hover:bg-[#222222] transition-all active:scale-[0.98] shadow-sm"
+            className="w-full baimiao-btn-cream py-3.5 rounded-xl text-[14px] font-medium tracking-wide transition-all active:scale-[0.98] shadow-sm"
           >
              保存并返回
           </button>

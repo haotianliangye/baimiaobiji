@@ -526,7 +526,7 @@ export default function Review() {
           onClick={closePromptMenu}
         >
           <div 
-            className="absolute bg-[#2a2a2a]/95 backdrop-blur-xl border border-white/10 rounded-2xl p-2 flex flex-col gap-1 shadow-[0_10px_30px_rgba(0,0,0,0.3)] z-[120] animate-in zoom-in-95 duration-100"
+            className="absolute bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-xl border border-white/10 rounded-2xl p-2 flex flex-col gap-1 shadow-[0_10px_30px_rgba(0,0,0,0.3)] z-[120] animate-in zoom-in-95 duration-100"
             style={{
               top: calcPopoverTop(popoverRect),
               left: Math.max(16, Math.min(
@@ -598,7 +598,7 @@ export default function Review() {
           onWheel={() => setContextMenuState({ ...contextMenuState, isOpen: false })}
         >
           <div
-            className="absolute bg-[#2a2a2a]/95 backdrop-blur-xl rounded-xl shadow-2xl flex items-center p-1 animate-in zoom-in-95 duration-100 divide-x divide-white/10"
+            className="absolute bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-xl rounded-xl shadow-2xl flex items-center p-1 animate-in zoom-in-95 duration-100 divide-x divide-white/10"
             style={{
               top: contextMenuState.y > 100 ? contextMenuState.y - 75 : contextMenuState.y + 20,
               left: Math.max(16, Math.min(contextMenuState.x - MENU_HALF_WIDTH, window.innerWidth - MENU_SAFE_MARGIN)),

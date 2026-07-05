@@ -349,7 +349,7 @@ export default function Diary() {
                              </button>
                              <button 
                                onClick={() => handleSaveEdit(diary.id)}
-                               className="flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium text-white bg-[#2a2a2a] border border-[#2a2a2a] hover:bg-[#222222] transition-colors shadow-sm select-none"
+                               className="flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] border border-white/10 hover:brightness-110 transition-all shadow-sm select-none"
                              >
                                <Save className="w-3.5 h-3.5" />
                                保存
@@ -514,7 +514,7 @@ export default function Diary() {
           onClick={() => { setShowPromptMenu(false); setPopoverRect(null); }}
         >
           <div 
-            className="absolute bg-[#2a2a2a]/95 backdrop-blur-xl border border-white/10 rounded-2xl p-2 flex flex-col gap-1 shadow-[0_10px_30px_rgba(0,0,0,0.3)] z-[120] animate-in zoom-in-95 duration-100"
+            className="absolute bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-xl border border-white/10 rounded-2xl p-2 flex flex-col gap-1 shadow-[0_10px_30px_rgba(0,0,0,0.3)] z-[120] animate-in zoom-in-95 duration-100"
             style={{
               top: (() => {
                 const POPOVER_HEIGHT = 192;
@@ -596,7 +596,7 @@ export default function Diary() {
           onWheel={(e) => { setContextMenuState({ ...contextMenuState, isOpen: false }) }}
         >
           <div
-            className="absolute bg-[#2a2a2a]/95 backdrop-blur-xl rounded-xl shadow-2xl flex items-center p-1 animate-in zoom-in-95 duration-100 divide-x divide-white/10"
+            className="absolute bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-xl rounded-xl shadow-2xl flex items-center p-1 animate-in zoom-in-95 duration-100 divide-x divide-white/10"
             style={{
               top: contextMenuState.y > 100 ? contextMenuState.y - 75 : contextMenuState.y + 20,
               left: Math.max(16, Math.min(contextMenuState.x - 140, window.innerWidth - 296)),

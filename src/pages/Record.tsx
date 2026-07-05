@@ -852,7 +852,7 @@ export default function Record() {
           onWheel={(e) => { setContextMenuState({ ...contextMenuState, isOpen: false }) }}
         >
           <div
-            className="absolute bg-[#2a2a2a]/95 backdrop-blur-xl rounded-xl shadow-2xl flex items-center p-1 animate-in zoom-in-95 duration-100 divide-x divide-white/10"
+            className="absolute bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-xl rounded-xl shadow-2xl flex items-center p-1 animate-in zoom-in-95 duration-100 divide-x divide-white/10"
             style={{
               top: contextMenuState.y > 100 ? contextMenuState.y - 75 : contextMenuState.y + 20,
               left: Math.max(16, Math.min(contextMenuState.x - 140, window.innerWidth - 296)),
