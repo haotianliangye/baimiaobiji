@@ -923,10 +923,10 @@ export default function Record() {
 
       {/* Edit Modal */}
       {isEditingModalOpen && (
-        <div className="fixed inset-0 bg-black/40 z-[110] flex items-center justify-center p-4 transition-opacity">
-          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-stone-100 flex justify-between items-center bg-stone-50/50">
-              <h3 className="text-[15px] font-medium text-stone-800">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4 transition-opacity animate-in fade-in duration-200">
+          <div className="bg-gradient-to-br from-white via-white to-[#faf9fc] border border-baimiao-border/50 shadow-[0_25px_60px_rgba(27,25,56,0.15)] rounded-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-baimiao-border/40 flex justify-between items-center bg-[#faf9fc]/70">
+              <h3 className="text-[15.5px] font-bold text-baimiao-mysteria font-serif baimiao-editorial-title">
                 编辑碎屑
               </h3>
               <button
@@ -936,19 +936,19 @@ export default function Record() {
                 <Square className="w-4 h-4 opacity-0" /> {/* Spacer */}
               </button>
             </div>
-            <div className="p-4">
+            <div className="p-4 bg-white">
               <textarea
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
-                className="w-full bg-stone-50 rounded-xl p-3 text-[15px] outline-none border border-stone-200 focus:border-stone-400 min-h-[120px] resize-none"
+                className="w-full bg-[#fafaf9]/75 rounded-xl p-3.5 text-[14.5px] outline-none border border-stone-200/60 focus:border-baimiao-mysteria/40 focus:ring-1 focus:ring-baimiao-mysteria/30 text-stone-900 placeholder:text-stone-400 transition-all font-sans leading-relaxed min-h-[120px] resize-none"
                 placeholder="内容..."
                 autoFocus
               />
             </div>
-            <div className="p-4 flex gap-3">
+            <div className="p-4 bg-white/50 flex gap-3 border-t border-baimiao-border/10">
               <button
                 onClick={() => setIsEditingModalOpen(false)}
-                className="flex-1 py-2.5 rounded-xl text-[14px] font-medium text-stone-600 bg-stone-100 hover:bg-stone-200 transition-colors"
+                className="flex-1 py-2.5 baimiao-btn-cream rounded-xl text-[13.5px] font-medium transition-all"
               >
                 取消
               </button>
@@ -962,7 +962,7 @@ export default function Record() {
                   }
                 }}
                 disabled={!editContent.trim()}
-                className="flex-1 py-2.5 rounded-xl text-[14px] font-medium text-white bg-[#2a2a2a] hover:bg-[#222222] transition-colors disabled:opacity-50"
+                className="flex-1 py-2.5 rounded-xl text-[13.5px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 active:scale-[0.98] shadow-md shadow-baimiao-mysteria/10 transition-all disabled:opacity-30 disabled:scale-100 disabled:shadow-none"
               >
                 保存
               </button>

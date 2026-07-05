@@ -125,32 +125,26 @@ html, body, #root {
   }
 }
 
-/* 碎屑自适应气泡卡片 (温润紫调渐变上浮) */
+/* 碎屑自适应气泡卡片 (温润紫调渐变发光，文本绝无抖动) */
 .baimiao-card-bubble {
   background: rgba(253, 253, 252, 0.85) !important;
   border: 1px solid rgba(220, 215, 211, 0.6) !important;
   border-radius: 16px !important;
   box-shadow: 0 4px 15px -5px rgba(203, 183, 251, 0.1), 0 1px 3px rgba(41, 40, 39, 0.02) !important;
-  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.4s ease, border-color 0.4s ease !important;
-  /* 消除 Composited Layer 切换导致的文字发虚变色与变形抖动 */
-  backface-visibility: hidden;
-  -webkit-font-smoothing: subpixel-antialiased !important;
-  transform: translate3d(0, 0, 0);
-  will-change: transform, box-shadow;
+  transition: box-shadow 0.3s ease, border-color 0.3s ease !important;
 }
 
 @media (hover: hover) {
   .baimiao-card-bubble:hover {
-    transform: translate3d(0, -2px, 0);
     border-color: rgba(203, 183, 251, 0.65) !important;
-    box-shadow: 0 15px 30px -10px rgba(203, 183, 251, 0.22) !important;
+    box-shadow: 0 10px 25px -5px rgba(203, 183, 251, 0.22), 0 1px 3px rgba(41, 40, 39, 0.02) !important;
   }
 }
 
 @media (hover: none) {
   .baimiao-card-bubble:active {
-    transform: scale(0.985);
-    background: rgba(253, 253, 252, 0.95) !important;
+    background: rgba(246, 244, 249, 0.95) !important;
+    border-color: rgba(203, 183, 251, 0.4) !important;
   }
 }
 
