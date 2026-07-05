@@ -68,6 +68,7 @@ const DEFAULT_PROVIDER_CONFIGS: Record<string, { apiKey: string; baseUrl: string
   mimo: { apiKey: '', baseUrl: 'https://ai.xiaomi.com/v1', model: 'mimo-chat' },
   anthropic: { apiKey: '', baseUrl: 'https://api.anthropic.com/v1', model: 'claude-3-5-sonnet-latest' },
   deepseek: { apiKey: '', baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
+  siliconflow: { apiKey: '', baseUrl: 'https://api.siliconflow.cn/v1', model: 'Qwen/Qwen2.5-7B-Instruct' },
   custom: { apiKey: '', baseUrl: 'http://127.0.0.1:11434/v1', model: 'llama3' }
 };
 
@@ -82,7 +83,7 @@ const deobfuscate = (str: string) => {
 };
 
 interface SettingsState {
-  provider: 'gemini' | 'openai' | 'volcengine' | 'kimi' | 'zhipu' | 'minimax' | 'mimo' | 'custom' | 'anthropic' | 'deepseek';
+  provider: 'gemini' | 'openai' | 'volcengine' | 'kimi' | 'zhipu' | 'minimax' | 'mimo' | 'custom' | 'anthropic' | 'deepseek' | 'siliconflow';
   apiKey: string;
   baseUrl: string;
   model: string;

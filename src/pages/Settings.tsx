@@ -391,6 +391,7 @@ export default function Settings() {
                       { id: 'mimo', label: 'MIMO', defaultBase: 'https://ai.xiaomi.com/v1', defaultModel: 'mimo-chat', link: 'https://open.xiaomi.com/' },
                       { id: 'anthropic', label: 'Anthropic', defaultBase: 'https://api.anthropic.com/v1', defaultModel: 'claude-3-5-sonnet-latest', link: 'https://console.anthropic.com/' },
                       { id: 'deepseek', label: 'DeepSeek', defaultBase: 'https://api.deepseek.com/v1', defaultModel: 'deepseek-chat', link: 'https://platform.deepseek.com/' },
+                      { id: 'siliconflow', label: '硅基流动', defaultBase: 'https://api.siliconflow.cn/v1', defaultModel: 'Qwen/Qwen2.5-7B-Instruct', link: 'https://cloud.siliconflow.cn/account/ak' },
                       { id: 'custom', label: '自定义', defaultBase: 'http://127.0.0.1:11434/v1', defaultModel: 'llama3', link: '' }
                     ].map(p => (
                        <button
@@ -433,6 +434,7 @@ export default function Settings() {
                           { id: 'mimo', link: 'https://open.xiaomi.com/' },
                           { id: 'anthropic', link: 'https://console.anthropic.com/' },
                           { id: 'deepseek', link: 'https://platform.deepseek.com/' },
+                          { id: 'siliconflow', link: 'https://cloud.siliconflow.cn/account/ak' },
                         ].find(x => x.id === provider)?.link;
                         
                         return linkInfo ? (
@@ -481,6 +483,7 @@ export default function Settings() {
                         { id: 'mimo', defaultBase: 'https://ai.xiaomi.com/v1' },
                         { id: 'anthropic', defaultBase: 'https://api.anthropic.com/v1' },
                         { id: 'deepseek', defaultBase: 'https://api.deepseek.com/v1' },
+                        { id: 'siliconflow', defaultBase: 'https://api.siliconflow.cn/v1' },
                         { id: 'custom', defaultBase: 'http://127.0.0.1:11434/v1' }
                       ].find(x => x.id === provider)?.defaultBase || ''}
                       value={baseUrl}
@@ -507,6 +510,7 @@ export default function Settings() {
                         { id: 'mimo', defaultModel: 'mimo-chat' },
                         { id: 'anthropic', defaultModel: 'claude-3-5-sonnet-latest' },
                         { id: 'deepseek', defaultModel: 'deepseek-chat' },
+                        { id: 'siliconflow', defaultModel: 'Qwen/Qwen2.5-7B-Instruct' },
                         { id: 'custom', defaultModel: 'llama3' }
                       ].find(x => x.id === provider)?.defaultModel || ''}
                       value={model}
