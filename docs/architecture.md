@@ -186,4 +186,5 @@ sequenceDiagram
   引入基于 LocalStorage 持久化的后台自动生成任务队列（Task Queue）管理机制，实现串行队列消费、API Rate limit 防抖、失败重试与断点接力续传，完美抵御移动端锁屏或切后台导致的网络挂起中断。
   在主界面 Header 处新增 AI 自动整理任务状态微动效与剩余任务数指示气泡，提供极佳的用户心智反馈。
   在 Settings 设置页面的“数据”选项卡中新增“AI 自动整理维护”面板，支持手动触发 30 天历史回溯扫描与增量补发生成。
+* **2026-07-05 (新增服务商)**：扩展大模型服务商支持，在 store、设置页面、本地 Express 以及 Vercel 代理层中新增对 Anthropic (Claude)、DeepSeek 和 SiliconFlow (硅基流动) 的原生支持；抽象封装了底层统一路由 `sendLLMRequest`，提炼并精简了后端四大 LLM 功能接口。
 
