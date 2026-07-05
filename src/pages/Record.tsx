@@ -24,6 +24,7 @@ import {
   ListChecks,
   Keyboard,
   X,
+  Sparkles,
 } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { db } from "../db/db";
@@ -647,8 +648,16 @@ export default function Record() {
         onTouchEnd={handleTouchEnd}
       >
         {!logs || logs.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center text-stone-400 text-[15px] tracking-tight">
-            记录下你此刻的时光碎屑
+          <div className="flex-1 flex flex-col items-center justify-center text-stone-400 p-8 select-none animate-in fade-in duration-300">
+            <div className="w-10 h-10 bg-gradient-to-br from-baimiao-mysteria/[0.06] to-[#2c2957]/[0.02] rounded-full flex items-center justify-center mb-3.5 border border-baimiao-mysteria/5 shadow-sm">
+              <Sparkles className="w-4 h-4 text-baimiao-mysteria/50 stroke-[1.8px]" />
+            </div>
+            <p className="text-[14.5px] text-stone-700 font-medium mb-1.5 font-serif baimiao-editorial-title tracking-wide">
+              碎屑终将汇成星河
+            </p>
+            <p className="text-[12px] text-stone-400 max-w-[200px] text-center leading-relaxed">
+              写下此刻闪现的所思所感，哪怕只是片刻的情绪与言语。
+            </p>
           </div>
         ) : (
           <>
@@ -737,7 +746,7 @@ export default function Record() {
         )}
       </div>
 
-      <div className="p-4 bg-[#f4f4f0]/90 backdrop-blur-md border-t border-stone-200/50 shrink-0 z-20 relative">
+      <div className="p-4 bg-white/95 backdrop-blur-lg border-t border-baimiao-border/30 shrink-0 z-20 relative">
         {isMultiSelectMode ? (
           <div className="flex items-center justify-between -mx-2 h-[56px] animate-in slide-in-from-bottom-2 duration-200">
              <button onClick={() => { setIsMultiSelectMode(false); setSelectedLogIds(new Set()); }} className="px-5 py-2 text-stone-500 hover:text-stone-700 font-medium text-[14px] transition-colors">取消</button>

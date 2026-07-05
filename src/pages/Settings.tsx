@@ -720,29 +720,33 @@ export default function Settings() {
           {activeTab === 'data' && (
             <div className="space-y-4">
               {/* Storage Protection card */}
-              <section className="bg-white rounded-xl border border-stone-100 p-3 shadow-sm space-y-2">
-                <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase flex items-center gap-1.5 mb-2">
+              <section className="bg-white rounded-xl border border-stone-100 p-4 shadow-[0_2px_12px_rgba(0,0,0,0.015)] space-y-3">
+                <h3 className="text-[12.5px] font-semibold text-stone-400 tracking-wider uppercase flex items-center gap-1.5 mb-1.5">
                   <Shield className="w-4 h-4 text-stone-400" />
                   本地存储保护
                 </h3>
                 {storageInfo ? (
                   <div className="space-y-3">
-                    <div className="flex items-start gap-2.5">
+                    <div className={`p-3 rounded-xl border flex items-start gap-2.5 transition-all ${
+                      storageInfo.persisted
+                        ? "bg-emerald-50/30 border-emerald-100 text-emerald-800"
+                        : "bg-amber-50/50 border-amber-100/70 text-amber-800"
+                    }`}>
                       {storageInfo.persisted ? (
-                        <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                        <ShieldCheck className="w-4.5 h-4.5 text-emerald-600 shrink-0 mt-0.5" />
                       ) : (
-                        <Shield className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                        <Shield className="w-4.5 h-4.5 text-amber-600 shrink-0 mt-0.5" />
                       )}
                       <div className="flex flex-col">
-                        <span className="text-[13.5px] font-semibold text-stone-850">
+                        <span className="text-[13px] font-medium leading-normal">
                           状态：{storageInfo.persisted ? (
-                            <span className="text-emerald-600">🟢 永久存储保护中</span>
+                            <span className="text-emerald-700 font-semibold">永久存储已启用</span>
                           ) : (
-                            <span className="text-amber-600">🟡 临时存储 (系统在空间不足时可能会自动清理数据)</span>
+                            <span className="text-amber-700 font-semibold">临时存储已启用 (系统在空间极低时可能清理数据)</span>
                           )}
                         </span>
-                        <span className="text-[12px] text-stone-450 mt-1">
-                          当前应用已占用：{formatBytes(storageInfo.usedBytes)} / 可用估算：{formatBytes(storageInfo.quotaBytes)}
+                        <span className="text-[11px] text-stone-500 mt-1">
+                          已占用：{formatBytes(storageInfo.usedBytes)} / 可用空间约 {formatBytes(storageInfo.quotaBytes)}
                         </span>
                       </div>
                     </div>
@@ -750,7 +754,7 @@ export default function Settings() {
                       <button
                         onClick={handlePersist}
                         disabled={isPersisting}
-                        className="w-full py-2 bg-black hover:bg-stone-900 text-white transition-colors rounded-xl text-[12.5px] font-medium active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-1.5"
+                        className="w-full py-2.5 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 text-white transition-all rounded-xl text-[13px] font-medium active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-sm"
                       >
                         {isPersisting ? (
                           <>
@@ -1086,7 +1090,7 @@ export default function Settings() {
                     onClick={async () => {
                       await checkAndGenerateHistoryTasks(30);
                     }}
-                    className="w-full mt-1 baimiao-btn-cream transition-colors rounded-xl text-[12.5px] font-medium active:scale-[0.98] flex items-center justify-center gap-1.5 py-2.5"
+                    className="w-full mt-1 bg-baimiao-mysteria/[0.03] hover:bg-baimiao-mysteria/[0.06] border border-baimiao-mysteria/10 hover:border-baimiao-mysteria/20 text-baimiao-mysteria transition-colors rounded-xl text-[12.5px] font-medium active:scale-[0.98] flex items-center justify-center gap-1.5 py-2.5"
                   >
                     🪄 扫描并补全过去 30 天的日记与回顾
                   </button>

@@ -265,20 +265,24 @@ export default function Review() {
 
         <div className="w-full max-w-sm mb-20 flex flex-col gap-3">
           {reviewsForDate.length === 0 && !hasPendingForDate ? (
-            <div className="flex flex-col items-center justify-center py-12 w-full select-none">
-              <p className="text-[13px] text-stone-400 mb-6 tracking-wide">今天暂无任何回顾内容</p>
-              <div className="flex flex-col items-center justify-center p-8 bg-white/60 rounded-2xl border border-black/[0.03] text-center w-full max-w-[280px]">
-                <div className="text-stone-400 mb-4 bg-white p-3 rounded-xl shadow-sm border border-stone-100">
-                  <Sparkles className="w-6 h-6 stroke-[1.5px]" />
+            <div className="flex flex-col items-center justify-center py-8 w-full select-none">
+              <p className="text-[13px] text-stone-400 mb-5 tracking-wider font-medium font-serif">今天暂无任何回顾内容</p>
+              <div className="flex flex-col items-center justify-center p-8 bg-gradient-to-br from-baimiao-mysteria/[0.03] to-[#2c2957]/[0.01] rounded-2xl border border-baimiao-mysteria/10 shadow-[0_8px_30px_rgba(27,25,56,0.03)] text-center w-full max-w-[280px]">
+                <div className="text-baimiao-mysteria mb-4 bg-white p-3 rounded-xl shadow-[0_2px_10px_rgba(27,25,56,0.05)] border border-baimiao-mysteria/5">
+                  <Sparkles className="w-6 h-6 stroke-[1.5px] text-baimiao-mysteria/70 animate-pulse" />
                 </div>
-                <p className="text-[15px] text-stone-900 font-medium tracking-tight mb-2">
+                <p className="text-[15px] text-stone-900 font-medium tracking-tight mb-2 font-serif baimiao-editorial-title">
                   今天你积累了 {logsCountForDate} 条碎屑
                 </p>
-                <p className="text-[13px] text-stone-500 mb-6 leading-relaxed">让 AI 为你总结今天</p>
+                <p className="text-[12.5px] text-stone-500 mb-6 leading-relaxed">让 AI 为你总结今天</p>
                 <button
                   disabled={logsCountForDate === 0}
                   onClick={(e) => openPromptMenu(e.currentTarget.getBoundingClientRect(), { dateStr })}
-                  className="w-full baimiao-btn-cream px-5 py-2.5 rounded-full text-[13px] font-medium tracking-wide flex items-center justify-center gap-2 disabled:opacity-30 transition-all"
+                  className={`w-full px-5 py-2.5 rounded-full text-[13px] font-medium tracking-wide flex items-center justify-center gap-2 transition-all ${
+                    logsCountForDate > 0
+                      ? "bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white hover:brightness-110 active:scale-[0.98] shadow-md shadow-baimiao-mysteria/10"
+                      : "bg-stone-100 text-stone-400 cursor-not-allowed border border-stone-200/50"
+                  }`}
                 >
                   <Sparkles className="w-4 h-4 stroke-[1.5px]" />
                   AI 智能回顾
