@@ -726,7 +726,7 @@ export default function Record() {
                         )}
                       </div>
                     )}
-                    <div className="text-[9px] font-mono text-stone-400/60 text-right mt-1 select-none">
+                    <div className="text-[9px] font-mono text-stone-450 text-right mt-1 select-none">
                       {format(new Date(log.created_at), "HH:mm")}
                     </div>
                   </div>
