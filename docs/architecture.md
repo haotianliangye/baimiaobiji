@@ -187,4 +187,6 @@ sequenceDiagram
   在主界面 Header 处新增 AI 自动整理任务状态微动效与剩余任务数指示气泡，提供极佳的用户心智反馈。
   在 Settings 设置页面的“数据”选项卡中新增“AI 自动整理维护”面板，支持手动触发 30 天历史回溯扫描与增量补发生成；引入任务队列暂停、恢复与一键清空/终止的交互功能，并同步升级了 Header 状态气泡的联动展示。
 * **2026-07-05 (新增服务商)**：扩展大模型服务商支持，在 store、设置页面、本地 Express 以及 Vercel 代理层中新增对 Anthropic (Claude)、DeepSeek 和 SiliconFlow (硅基流动) 的原生支持；抽象封装了底层统一路由 `sendLLMRequest`，提炼并精简了后端四大 LLM 功能接口。
+* **2026-07-05 (Superhuman 视觉重构与细节打磨)**：对全站 UI 开展高阶视觉调和与像素级对齐优化。顶部 Logo 字重降为不加粗的 `font-normal` 且在 `font-serif` 衬线宋体字形下微调下移 2px，实现与右侧动作图标的精准垂直居中对齐；重写时光碎屑卡片动效为 `.baimiao-card-bubble` 并移除了 hover 时的 `translate` 物理空间位移，仅通过 `box-shadow` 发光及 `border-color` 过渡反馈，彻底消除 Composited Layer 切换时小字号文本的虚化与闪烁抖动 Bug；录音激活状态条改用配套的暮光紫至深蓝紫渐变并加深时间戳对比度；重绘设置页面，顶级背景变更为洁白画布，大模型服务商网格按钮 hover 反馈加深为优雅淡紫色，设置 Tab 全量 8 个大功能模块卡片统一装配为支持紫光微上浮的 `.baimiao-card-diary` 卡片，保存按钮配套升级为暮光紫渐变主按钮。
+
 
