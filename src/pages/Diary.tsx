@@ -124,22 +124,32 @@ export default function Diary() {
     [dateStr]
   ) || [];
 
+  const sortedDiaries = React.useMemo(() => {
+    if (!diaries) return [];
+    return [...diaries].sort((a, b) => {
+      const idxA = a.prompt_index ?? 0;
+      const idxB = b.prompt_index ?? 0;
+      if (idxA !== idxB) return idxA - idxB;
+      return b.updated_at - a.updated_at;
+    });
+  }, [diaries]);
+
   const prevDateRef = useRef(dateStr);
-  const prevDiariesLengthRef = useRef(diaries.length);
+  const prevDiariesLengthRef = useRef(sortedDiaries.length);
 
   // Automatically expand the first diary card or the newly added one
   useEffect(() => {
     const dateChanged = prevDateRef.current !== dateStr;
-    const countIncreased = diaries.length > prevDiariesLengthRef.current;
+    const countIncreased = sortedDiaries.length > prevDiariesLengthRef.current;
     
     if (dateChanged || countIncreased) {
-      if (diaries.length > 0) {
-        setExpandedDiaryId(diaries[0].id);
+      if (sortedDiaries.length > 0) {
+        setExpandedDiaryId(sortedDiaries[0].id);
       }
       prevDateRef.current = dateStr;
     }
-    prevDiariesLengthRef.current = diaries.length;
-  }, [dateStr, diaries]);
+    prevDiariesLengthRef.current = sortedDiaries.length;
+  }, [dateStr, sortedDiaries]);
   
   const openPromptMenu = (rect: DOMRect, diaryId?: string) => {
     setPopoverRect(rect);
@@ -281,9 +291,9 @@ export default function Diary() {
            </div>
          )}
          
-         {diaries.length > 0 && (
+         {sortedDiaries.length > 0 && (
            <div className="w-full flex flex-col gap-4">
-             {diaries.map((diary) => {
+             {sortedDiaries.map((diary) => {
                const isExpanded = expandedDiaryId === diary.id;
                const isEditing = editingDiaryId === diary.id;
                

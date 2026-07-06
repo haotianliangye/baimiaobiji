@@ -184,7 +184,12 @@ export default function Review() {
     if (!allReviews) return [];
     return allReviews
       .filter(r => r.review_date === dateStr)
-      .sort((a, b) => b.updated_at - a.updated_at);
+      .sort((a, b) => {
+        const idxA = a.review_prompt_index ?? 0;
+        const idxB = b.review_prompt_index ?? 0;
+        if (idxA !== idxB) return idxA - idxB;
+        return b.updated_at - a.updated_at;
+      });
   }, [allReviews, dateStr]);
 
   const lastAutoExpandedDateRef = useRef<string | null>(null);
