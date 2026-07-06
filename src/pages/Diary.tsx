@@ -142,11 +142,20 @@ export default function Diary() {
     const dateChanged = prevDateRef.current !== dateStr;
     const countIncreased = sortedDiaries.length > prevDiariesLengthRef.current;
     
-    if (dateChanged || countIncreased) {
+    if (dateChanged) {
+      // 切换日期时，自动展开列表排在首位的日记卡片（通常是默认日记）
       if (sortedDiaries.length > 0) {
         setExpandedDiaryId(sortedDiaries[0].id);
       }
       prevDateRef.current = dateStr;
+    } else if (countIncreased) {
+      // 当生成并追加新日记时，自动展开时间戳最新被更新的这篇日记
+      if (sortedDiaries.length > 0) {
+        const latestDiary = [...sortedDiaries].sort((a, b) => b.updated_at - a.updated_at)[0];
+        if (latestDiary) {
+          setExpandedDiaryId(latestDiary.id);
+        }
+      }
     }
     prevDiariesLengthRef.current = sortedDiaries.length;
   }, [dateStr, sortedDiaries]);

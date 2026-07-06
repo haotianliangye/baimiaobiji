@@ -82,6 +82,12 @@ html, body, #root {
   text-align-last: left !important;
 }
 
+/* 首个段落（用作普通文字日记标题时）保持正常左对齐，不拉伸 */
+.baimiao-editorial-body p:first-of-type {
+  text-align: left !important;
+  text-align-last: left !important;
+}
+
 /* 纸质社论排版标题 */
 .baimiao-editorial-title {
   font-family: var(--font-serif) !important;
