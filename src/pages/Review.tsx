@@ -8,7 +8,7 @@ import CalendarHeatmap from '../components/CalendarHeatmap';
 import { formatDiaryMarkdown } from '../lib/utils';
 import ActionSheet from '../components/ActionSheet';
 import ContextChat from '../components/ContextChat';
-import { Trash2, ChevronDown, ChevronUp, RefreshCw, X, Sparkles, MessageCircle, Copy, Activity } from 'lucide-react';
+import { Trash2, ChevronDown, ChevronUp, RefreshCw, X, Sparkles, MessageCircle, Copy, Activity, Save, Edit2 } from 'lucide-react';
 import { useAppStore } from '../store/app.store';
 import { useSettingsStore, getActivePromptIndices } from '../store/settings.store';
 
@@ -21,8 +21,8 @@ const generateUUID = () => {
 // Priority: above the anchor. Falls back to below if not enough room above.
 const POPOVER_HEIGHT = 192; // approximate height of the prompt menu
 const POPOVER_GAP = 8;
-const MENU_HALF_WIDTH = 100;
-const MENU_SAFE_MARGIN = 210;
+const MENU_HALF_WIDTH = 135;
+const MENU_SAFE_MARGIN = 280;
 
 function calcPopoverTop(anchorRect: DOMRect): number {
   const spaceAbove = anchorRect.top;
@@ -54,6 +54,22 @@ export default function Review() {
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
   const [expandedReviewId, setExpandedReviewId] = useState<string | null>(null);
   const [chatReviewId, setChatReviewId] = useState<string | null>(null);
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
+  const [editText, setEditText] = useState<string>('');
+  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleSaveEdit = async (id: string) => {
+     await db.daily_reviews.update(id, { ai_review: editText });
+     setEditingReviewId(null);
+  };
+
+  useEffect(() => {
+     if (editingReviewId && editTextareaRef.current) {
+        editTextareaRef.current.style.height = 'auto';
+        editTextareaRef.current.style.height = editTextareaRef.current.scrollHeight + 'px';
+     }
+  }, [editText, editingReviewId]);
+
   const [contextMenuState, setContextMenuState] = useState<{
     isOpen: boolean;
     x: number;
@@ -311,12 +327,14 @@ export default function Review() {
                 const isReviewExpanded = expandedReviewId === review.id;
                 const isGenerating = isProcessingReviewMap[review.id];
                 const errorMsg = diaryErrorMap[dateStr];
+                const isEditing = editingReviewId === review.id;
 
                 return (
                   <div
                     key={review.id}
                     className="w-full overflow-hidden baimiao-card-review"
                     onTouchStart={(e) => {
+                      if (isEditing) return;
                       const touch = e.touches[0];
                       const x = touch.clientX;
                       const y = touch.clientY;
@@ -329,6 +347,7 @@ export default function Review() {
                     onTouchEnd={() => clearTimeout(holdTimeoutRef.current)}
                     onTouchMove={() => clearTimeout(holdTimeoutRef.current)}
                     onContextMenu={(e) => {
+                      if (isEditing) return;
                       e.preventDefault();
                       if (window.navigator?.vibrate) window.navigator.vibrate(50);
                       setActiveReview(review);
@@ -337,7 +356,10 @@ export default function Review() {
                   >
                     {/* Card header */}
                     <button
-                      onClick={() => setExpandedReviewId(isReviewExpanded ? null : review.id)}
+                      onClick={() => {
+                        if (isEditing) return;
+                        setExpandedReviewId(isReviewExpanded ? null : review.id);
+                      }}
                       className="p-4 text-left hover:bg-stone-50 active:bg-stone-100 transition-colors flex flex-col gap-1.5 w-full relative"
                     >
                       <div className="flex justify-between items-center w-full">
@@ -369,6 +391,32 @@ export default function Review() {
                           <div className="flex flex-col items-center justify-center py-6 text-stone-400 text-[12px] gap-2 font-medium">
                             <div className="animate-spin rounded-full h-4 w-4 border-2 border-stone-400 border-t-transparent" />
                             <span>AI 正在为您生成统计回顾与反思…</span>
+                          </div>
+                        ) : isEditing ? (
+                          <div className="flex flex-col gap-3 relative z-10 w-full animate-in fade-in zoom-in-95 duration-200">
+                            <textarea
+                              ref={editTextareaRef}
+                              value={editText}
+                              onChange={e => setEditText(e.target.value)}
+                              className="w-full bg-white p-4 rounded-xl border border-stone-200 shadow-sm focus:outline-none focus:border-stone-300 focus:ring-2 focus:ring-stone-100 resize-none font-sans text-[15px] leading-relaxed text-stone-900 overflow-hidden min-h-[200px]"
+                              placeholder="开始编辑回顾..."
+                              autoFocus
+                            />
+                            <div className="flex justify-end gap-2 pr-1">
+                              <button 
+                                onClick={() => setEditingReviewId(null)}
+                                className="px-4 py-2 rounded-full text-[13px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors shadow-sm select-none"
+                              >
+                                取消
+                              </button>
+                              <button 
+                                onClick={() => handleSaveEdit(review.id)}
+                                className="flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] border border-white/10 hover:brightness-110 transition-all shadow-sm select-none"
+                              >
+                                <Save className="w-3.5 h-3.5" />
+                                保存
+                              </button>
+                            </div>
                           </div>
                         ) : review.ai_review ? (
                           <>
@@ -440,6 +488,17 @@ export default function Review() {
                                 >
                                   <Copy className="w-4 h-4" />
                                   复制
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditText(review.ai_review || '');
+                                    setEditingReviewId(review.id);
+                                  }}
+                                  className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                  编辑
                                 </button>
                                 <button
                                   onClick={(e) => {
@@ -627,6 +686,20 @@ export default function Review() {
             >
               <Copy className="w-3.5 h-3.5 mb-1.5 text-white/80" />
               <span className="text-[10px] font-medium tracking-wide">复制内容</span>
+            </button>
+            <button
+              onClick={() => {
+                if (activeReview) {
+                  setEditText(activeReview.ai_review || '');
+                  setEditingReviewId(activeReview.id);
+                  setExpandedReviewId(activeReview.id);
+                }
+                setContextMenuState({ ...contextMenuState, isOpen: false });
+              }}
+              className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 disabled:opacity-50"
+            >
+              <Edit2 className="w-3.5 h-3.5 mb-1.5 text-white/80" />
+              <span className="text-[10px] font-medium tracking-wide">编辑内容</span>
             </button>
             <button
               onClick={(e) => {
