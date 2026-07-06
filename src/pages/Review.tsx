@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { db } from '../db/db';
 import CalendarHeatmap from '../components/CalendarHeatmap';
+import { formatDiaryMarkdown } from '../lib/utils';
 import ActionSheet from '../components/ActionSheet';
 import ContextChat from '../components/ContextChat';
 import { Trash2, ChevronDown, ChevronUp, RefreshCw, X, Sparkles, MessageCircle, Copy, Activity } from 'lucide-react';
@@ -398,7 +399,7 @@ export default function Review() {
                                   }
                                 }}
                               >
-                                {review.ai_review}
+                                {formatDiaryMarkdown(review.ai_review)}
                               </ReactMarkdown>
                             </div>
 

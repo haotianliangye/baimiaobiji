@@ -7,7 +7,7 @@ import { db, Insight } from '../db/db';
 import { useSettingsStore } from '../store/settings.store';
 import { format, subDays } from 'date-fns';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { generateUUID } from '../lib/utils';
+import { generateUUID, formatDiaryMarkdown } from '../lib/utils';
 import ActionSheet from '../components/ActionSheet';
 
 const MENU_HALF_WIDTH = 140;
@@ -76,7 +76,7 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
             setExpanded(!expanded);
           }}
         >
-           <ReactMarkdown>{insight.content}</ReactMarkdown>
+           <ReactMarkdown>{formatDiaryMarkdown(insight.content)}</ReactMarkdown>
         </div>
       </div>
 
