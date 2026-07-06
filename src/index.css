@@ -79,6 +79,7 @@ html, body, #root {
 .baimiao-card-bubble li {
   text-align: justify !important;
   text-justify: inter-ideograph !important;
+  text-align-last: left !important;
 }
 
 /* 纸质社论排版标题 */
