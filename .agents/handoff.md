@@ -1,27 +1,32 @@
 # 交接报告 (Handoff Report) — 白描笔记 (Baimiao Notes)
 
-> 状态: 已圆满合并至 `main` 分支并完成 GitHub 推送 (2026-07-05)
+> 状态: 已圆满完成全套 UI 稳定性优化、移动端兼容重构并推送至 GitHub (2026-07-06)
 
 ## 📋 变更摘要 (Change Summary)
-今日对应用开展了全套的 **Superhuman 级高品质视觉重构与像素级细节优化**，代码均已顺利编译并通过验证：
+这两天对应用进行了高阶的 **Superhuman 级高品质视觉收尾、移动端兼容与稳定性优化**：
 
-1. **头部 Logo 视觉平齐**：
-   - 将顶部标题“白描笔记”改为 `font-normal`（正常体）以及与下方“时间碎屑”等完全统一的 `font-serif` 衬线宋体。
-   - 显式声明 `translate-y-[2px]` 以物理偏移仿宋/宋体偏上的几何重心，实现与右侧动作图标的绝对垂直居中平齐。
-2. **文本卡片动效去颤/防抖防虚化**：
-   - 注册了自适应碎屑气泡类名 `.baimiao-card-bubble`。
-   - 移除了卡片在 hover 及 active 过渡时的所有 `transform` 物理位移（特别是 `translateY` 和 `scale`），改用纯粹的薰衣草紫微光漫射投影（`box-shadow`）与淡紫色 `border-color` 变化来反馈。
-   - 彻底解决了 Composited Layer 切换时因次像素抗锯齿重绘引发的汉字边缘虚化、模糊和瞬间抖动的渲染缺陷。
-3. **设置页视觉统一**：
-   - 将设置页面顶级背景调和为洁白色调。
-   - Tab 标签导航栏的黑阴影插槽重构为紫灰色边框。
-   - 设置页的 8 处主要大卡片容器完全套用 `.baimiao-card-diary` 样式，在 PC 端支持柔和的紫色外发光与轻量上浮。
-   - 底部“保存并返回”按钮配套重写为暮光紫破晓渐变主按钮。
-4. **录音态重构**：
-   - 录音激活大长条由生硬黑条变更为暮光紫渐变破晓色（`bg-gradient-to-r from-baimiao-mysteria to-[#2c2957]`），时间戳文字加深（`text-stone-450`）。
-5. **规则固化 (AGENTS.md & GEMINI.md)**：
-   - 将「经典修长仿宋体对齐规约」与「文本卡片防抖动动效规约」固化到 `.agents/AGENTS.md` 和根目录 `GEMINI.md` 的红线规则中。
+1. **时间戳移回左侧外（Record.tsx）**：
+   - 彻底将碎屑气泡右下角的绝对定位时间显示移出，恢复为气泡卡片左侧外侧（`w-10`）的独立时间轴列。
+   - 删除了气泡内容文字的 `pr-8`，释放了文本排版宽度，排版更为规整、对称。
+2. **正文两端对齐推广与防拉伸（index.css）**：
+   - 推广 `text-align: justify !important; text-justify: inter-ideograph !important;` 到日记、回顾和洞察板块的正文及列表项中。
+   - 对两端对齐的段落规则引入了 `text-align-last: left !important;`，并额外重写了第一个段落：
+     `.baimiao-editorial-body p:first-of-type { text-align: left !important; text-align-last: left !important; }`
+     这完美解决了由于自定义 2、3 提示词没有生成 Markdown 标题 `#` 符号而作为普通段落被强行拉开字距（如 `道   痕   .   捞   石   头`）的排版 Bug。
+3. **手机端回车输入防拦截（Record.tsx）**：
+   - 引入了 `isMobile`（基于 touch 状态与窗口宽度）的环境判定。
+   - 在手机移动端输入碎屑时，绕过了 Enter 回车发送的拦截，只在 PC 端无 Shift 时才进行一键秒发，保障了移动端虚拟键盘的自然换行打字体验。
+4. **链接格式占位符保护清洗算法（lib/utils.ts）**：
+   - 为解决由于不同端大模型 Prompt 配置不一致（特别是手机端 settings 未同步时），模型倾向于输出裸露 `#log_id_UUID` 或被反单引号（`` `#log_id_UUID` ``）包裹的 UUID 字符缺陷。
+   - 在 `formatDiaryMarkdown` 过滤器中设计了**占位保护机制**：
+     a. 首先匹配并将正规标准超链接 `[文字](#log_id_UUID)` 提取存入数组，替换为占位符锁定保护，防止误杀。
+     b. 清洗替换剩下所有的裸露 UUID、带 `#log_id_` 前缀文本、代码块 UUID 为 `[引用](#log_id_UUID)`，如果中括号内包含文字描述则保留文字描述。
+     c. 还原第一步锁死保护的标准链接。
+   - 完美达成了电脑端和手机端高抗噪、100% 高保真的一致跳转渲染。
+5. **日记自动展开聚焦重构（Diary.tsx）**：
+   - 切换日期时，自动展开列表首位卡片（默认）；
+   - 生成并追加新日记时，通过比较 `updated_at` 智能检索并定位展开最新写入数据库的那篇日记卡片，交互反馈顺滑。
 
 ## 💡 给后续 Agent / 开发者的建议 (Suggestions for next Agent)
-- **卡片动画设计红线**：后续在此仓库开发中，若新增任何包裹细密小字文本（如正文、时间戳等）的交互卡片，在 hover/active 态下**务必禁止引入任何 transform 平移位移**。如有过渡反馈需求，一律只对 `box-shadow` 和 `border-color` 进行平滑动效，以维护绝对静止、高保真抗锯齿阅读体验。
-- **拼音保留原则**：在未来重构任何变量或目录时，切记绝对保留本项目的核心拼音专有名词 `baimiao`，严禁将其翻译为 `whitewash` 等。
+- **两端对齐短行约束**：后续排版如果需要声明 `text-align: justify`，**必须强制搭配 `text-align-last: left`** 以约束最后一行或短行的字距，且对于标题段落需加左对齐覆盖保护。
+- **超链接格式**：全站所有渲染大模型 Markdown 的地方，**必须强制将文本先传给 `formatDiaryMarkdown(text)` 过滤器处理**后再交由 `ReactMarkdown`，以保证手机端 settings 配置冲突时超链接的气泡转换不翻车。
