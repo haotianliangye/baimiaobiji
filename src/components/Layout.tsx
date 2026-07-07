@@ -168,56 +168,58 @@ export default function Layout() {
     <div className="flex flex-col h-full bg-[#f0eef5] font-sans text-stone-900 overflow-hidden items-center justify-center">
       <div className="w-full max-w-md h-full bg-white shadow-sm ring-1 ring-black/5 flex flex-col relative overflow-hidden">
         {/* Global Nav */}
-        <header className="flex h-[54px] shrink-0 items-center justify-between px-4 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white/95 border-b border-white/5">
-          <div className="flex items-center gap-2">
-            <h1 
-              onClick={() => setShowAboutModal(true)} 
-              className="text-[18px] font-normal font-serif tracking-widest cursor-pointer hover:opacity-80 transition-opacity active:scale-[0.98] select-none translate-y-[2px]"
-            >
-              白描笔记
-            </h1>
-            {autoGenTasks.length > 0 && (isProcessingQueue || isQueuePaused) && (
-              <span className={`flex items-center gap-1 bg-white/10 text-white/90 border border-white/10 text-[10px] px-2 py-0.5 rounded-full font-medium select-none tracking-wide ${isQueuePaused ? 'opacity-65' : 'animate-pulse'}`}>
-                <Loader2 className={`w-2.5 h-2.5 text-white/60 ${isQueuePaused ? '' : 'animate-spin'}`} />
-                {isQueuePaused ? `整理已暂停 (${autoGenTasks.length})` : `AI 整理中 (${autoGenTasks.length})`}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-1.5">
-            {syncEnabled && (
-              <button 
-                onClick={() => syncNow()}
-                disabled={syncStatus === 'syncing'}
-                title={syncStatus === 'error' ? `同步出错: ${syncErrorMessage}` : '点击手动同步'}
-                className="p-1.5 hover:opacity-70 transition-opacity active:scale-95 disabled:opacity-80 shrink-0"
+        {!isCopilotMode && (
+          <header className="flex h-[54px] shrink-0 items-center justify-between px-4 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white/95 border-b border-white/5">
+            <div className="flex items-center gap-2">
+              <h1 
+                onClick={() => setShowAboutModal(true)} 
+                className="text-[18px] font-normal font-serif tracking-widest cursor-pointer hover:opacity-80 transition-opacity active:scale-[0.98] select-none translate-y-[2px]"
               >
-                {syncStatus === 'syncing' && <Loader2 className="w-[18px] h-[18px] text-blue-400 animate-spin" />}
-                {syncStatus === 'idle' && <Cloud className="w-[18px] h-[18px] text-emerald-400 fill-emerald-500/10" />}
-                {syncStatus === 'error' && <CloudLightning className="w-[18px] h-[18px] text-red-400 animate-bounce" />}
-                {syncStatus === 'disabled' && <CloudOff className="w-[18px] h-[18px] text-stone-500" />}
+                白描笔记
+              </h1>
+              {autoGenTasks.length > 0 && (isProcessingQueue || isQueuePaused) && (
+                <span className={`flex items-center gap-1 bg-white/10 text-white/90 border border-white/10 text-[10px] px-2 py-0.5 rounded-full font-medium select-none tracking-wide ${isQueuePaused ? 'opacity-65' : 'animate-pulse'}`}>
+                  <Loader2 className={`w-2.5 h-2.5 text-white/60 ${isQueuePaused ? '' : 'animate-spin'}`} />
+                  {isQueuePaused ? `整理已暂停 (${autoGenTasks.length})` : `AI 整理中 (${autoGenTasks.length})`}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5">
+              {syncEnabled && (
+                <button 
+                  onClick={() => syncNow()}
+                  disabled={syncStatus === 'syncing'}
+                  title={syncStatus === 'error' ? `同步出错: ${syncErrorMessage}` : '点击手动同步'}
+                  className="p-1.5 hover:opacity-70 transition-opacity active:scale-95 disabled:opacity-80 shrink-0"
+                >
+                  {syncStatus === 'syncing' && <Loader2 className="w-[18px] h-[18px] text-blue-400 animate-spin" />}
+                  {syncStatus === 'idle' && <Cloud className="w-[18px] h-[18px] text-emerald-400 fill-emerald-500/10" />}
+                  {syncStatus === 'error' && <CloudLightning className="w-[18px] h-[18px] text-red-400 animate-bounce" />}
+                  {syncStatus === 'disabled' && <CloudOff className="w-[18px] h-[18px] text-stone-500" />}
+                </button>
+              )}
+              <button
+                onClick={() => setSearchMode(true)}
+                className="p-1.5 hover:opacity-70 transition-opacity active:scale-95"
+              >
+                <Search className="w-[18px] h-[18px]" />
               </button>
-            )}
-            <button
-              onClick={() => setSearchMode(true)}
-              className="p-1.5 hover:opacity-70 transition-opacity active:scale-95"
-            >
-              <Search className="w-[18px] h-[18px]" />
-            </button>
-            <button
-              onClick={() => setCopilotMode(true)}
-              title="白描 Copilot"
-              className="p-1.5 hover:opacity-70 transition-opacity active:scale-95"
-            >
-              <MessageSquare className="w-[18px] h-[18px]" />
-            </button>
-            <button
-              onClick={() => navigate('/settings')}
-              className="p-1.5 hover:opacity-70 transition-opacity -mr-1.5 active:scale-95"
-            >
-              <SlidersHorizontal className="w-[18px] h-[18px]" />
-            </button>
-          </div>
-        </header>
+              <button
+                onClick={() => setCopilotMode(true)}
+                title="白描 Copilot"
+                className="p-1.5 hover:opacity-70 transition-opacity active:scale-95"
+              >
+                <MessageSquare className="w-[18px] h-[18px]" />
+              </button>
+              <button
+                onClick={() => navigate('/settings')}
+                className="p-1.5 hover:opacity-70 transition-opacity -mr-1.5 active:scale-95"
+              >
+                <SlidersHorizontal className="w-[18px] h-[18px]" />
+              </button>
+            </div>
+          </header>
+        )}
 
         {/* Global Auto-Generated Notification Toast */}
         {autoGeneratedNotification && (

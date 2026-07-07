@@ -374,7 +374,7 @@ ${diaryContent || ""}
   app.post('/api/generate-insights', async (req, res) => {
     try {
       const { logs, timeRange, timeRangeLabel, settings } = req.body;
-      const { provider = 'gemini', apiKey, baseUrl, model, insightPrompt } = settings || {};
+      const { provider = 'gemini', apiKey, baseUrl, model, insightPrompt, insightSummaryPrompt } = settings || {};
       
       const defaultInsightPrompt = `You are a productivity and life coach assistant. Based on the user's activity logs and diaries, provide deep insights into their routines, highlighting positive trends, areas for potential improvement, and actionable suggestions to enhance well-being and productivity.`;
       
@@ -419,7 +419,25 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
          );
       }
 
-      res.json({ report: insightMarkdown });
+      let summaryMarkdown = "";
+      if (insightMarkdown) {
+        const summaryPromptStr = insightSummaryPrompt || `你是一个用于生成一句话洞察摘要的助手。请根据提供的洞察报告文本，生成一句简短、优美、富有诗意的中文摘要（不超过30个字）。`;
+        try {
+          summaryMarkdown = await sendLLMRequest(
+            provider,
+            baseUrl,
+            apiKey,
+            model,
+            summaryPromptStr,
+            [{ role: "user", content: `Insight Report:\n${insightMarkdown}` }],
+            1024
+          );
+        } catch (err) {
+          console.error("Failed to generate insight summary:", err);
+        }
+      }
+
+      res.json({ report: insightMarkdown, ai_summary: summaryMarkdown });
     } catch (err: any) {
       console.error(err);
       res.status(500).json({ error: err.message });

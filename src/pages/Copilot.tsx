@@ -280,7 +280,7 @@ export default function Copilot() {
                 );
               })}
 
-              {/* Date range dropdown — uses fixed positioning to bypass overflow clipping. */}
+              {/* Date range button */}
               <div className="relative shrink-0">
                 <button
                   onClick={() => { setShowDateDropdown(!showDateDropdown); setShowPromptDropdown(false); setCalendarTarget('none'); }}
@@ -289,89 +289,9 @@ export default function Copilot() {
                   <span className="whitespace-nowrap">{dateLabel}</span>
                   <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
                 </button>
-                {showDateDropdown && (
-                  <>
-                    <div className="fixed inset-0 z-[85]" onClick={closeDropdowns} />
-                    <div className="fixed top-[144px] left-4 bg-white rounded-2xl border border-stone-200/60 shadow-lg py-1 z-[90] min-w-[220px] animate-in fade-in zoom-in-95 duration-100">
-                      {calendarTarget === 'none' ? (
-                        <>
-                          {DATE_PRESETS.map(range => (
-                            <button
-                              key={range}
-                              onClick={() => {
-                                setDateRange(range);
-                                setCustomStartDate('');
-                                setCustomEndDate('');
-                                setShowDateDropdown(false);
-                              }}
-                              className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-stone-100 ${dateRange === range ? 'text-baimiao-mysteria font-medium' : 'text-stone-700'}`}
-                            >
-                              {range === '全部' ? '全部日期' : range}
-                            </button>
-                          ))}
-                          <div className="border-t border-stone-200/60 my-1" />
-                          <div className="px-3 py-1.5 flex flex-col gap-1.5">
-                            <span className="text-[10.5px] font-semibold text-stone-400 uppercase tracking-wider">自定义时间</span>
-                            <div className="flex flex-col gap-1">
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-[11.5px] text-stone-500 shrink-0">开始</span>
-                                <button
-                                  onClick={() => setCalendarTarget('start')}
-                                  className="bg-stone-50 border border-stone-200 text-stone-700 rounded-lg px-2 py-1 text-[11px] font-mono text-left w-32 outline-none hover:border-stone-300 active:bg-stone-100 transition-colors"
-                                >
-                                  {customStartDate || '选择日期'}
-                                </button>
-                              </div>
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-[11.5px] text-stone-500 shrink-0">结束</span>
-                                <button
-                                  onClick={() => setCalendarTarget('end')}
-                                  className="bg-stone-50 border border-stone-200 text-stone-700 rounded-lg px-2 py-1 text-[11px] font-mono text-left w-32 outline-none hover:border-stone-300 active:bg-stone-100 transition-colors"
-                                >
-                                  {customEndDate || '选择日期'}
-                                </button>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => {
-                                if (!customStartDate || !customEndDate) {
-                                  alert('请选择完整的开始和结束日期');
-                                  return;
-                                }
-                                if (customStartDate > customEndDate) {
-                                  alert('开始日期不能晚于结束日期');
-                                  return;
-                                }
-                                setDateRange('自定义');
-                                setShowDateDropdown(false);
-                                setCalendarTarget('none');
-                              }}
-                              disabled={!customStartDate || !customEndDate}
-                              className="w-full mt-1 py-1.5 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white rounded-lg text-[11.5px] font-semibold flex items-center justify-center gap-1 active:scale-[0.98] disabled:opacity-40"
-                            >
-                              <CalendarIcon className="w-3 h-3" />
-                              确定
-                            </button>
-                          </div>
-                        </>
-                      ) : (
-                        <MiniCalendar
-                          value={calendarTarget === 'start' ? customStartDate : customEndDate}
-                          onChange={(val) => {
-                            if (calendarTarget === 'start') setCustomStartDate(val);
-                            else setCustomEndDate(val);
-                            setCalendarTarget('none');
-                          }}
-                          onBack={() => setCalendarTarget('none')}
-                          title={calendarTarget === 'start' ? '选择开始日期' : '选择结束日期'}
-                        />
-                      )}
-                    </div>
-                  </>
-                )}
               </div>
 
-              {/* Diary template filter (PRD §4.3.2) — uses fixed positioning to bypass overflow clipping. */}
+              {/* Diary template filter button (PRD §4.3.2) */}
               {modules.includes('diary') && (
                 <div className="relative shrink-0">
                   <button
@@ -381,29 +301,6 @@ export default function Copilot() {
                     <span className="whitespace-nowrap">{templateLabel}</span>
                     <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
                   </button>
-                  {showPromptDropdown && (
-                    <>
-                      <div className="fixed inset-0 z-[85]" onClick={closeDropdowns} />
-                      <div className="fixed top-[144px] right-4 bg-white rounded-2xl border border-stone-200/60 shadow-lg py-1 z-[90] min-w-[200px] animate-in fade-in zoom-in-95 duration-100">
-                        <button
-                          onClick={() => { setDiaryPromptIndex(undefined); setShowPromptDropdown(false); }}
-                          className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-stone-100 ${diaryPromptIndex === undefined ? 'text-baimiao-mysteria font-medium' : 'text-stone-700'}`}
-                        >
-                          全部模板
-                        </button>
-                        {diaryPrompts.map((p: string, i: number) => p.trim() && (
-                          <button
-                            key={i}
-                            onClick={() => { setDiaryPromptIndex(i); setShowPromptDropdown(false); }}
-                            className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-stone-100 ${diaryPromptIndex === i ? 'text-baimiao-mysteria font-medium' : 'text-stone-700'}`}
-                          >
-                            <div className="font-medium">{DIARY_PROMPT_LABELS[i] || `模板 ${i}`}</div>
-                            <div className="text-[10.5px] text-stone-400 truncate mt-0.5">{p.trim().slice(0, 18)}…</div>
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
                 </div>
               )}
             </div>
@@ -422,7 +319,7 @@ export default function Copilot() {
                 </p>
                 <button
                   onClick={() => { setCopilotMode(false); navigate('/settings'); }}
-                  className="bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white px-5 py-2 rounded-full text-[13px] font-medium shadow-sm hover:brightness-110 active:scale-95"
+                  className="bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white px-5 py-2 rounded-full text-[13px] font-medium shadow-sm hover:brightness-110 transition-all active:scale-95"
                 >
                   前往设置
                 </button>
@@ -440,6 +337,112 @@ export default function Copilot() {
                 />
               </div>
             )}
+          </div>
+        </>
+      )}
+
+      {/* Dropdowns rendered outside the overflow-x-auto container, using absolute positioning relative to root container */}
+      {showDateDropdown && (
+        <>
+          <div className="fixed inset-0 z-[85]" onClick={closeDropdowns} />
+          <div className="absolute top-[144px] left-4 bg-white rounded-2xl border border-stone-200/60 shadow-lg py-1 z-[90] min-w-[220px] animate-in fade-in zoom-in-95 duration-100">
+            {calendarTarget === 'none' ? (
+              <>
+                {DATE_PRESETS.map(range => (
+                  <button
+                    key={range}
+                    onClick={() => {
+                      setDateRange(range);
+                      setCustomStartDate('');
+                      setCustomEndDate('');
+                      setShowDateDropdown(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-stone-100 ${dateRange === range ? 'text-baimiao-mysteria font-medium' : 'text-stone-700'}`}
+                  >
+                    {range === '全部' ? '全部日期' : range}
+                  </button>
+                ))}
+                <div className="border-t border-stone-200/60 my-1" />
+                <div className="px-3 py-1.5 flex flex-col gap-1.5">
+                  <span className="text-[10.5px] font-semibold text-stone-400 uppercase tracking-wider">自定义时间</span>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11.5px] text-stone-500 shrink-0">开始</span>
+                      <button
+                        onClick={() => setCalendarTarget('start')}
+                        className="bg-stone-50 border border-stone-200 text-stone-700 rounded-lg px-2 py-1 text-[11px] font-mono text-left w-32 outline-none hover:border-stone-300 active:bg-stone-100 transition-colors"
+                      >
+                        {customStartDate || '选择日期'}
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11.5px] text-stone-500 shrink-0">结束</span>
+                      <button
+                        onClick={() => setCalendarTarget('end')}
+                        className="bg-stone-50 border border-stone-200 text-stone-700 rounded-lg px-2 py-1 text-[11px] font-mono text-left w-32 outline-none hover:border-stone-300 active:bg-stone-100 transition-colors"
+                      >
+                        {customEndDate || '选择日期'}
+                      </button>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (!customStartDate || !customEndDate) {
+                        alert('请选择完整的开始和结束日期');
+                        return;
+                      }
+                      if (customStartDate > customEndDate) {
+                        alert('开始日期不能晚于结束日期');
+                        return;
+                      }
+                      setDateRange('自定义');
+                      setShowDateDropdown(false);
+                      setCalendarTarget('none');
+                    }}
+                    disabled={!customStartDate || !customEndDate}
+                    className="w-full mt-1 py-1.5 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white rounded-lg text-[11.5px] font-semibold flex items-center justify-center gap-1 active:scale-[0.98] disabled:opacity-40"
+                  >
+                    <CalendarIcon className="w-3 h-3" />
+                    确定
+                  </button>
+                </div>
+              </>
+            ) : (
+              <MiniCalendar
+                value={calendarTarget === 'start' ? customStartDate : customEndDate}
+                onChange={(val) => {
+                  if (calendarTarget === 'start') setCustomStartDate(val);
+                  else setCustomEndDate(val);
+                  setCalendarTarget('none');
+                }}
+                onBack={() => setCalendarTarget('none')}
+                title={calendarTarget === 'start' ? '选择开始日期' : '选择结束日期'}
+              />
+            )}
+          </div>
+        </>
+      )}
+
+      {showPromptDropdown && (
+        <>
+          <div className="fixed inset-0 z-[85]" onClick={closeDropdowns} />
+          <div className="absolute top-[144px] right-4 bg-white rounded-2xl border border-stone-200/60 shadow-lg py-1 z-[90] min-w-[200px] animate-in fade-in zoom-in-95 duration-100">
+            <button
+              onClick={() => { setDiaryPromptIndex(undefined); setShowPromptDropdown(false); }}
+              className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-stone-100 ${diaryPromptIndex === undefined ? 'text-baimiao-mysteria font-medium' : 'text-stone-700'}`}
+            >
+              全部模板
+            </button>
+            {diaryPrompts.map((p: string, i: number) => p.trim() && (
+              <button
+                key={i}
+                onClick={() => { setDiaryPromptIndex(i); setShowPromptDropdown(false); }}
+                className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-stone-100 ${diaryPromptIndex === i ? 'text-baimiao-mysteria font-medium' : 'text-stone-700'}`}
+              >
+                <div className="font-medium">{DIARY_PROMPT_LABELS[i] || `模板 ${i}`}</div>
+                <div className="text-[10.5px] text-stone-400 truncate mt-0.5">{p.trim().slice(0, 18)}…</div>
+              </button>
+            ))}
           </div>
         </>
       )}
