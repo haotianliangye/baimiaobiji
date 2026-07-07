@@ -27,7 +27,12 @@ export default function Settings() {
     insightPrompt, 
     insightPrompts, 
     insightPromptIndex, 
-    summaryPrompt, 
+    summaryPrompt,
+    embedEnabled,
+    embedProvider,
+    embedApiKey,
+    embedBaseUrl,
+    embedModel,
     setSettings 
   } = settingsStore;
 
@@ -37,6 +42,7 @@ export default function Settings() {
     (location.state as any)?.tab || 'model'
   );
   const [showApiKey, setShowApiKey] = useState(false);
+  const [showEmbedApiKey, setShowEmbedApiKey] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [storageInfo, setStorageInfo] = useState<StorageEstimateInfo | null>(null);
@@ -518,6 +524,138 @@ export default function Settings() {
                       className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-lg text-[14px] text-stone-900 transition-all font-mono placeholder:text-stone-300"
                     />
                   </div>
+                </div>
+              </section>
+
+              {/* Embedding Model Selection */}
+              <section className="space-y-3">
+                <div className="baimiao-card-diary p-4 space-y-3">
+                  <div className="flex items-center justify-between border-b border-stone-100 pb-2 mb-1">
+                    <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase">本地向量与语义搜索</h3>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={embedEnabled} 
+                        onChange={e => setSettings({ embedEnabled: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-baimiao-mysteria"></div>
+                    </label>
+                  </div>
+
+                  {embedEnabled && (
+                    <div className="space-y-3 pt-1">
+                      {/* Provider Row */}
+                      <div className="grid grid-cols-5 gap-1 p-1 bg-black/5 rounded-lg">
+                        {[
+                          { id: 'gemini', label: 'Gemini' },
+                          { id: 'openai', label: 'OpenAI' },
+                          { id: 'siliconflow', label: '硅基' },
+                          { id: 'zhipu', label: '智谱' },
+                          { id: 'custom', label: '自定义' }
+                        ].map(p => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => {
+                              setSettings({ embedProvider: p.id as any });
+                            }}
+                            className={`flex items-center justify-center py-1 px-0.5 rounded-md text-[11px] font-medium transition-all ${
+                              embedProvider === p.id 
+                                ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-sm' 
+                                : 'text-stone-500 hover:bg-white/50 hover:text-baimiao-mysteria'
+                            }`}
+                          >
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* API Key */}
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex items-center justify-between">
+                          <label className="flex items-center gap-2 text-[12px] font-medium text-stone-700">
+                            <KeyRound className="w-3.5 h-3.5 text-stone-400" />
+                            向量接口 API Key
+                          </label>
+                          {(() => {
+                            const linkInfo = [
+                              { id: 'gemini', link: 'https://aistudio.google.com/app/apikey' },
+                              { id: 'openai', link: 'https://platform.openai.com/api-keys' },
+                              { id: 'siliconflow', link: 'https://cloud.siliconflow.cn/account/ak' },
+                              { id: 'zhipu', link: 'https://bigmodel.cn/usercenter/apikeys' }
+                            ].find(x => x.id === embedProvider)?.link;
+                            
+                            return linkInfo ? (
+                              <a href={linkInfo} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 hover:underline">申请密钥</a>
+                            ) : null;
+                          })()}
+                        </div>
+                        <div className="relative">
+                          <input
+                            type={showEmbedApiKey ? "text" : "password"}
+                            placeholder={embedProvider === 'gemini' && !embedApiKey && apiKey ? '自动复用上方 Gemini Key' : '输入你的 API 凭证'}
+                            value={embedApiKey}
+                            onChange={e => setSettings({ embedApiKey: e.target.value })}
+                            className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 pr-10 rounded-lg text-[13px] text-stone-900 placeholder:text-stone-400 transition-all font-mono"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowEmbedApiKey(!showEmbedApiKey)}
+                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-stone-400 hover:text-stone-600 focus:outline-none"
+                          >
+                            {showEmbedApiKey ? (
+                              <EyeOff className="h-3.5 w-3.5" aria-hidden="true" />
+                            ) : (
+                              <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Base URL */}
+                      <div className="space-y-1.5 pt-1.5 border-t border-stone-100">
+                        <label className="flex items-center gap-2 text-[12px] font-medium text-stone-700">
+                          <Server className="w-3.5 h-3.5 text-stone-400" />
+                          向量代理地址 (Base URL)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder={[
+                            { id: 'gemini', defaultBase: 'https://generativelanguage.googleapis.com' },
+                            { id: 'openai', defaultBase: 'https://api.openai.com/v1' },
+                            { id: 'siliconflow', defaultBase: 'https://api.siliconflow.cn/v1' },
+                            { id: 'zhipu', defaultBase: 'https://open.bigmodel.cn/api/paas/v4' },
+                            { id: 'custom', defaultBase: 'http://127.0.0.1:11434/v1' }
+                          ].find(x => x.id === embedProvider)?.defaultBase || ''}
+                          value={embedBaseUrl}
+                          onChange={e => setSettings({ embedBaseUrl: e.target.value })}
+                          className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-900 transition-all font-mono placeholder:text-stone-350"
+                        />
+                      </div>
+
+                      {/* Model Name */}
+                      <div className="space-y-1.5 pt-1.5 border-t border-stone-100">
+                        <label className="flex items-center gap-2 text-[12px] font-medium text-stone-700">
+                          <Cpu className="w-3.5 h-3.5 text-stone-400" />
+                          向量模型名称 (Model)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder={[
+                            { id: 'gemini', defaultModel: 'text-embedding-004' },
+                            { id: 'openai', defaultModel: 'text-embedding-3-small' },
+                            { id: 'siliconflow', defaultModel: 'BAAI/bge-large-zh-v1.5' },
+                            { id: 'zhipu', defaultModel: 'embedding-3' },
+                            { id: 'custom', defaultModel: 'nomic-embed-text' }
+                          ].find(x => x.id === embedProvider)?.defaultModel || ''}
+                          value={embedModel}
+                          onChange={e => setSettings({ embedModel: e.target.value })}
+                          className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-900 transition-all font-mono placeholder:text-stone-350"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </section>
             </>
