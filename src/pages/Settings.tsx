@@ -779,7 +779,7 @@ export default function Settings() {
                   }}
                   className={`w-full h-32 resize-none border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] transition-all font-mono leading-relaxed ${
                     localDiaryIndex === 0
-                      ? 'bg-stone-50/70 text-stone-400 border-dashed border-stone-200 cursor-not-allowed'
+                      ? 'bg-stone-50 text-stone-400 border-dashed border-stone-200 cursor-not-allowed'
                       : 'bg-white text-stone-900 focus:bg-white'
                   }`}
                 />
@@ -839,7 +839,7 @@ export default function Settings() {
                   }}
                   className={`w-full h-24 resize-none border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] transition-all font-mono leading-relaxed ${
                     localReviewIndex === 0
-                      ? 'bg-stone-50/70 text-stone-450 border-dashed border-stone-200 cursor-not-allowed'
+                      ? 'bg-stone-50 text-stone-400 border-dashed border-stone-200 cursor-not-allowed'
                       : 'bg-white text-stone-900 focus:bg-white'
                   }`}
                 />
@@ -899,7 +899,7 @@ export default function Settings() {
                   }}
                   className={`w-full h-24 resize-none border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] transition-all font-mono leading-relaxed ${
                     localInsightIndex === 0
-                      ? 'bg-stone-50/70 text-stone-400 border-dashed border-stone-200 cursor-not-allowed'
+                      ? 'bg-stone-50 text-stone-400 border-dashed border-stone-200 cursor-not-allowed'
                       : 'bg-white text-stone-900 focus:bg-white'
                   }`}
                 />
