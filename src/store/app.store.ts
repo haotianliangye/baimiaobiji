@@ -3,6 +3,7 @@ import { db } from '../db/db';
 import { generateUUID } from '../lib/utils';
 import { SYNC_CONSTANTS } from '../config/constants';
 import { useSettingsStore, getActivePromptIndices } from './settings.store';
+import { cosineSimilarity, requestEmbedding, getEmbedSettings } from '../lib/embedding';
 import { encryptData, decryptData } from '../lib/crypto';
 import { WebDAVClient } from '../lib/webdav';
 import { OneDriveClient, GDriveClient, DropboxClient } from '../lib/cloudClients';
@@ -65,6 +66,7 @@ interface AppState {
     customEndDate?: string; 
   };
   searchResults: SearchItem[];
+  semanticSearchEnabled: boolean;
 
   // 云同步状态
   syncStatus: 'idle' | 'syncing' | 'error' | 'disabled' | 'credentials_missing';
@@ -102,6 +104,7 @@ interface AppState {
   clearSearchHistory: () => void;
   executeSearch: () => Promise<void>;
   addSearchHistory: (query: string) => void;
+  setSemanticSearchEnabled: (enabled: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -145,6 +148,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     customEndDate: ''
   },
   searchResults: [],
+  semanticSearchEnabled: false,
 
   clearDiaryError: (dateStr) => {
     set((state) => {
@@ -869,6 +873,21 @@ export const useAppStore = create<AppState>((set, get) => ({
     const query = searchQuery.trim();
     const { dateRange, modules, customStartDate, customEndDate } = searchFilters;
     const results: SearchItem[] = [];
+    const seenIds = new Set<string>();
+
+    // --- Semantic search branch ---
+    const settings = useSettingsStore.getState();
+    const { semanticSearchEnabled } = get();
+    const useSemanticSearch = semanticSearchEnabled && settings.embedEnabled && settings.embedApiKey;
+    let queryEmbedding: number[] | null = null;
+
+    if (useSemanticSearch) {
+      try {
+        queryEmbedding = await requestEmbedding(query);
+      } catch (err) {
+        console.error('[Semantic Search] Failed to get query embedding:', err);
+      }
+    }
 
     // 1. 碎屑记录搜索
     if (modules.includes('record')) {
@@ -955,6 +974,83 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     // 按日期倒序排列
     results.sort((a, b) => b.date.localeCompare(a.date));
+    // Track IDs from text search to avoid duplicates in semantic results
+    results.forEach(r => seenIds.add(r.id));
+
+    // --- Semantic search: merge vector matches ---
+    if (queryEmbedding && queryEmbedding.length > 0) {
+      const semanticResults: Array<SearchItem & { similarity: number }> = [];
+
+      if (modules.includes('record')) {
+        const logs = await db.raw_logs.toArray();
+        for (const log of logs) {
+          if (!log.embedding || log.embedding.length === 0) continue;
+          if (seenIds.has(log.id)) continue;
+          if (!isDateInFilter(log.created_at, dateRange, customStartDate, customEndDate)) continue;
+          const sim = cosineSimilarity(queryEmbedding, log.embedding);
+          if (sim > 0.35) {
+            semanticResults.push({
+              id: log.id,
+              type: 'record',
+              title: `[语义] 碎屑记录 . ${format(new Date(log.created_at), 'yyyy-MM-dd HH:mm')}`,
+              content: log.content,
+              date: format(new Date(log.created_at), 'yyyy-MM-dd'),
+              highlightSnippets: log.content.slice(0, 80) + (log.content.length > 80 ? '...' : ''),
+              similarity: sim,
+            });
+          }
+        }
+      }
+
+      if (modules.includes('diary')) {
+        const diaries = await db.daily_diaries.toArray();
+        for (const d of diaries) {
+          if (!d.embedding || d.embedding.length === 0) continue;
+          if (seenIds.has(d.id)) continue;
+          if (!isDateInFilter(parseISO(d.diary_date), dateRange, customStartDate, customEndDate)) continue;
+          const sim = cosineSimilarity(queryEmbedding, d.embedding);
+          if (sim > 0.35) {
+            semanticResults.push({
+              id: d.id,
+              type: 'diary',
+              title: `[语义] 整合日记 . ${d.diary_date}`,
+              content: d.ai_editorial,
+              date: d.diary_date,
+              highlightSnippets: (d.ai_editorial || '').slice(0, 80) + '...',
+              similarity: sim,
+            });
+          }
+        }
+      }
+
+      if (modules.includes('review')) {
+        const reviews = await db.daily_reviews.toArray();
+        for (const r of reviews) {
+          if (!r.embedding || r.embedding.length === 0) continue;
+          if (seenIds.has(r.id)) continue;
+          if (!isDateInFilter(parseISO(r.review_date), dateRange, customStartDate, customEndDate)) continue;
+          const sim = cosineSimilarity(queryEmbedding, r.embedding);
+          if (sim > 0.35) {
+            semanticResults.push({
+              id: r.id,
+              type: 'review',
+              title: `[语义] 反思回顾 . ${r.review_date}`,
+              content: r.ai_review,
+              date: r.review_date,
+              highlightSnippets: (r.ai_review || '').slice(0, 80) + '...',
+              similarity: sim,
+            });
+          }
+        }
+      }
+
+      // Sort semantic results by similarity descending, take top 20
+      semanticResults.sort((a, b) => b.similarity - a.similarity);
+      const topSemantic = semanticResults.slice(0, 20);
+      // Prepend semantic results (higher priority)
+      results.unshift(...topSemantic);
+    }
+
     set({ searchResults: results });
   },
 
@@ -966,6 +1062,15 @@ export const useAppStore = create<AppState>((set, get) => ({
       localStorage.setItem('baimiao_search_history', JSON.stringify(newHistory));
       return { searchHistory: newHistory };
     });
+  },
+
+  setSemanticSearchEnabled: (enabled) => {
+    set({ semanticSearchEnabled: enabled });
+    // Re-execute search if query exists
+    const { searchQuery } = get();
+    if (searchQuery.trim()) {
+      get().executeSearch();
+    }
   },
 
   setSyncStatus: (status, errorMsg) => set({ syncStatus: status, syncErrorMessage: errorMsg || '' }),
