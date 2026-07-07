@@ -1,3 +1,4 @@
+<img width="448" height="908" alt="ScreenShot_2026-07-07_151415_910" src="https://github.com/user-attachments/assets/dfde101a-19b0-4564-817a-7624cbf93b1e" />
 # 白描笔记 (Baimiao Notes)
 
 > 隐私优先的 AI 语音笔记 · 本地存储 · 多模型 · 语义搜索
