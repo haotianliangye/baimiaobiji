@@ -159,16 +159,18 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
           <span>洞察 · {headerDate}</span>
           <span>{insight.range_type === 'custom' ? '自定义' : insight.range_type}</span>
         </div>
-        <div
-          className={`mt-3 markdown-body prose prose-stone baimiao-editorial-body prose-h1:text-[19px] prose-h2:text-[17px] prose-h3:text-[16px] prose-headings:font-medium prose-headings:font-serif baimiao-editorial-title prose-p:text-baimiao-ink prose-li:text-baimiao-ink text-[15.5px] leading-relaxed relative z-10 selection:bg-stone-200 cursor-pointer ${expanded ? '' : 'line-clamp-4 before:absolute before:bottom-0 before:left-0 before:right-0 before:h-12 before:bg-gradient-to-t before:from-white before:to-transparent'}`}
-          onClick={(e) => {
-            if (isEditing) return;
-            if ((e.target as HTMLElement).tagName.toLowerCase() === 'a') return;
-            setExpanded(!expanded);
-          }}
-        >
-           <ReactMarkdown>{washCitations(formatDiaryMarkdown(insight.content))}</ReactMarkdown>
-        </div>
+        {expanded && (
+          <div
+            className="mt-3 markdown-body prose prose-stone baimiao-editorial-body prose-h1:text-[19px] prose-h2:text-[17px] prose-h3:text-[16px] prose-headings:font-medium prose-headings:font-serif baimiao-editorial-title prose-p:text-baimiao-ink prose-li:text-baimiao-ink text-[15.5px] leading-relaxed relative z-10 selection:bg-stone-200 cursor-pointer"
+            onClick={(e) => {
+              if (isEditing) return;
+              if ((e.target as HTMLElement).tagName.toLowerCase() === 'a') return;
+              setExpanded(!expanded);
+            }}
+          >
+             <ReactMarkdown>{washCitations(formatDiaryMarkdown(insight.content))}</ReactMarkdown>
+          </div>
+        )}
         </>
       )}
 
@@ -250,14 +252,7 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
         />
       )}
 
-      {!expanded && (
-        <div
-          className="flex justify-center mt-2 text-stone-300 cursor-pointer"
-          onClick={() => setExpanded(true)}
-        >
-          <ChevronDown className="w-5 h-5" />
-        </div>
-      )}
+
     </div>
 
     {contextMenuState.isOpen && (
