@@ -3,6 +3,7 @@ import { Send, Loader2, RefreshCw, Copy, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { InsightMessage } from '../db/db';
 import { useSettingsStore } from '../store/settings.store';
+import { washCitations } from '../lib/citationWash';
 
 interface ContextChatProps {
   chatHistory: InsightMessage[];
@@ -168,7 +169,7 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
                 {msg.role === 'assistant' ? (
                   <div className="w-full flex flex-col">
                     <div className="markdown-body prose prose-sm prose-stone prose-p:my-1 prose-ul:my-1 prose-ol:my-1 w-full max-w-none">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      <ReactMarkdown>{washCitations(msg.content)}</ReactMarkdown>
                     </div>
                     <div className="flex justify-between w-full mt-3 pt-2.5 border-t border-stone-100/80 text-[11px] text-stone-400 font-medium select-none">
                       <button 

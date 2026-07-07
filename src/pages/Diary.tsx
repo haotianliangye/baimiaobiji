@@ -9,6 +9,7 @@ import { useAppStore } from '../store/app.store';
 import { useSettingsStore, getActivePromptIndices } from '../store/settings.store';
 import CalendarHeatmap from '../components/CalendarHeatmap';
 import { formatDiaryMarkdown } from '../lib/utils';
+import { washCitations } from '../lib/citationWash';
 import ActionSheet from '../components/ActionSheet';
 import ContextChat from '../components/ContextChat';
 
@@ -426,7 +427,7 @@ export default function Diary() {
                                  }
                                }}
                              >
-                               {formatDiaryMarkdown(diary.ai_editorial) || '生成的内容为空。'}
+                               {washCitations(formatDiaryMarkdown(diary.ai_editorial) || '生成的内容为空。')}
                              </ReactMarkdown>
                            </div>
 

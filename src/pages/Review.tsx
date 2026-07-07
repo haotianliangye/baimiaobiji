@@ -6,6 +6,7 @@ import ReactMarkdown from 'react-markdown';
 import { db } from '../db/db';
 import CalendarHeatmap from '../components/CalendarHeatmap';
 import { formatDiaryMarkdown } from '../lib/utils';
+import { washCitations } from '../lib/citationWash';
 import ActionSheet from '../components/ActionSheet';
 import ContextChat from '../components/ContextChat';
 import { Trash2, ChevronDown, ChevronUp, RefreshCw, X, Sparkles, MessageCircle, Copy, Activity, Save, Edit2 } from 'lucide-react';
@@ -452,7 +453,7 @@ export default function Review() {
                                   }
                                 }}
                               >
-                                {formatDiaryMarkdown(review.ai_review)}
+                                {washCitations(formatDiaryMarkdown(review.ai_review))}
                               </ReactMarkdown>
                             </div>
 

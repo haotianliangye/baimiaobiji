@@ -8,6 +8,7 @@ import { useSettingsStore } from '../store/settings.store';
 import { format, subDays } from 'date-fns';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { generateUUID, formatDiaryMarkdown } from '../lib/utils';
+import { washCitations } from '../lib/citationWash';
 import ActionSheet from '../components/ActionSheet';
 
 const MENU_HALF_WIDTH = 140;
@@ -133,7 +134,7 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
               setExpanded(!expanded);
             }}
           >
-             <ReactMarkdown>{formatDiaryMarkdown(insight.content)}</ReactMarkdown>
+             <ReactMarkdown>{washCitations(formatDiaryMarkdown(insight.content))}</ReactMarkdown>
           </div>
         )}
       </div>
