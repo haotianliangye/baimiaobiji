@@ -81,30 +81,30 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
     <>
     <div
       className="p-5 mb-4 relative overflow-hidden baimiao-card-diary"
+      onTouchStart={(e) => {
+         if (isEditing) return;
+         const touch = e.touches[0];
+         const x = touch.clientX;
+         const y = touch.clientY;
+         holdTimeoutRef.current = setTimeout(() => {
+           if (window.navigator?.vibrate) window.navigator.vibrate(50);
+           setContextMenuState({ isOpen: true, x, y });
+         }, 500);
+      }}
+      onTouchEnd={() => clearTimeout(holdTimeoutRef.current)}
+      onTouchMove={() => clearTimeout(holdTimeoutRef.current)}
+      onContextMenu={(e) => {
+         if (isEditing) return;
+         e.preventDefault();
+         if (window.navigator?.vibrate) window.navigator.vibrate(50);
+         setContextMenuState({ isOpen: true, x: e.clientX, y: e.clientY });
+      }}
     >
       {/* Header button — mirrors Diary/Review (title + chevron). The existing
           range_label + created_at are preserved as required. */}
       <button
         type="button"
         onClick={() => { if (isEditing) return; setExpanded(!expanded); }}
-        onTouchStart={(e) => {
-           if (isEditing) return;
-           const touch = e.touches[0];
-           const x = touch.clientX;
-           const y = touch.clientY;
-           holdTimeoutRef.current = setTimeout(() => {
-             if (window.navigator?.vibrate) window.navigator.vibrate(50);
-             setContextMenuState({ isOpen: true, x, y });
-           }, 500);
-        }}
-        onTouchEnd={() => clearTimeout(holdTimeoutRef.current)}
-        onTouchMove={() => clearTimeout(holdTimeoutRef.current)}
-        onContextMenu={(e) => {
-           if (isEditing) return;
-           e.preventDefault();
-           if (window.navigator?.vibrate) window.navigator.vibrate(50);
-           setContextMenuState({ isOpen: true, x: e.clientX, y: e.clientY });
-        }}
         className="w-full flex items-center justify-between gap-2 text-left select-none"
       >
         <div className="flex items-center gap-2 min-w-0">
