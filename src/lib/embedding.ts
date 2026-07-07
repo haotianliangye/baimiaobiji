@@ -73,13 +73,26 @@ function getQueue(): EmbeddingTask[] {
   }
 }
 
+let onQueueChangeCallback: ((size: number) => void) | null = null;
+
+export function registerQueueChangeListener(cb: (size: number) => void) {
+  onQueueChangeCallback = cb;
+  try {
+    cb(getQueue().length);
+  } catch {}
+}
+
 function saveQueue(queue: EmbeddingTask[]) {
   localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+  if (onQueueChangeCallback) {
+    try {
+      onQueueChangeCallback(queue.length);
+    } catch {}
+  }
 }
 
 export function enqueueEmbeddingTask(id: string, type: 'record' | 'diary' | 'review') {
   const queue = getQueue();
-  // Avoid duplicates
   if (queue.some(t => t.id === id && t.type === type)) return;
   queue.push({ id, type, retryCount: 0 });
   saveQueue(queue);
@@ -248,12 +261,68 @@ db.daily_reviews.hook('updating', (mods, primKey, obj, transaction) => {
   });
 });
 
+// --- Enqueue all items missing embeddings (for historical data backfilling) ---
+export async function enqueueAllMissingEmbeddings(): Promise<number> {
+  const versionTag = getEmbedVersionTag();
+  const queue = getQueue();
+  const queueSet = new Set(queue.map(t => `${t.type}:${t.id}`));
+  let addedCount = 0;
+
+  // 1. Records
+  const logs = await db.raw_logs.toArray();
+  for (const log of logs) {
+    if ((!log.embedding || log.embedding.length === 0 || log.embedding_version !== versionTag) && log.content.trim()) {
+      const key = `record:${log.id}`;
+      if (!queueSet.has(key)) {
+        queue.push({ id: log.id, type: 'record', retryCount: 0 });
+        queueSet.add(key);
+        addedCount++;
+      }
+    }
+  }
+
+  // 2. Diaries
+  const diaries = await db.daily_diaries.toArray();
+  for (const d of diaries) {
+    if ((!d.embedding || d.embedding.length === 0 || d.embedding_version !== versionTag) && d.ai_editorial.trim()) {
+      const key = `diary:${d.id}`;
+      if (!queueSet.has(key)) {
+        queue.push({ id: d.id, type: 'diary', retryCount: 0 });
+        queueSet.add(key);
+        addedCount++;
+      }
+    }
+  }
+
+  // 3. Reviews
+  const reviews = await db.daily_reviews.toArray();
+  for (const r of reviews) {
+    if ((!r.embedding || r.embedding.length === 0 || r.embedding_version !== versionTag) && r.ai_review.trim()) {
+      const key = `review:${r.id}`;
+      if (!queueSet.has(key)) {
+        queue.push({ id: r.id, type: 'review', retryCount: 0 });
+        queueSet.add(key);
+        addedCount++;
+      }
+    }
+  }
+
+  if (addedCount > 0) {
+    saveQueue(queue);
+    // Trigger queue processing
+    processEmbeddingQueue();
+  }
+  return addedCount;
+}
+
 // --- Subscribe to Settings store to run queue when enabled ---
 let prevEmbedEnabled = useSettingsStore.getState().embedEnabled;
 useSettingsStore.subscribe((state) => {
   if (state.embedEnabled && !prevEmbedEnabled) {
-    console.log('[Embedding Queue] Embedding enabled, starting queue...');
-    processEmbeddingQueue();
+    console.log('[Embedding Queue] Embedding enabled, scanning and backfilling queue...');
+    enqueueAllMissingEmbeddings().then((added) => {
+      console.log(`[Embedding Queue] Enqueued ${added} missing historical items.`);
+    });
   }
   prevEmbedEnabled = state.embedEnabled;
 });
