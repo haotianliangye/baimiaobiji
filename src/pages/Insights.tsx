@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { PieChart, Loader2, Sparkles, ChevronLeft, Calendar, AlertCircle, ChevronDown, ChevronUp, Trash2, Copy, RefreshCw, MessageCircle } from 'lucide-react';
+import { PieChart, Loader2, Sparkles, ChevronLeft, Calendar, AlertCircle, ChevronDown, ChevronUp, Trash2, Copy, RefreshCw, MessageCircle, Save, Edit2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import ContextChat from '../components/ContextChat';
@@ -27,6 +27,28 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
   });
   const holdTimeoutRef = useRef<any>(null);
 
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState(insight.content || '');
+  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+     setEditText(insight.content || '');
+  }, [insight.content]);
+
+  useEffect(() => {
+     if (isEditing && editTextareaRef.current) {
+        editTextareaRef.current.style.height = 'auto';
+        editTextareaRef.current.style.height = editTextareaRef.current.scrollHeight + 'px';
+     }
+  }, [editText, isEditing]);
+
+  const handleSaveEdit = async () => {
+     if (insight.id) {
+        await db.insights.update(insight.id, { content: editText });
+        setIsEditing(false);
+     }
+  };
+
   useEffect(() => {
     if (!expanded) {
        setShowChat(false);
@@ -40,8 +62,9 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
     >
       <div 
         className="cursor-pointer select-none"
-        onClick={() => setExpanded(!expanded)}
+        onClick={() => { if (isEditing) return; setExpanded(!expanded); }}
         onTouchStart={(e) => {
+           if (isEditing) return;
            const touch = e.touches[0];
            const x = touch.clientX;
            const y = touch.clientY;
@@ -53,6 +76,7 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
         onTouchEnd={() => clearTimeout(holdTimeoutRef.current)}
         onTouchMove={() => clearTimeout(holdTimeoutRef.current)}
         onContextMenu={(e) => {
+           if (isEditing) return;
            e.preventDefault();
            if (window.navigator?.vibrate) window.navigator.vibrate(50);
            setContextMenuState({ isOpen: true, x: e.clientX, y: e.clientY });
@@ -68,19 +92,53 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
           </div>
         </div>
         
-        <div 
-          className={`markdown-body prose prose-stone baimiao-editorial-body prose-h1:text-[19px] prose-h2:text-[17px] prose-h3:text-[16px] prose-headings:font-medium prose-headings:font-serif baimiao-editorial-title prose-p:text-baimiao-ink prose-li:text-baimiao-ink text-[15.5px] leading-relaxed relative z-10 selection:bg-stone-200 cursor-pointer ${expanded ? '' : 'line-clamp-4 before:absolute before:bottom-0 before:left-0 before:right-0 before:h-12 before:bg-gradient-to-t before:from-white before:to-transparent'}`}
-          onClick={(e) => {
-            // 避免点击内部链接时触发收起
-            if ((e.target as HTMLElement).tagName.toLowerCase() === 'a') return;
-            setExpanded(!expanded);
-          }}
-        >
-           <ReactMarkdown>{formatDiaryMarkdown(insight.content)}</ReactMarkdown>
-        </div>
+        {isEditing ? (
+          <div className="flex flex-col gap-3 relative z-10 w-full animate-in fade-in zoom-in-95 duration-200 mt-2">
+            <textarea
+              ref={editTextareaRef}
+              value={editText}
+              onChange={e => setEditText(e.target.value)}
+              className="w-full bg-white p-4 rounded-xl border border-stone-200 shadow-sm focus:outline-none focus:border-stone-300 focus:ring-2 focus:ring-stone-100 resize-none font-sans text-[15px] leading-relaxed text-stone-900 overflow-hidden min-h-[200px]"
+              placeholder="开始编辑洞察..."
+              autoFocus
+              onClick={(e) => e.stopPropagation()}
+            />
+            <div className="flex justify-end gap-2 pr-1">
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditing(false);
+                }}
+                className="px-4 py-2 rounded-full text-[13px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors shadow-sm select-none"
+              >
+                取消
+              </button>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSaveEdit();
+                }}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] border border-white/10 hover:brightness-110 transition-all shadow-sm select-none"
+              >
+                <Save className="w-3.5 h-3.5" />
+                保存
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div 
+            className={`markdown-body prose prose-stone baimiao-editorial-body prose-h1:text-[19px] prose-h2:text-[17px] prose-h3:text-[16px] prose-headings:font-medium prose-headings:font-serif baimiao-editorial-title prose-p:text-baimiao-ink prose-li:text-baimiao-ink text-[15.5px] leading-relaxed relative z-10 selection:bg-stone-200 cursor-pointer ${expanded ? '' : 'line-clamp-4 before:absolute before:bottom-0 before:left-0 before:right-0 before:h-12 before:bg-gradient-to-t before:from-white before:to-transparent'}`}
+            onClick={(e) => {
+              if ((e.target as HTMLElement).tagName.toLowerCase() === 'a') return;
+              setExpanded(!expanded);
+            }}
+          >
+             <ReactMarkdown>{formatDiaryMarkdown(insight.content)}</ReactMarkdown>
+          </div>
+        )}
       </div>
 
-      {expanded && (
+      {expanded && !isEditing && (
         <div className="flex flex-col gap-3 mt-5 pt-4 border-t border-stone-100 select-none">
           <div className="flex justify-between w-full">
             <button
@@ -109,6 +167,17 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
                复制
             </button>
             <button
+               onClick={(e) => {
+                  e.stopPropagation();
+                  setEditText(insight.content || '');
+                  setIsEditing(true);
+               }}
+               className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
+            >
+               <Edit2 className="w-4 h-4" />
+               编辑
+            </button>
+            <button
                onClick={(e) => { e.stopPropagation(); onRegenerate(insight); }}
                className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
             >
@@ -134,7 +203,7 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
         </div>
       )}
 
-      {expanded && showChat && (
+      {expanded && showChat && !isEditing && (
         <ContextChat 
           chatHistory={insight.chat_history || []}
           contextContent={insight.content}
@@ -183,6 +252,18 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
             >
               <Copy className="w-3.5 h-3.5 mb-1.5 text-white/80" />
               <span className="text-[10px] font-medium tracking-wide">复制内容</span>
+            </button>
+            <button
+              onClick={() => {
+                setEditText(insight.content || '');
+                setIsEditing(true);
+                setExpanded(true);
+                setContextMenuState({ ...contextMenuState, isOpen: false });
+              }}
+              className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 disabled:opacity-50"
+            >
+              <Edit2 className="w-3.5 h-3.5 mb-1.5 text-white/80" />
+              <span className="text-[10px] font-medium tracking-wide">编辑内容</span>
             </button>
             <button
               onClick={() => {
