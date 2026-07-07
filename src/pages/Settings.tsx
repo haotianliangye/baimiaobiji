@@ -703,7 +703,7 @@ export default function Settings() {
                         </span>
                       </div>
 
-                      <div className="pt-2 border-t border-stone-100 flex gap-2">
+                      <div className="pt-2 border-t border-stone-100 flex justify-center">
                         <button
                           type="button"
                           onClick={async () => {
@@ -711,7 +711,7 @@ export default function Settings() {
                             updateVectorsCount();
                             alert(`扫描完毕！已将 ${count} 条缺少向量的记录推入生成队列。`);
                           }}
-                          className="flex-1 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white hover:opacity-90 active:scale-[0.98] py-2 px-3 rounded-xl text-[12px] font-medium shadow-sm transition-all text-center"
+                          className="w-fit px-5 bg-white hover:bg-stone-50 active:scale-[0.97] text-stone-600 border border-stone-200/80 py-2 rounded-xl text-[12.5px] font-medium transition-all text-center shadow-sm"
                         >
                           扫描并补齐历史向量
                         </button>

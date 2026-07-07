@@ -38,7 +38,8 @@ export default function Layout() {
     setSemanticSearchEnabled,
     isSearching,
     searchError,
-    totalVectorsCount
+    totalVectorsCount,
+    embeddingQueueSize
   } = useAppStore();
 
   const { syncEnabled, embedEnabled } = useSettingsStore();
@@ -404,7 +405,7 @@ export default function Layout() {
                 onClick={() => setSemanticSearchEnabled(!semanticSearchEnabled)}
                 className={`px-3 py-1 rounded-xl text-[12px] font-medium border transition-all shrink-0 active:scale-95 flex items-center gap-1 ${
                   semanticSearchEnabled 
-                    ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria border-baimiao-mysteria/30 shadow-sm shadow-baimiao-mysteria/5' 
+                    ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white border-transparent shadow-sm shadow-baimiao-mysteria/10' 
                     : 'bg-[#f0edf4]/50 text-[#8a859e] border-stone-200/20 hover:bg-[#f0edf4]'
                 }`}
               >
@@ -418,14 +419,16 @@ export default function Layout() {
           {embedEnabled && semanticSearchEnabled && (
             <div className="px-4 py-1.5 bg-[#f6f4f9] border-b border-stone-250/20 text-[11px] text-[#8a859e] flex items-center justify-between shrink-0 select-none animate-in slide-in-from-top duration-200">
               <span className="flex items-center gap-1.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${totalVectorsCount > 0 ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`}></span>
-                {totalVectorsCount > 0 
-                  ? `本地向量库已就绪 (共 ${totalVectorsCount} 条记录)` 
-                  : '本地向量库尚未生成，请在设置中启用以开始生成'
+                <span className={`w-1.5 h-1.5 rounded-full ${embeddingQueueSize > 0 ? 'bg-amber-500 animate-pulse' : totalVectorsCount > 0 ? 'bg-emerald-500' : 'bg-stone-400'}`}></span>
+                {embeddingQueueSize > 0 
+                  ? `本地向量生成中 (剩余 ${embeddingQueueSize} 条，已就绪 ${totalVectorsCount} 条)` 
+                  : totalVectorsCount > 0 
+                    ? `本地向量库已就绪 (共 ${totalVectorsCount} 条记录)` 
+                    : '本地向量库为空 (请确认设置并等待数据录入)'
                 }
               </span>
-              {totalVectorsCount === 0 && (
-                <span className="text-[10px] text-amber-600 font-medium">正在后台计算...</span>
+              {embeddingQueueSize > 0 && (
+                <span className="text-[10px] text-amber-600 font-medium">正在计算中...</span>
               )}
             </div>
           )}
