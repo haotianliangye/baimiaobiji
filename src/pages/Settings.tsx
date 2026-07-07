@@ -233,19 +233,19 @@ export default function Settings() {
     if (diaryPrompts && diaryPrompts.length === 4) return [...diaryPrompts];
     return [diaryPrompt || DEFAULT_DIARY_PROMPT, DEFAULT_WARM_DIARY_PROMPT, '', ''];
   });
-  const [localDiaryIndex, setLocalDiaryIndex] = useState<number>(diaryPromptIndex ?? 0);
+  const [localDiaryIndex, setLocalDiaryIndex] = useState<number>(0);
 
   const [localReviewPrompts, setLocalReviewPrompts] = useState<string[]>(() => {
     if (reviewPrompts && reviewPrompts.length === 4) return [...reviewPrompts];
     return [reviewPrompt || DEFAULT_REVIEW_PROMPT, '', '', ''];
   });
-  const [localReviewIndex, setLocalReviewIndex] = useState<number>(reviewPromptIndex ?? 0);
+  const [localReviewIndex, setLocalReviewIndex] = useState<number>(0);
 
   const [localInsightPrompts, setLocalInsightPrompts] = useState<string[]>(() => {
     if (insightPrompts && insightPrompts.length === 4) return [...insightPrompts];
     return [insightPrompt || DEFAULT_INSIGHT_PROMPT, '', '', ''];
   });
-  const [localInsightIndex, setLocalInsightIndex] = useState<number>(insightPromptIndex ?? 0);
+  const [localInsightIndex, setLocalInsightIndex] = useState<number>(0);
 
   const [localSummaryPrompt, setLocalSummaryPrompt] = useState(summaryPrompt || DEFAULT_SUMMARY_PROMPT);
 
@@ -727,14 +727,14 @@ export default function Settings() {
             <div className="space-y-4 animate-in fade-in duration-200">
               {/* Card 1: 日记生成 Prompt */}
               <section className="baimiao-card-diary p-4 space-y-3 overflow-hidden">
-                <div className="bg-[#f8f6fa] border-b border-stone-100/80 px-4 py-2.5 -mx-4 -mt-4 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0 border-l-2 border-baimiao-mysteria pl-2">
-                    <label className="flex items-center gap-1.5 text-[13px] font-bold text-stone-700">
+                <div className="bg-[#f8f6fa] border-b border-stone-100/80 px-4 py-2 flex flex-col gap-2 -mx-4 -mt-4">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-1.5 text-[13px] font-bold text-stone-700 border-l-2 border-baimiao-mysteria pl-2">
                       <Settings2 className="w-4 h-4 text-baimiao-mysteria" />
                       日记生成 Prompt
                     </label>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between">
                     <div className="flex gap-0.5 items-center bg-[#f0edf4]/60 p-0.5 rounded-lg border border-stone-200/30">
                       {['默认', '自定义 1', '自定义 2', '自定义 3'].map((label, idx) => (
                         <button
@@ -759,10 +759,10 @@ export default function Settings() {
                           next[localDiaryIndex] = '';
                           setLocalDiaryPrompts(next);
                         }}
-                        className="text-[11px] text-stone-400 hover:text-red-500 flex items-center gap-0.5 transition-colors pl-1 border-l border-stone-200"
+                        className="text-[11px] text-stone-400 hover:text-red-500 flex items-center gap-0.5 transition-colors"
                       >
                         <RotateCcw className="w-3 h-3" />
-                        清空
+                        清空当前
                       </button>
                     )}
                   </div>
@@ -787,14 +787,14 @@ export default function Settings() {
 
               {/* Card 2: 回顾生成 Prompt */}
               <section className="baimiao-card-diary p-4 space-y-3 overflow-hidden">
-                <div className="bg-[#f8f6fa] border-b border-stone-100/80 px-4 py-2.5 -mx-4 -mt-4 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0 border-l-2 border-baimiao-mysteria pl-2">
-                    <label className="flex items-center gap-1.5 text-[13px] font-bold text-stone-700">
+                <div className="bg-[#f8f6fa] border-b border-stone-100/80 px-4 py-2 flex flex-col gap-2 -mx-4 -mt-4">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-1.5 text-[13px] font-bold text-stone-700 border-l-2 border-baimiao-mysteria pl-2">
                       <Settings2 className="w-4 h-4 text-baimiao-mysteria" />
                       回顾生成 Prompt
                     </label>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between">
                     <div className="flex gap-0.5 items-center bg-[#f0edf4]/60 p-0.5 rounded-lg border border-stone-200/30">
                       {['默认', '自定义 1', '自定义 2', '自定义 3'].map((label, idx) => (
                         <button
@@ -819,10 +819,10 @@ export default function Settings() {
                           next[localReviewIndex] = '';
                           setLocalReviewPrompts(next);
                         }}
-                        className="text-[11px] text-stone-400 hover:text-red-500 flex items-center gap-0.5 transition-colors pl-1 border-l border-stone-200"
+                        className="text-[11px] text-stone-400 hover:text-red-500 flex items-center gap-0.5 transition-colors"
                       >
                         <RotateCcw className="w-3 h-3" />
-                        清空
+                        清空当前
                       </button>
                     )}
                   </div>
@@ -847,14 +847,14 @@ export default function Settings() {
 
               {/* Card 3: 洞察生成 Prompt */}
               <section className="baimiao-card-diary p-4 space-y-3 overflow-hidden">
-                <div className="bg-[#f8f6fa] border-b border-stone-100/80 px-4 py-2.5 -mx-4 -mt-4 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0 border-l-2 border-baimiao-mysteria pl-2">
-                    <label className="flex items-center gap-1.5 text-[13px] font-bold text-stone-700">
+                <div className="bg-[#f8f6fa] border-b border-stone-100/80 px-4 py-2 flex flex-col gap-2 -mx-4 -mt-4">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-1.5 text-[13px] font-bold text-stone-700 border-l-2 border-baimiao-mysteria pl-2">
                       <Settings2 className="w-4 h-4 text-baimiao-mysteria" />
                       洞察生成 Prompt
                     </label>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between">
                     <div className="flex gap-0.5 items-center bg-[#f0edf4]/60 p-0.5 rounded-lg border border-stone-200/30">
                       {['默认', '自定义 1', '自定义 2', '自定义 3'].map((label, idx) => (
                         <button
@@ -879,10 +879,10 @@ export default function Settings() {
                           next[localInsightIndex] = '';
                           setLocalInsightPrompts(next);
                         }}
-                        className="text-[11px] text-stone-400 hover:text-red-500 flex items-center gap-0.5 transition-colors pl-1 border-l border-stone-200"
+                        className="text-[11px] text-stone-400 hover:text-red-500 flex items-center gap-0.5 transition-colors"
                       >
                         <RotateCcw className="w-3 h-3" />
-                        清空
+                        清空当前
                       </button>
                     )}
                   </div>
@@ -905,13 +905,13 @@ export default function Settings() {
                 />
               </section>
 
-              {/* Card 4: 日记摘要生成 Prompt */}
+              {/* Card 4: 回顾一句话摘要生成 Prompt */}
               <section className="baimiao-card-diary p-4 space-y-3 overflow-hidden">
                 <div className="bg-[#f8f6fa] border-b border-stone-100/80 px-4 py-2.5 -mx-4 -mt-4 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0 border-l-2 border-baimiao-mysteria pl-2">
                     <label className="flex items-center gap-1.5 text-[13px] font-bold text-stone-700">
                       <Settings2 className="w-4 h-4 text-baimiao-mysteria" />
-                      日记摘要生成 Prompt
+                      回顾一句话摘要生成 Prompt
                     </label>
                   </div>
                   <button 
