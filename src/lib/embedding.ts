@@ -66,15 +66,16 @@ export interface EmbeddingTask {
   force?: boolean; // true when content changed and the embedding must be regenerated even if version matches
 }
 
-// Single source of truth for the three embeddable entity types. Drives the
+// Single source of truth for the four embeddable entity types. Drives the
 // queue processor, the backfill scan and the Dexie hooks so none of them
-// repeat the record/diary/review cascade. `table` is typed loosely because
-// Dexie's Table<T,K> differs per entity and we only call get/update/toArray/hook.
-type EntityType = 'record' | 'diary' | 'review';
+// repeat the record/diary/review/insight cascade. `table` is typed loosely
+// because Dexie's Table<T,K> differs per entity and we only call get/update/toArray/hook.
+type EntityType = 'record' | 'diary' | 'review' | 'insight';
 const ENTITY_CONFIG: Record<EntityType, { table: any; textField: 'content' | 'ai_editorial' | 'ai_review' }> = {
   record: { table: db.raw_logs, textField: 'content' },
   diary: { table: db.daily_diaries, textField: 'ai_editorial' },
   review: { table: db.daily_reviews, textField: 'ai_review' },
+  insight: { table: db.insights, textField: 'content' },
 };
 
 function getQueue(): EmbeddingTask[] {

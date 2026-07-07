@@ -27,7 +27,11 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
   const settings = useSettingsStore();
 
   useEffect(() => {
-    if (chatHistory && chatHistory.length !== messages.length && !isTyping) {
+    // Only sync down from a non-empty chatHistory. Guards against the new-
+    // conversation race where chatHistory transiently becomes [] while the
+    // first message is being persisted, which would otherwise wipe the
+    // optimistic user message.
+    if (chatHistory && chatHistory.length !== messages.length && !isTyping && chatHistory.length > 0) {
         setMessages(chatHistory);
     }
   }, [chatHistory]);

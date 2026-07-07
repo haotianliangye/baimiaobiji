@@ -1096,6 +1096,26 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
       }
 
+      if (modules.includes('insight')) {
+        const insights = (await db.insights.toArray()).slice(0, MAX_SEMANTIC_CANDIDATES);
+        for (const ins of insights) {
+          if (!ins.embedding || ins.embedding.length === 0) continue;
+          if (!ins.id) continue;
+          if (seenIds.has(ins.id)) continue;
+          if (!isDateInFilter(ins.created_at, dateRange, customStartDate, customEndDate)) continue;
+          const key = `insight:${ins.id}`;
+          metaByKey.set(key, {
+            id: ins.id,
+            type: 'insight',
+            title: `[语义] 生命洞察 . ${ins.range_label}`,
+            content: ins.content,
+            date: ins.start_date,
+            highlightSnippets: getHighlightSnippet(ins.content || '', query),
+          });
+          candidates.push({ key, embedding: ins.embedding });
+        }
+      }
+
       // Cosine scoring runs in a Web Worker to keep the main thread responsive
       // (PRD §2 / §4.3.4). Falls back to an inline main-thread loop if the
       // worker is unavailable, so semantic search still works on old WebViews.
@@ -1166,7 +1186,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       const logCount = await db.raw_logs.filter(log => !!log.embedding && log.embedding.length > 0).count();
       const diaryCount = await db.daily_diaries.filter(d => !!d.embedding && d.embedding.length > 0).count();
       const reviewCount = await db.daily_reviews.filter(r => !!r.embedding && r.embedding.length > 0).count();
-      set({ totalVectorsCount: logCount + diaryCount + reviewCount });
+      const insightCount = await db.insights.filter(ins => !!ins.embedding && ins.embedding.length > 0).count();
+      set({ totalVectorsCount: logCount + diaryCount + reviewCount + insightCount });
     } catch (e) {
       console.error('Failed to update vectors count:', e);
     }

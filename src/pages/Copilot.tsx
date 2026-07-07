@@ -11,10 +11,11 @@ import ContextChat from '../components/ContextChat';
 import { retrieveCopilotContext, type CopilotRetrievalFilters, type CopilotCitation } from '../lib/copilotRetrieval';
 
 const DATE_PRESETS = ['全部', '本周', '本月', '本季度'] as const;
-const MODULE_LABELS: Record<'record' | 'diary' | 'review', string> = {
+const MODULE_LABELS: Record<'record' | 'diary' | 'review' | 'insight', string> = {
   record: '记录',
   diary: '日记',
   review: '回顾',
+  insight: '洞察',
 };
 
 export default function Copilot() {
@@ -29,12 +30,18 @@ export default function Copilot() {
   );
 
   const [currentId, setCurrentId] = useState<string | null>(null);
+  // sessionKey forces ContextChat to remount on explicit user actions
+  // (switching to a history entry or starting a new conversation), so the
+  // chat area is cleared. Deliberately NOT incremented when the first
+  // message of a new conversation creates the Dexie row mid-send, which
+  // would unmount the component and drop the in-flight fetch.
+  const [sessionKey, setSessionKey] = useState(0);
   const [showHistory, setShowHistory] = useState(false);
   const [showDateDropdown, setShowDateDropdown] = useState(false);
   const [showPromptDropdown, setShowPromptDropdown] = useState(false);
 
   // Local filter state — independent of the search panel's global searchFilters.
-  const [modules, setModules] = useState<Array<'record' | 'diary' | 'review'>>(['record', 'diary', 'review']);
+  const [modules, setModules] = useState<Array<'record' | 'diary' | 'review' | 'insight'>>(['record', 'diary', 'review', 'insight']);
   const [dateRange, setDateRange] = useState<string>('全部');
   const [diaryPromptIndex, setDiaryPromptIndex] = useState<number | undefined>(undefined);
 
@@ -55,12 +62,14 @@ export default function Copilot() {
   const handleNewConversation = () => {
     setCurrentId(null);
     citationMapRef.current = new Map();
+    setSessionKey(k => k + 1);
     closeDropdowns();
   };
 
   const handleSelectConversation = (id: string) => {
     setCurrentId(id);
     citationMapRef.current = new Map();
+    setSessionKey(k => k + 1);
     closeDropdowns();
   };
 
@@ -92,8 +101,11 @@ export default function Copilot() {
       navigate(`/?date=${cite.date}&logId=${logId}`);
     } else if (cite.type === 'diary') {
       navigate(`/diary?date=${cite.date}`);
-    } else {
+    } else if (cite.type === 'review') {
       navigate(`/review?date=${cite.date}`);
+    } else {
+      // 洞察不需要日期维度，直接定位到大板块
+      navigate('/insights');
     }
   };
 
@@ -130,7 +142,7 @@ export default function Copilot() {
   const dateLabel = dateRange === '全部' ? '全部日期' : dateRange;
 
   return (
-    <div className="absolute inset-0 w-full max-w-md mx-auto left-0 right-0 bg-[#f0eef5] z-[80] flex flex-col overflow-hidden animate-in fade-in duration-200">
+    <div className="absolute inset-0 bg-[#f0eef5] flex flex-col overflow-hidden animate-in fade-in duration-200">
       {/* Header */}
       <div className="flex h-[54px] shrink-0 items-center px-4 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white gap-2 select-none border-b border-white/5">
         <Sparkles className="w-4 h-4 text-white/85 shrink-0" />
@@ -182,9 +194,9 @@ export default function Copilot() {
 
       {/* Filter row */}
       {embedReady && (
-        <div className="flex px-4 py-2 bg-white border-b border-stone-200/50 gap-2 shrink-0 overflow-x-auto no-scrollbar relative">
+        <div className="flex flex-wrap px-4 py-2 bg-white border-b border-stone-200/50 gap-2 shrink-0 relative">
           {/* Module chips */}
-          {(['record', 'diary', 'review'] as const).map(mod => {
+          {(['record', 'diary', 'review', 'insight'] as const).map(mod => {
             const isSelected = modules.includes(mod);
             return (
               <button
@@ -294,6 +306,7 @@ export default function Copilot() {
         ) : (
           <div className="flex-1 overflow-y-auto thin-scrollbar px-4 py-4 flex flex-col">
             <ContextChat
+              key={sessionKey}
               chatHistory={currentConv?.messages || []}
               apiEndpoint="/api/copilot-chat"
               getDynamicContext={getDynamicContext}

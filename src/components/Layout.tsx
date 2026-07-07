@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Book, Clock, Edit3, Loader2, PieChart, SlidersHorizontal, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning, Sparkles } from 'lucide-react';
+import { Book, Clock, Edit3, Loader2, PieChart, SlidersHorizontal, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning, Sparkles, MessageSquare } from 'lucide-react';
 import { subDays, startOfDay, endOfDay, format } from 'date-fns';
 import { db } from '../db/db';
 import { useAppStore } from '../store/app.store';
@@ -52,6 +52,8 @@ export default function Layout() {
   const dropdownCardRef = useRef<HTMLDivElement>(null);
   const [showPromptDropdown, setShowPromptDropdown] = useState(false);
   const promptDropdownRef = useRef<HTMLDivElement>(null);
+  const promptCardRef = useRef<HTMLDivElement>(null);
+  const [promptCardPos, setPromptCardPos] = useState<{ top: number; left: number } | null>(null);
 
   const [tempStartDate, setTempStartDate] = useState(searchFilters.customStartDate || '');
   const [tempEndDate, setTempEndDate] = useState(searchFilters.customEndDate || '');
@@ -73,8 +75,11 @@ export default function Layout() {
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (promptDropdownRef.current && !promptDropdownRef.current.contains(event.target as Node)) {
+      const inButton = promptDropdownRef.current && promptDropdownRef.current.contains(event.target as Node);
+      const inCard = promptCardRef.current && promptCardRef.current.contains(event.target as Node);
+      if (!inButton && !inCard) {
         setShowPromptDropdown(false);
+        setPromptCardPos(null);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -148,6 +153,17 @@ export default function Layout() {
     }
   };
 
+  const togglePromptDropdown = () => {
+    // Measure the button position so the dropdown card (rendered outside the
+    // overflow-x-auto filter row to avoid clipping) can anchor to it.
+    if (!showPromptDropdown && promptDropdownRef.current) {
+      const r = promptDropdownRef.current.getBoundingClientRect();
+      setPromptCardPos({ top: r.bottom + 4, left: r.left });
+    }
+    setShowPromptDropdown(!showPromptDropdown);
+    setShowDateDropdown(false);
+  };
+
   return (
     <div className="flex flex-col h-full bg-[#f0eef5] font-sans text-stone-900 overflow-hidden items-center justify-center">
       <div className="w-full max-w-md h-full bg-white shadow-sm ring-1 ring-black/5 flex flex-col relative overflow-hidden">
@@ -192,7 +208,7 @@ export default function Layout() {
               title="白描 Copilot"
               className="p-1.5 hover:opacity-70 transition-opacity active:scale-95"
             >
-              <Sparkles className="w-[18px] h-[18px]" />
+              <MessageSquare className="w-[18px] h-[18px]" />
             </button>
             <button
               onClick={() => navigate('/settings')}
@@ -258,7 +274,7 @@ export default function Layout() {
 
         {/* Main Canvas */}
         <main className="flex-1 overflow-hidden bg-white selection:bg-black selection:text-white flex flex-col relative">
-          <Outlet />
+          {isCopilotMode ? <Copilot /> : <Outlet />}
         </main>
 
         {/* Tab Bar */}
@@ -442,34 +458,40 @@ export default function Layout() {
             {embedEnabled && semanticSearchEnabled && searchFilters.modules.includes('diary') && (
               <div className="relative shrink-0" ref={promptDropdownRef}>
                 <button
-                  onClick={() => setShowPromptDropdown(!showPromptDropdown)}
+                  onClick={togglePromptDropdown}
                   className="flex items-center gap-1.5 bg-stone-100 hover:bg-stone-200/80 text-stone-750 px-3 py-1 rounded-xl text-[12px] font-medium border border-stone-200/40 outline-none transition-colors cursor-pointer active:scale-95"
                 >
                   <span>{searchFilters.diaryPromptIndex === undefined ? '全部模板' : `模板 ${searchFilters.diaryPromptIndex === 0 ? '默认' : searchFilters.diaryPromptIndex}`}</span>
                   <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
                 </button>
-                {showPromptDropdown && (
-                  <div className="absolute top-full left-0 mt-1 bg-white rounded-2xl border border-stone-200/60 shadow-lg py-1 z-50 min-w-[120px]">
-                    <button
-                      onClick={() => { setSearchFilters({ ...searchFilters, diaryPromptIndex: undefined }); setShowPromptDropdown(false); }}
-                      className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-stone-100 ${searchFilters.diaryPromptIndex === undefined ? 'text-baimiao-mysteria font-medium' : 'text-stone-700'}`}
-                    >
-                      全部模板
-                    </button>
-                    {diaryPrompts.map((p: string, i: number) => p.trim() && (
-                      <button
-                        key={i}
-                        onClick={() => { setSearchFilters({ ...searchFilters, diaryPromptIndex: i }); setShowPromptDropdown(false); }}
-                        className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-stone-100 ${searchFilters.diaryPromptIndex === i ? 'text-baimiao-mysteria font-medium' : 'text-stone-700'}`}
-                      >
-                        模板 {i === 0 ? '默认' : i}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
             )}
           </div>
+
+          {/* Diary template dropdown card (rendered outside overflow-x-auto row to avoid clipping) */}
+          {showPromptDropdown && promptCardPos && (
+            <div
+              ref={promptCardRef}
+              className="fixed bg-white rounded-2xl border border-stone-200/60 shadow-lg py-1 z-[90] min-w-[120px]"
+              style={{ top: promptCardPos.top, left: promptCardPos.left }}
+            >
+              <button
+                onClick={() => { setSearchFilters({ ...searchFilters, diaryPromptIndex: undefined }); setShowPromptDropdown(false); setPromptCardPos(null); }}
+                className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-stone-100 ${searchFilters.diaryPromptIndex === undefined ? 'text-baimiao-mysteria font-medium' : 'text-stone-700'}`}
+              >
+                全部模板
+              </button>
+              {diaryPrompts.map((p: string, i: number) => p.trim() && (
+                <button
+                  key={i}
+                  onClick={() => { setSearchFilters({ ...searchFilters, diaryPromptIndex: i }); setShowPromptDropdown(false); setPromptCardPos(null); }}
+                  className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-stone-100 ${searchFilters.diaryPromptIndex === i ? 'text-baimiao-mysteria font-medium' : 'text-stone-700'}`}
+                >
+                  模板 {i === 0 ? '默认' : i}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Semantic Status Bar */}
           {embedEnabled && semanticSearchEnabled && (
@@ -698,9 +720,6 @@ export default function Layout() {
           </div>
         </div>
       )}
-
-      {/* Copilot RAG Panel */}
-      {isCopilotMode && <Copilot />}
     </div>
   );
 }

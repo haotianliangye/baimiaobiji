@@ -24,7 +24,7 @@ import {
 import { format, parseISO } from 'date-fns';
 
 export interface CopilotRetrievalFilters {
-  modules: Array<'record' | 'diary' | 'review'>;
+  modules: Array<'record' | 'diary' | 'review' | 'insight'>;
   dateRange: string; // '全部' | '本周' | '本月' | '本季度' | '自定义'
   customStartDate?: string;
   customEndDate?: string;
@@ -33,7 +33,7 @@ export interface CopilotRetrievalFilters {
 
 export interface CopilotCitation {
   date: string; // yyyy-MM-dd — used for in-app navigation
-  type: 'record' | 'diary' | 'review';
+  type: 'record' | 'diary' | 'review' | 'insight';
 }
 
 export interface CopilotRetrievalResult {
@@ -47,7 +47,7 @@ const COPILOT_TOP_K = 10;
 const MAX_FRAGMENT_CHARS = 800;
 
 interface CandidateMeta {
-  type: 'record' | 'diary' | 'review';
+  type: 'record' | 'diary' | 'review' | 'insight';
   id: string;
   navDate: string; // yyyy-MM-dd
   displayDate: string;
@@ -129,6 +129,25 @@ export async function retrieveCopilotContext(
         label: '反思回顾',
       });
       candidates.push({ key, embedding: r.embedding });
+    }
+  }
+
+  if (filters.modules.includes('insight')) {
+    const insights = (await db.insights.toArray()).slice(0, MAX_SEMANTIC_CANDIDATES);
+    for (const ins of insights) {
+      if (!ins.embedding || ins.embedding.length === 0) continue;
+      if (!ins.id) continue;
+      if (!isDateInFilter(ins.created_at, filters.dateRange, filters.customStartDate, filters.customEndDate)) continue;
+      const key = `insight:${ins.id}`;
+      meta.set(key, {
+        type: 'insight',
+        id: ins.id,
+        navDate: ins.start_date,
+        displayDate: ins.range_label,
+        content: ins.content,
+        label: '生命洞察',
+      });
+      candidates.push({ key, embedding: ins.embedding });
     }
   }
 

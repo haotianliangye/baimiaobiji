@@ -74,6 +74,8 @@ export interface Insight {
   content: string;
   created_at: number;
   chat_history?: InsightMessage[];
+  embedding?: number[];       // vector float array for semantic search
+  embedding_version?: string; // "provider:model" e.g. "gemini:gemini-embedding-2"
 }
 
 export class WhitewashDiaryDB extends dexie {
@@ -129,6 +131,8 @@ export class WhitewashDiaryDB extends dexie {
     this.version(5).stores({
       copilot_conversations: 'id, updated_at'
     });
+    // Version 6: insight embedding fields (no new indexes needed).
+    this.version(6).stores({});
   }
 }
 
