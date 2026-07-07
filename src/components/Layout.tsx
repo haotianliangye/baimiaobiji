@@ -42,11 +42,13 @@ export default function Layout() {
     embeddingQueueSize
   } = useAppStore();
 
-  const { syncEnabled, embedEnabled } = useSettingsStore();
+  const { syncEnabled, embedEnabled, diaryPrompts } = useSettingsStore();
 
   const [showDateDropdown, setShowDateDropdown] = useState(false);
   const dateDropdownRef = useRef<HTMLDivElement>(null);
   const dropdownCardRef = useRef<HTMLDivElement>(null);
+  const [showPromptDropdown, setShowPromptDropdown] = useState(false);
+  const promptDropdownRef = useRef<HTMLDivElement>(null);
 
   const [tempStartDate, setTempStartDate] = useState(searchFilters.customStartDate || '');
   const [tempEndDate, setTempEndDate] = useState(searchFilters.customEndDate || '');
@@ -58,6 +60,18 @@ export default function Layout() {
       const clickedCard = dropdownCardRef.current && dropdownCardRef.current.contains(event.target as Node);
       if (!clickedBtn && !clickedCard) {
         setShowDateDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (promptDropdownRef.current && !promptDropdownRef.current.contains(event.target as Node)) {
+        setShowPromptDropdown(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -404,14 +418,46 @@ export default function Layout() {
                 type="button"
                 onClick={() => setSemanticSearchEnabled(!semanticSearchEnabled)}
                 className={`px-3 py-1 rounded-xl text-[12px] font-medium border transition-all shrink-0 active:scale-95 flex items-center gap-1 ${
-                  semanticSearchEnabled 
-                    ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white border-transparent shadow-sm shadow-baimiao-mysteria/10' 
+                  semanticSearchEnabled
+                    ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white border-transparent shadow-sm shadow-baimiao-mysteria/10'
                     : 'bg-[#f0edf4]/50 text-[#8a859e] border-stone-200/20 hover:bg-[#f0edf4]'
                 }`}
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>语义搜索</span>
               </button>
+            )}
+
+            {/* Diary template filter — only meaningful for semantic diary search (PRD §4.3.2) */}
+            {embedEnabled && semanticSearchEnabled && searchFilters.modules.includes('diary') && (
+              <div className="relative shrink-0" ref={promptDropdownRef}>
+                <button
+                  onClick={() => setShowPromptDropdown(!showPromptDropdown)}
+                  className="flex items-center gap-1.5 bg-stone-100 hover:bg-stone-200/80 text-stone-750 px-3 py-1 rounded-xl text-[12px] font-medium border border-stone-200/40 outline-none transition-colors cursor-pointer active:scale-95"
+                >
+                  <span>{searchFilters.diaryPromptIndex === undefined ? '全部模板' : `模板 ${searchFilters.diaryPromptIndex === 0 ? '默认' : searchFilters.diaryPromptIndex}`}</span>
+                  <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
+                </button>
+                {showPromptDropdown && (
+                  <div className="absolute top-full left-0 mt-1 bg-white rounded-2xl border border-stone-200/60 shadow-lg py-1 z-50 min-w-[120px]">
+                    <button
+                      onClick={() => { setSearchFilters({ ...searchFilters, diaryPromptIndex: undefined }); setShowPromptDropdown(false); }}
+                      className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-stone-100 ${searchFilters.diaryPromptIndex === undefined ? 'text-baimiao-mysteria font-medium' : 'text-stone-700'}`}
+                    >
+                      全部模板
+                    </button>
+                    {diaryPrompts.map((p: string, i: number) => p.trim() && (
+                      <button
+                        key={i}
+                        onClick={() => { setSearchFilters({ ...searchFilters, diaryPromptIndex: i }); setShowPromptDropdown(false); }}
+                        className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-stone-100 ${searchFilters.diaryPromptIndex === i ? 'text-baimiao-mysteria font-medium' : 'text-stone-700'}`}
+                      >
+                        模板 {i === 0 ? '默认' : i}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
 

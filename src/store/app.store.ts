@@ -59,11 +59,12 @@ interface AppState {
   isSearchMode: boolean;
   searchQuery: string;
   searchHistory: string[];
-  searchFilters: { 
-    dateRange: string; 
-    modules: string[]; 
-    customStartDate?: string; 
-    customEndDate?: string; 
+  searchFilters: {
+    dateRange: string;
+    modules: string[];
+    customStartDate?: string;
+    customEndDate?: string;
+    diaryPromptIndex?: number; // when set, diary semantic search filters to this prompt_index only
   };
   searchResults: SearchItem[];
   semanticSearchEnabled: boolean;
@@ -99,11 +100,12 @@ interface AppState {
   // 搜索动作
   setSearchMode: (open: boolean) => void;
   setSearchQuery: (query: string) => void;
-  setSearchFilters: (filters: { 
-    dateRange: string; 
-    modules: string[]; 
-    customStartDate?: string; 
-    customEndDate?: string; 
+  setSearchFilters: (filters: {
+    dateRange: string;
+    modules: string[];
+    customStartDate?: string;
+    customEndDate?: string;
+    diaryPromptIndex?: number;
   }) => void;
   clearSearchHistory: () => void;
   executeSearch: () => Promise<void>;
@@ -902,7 +904,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isSearching: true, searchError: null });
 
     const query = searchQuery.trim();
-    const { dateRange, modules, customStartDate, customEndDate } = searchFilters;
+    const { dateRange, modules, customStartDate, customEndDate, diaryPromptIndex } = searchFilters;
+    const filterRange = getFilterRange(dateRange, customStartDate, customEndDate);
     const results: SearchItem[] = [];
     const seenIds = new Set<string>();
 
@@ -1016,11 +1019,15 @@ export const useAppStore = create<AppState>((set, get) => ({
       const semanticResults: Array<SearchItem & { similarity: number }> = [];
 
       if (modules.includes('record')) {
-        const logs = await db.raw_logs.toArray();
-        for (const log of logs) {
+        // Pre-filter by the created_at index when a bounded range is set, instead of
+        // loading the whole table (PRD §4.3.4). Fall back to toArray() for "全部".
+        const logs = filterRange
+          ? await db.raw_logs.where('created_at').between(filterRange.start, filterRange.end).toArray()
+          : await db.raw_logs.toArray();
+        const candidates = logs.slice(0, MAX_SEMANTIC_CANDIDATES);
+        for (const log of candidates) {
           if (!log.embedding || log.embedding.length === 0) continue;
           if (seenIds.has(log.id)) continue;
-          if (!isDateInFilter(log.created_at, dateRange, customStartDate, customEndDate)) continue;
           const sim = cosineSimilarity(queryEmbedding, log.embedding);
           if (sim > SEMANTIC_THRESHOLD) {
             semanticResults.push({
@@ -1037,11 +1044,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
 
       if (modules.includes('diary')) {
-        const diaries = await db.daily_diaries.toArray();
+        const diaries = (await db.daily_diaries.toArray()).slice(0, MAX_SEMANTIC_CANDIDATES);
         for (const d of diaries) {
           if (!d.embedding || d.embedding.length === 0) continue;
           if (seenIds.has(d.id)) continue;
           if (!isDateInFilter(parseISO(d.diary_date), dateRange, customStartDate, customEndDate)) continue;
+          // Multi-template isolation (PRD §4.3.2): when a diary prompt is selected,
+          // restrict semantic matches to that template only.
+          if (diaryPromptIndex !== undefined && d.prompt_index !== diaryPromptIndex) continue;
           const sim = cosineSimilarity(queryEmbedding, d.embedding);
           if (sim > SEMANTIC_THRESHOLD) {
             semanticResults.push({
@@ -1058,7 +1068,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
 
       if (modules.includes('review')) {
-        const reviews = await db.daily_reviews.toArray();
+        const reviews = (await db.daily_reviews.toArray()).slice(0, MAX_SEMANTIC_CANDIDATES);
         for (const r of reviews) {
           if (!r.embedding || r.embedding.length === 0) continue;
           if (seenIds.has(r.id)) continue;
@@ -1339,6 +1349,11 @@ registerQueueChangeListener((size) => {
 // search results. Tunable single source of truth.
 const SEMANTIC_THRESHOLD = 0.35;
 
+// Hard cap on how many candidates the main-thread cosine loop compares per
+// entity type, per PRD §4.3.4 (protects mobile CPU). Candidates are sliced
+// after date/prompt pre-filtering, before similarity scoring.
+const MAX_SEMANTIC_CANDIDATES = 1000;
+
 // === 搜索辅助函数 ===
 const isDateInFilter = (
   date: Date | number, 
@@ -1374,6 +1389,38 @@ const isDateInFilter = (
   }
 
   return isWithinInterval(target, { start, end });
+};
+
+// Returns the [start, end] timestamp window for a date filter, or null when
+// the range is unbounded ("全部"). Used to drive IndexedDB index pre-filtering
+// (where('created_at').between(...)) before the cosine loop, so we don't load
+// the full table into memory on every search (PRD §4.3.4).
+const getFilterRange = (
+  range: string,
+  customStartDate?: string,
+  customEndDate?: string
+): { start: number; end: number } | null => {
+  if (range === '全部') return null;
+  const now = new Date();
+  let start: Date;
+  let end: Date;
+  if (range === '本周') {
+    start = startOfWeek(now, { weekStartsOn: 1 });
+    end = endOfWeek(now, { weekStartsOn: 1 });
+  } else if (range === '本月') {
+    start = startOfMonth(now);
+    end = endOfMonth(now);
+  } else if (range === '本季度') {
+    start = startOfQuarter(now);
+    end = endOfQuarter(now);
+  } else if (range === '自定义') {
+    if (!customStartDate && !customEndDate) return null;
+    start = customStartDate ? startOfDay(parseISO(customStartDate)) : new Date(0);
+    end = customEndDate ? endOfDay(parseISO(customEndDate)) : new Date(8640000000000000);
+  } else {
+    return null;
+  }
+  return { start: start.getTime(), end: end.getTime() };
 };
 
 const escapeHtml = (str: string) => str
