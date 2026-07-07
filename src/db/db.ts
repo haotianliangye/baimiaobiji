@@ -8,7 +8,7 @@ export interface RawLog {
   audioBlob?: Blob;
   audioDuration?: number; // seconds
   embedding?: number[];       // vector float array for semantic search
-  embedding_version?: string; // "provider:model" e.g. "gemini:text-embedding-004"
+  embedding_version?: string; // "provider:model" e.g. "gemini:gemini-embedding-2"
 }
 
 export interface TimelineBlock {
@@ -33,7 +33,7 @@ export interface DailyDiary {
   review_prompt_name?: string;
   chat_history?: InsightMessage[];
   embedding?: number[];       // vector float array for semantic search
-  embedding_version?: string; // "provider:model" e.g. "gemini:text-embedding-004"
+  embedding_version?: string; // "provider:model" e.g. "gemini:gemini-embedding-2"
 }
 
 export interface DailyReview {
@@ -47,7 +47,7 @@ export interface DailyReview {
   updated_at: number;
   chat_history?: InsightMessage[];
   embedding?: number[];       // vector float array for semantic search
-  embedding_version?: string; // "provider:model" e.g. "gemini:text-embedding-004"
+  embedding_version?: string; // "provider:model" e.g. "gemini:gemini-embedding-2"
 }
 
 export interface InsightMessage {

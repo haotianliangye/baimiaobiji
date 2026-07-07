@@ -643,7 +643,7 @@ export default function Settings() {
                         <input
                           type="text"
                           placeholder={[
-                            { id: 'gemini', defaultModel: 'text-embedding-004' },
+                            { id: 'gemini', defaultModel: 'gemini-embedding-2' },
                             { id: 'openai', defaultModel: 'text-embedding-3-small' },
                             { id: 'siliconflow', defaultModel: 'BAAI/bge-large-zh-v1.5' },
                             { id: 'zhipu', defaultModel: 'embedding-3' },

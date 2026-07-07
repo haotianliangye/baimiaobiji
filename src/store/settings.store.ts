@@ -100,7 +100,7 @@ const DEFAULT_PROVIDER_CONFIGS: Record<string, { apiKey: string; baseUrl: string
 };
 
 export const DEFAULT_EMBED_PROVIDER_CONFIGS: Record<string, { apiKey: string; baseUrl: string; model: string }> = {
-  gemini: { apiKey: '', baseUrl: 'https://generativelanguage.googleapis.com', model: 'text-embedding-004' },
+  gemini: { apiKey: '', baseUrl: 'https://generativelanguage.googleapis.com', model: 'gemini-embedding-2' },
   openai: { apiKey: '', baseUrl: 'https://api.openai.com/v1', model: 'text-embedding-3-small' },
   siliconflow: { apiKey: '', baseUrl: 'https://api.siliconflow.cn/v1', model: 'BAAI/bge-large-zh-v1.5' },
   volcengine: { apiKey: '', baseUrl: 'https://ark.cn-beijing.volces.com/api/v3', model: 'doubao-embedding' },

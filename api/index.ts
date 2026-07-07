@@ -230,7 +230,7 @@ ${diaryContent || ""}
         }
         const ai = new GoogleGenAI(genAiConfig);
         const result = await ai.models.embedContent({
-          model: embeddingModel || 'text-embedding-004',
+          model: embeddingModel || 'gemini-embedding-2',
           contents: text.trim(),
         });
         embedding = result.embeddings?.[0]?.values || [];
