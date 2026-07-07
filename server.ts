@@ -503,6 +503,20 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
     await processChatRequest(req, res, systemPrompt);
   });
 
+  app.post('/api/copilot-chat', async (req, res) => {
+    const { contextContent } = req.body;
+    const systemPrompt = `你是「白描 Copilot」，用户的个人反思与记录助手。以下是通过本地向量检索到的、与用户问题最相关的历史记录片段（每条带有一个 ID）：
+
+${contextContent || '（本次未检索到相关片段）'}
+
+回答规则：
+1. 基于上述片段回答用户问题，保持客观、有同理心、有洞察力。
+2. 每当你提及源于某条特定片段的事件或细节时，必须添加指向该片段 ID 的 Markdown 链接，格式严格为：[你的文字](#log_id_<ID>)，其中 <ID> 是上方列表里提供的准确 ID。示例：[那天跑了五公里](#log_id_12345-abcde)。
+3. 如果未提供相关片段或片段与问题无关，可基于对话历史正常回答，但应说明当前未检索到强相关记录。
+4. 使用 Markdown 格式输出，用中文回答。`;
+    await processChatRequest(req, res, systemPrompt);
+  });
+
   app.post('/api/transcribe', express.json({limit: '50mb'}), async (req, res) => {
     try {
        const { audio_base64, mime_type, settings } = req.body;

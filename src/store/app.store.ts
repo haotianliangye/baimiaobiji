@@ -58,6 +58,7 @@ interface AppState {
   
   // 搜索状态
   isSearchMode: boolean;
+  isCopilotMode: boolean;
   searchQuery: string;
   searchHistory: string[];
   searchFilters: {
@@ -100,6 +101,7 @@ interface AppState {
 
   // 搜索动作
   setSearchMode: (open: boolean) => void;
+  setCopilotMode: (open: boolean) => void;
   setSearchQuery: (query: string) => void;
   setSearchFilters: (filters: {
     dateRange: string;
@@ -141,6 +143,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // 搜索初始化状态
   isSearchMode: false,
+  isCopilotMode: false,
   searchQuery: '',
   searchHistory: (() => {
     try {
@@ -875,6 +878,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  setCopilotMode: (open) => {
+    set({ isCopilotMode: open });
+  },
+
   setSearchQuery: (query) => {
     set({ searchQuery: query });
     // Debounce so we don't fire an embedding request + full-table scans per keystroke
@@ -1094,9 +1101,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       // worker is unavailable, so semantic search still works on old WebViews.
       let scores: CosineScore[];
       try {
-        const res = await computeCosineBatch(myRequestId, queryEmbedding, candidates, SEMANTIC_THRESHOLD);
+        const res = await computeCosineBatch(queryEmbedding, candidates, SEMANTIC_THRESHOLD);
         // A newer search may have started while the worker was computing; drop this result.
-        if (res.requestId !== searchRequestId) return;
+        if (myRequestId !== searchRequestId) return;
         scores = res.results;
       } catch (err) {
         console.warn('[Semantic Search] worker unavailable, falling back to main thread:', err);
@@ -1371,16 +1378,17 @@ registerQueueChangeListener((size) => {
 });
 
 // Minimum cosine similarity for a vector match to be included in semantic
-// search results. Tunable single source of truth.
-const SEMANTIC_THRESHOLD = 0.35;
+// search results. Tunable single source of truth. Exported so the Copilot
+// RAG retrieval shares the same threshold.
+export const SEMANTIC_THRESHOLD = 0.35;
 
 // Hard cap on how many candidates the main-thread cosine loop compares per
 // entity type, per PRD §4.3.4 (protects mobile CPU). Candidates are sliced
 // after date/prompt pre-filtering, before similarity scoring.
-const MAX_SEMANTIC_CANDIDATES = 1000;
+export const MAX_SEMANTIC_CANDIDATES = 1000;
 
 // === 搜索辅助函数 ===
-const isDateInFilter = (
+export const isDateInFilter = (
   date: Date | number, 
   range: string, 
   customStartDate?: string, 
@@ -1419,8 +1427,9 @@ const isDateInFilter = (
 // Returns the [start, end] timestamp window for a date filter, or null when
 // the range is unbounded ("全部"). Used to drive IndexedDB index pre-filtering
 // (where('created_at').between(...)) before the cosine loop, so we don't load
-// the full table into memory on every search (PRD §4.3.4).
-const getFilterRange = (
+// the full table into memory on every search (PRD §4.3.4). Exported for the
+// Copilot RAG retrieval to share the same pre-filtering logic.
+export const getFilterRange = (
   range: string,
   customStartDate?: string,
   customEndDate?: string

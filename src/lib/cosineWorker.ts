@@ -28,6 +28,7 @@ interface PendingEntry {
 
 let worker: Worker | null = null;
 let workerFailed = false;
+let nextRequestId = 1;
 const pending = new Map<number, PendingEntry>();
 
 function getWorker(): Worker | null {
@@ -66,19 +67,27 @@ function getWorker(): Worker | null {
  * `candidates`, returning those above `threshold` sorted by similarity desc
  * (capped at 100). Rejects with 'worker-unavailable' if the worker is not
  * available, so the caller can fall back to a main-thread loop.
+ *
+ * The correlation id is minted internally so callers don't have to manage one
+ * (and can't collide across callers — e.g. search vs Copilot retrieval).
+ * Callers that need staleness cancellation should capture their own sequence
+ * id before the await and compare it after, independent of this call.
  */
 export function computeCosineBatch(
-  requestId: number,
   queryEmbedding: number[],
   candidates: CosineCandidate[],
   threshold: number
-): Promise<{ requestId: number; results: CosineScore[] }> {
+): Promise<{ results: CosineScore[] }> {
   const w = getWorker();
   if (!w) {
     return Promise.reject(new Error('worker-unavailable'));
   }
+  const requestId = nextRequestId++;
   return new Promise((resolve, reject) => {
-    pending.set(requestId, { resolve, reject });
+    pending.set(requestId, {
+      resolve: ({ results }) => resolve({ results }),
+      reject,
+    });
     w.postMessage({ requestId, queryEmbedding, candidates, threshold });
   });
 }

@@ -7,12 +7,19 @@ import { washCitations } from '../lib/citationWash';
 
 interface ContextChatProps {
   chatHistory: InsightMessage[];
-  contextContent: string;
+  contextContent?: string;
   apiEndpoint: string;
   onUpdateHistory: (newHistory: InsightMessage[]) => Promise<void> | void;
+  // When provided, the context is re-retrieved per question (RAG) instead of
+  // using the static contextContent prop. Used by the Copilot panel.
+  getDynamicContext?: (userMessage: string) => Promise<string>;
+  // When provided, `#log_id_<UUID>` citation links call this instead of
+  // navigating as plain anchors. Used by the Copilot panel.
+  onCitationClick?: (logId: string) => void;
+  inputPlaceholder?: string;
 }
 
-export default function ContextChat({ chatHistory, contextContent, apiEndpoint, onUpdateHistory }: ContextChatProps) {
+export default function ContextChat({ chatHistory, contextContent, apiEndpoint, onUpdateHistory, getDynamicContext, onCitationClick, inputPlaceholder }: ContextChatProps) {
   const [messages, setMessages] = useState<InsightMessage[]>(chatHistory || []);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -52,11 +59,12 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
     setIsTyping(true);
 
     try {
+      const ctx = getDynamicContext ? await getDynamicContext(userMsg.content) : (contextContent || '');
       const res = await fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contextContent,
+          contextContent: ctx,
           chatHistory: messages,
           userMessage: userMsg.content,
           settings
@@ -114,11 +122,12 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
     setIsTyping(true);
 
     try {
+      const ctx = getDynamicContext ? await getDynamicContext(targetUserMsg.content) : (contextContent || '');
       const res = await fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contextContent,
+          contextContent: ctx,
           chatHistory: historyUpToUserMsg,
           userMessage: targetUserMsg.content,
           settings
@@ -169,7 +178,31 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
                 {msg.role === 'assistant' ? (
                   <div className="w-full flex flex-col">
                     <div className="markdown-body prose prose-sm prose-stone prose-p:my-1 prose-ul:my-1 prose-ol:my-1 w-full max-w-none">
-                      <ReactMarkdown>{washCitations(msg.content)}</ReactMarkdown>
+                      <ReactMarkdown
+                        components={
+                          onCitationClick
+                            ? {
+                                a: ({ node, href, children, ...props }) => (
+                                  <a
+                                    href={href}
+                                    onClick={(e) => {
+                                      if (href?.startsWith('#log_id_')) {
+                                        e.preventDefault();
+                                        onCitationClick(href.replace('#log_id_', ''));
+                                      }
+                                    }}
+                                    className="text-stone-500 bg-stone-200/50 hover:bg-stone-200 hover:text-stone-900 px-1.5 py-0.5 rounded cursor-pointer no-underline transition-colors border border-black/5"
+                                    {...props}
+                                  >
+                                    {children}
+                                  </a>
+                                ),
+                              }
+                            : undefined
+                        }
+                      >
+                        {washCitations(msg.content)}
+                      </ReactMarkdown>
                     </div>
                     <div className="flex justify-between w-full mt-3 pt-2.5 border-t border-stone-100/80 text-[11px] text-stone-400 font-medium select-none">
                       <button 
@@ -216,7 +249,7 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
         <textarea
           className="flex-1 bg-stone-50 border border-stone-200/60 rounded-2xl px-4 py-3 text-[14px] text-stone-800 placeholder-stone-400 focus:outline-none focus:border-stone-300 focus:bg-white focus:ring-4 focus:ring-stone-100/50 transition-all resize-none thin-scrollbar"
           rows={1}
-          placeholder="向 AI 追问更多细节..."
+          placeholder={inputPlaceholder || "向 AI 追问更多细节..."}
           value={inputValue}
           onChange={(e) => {
              setInputValue(e.target.value);

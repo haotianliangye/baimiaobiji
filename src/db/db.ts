@@ -57,6 +57,14 @@ export interface InsightMessage {
   timestamp: number;
 }
 
+export interface CopilotConversation {
+  id: string;
+  title: string;        // auto-derived from the first user message
+  messages: InsightMessage[];
+  created_at: number;
+  updated_at: number;
+}
+
 export interface Insight {
   id?: string;
   range_type: string;
@@ -73,6 +81,7 @@ export class WhitewashDiaryDB extends dexie {
   daily_diaries!: Table<DailyDiary>;
   daily_reviews!: Table<DailyReview>;
   insights!: Table<Insight>;
+  copilot_conversations!: Table<CopilotConversation>;
 
   constructor() {
     super('whitewash_diary');
@@ -116,6 +125,10 @@ export class WhitewashDiaryDB extends dexie {
     });
     // Version 4: embedding fields added to interfaces (no new indexes needed)
     this.version(4).stores({});
+    // Version 5: Copilot RAG conversation history (multi-conversation).
+    this.version(5).stores({
+      copilot_conversations: 'id, updated_at'
+    });
   }
 }
 

@@ -6,6 +6,7 @@ import { db } from '../db/db';
 import { useAppStore } from '../store/app.store';
 import { useSettingsStore } from '../store/settings.store';
 import MiniCalendar from './MiniCalendar';
+import Copilot from '../pages/Copilot';
 
 export default function Layout() {
   const navigate = useNavigate();
@@ -39,7 +40,9 @@ export default function Layout() {
     isSearching,
     searchError,
     totalVectorsCount,
-    embeddingQueueSize
+    embeddingQueueSize,
+    isCopilotMode,
+    setCopilotMode
   } = useAppStore();
 
   const { syncEnabled, embedEnabled, diaryPrompts } = useSettingsStore();
@@ -178,14 +181,21 @@ export default function Layout() {
                 {syncStatus === 'disabled' && <CloudOff className="w-[18px] h-[18px] text-stone-500" />}
               </button>
             )}
-            <button 
-              onClick={() => setSearchMode(true)} 
+            <button
+              onClick={() => setSearchMode(true)}
               className="p-1.5 hover:opacity-70 transition-opacity active:scale-95"
             >
               <Search className="w-[18px] h-[18px]" />
             </button>
-            <button 
-              onClick={() => navigate('/settings')} 
+            <button
+              onClick={() => setCopilotMode(true)}
+              title="白描 Copilot"
+              className="p-1.5 hover:opacity-70 transition-opacity active:scale-95"
+            >
+              <Sparkles className="w-[18px] h-[18px]" />
+            </button>
+            <button
+              onClick={() => navigate('/settings')}
               className="p-1.5 hover:opacity-70 transition-opacity -mr-1.5 active:scale-95"
             >
               <SlidersHorizontal className="w-[18px] h-[18px]" />
@@ -688,6 +698,9 @@ export default function Layout() {
           </div>
         </div>
       )}
+
+      {/* Copilot RAG Panel */}
+      {isCopilotMode && <Copilot />}
     </div>
   );
 }
