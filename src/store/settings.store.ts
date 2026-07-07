@@ -99,6 +99,15 @@ const DEFAULT_PROVIDER_CONFIGS: Record<string, { apiKey: string; baseUrl: string
   custom: { apiKey: '', baseUrl: 'http://127.0.0.1:11434/v1', model: 'llama3' }
 };
 
+export const DEFAULT_EMBED_PROVIDER_CONFIGS: Record<string, { apiKey: string; baseUrl: string; model: string }> = {
+  gemini: { apiKey: '', baseUrl: 'https://generativelanguage.googleapis.com', model: 'text-embedding-004' },
+  openai: { apiKey: '', baseUrl: 'https://api.openai.com/v1', model: 'text-embedding-3-small' },
+  siliconflow: { apiKey: '', baseUrl: 'https://api.siliconflow.cn/v1', model: 'BAAI/bge-large-zh-v1.5' },
+  volcengine: { apiKey: '', baseUrl: 'https://ark.cn-beijing.volces.com/api/v3', model: 'doubao-embedding' },
+  zhipu: { apiKey: '', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: 'embedding-3' },
+  custom: { apiKey: '', baseUrl: 'http://127.0.0.1:11434/v1', model: 'nomic-embed-text' }
+};
+
 const obfuscate = (str: string) => {
   if (!str) return str;
   try { return btoa(encodeURIComponent(str)); } catch(e) { return str; }
@@ -148,6 +157,14 @@ interface SettingsState {
   syncDropboxToken?: string;
   syncDropboxClientId?: string;
 
+  // Embedding (vector) model config - decoupled from Chat LLM
+  embedEnabled: boolean;
+  embedProvider: 'gemini' | 'openai' | 'siliconflow' | 'volcengine' | 'zhipu' | 'custom';
+  embedApiKey: string;
+  embedBaseUrl: string;
+  embedModel: string;
+  embedConfigs: Record<string, { apiKey: string; baseUrl: string; model: string }>;
+
   setSettings: (settings: Partial<SettingsState>) => void;
 }
 
@@ -191,6 +208,15 @@ export const useSettingsStore = create<SettingsState>()(
       syncGDriveClientId: '',
       syncDropboxToken: '',
       syncDropboxClientId: '',
+
+      // Embedding config defaults
+      embedEnabled: false,
+      embedProvider: 'gemini',
+      embedApiKey: DEFAULT_EMBED_PROVIDER_CONFIGS['gemini'].apiKey,
+      embedBaseUrl: DEFAULT_EMBED_PROVIDER_CONFIGS['gemini'].baseUrl,
+      embedModel: DEFAULT_EMBED_PROVIDER_CONFIGS['gemini'].model,
+      embedConfigs: {},
+
       setSettings: (newSettings) => set((state) => {
          const nextRemember = newSettings.syncRememberCredentials !== undefined ? newSettings.syncRememberCredentials : state.syncRememberCredentials;
          
@@ -206,6 +232,7 @@ export const useSettingsStore = create<SettingsState>()(
            sessionStorage.removeItem('baimiao_syncPasswordE2EE');
          }
 
+         // --- Chat provider config caching ---
          const nextConfigs = { ...state.configs };
          const providerToUpdate = state.provider;
          
@@ -215,6 +242,17 @@ export const useSettingsStore = create<SettingsState>()(
            model: state.model 
          };
 
+         // --- Embed provider config caching ---
+         const nextEmbedConfigs = { ...state.embedConfigs };
+         const embedProviderToUpdate = state.embedProvider;
+         
+         nextEmbedConfigs[embedProviderToUpdate] = {
+           apiKey: state.embedApiKey,
+           baseUrl: state.embedBaseUrl,
+           model: state.embedModel
+         };
+
+         // Handle Chat provider switch
          if (newSettings.provider && newSettings.provider !== state.provider) {
            const nextProvider = newSettings.provider;
            const targetConfig = nextConfigs[nextProvider] || DEFAULT_PROVIDER_CONFIGS[nextProvider] || { 
@@ -229,15 +267,41 @@ export const useSettingsStore = create<SettingsState>()(
              apiKey: targetConfig.apiKey,
              baseUrl: newSettings.baseUrl !== undefined ? newSettings.baseUrl : targetConfig.baseUrl,
              model: newSettings.model !== undefined ? newSettings.model : targetConfig.model,
-             configs: nextConfigs
+             configs: nextConfigs,
+             embedConfigs: nextEmbedConfigs
+           };
+         }
+
+         // Handle Embed provider switch
+         if (newSettings.embedProvider && newSettings.embedProvider !== state.embedProvider) {
+           const nextEmbedProvider = newSettings.embedProvider;
+           const targetEmbedConfig = nextEmbedConfigs[nextEmbedProvider] || DEFAULT_EMBED_PROVIDER_CONFIGS[nextEmbedProvider] || {
+             apiKey: '',
+             baseUrl: '',
+             model: ''
+           };
+
+           return {
+             ...state,
+             ...newSettings,
+             embedApiKey: targetEmbedConfig.apiKey,
+             embedBaseUrl: newSettings.embedBaseUrl !== undefined ? newSettings.embedBaseUrl : targetEmbedConfig.baseUrl,
+             embedModel: newSettings.embedModel !== undefined ? newSettings.embedModel : targetEmbedConfig.model,
+             configs: nextConfigs,
+             embedConfigs: nextEmbedConfigs
            };
          }
          
-         const nextState = { ...state, ...newSettings, configs: nextConfigs };
+         const nextState = { ...state, ...newSettings, configs: nextConfigs, embedConfigs: nextEmbedConfigs };
          nextConfigs[providerToUpdate] = { 
            apiKey: nextState.apiKey, 
            baseUrl: nextState.baseUrl, 
            model: nextState.model 
+         };
+         nextEmbedConfigs[embedProviderToUpdate] = {
+           apiKey: nextState.embedApiKey,
+           baseUrl: nextState.embedBaseUrl,
+           model: nextState.embedModel
          };
          
          return nextState;
@@ -245,7 +309,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     { 
         name: 'whitewash-settings',
-        version: 4,
+        version: 5,
         partialize: (state) => {
           const { syncPassword, syncPasswordE2EE, ...rest } = state;
           if (state.syncRememberCredentials) {
@@ -460,6 +524,22 @@ export const useSettingsStore = create<SettingsState>()(
                }
             }
          }
+
+          if (version < 5) {
+            // Initialize embedding config for existing users
+            if (!persistedState.embedProvider) {
+              persistedState.embedEnabled = false;
+              persistedState.embedProvider = 'gemini';
+              if (persistedState.provider === 'gemini' && persistedState.apiKey) {
+                persistedState.embedApiKey = persistedState.apiKey;
+              } else {
+                persistedState.embedApiKey = '';
+              }
+              persistedState.embedBaseUrl = DEFAULT_EMBED_PROVIDER_CONFIGS['gemini'].baseUrl;
+              persistedState.embedModel = DEFAULT_EMBED_PROVIDER_CONFIGS['gemini'].model;
+              persistedState.embedConfigs = {};
+            }
+          }
          
          return persistedState;
        }

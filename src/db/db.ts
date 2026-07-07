@@ -7,6 +7,8 @@ export interface RawLog {
   timezone: string;
   audioBlob?: Blob;
   audioDuration?: number; // seconds
+  embedding?: number[];       // vector float array for semantic search
+  embedding_version?: string; // "provider:model" e.g. "gemini:text-embedding-004"
 }
 
 export interface TimelineBlock {
@@ -30,6 +32,8 @@ export interface DailyDiary {
   review_prompt_index?: number;
   review_prompt_name?: string;
   chat_history?: InsightMessage[];
+  embedding?: number[];       // vector float array for semantic search
+  embedding_version?: string; // "provider:model" e.g. "gemini:text-embedding-004"
 }
 
 export interface DailyReview {
@@ -42,6 +46,8 @@ export interface DailyReview {
   review_prompt_name?: string;
   updated_at: number;
   chat_history?: InsightMessage[];
+  embedding?: number[];       // vector float array for semantic search
+  embedding_version?: string; // "provider:model" e.g. "gemini:text-embedding-004"
 }
 
 export interface InsightMessage {
@@ -107,6 +113,8 @@ export class WhitewashDiaryDB extends dexie {
         } as DailyReview);
       }
     });
+    // Version 4: embedding fields added to interfaces (no new indexes needed)
+    this.version(4).stores({});
   }
 }
 
