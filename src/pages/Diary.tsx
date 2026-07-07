@@ -310,11 +310,34 @@ export default function Diary() {
                   <div 
                     key={diary.id} 
                     className="w-full overflow-hidden baimiao-card-diary"
+                    onTouchStart={(e) => {
+                      if (isEditing) return;
+                      const touch = e.touches[0];
+                      const x = touch.clientX;
+                      const y = touch.clientY;
+                      holdTimeoutRef.current = setTimeout(() => {
+                        if (window.navigator?.vibrate) window.navigator.vibrate(50);
+                        setActiveDiary(diary);
+                        setContextMenuState({ isOpen: true, x, y });
+                      }, 500);
+                    }}
+                    onTouchEnd={() => clearTimeout(holdTimeoutRef.current)}
+                    onTouchMove={() => clearTimeout(holdTimeoutRef.current)}
+                    onContextMenu={(e) => {
+                      if (isEditing) return;
+                      e.preventDefault();
+                      if (window.navigator?.vibrate) window.navigator.vibrate(50);
+                      setActiveDiary(diary);
+                      setContextMenuState({ isOpen: true, x: e.clientX, y: e.clientY });
+                    }}
                   >
                    {/* Card Header */}
                    <button
-                     onClick={() => setExpandedDiaryId(isExpanded ? null : diary.id)}
-                     className="w-full text-left p-4 hover:bg-stone-50/50 active:bg-stone-50 transition-colors flex justify-between items-center select-none"
+                     onClick={() => {
+                        if (isEditing) return;
+                        setExpandedDiaryId(isExpanded ? null : diary.id);
+                     }}
+                     className="w-full text-left p-4 hover:bg-stone-50/50 active:bg-stone-100 transition-colors flex justify-between items-center select-none"
                    >
                      <span className="flex items-center gap-2 text-[16px] font-semibold text-stone-800">
                        <Sparkles className="w-3.5 h-3.5 text-stone-400 stroke-[2px]" />
@@ -334,26 +357,6 @@ export default function Diary() {
                    {isExpanded && (
                      <div 
                        className={`px-4 pb-4 pt-1 border-t border-black/[0.03] select-none -mx-2 ${isEditing ? 'p-4' : 'p-2 active:bg-stone-150/30'}`}
-                       onTouchStart={(e) => {
-                         if (isEditing) return;
-                         const touch = e.touches[0];
-                         const x = touch.clientX;
-                         const y = touch.clientY;
-                         holdTimeoutRef.current = setTimeout(() => {
-                           if (window.navigator?.vibrate) window.navigator.vibrate(50);
-                           setActiveDiary(diary);
-                           setContextMenuState({ isOpen: true, x, y });
-                         }, 500);
-                       }}
-                       onTouchEnd={() => clearTimeout(holdTimeoutRef.current)}
-                       onTouchMove={() => clearTimeout(holdTimeoutRef.current)}
-                       onContextMenu={(e) => {
-                         if (isEditing) return;
-                         e.preventDefault();
-                         if (window.navigator?.vibrate) window.navigator.vibrate(50);
-                         setActiveDiary(diary);
-                         setContextMenuState({ isOpen: true, x: e.clientX, y: e.clientY });
-                       }}
                      >
                        {isEditing ? (
                          <div className="flex flex-col gap-3 relative z-10 w-full animate-in fade-in zoom-in-95 duration-200">
@@ -645,6 +648,7 @@ export default function Diary() {
                 if (activeDiary) {
                    setEditText(activeDiary.ai_editorial || '');
                    setEditingDiaryId(activeDiary.id);
+                   setExpandedDiaryId(activeDiary.id); // 自动展开日记卡片
                 }
                 setContextMenuState({ ...contextMenuState, isOpen: false });
               }}
