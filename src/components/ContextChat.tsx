@@ -261,7 +261,8 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
              e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
           }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
+            const isMobile = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth < 768);
+            if (e.key === 'Enter' && !e.shiftKey && !isMobile) {
               e.preventDefault();
               handleSend();
             }
