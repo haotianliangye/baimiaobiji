@@ -907,33 +907,7 @@ export default function Settings() {
                 />
               </section>
 
-              {/* Card 4: 回顾一句话摘要生成 Prompt */}
-              <section className="baimiao-card-diary p-4 space-y-3 overflow-hidden">
-                <div className="bg-[#f8f6fa] border-b border-stone-100/80 px-4 py-2.5 -mx-4 -mt-4 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0 border-l-2 border-baimiao-mysteria pl-2">
-                    <label className="flex items-center gap-1.5 text-[13px] font-bold text-stone-700">
-                      <Settings2 className="w-4 h-4 text-baimiao-mysteria" />
-                      回顾一句话摘要生成 Prompt
-                    </label>
-                  </div>
-                  <button 
-                    type="button"
-                    onClick={() => setLocalSummaryPrompt(DEFAULT_SUMMARY_PROMPT)}
-                    className="text-[11px] text-stone-400 hover:text-red-500 flex items-center gap-1 transition-colors"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    恢复默认
-                  </button>
-                </div>
-                <textarea
-                  placeholder="请输入摘要生成提示词..."
-                  value={localSummaryPrompt}
-                  onChange={e => setLocalSummaryPrompt(e.target.value)}
-                  className="w-full h-24 resize-none bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] text-stone-900 placeholder:text-stone-400 transition-all font-mono leading-relaxed focus:bg-white"
-                />
-              </section>
-
-              {/* Card 5: 日记一句话摘要生成 Prompt */}
+              {/* Card 4: 日记一句话摘要生成 Prompt */}
               <section className="baimiao-card-diary p-4 space-y-3 overflow-hidden">
                 <div className="bg-[#f8f6fa] border-b border-stone-100/80 px-4 py-2.5 -mx-4 -mt-4 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0 border-l-2 border-baimiao-mysteria pl-2">
@@ -955,6 +929,32 @@ export default function Settings() {
                   placeholder="请输入日记摘要生成提示词..."
                   value={localDiarySummaryPrompt}
                   onChange={e => setLocalDiarySummaryPrompt(e.target.value)}
+                  className="w-full h-24 resize-none bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] text-stone-900 placeholder:text-stone-400 transition-all font-mono leading-relaxed focus:bg-white"
+                />
+              </section>
+
+              {/* Card 5: 回顾一句话摘要生成 Prompt */}
+              <section className="baimiao-card-diary p-4 space-y-3 overflow-hidden">
+                <div className="bg-[#f8f6fa] border-b border-stone-100/80 px-4 py-2.5 -mx-4 -mt-4 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0 border-l-2 border-baimiao-mysteria pl-2">
+                    <label className="flex items-center gap-1.5 text-[13px] font-bold text-stone-700">
+                      <Settings2 className="w-4 h-4 text-baimiao-mysteria" />
+                      回顾一句话摘要生成 Prompt
+                    </label>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => setLocalSummaryPrompt(DEFAULT_SUMMARY_PROMPT)}
+                    className="text-[11px] text-stone-400 hover:text-red-500 flex items-center gap-1 transition-colors"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    恢复默认
+                  </button>
+                </div>
+                <textarea
+                  placeholder="请输入摘要生成提示词..."
+                  value={localSummaryPrompt}
+                  onChange={e => setLocalSummaryPrompt(e.target.value)}
                   className="w-full h-24 resize-none bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] text-stone-900 placeholder:text-stone-400 transition-all font-mono leading-relaxed focus:bg-white"
                 />
               </section>

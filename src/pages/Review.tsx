@@ -271,13 +271,13 @@ export default function Review() {
          {/* 批量生成进度浮动条 */}
          {batchProgress && batchProgress.type === 'review' && (
            <div className="mb-4 w-full max-w-sm mx-auto animate-in fade-in">
-             <div className="flex items-center gap-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/60 rounded-xl px-4 py-3 shadow-sm">
-               <div className="animate-spin rounded-full h-4 w-4 border-2 border-amber-500 border-t-transparent shrink-0" />
+             <div className="flex items-center gap-3 bg-gradient-to-r from-[#f6f3f9] to-[#ece7f4] border border-purple-200/30 rounded-xl px-4 py-3 shadow-sm">
+               <div className="animate-spin rounded-full h-4 w-4 border-2 border-baimiao-mysteria border-t-transparent shrink-0" />
                <div className="flex-1 min-w-0">
-                 <p className="text-[13px] font-medium text-amber-800 truncate">正在批量生成 ({batchProgress.current}/{batchProgress.total})...</p>
-                 <div className="mt-1.5 h-1.5 bg-amber-100 rounded-full overflow-hidden">
+                 <p className="text-[13px] font-medium text-baimiao-mysteria truncate">正在批量生成 ({batchProgress.current}/{batchProgress.total})...</p>
+                 <div className="mt-1.5 h-1.5 bg-purple-100/60 rounded-full overflow-hidden">
                    <div
-                     className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                     className="h-full bg-gradient-to-r from-baimiao-mysteria to-[#5d56b0] rounded-full transition-all duration-500"
                      style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
                    />
                  </div>
@@ -634,9 +634,10 @@ export default function Review() {
                          }
                       }
                     }}
-                    className="w-full py-2 px-2.5 hover:bg-white/5 rounded-xl text-[12.5px] font-medium text-amber-400 text-left active:scale-[0.98] transition-all border-b border-white/5 mb-0.5"
+                    className="w-full py-2 px-2.5 bg-white/10 hover:bg-white/15 rounded-xl text-[12.5px] font-semibold text-purple-200 text-left active:scale-[0.98] transition-all border border-white/5 mb-1 flex items-center justify-center gap-1.5"
                   >
-                    ✨ 全部生成 ({activeCount} 套)
+                    <Sparkles className="w-3.5 h-3.5 text-purple-300" />
+                    全部生成 ({activeCount} 套)
                   </button>
                 ) : null;
               })()}
@@ -650,7 +651,7 @@ export default function Review() {
                     className="w-full py-2 px-2.5 hover:bg-white/5 rounded-xl text-[12.5px] font-medium text-white/90 text-left active:scale-[0.98] transition-all flex items-center justify-between"
                   >
                     <span>{name}</span>
-                    {hasContent && <span className="text-green-400 text-[11px]">✓</span>}
+                    {hasContent && <span className="text-purple-300 text-[11px] font-bold">✓</span>}
                   </button>
                 );
               })}
