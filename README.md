@@ -4,7 +4,8 @@
 
 > 隐私优先的 AI 语音笔记 · 本地存储 · 多模型 · 语义搜索
 
-<img width="448" height="908" alt="ScreenShot_2026-07-07_151415_910" src="https://github.com/user-attachments/assets/dfde101a-19b0-4564-817a-7624cbf93b1e" />
+![Uploading ScreenShot_2026-07-07_151901_001.png…]()
+
 
 随手用语音捕捉碎片，让 AI 把它们整理成日记、回顾与洞察。数据默认留在你的设备和网盘里——白描笔记只是一个跑在本地的工具，不托管任何数据。
 
