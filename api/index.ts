@@ -423,15 +423,25 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
       if (insightMarkdown) {
         const summaryPromptStr = insightSummaryPrompt || `你是一个用于生成一句话洞察摘要的助手。请根据提供的洞察报告文本，生成一句简短、优美、富有诗意的中文摘要（不超过30个字）。`;
         try {
-          summaryMarkdown = await sendLLMRequest(
-            provider,
-            baseUrl,
-            apiKey,
-            model,
-            summaryPromptStr,
-            [{ role: "user", content: `Insight Report:\n${insightMarkdown}` }],
-            1024
-          );
+          if (provider === 'gemini') {
+            const ai = buildGeminiClient(apiKey, baseUrl);
+            const finalModel = model || 'gemini-3.1-flash-lite';
+            const summaryResponse = await ai.models.generateContent({
+              model: finalModel,
+              contents: `${summaryPromptStr}\n\nInsight Report:\n${insightMarkdown}`,
+            });
+            summaryMarkdown = summaryResponse.text || "";
+          } else {
+            summaryMarkdown = await sendLLMRequest(
+              provider,
+              baseUrl,
+              apiKey,
+              model,
+              summaryPromptStr,
+              [{ role: "user", content: `Insight Report:\n${insightMarkdown}` }],
+              1024
+            );
+          }
         } catch (err) {
           console.error("Failed to generate insight summary:", err);
         }

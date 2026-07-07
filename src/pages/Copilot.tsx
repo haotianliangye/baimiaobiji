@@ -154,7 +154,11 @@ export default function Copilot() {
   // filter button doesn't snap back to "全部日期" while a custom range is live.
   const dateLabel = useMemo(() => {
     if (dateRange === '自定义' && customStartDate && customEndDate) {
-      return `${customStartDate.slice(5)} ~ ${customEndDate.slice(5)}`;
+      const formatShort = (s: string) => {
+        const [_, m, d] = s.split('-');
+        return `${parseInt(m, 10)}.${parseInt(d, 10)}`;
+      };
+      return `${formatShort(customStartDate)}~${formatShort(customEndDate)}`;
     }
     return dateRange === '全部' ? '全部日期' : dateRange;
   }, [dateRange, customStartDate, customEndDate]);
@@ -253,61 +257,56 @@ export default function Copilot() {
               Keeping all controls on one row prevents layout jumping when the
               diary-template chip conditionally appears. */}
           {embedReady && (
-            <div className="flex flex-col bg-white border-b border-stone-200/50 px-4 py-2 gap-2 shrink-0 select-none">
-              {/* Row 1: Module Chips */}
-              <div className="flex items-center gap-2">
-                {(['record', 'diary', 'review', 'insight'] as const).map(mod => {
-                  const isSelected = modules.includes(mod);
-                  return (
-                    <button
-                      key={mod}
-                      onClick={() => {
-                        let nm = [...modules];
-                        if (isSelected) {
-                          if (nm.length > 1) nm = nm.filter(m => m !== mod);
-                        } else {
-                          nm.push(mod);
-                        }
-                        setModules(nm);
-                      }}
-                      className={`px-3 py-1 rounded-xl text-[12px] font-medium border transition-all shrink-0 active:scale-95 ${
-                        isSelected
-                          ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white border-transparent shadow-sm'
-                          : 'bg-[#f0edf4]/50 text-[#8a859e] border-stone-200/20 hover:bg-[#f0edf4]'
-                      }`}
-                    >
-                      {MODULE_LABELS[mod]}
-                    </button>
-                  );
-                })}
+            <div className="flex items-center px-4 py-2 bg-white border-b border-stone-200/50 gap-1.5 shrink-0 relative flex-wrap justify-end select-none">
+              {/* Module chips */}
+              {(['record', 'diary', 'review', 'insight'] as const).map(mod => {
+                const isSelected = modules.includes(mod);
+                return (
+                  <button
+                    key={mod}
+                    onClick={() => {
+                      let nm = [...modules];
+                      if (isSelected) {
+                        if (nm.length > 1) nm = nm.filter(m => m !== mod);
+                      } else {
+                        nm.push(mod);
+                      }
+                      setModules(nm);
+                    }}
+                    className={`px-2.5 py-1 rounded-xl text-[12px] font-medium border transition-all shrink-0 active:scale-95 ${
+                      isSelected
+                        ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white border-transparent shadow-sm'
+                        : 'bg-[#f0edf4]/50 text-[#8a859e] border-stone-200/20 hover:bg-[#f0edf4]'
+                    }`}
+                  >
+                    {MODULE_LABELS[mod]}
+                  </button>
+                );
+              })}
+
+              {/* Date range button */}
+              <div className="relative shrink-0">
+                <button
+                  onClick={() => { setShowDateDropdown(!showDateDropdown); setShowPromptDropdown(false); setCalendarTarget('none'); }}
+                  className="flex items-center gap-1 bg-stone-100 hover:bg-stone-200/80 text-stone-750 px-2.5 py-1 rounded-xl text-[12px] font-medium border border-stone-200/40 outline-none transition-colors cursor-pointer active:scale-95"
+                >
+                  <span className="whitespace-nowrap">{dateLabel}</span>
+                  <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
+                </button>
               </div>
 
-              {/* Row 2: Dropdown filters */}
-              <div className="flex items-center gap-2">
-                {/* Date range button */}
+              {/* Diary template filter button (PRD §4.3.2) */}
+              {modules.includes('diary') && (
                 <div className="relative shrink-0">
                   <button
-                    onClick={() => { setShowDateDropdown(!showDateDropdown); setShowPromptDropdown(false); setCalendarTarget('none'); }}
-                    className="flex items-center gap-1.5 bg-stone-100 hover:bg-stone-200/80 text-stone-750 px-3 py-1 rounded-xl text-[12px] font-medium border border-stone-200/40 outline-none transition-colors cursor-pointer active:scale-95"
+                    onClick={() => { setShowPromptDropdown(!showPromptDropdown); setShowDateDropdown(false); }}
+                    className="flex items-center gap-1 bg-stone-100 hover:bg-stone-200/80 text-stone-750 px-2.5 py-1 rounded-xl text-[12px] font-medium border border-stone-200/40 outline-none transition-colors cursor-pointer active:scale-95"
                   >
-                    <span className="whitespace-nowrap">{dateLabel}</span>
+                    <span className="whitespace-nowrap">{templateLabel}</span>
                     <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
                   </button>
                 </div>
-
-                {/* Diary template filter button (PRD §4.3.2) */}
-                {modules.includes('diary') && (
-                  <div className="relative shrink-0">
-                    <button
-                      onClick={() => { setShowPromptDropdown(!showPromptDropdown); setShowDateDropdown(false); }}
-                      className="flex items-center gap-1.5 bg-stone-100 hover:bg-stone-200/80 text-stone-750 px-3 py-1 rounded-xl text-[12px] font-medium border border-stone-200/40 outline-none transition-colors cursor-pointer active:scale-95"
-                    >
-                      <span className="whitespace-nowrap">{templateLabel}</span>
-                      <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
-                    </button>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           )}
 
@@ -350,7 +349,7 @@ export default function Copilot() {
       {showDateDropdown && (
         <>
           <div className="fixed inset-0 z-[85]" onClick={closeDropdowns} />
-          <div className="absolute top-[192px] left-4 w-64 bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_10px_40px_rgba(27,25,56,0.15)] p-1.5 z-[90] animate-in fade-in zoom-in-95 duration-100 text-white">
+          <div className="absolute top-[144px] right-4 w-52 bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_10px_40px_rgba(27,25,56,0.15)] p-1.5 z-[90] animate-in fade-in zoom-in-95 duration-100 text-white">
             {calendarTarget === 'none' ? (
               <>
                 {DATE_PRESETS.map(range => (
@@ -437,7 +436,7 @@ export default function Copilot() {
       {showPromptDropdown && (
         <>
           <div className="fixed inset-0 z-[85]" onClick={closeDropdowns} />
-          <div className="absolute top-[192px] right-4 w-52 bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_10px_40px_rgba(27,25,56,0.15)] p-1.5 z-[90] animate-in fade-in zoom-in-95 duration-100 text-white">
+          <div className="absolute top-[144px] right-4 w-52 bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_10px_40px_rgba(27,25,56,0.15)] p-1.5 z-[90] animate-in fade-in zoom-in-95 duration-100 text-white">
             <button
               onClick={() => { setDiaryPromptIndex(undefined); setShowPromptDropdown(false); }}
               className={`w-full text-left px-3 py-1.5 text-[12px] font-medium rounded-xl transition-colors ${
