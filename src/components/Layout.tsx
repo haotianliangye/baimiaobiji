@@ -451,7 +451,6 @@ export default function Layout() {
                     : 'bg-[#f0edf4]/50 text-[#8a859e] border-stone-200/20 hover:bg-[#f0edf4]'
                 }`}
               >
-                <Sparkles className="w-3.5 h-3.5" />
                 <span>语义搜索</span>
               </button>
             )}
