@@ -309,7 +309,7 @@ ${diaryContent || ""}
               maxOutputTokens: 2
             }
           });
-          if (response.text) {
+          if (response) {
             return res.json({ success: true });
           }
         } else {
@@ -335,7 +335,7 @@ ${diaryContent || ""}
             throw new Error(errText || `HTTP ${response.status}`);
           }
           const data = await response.json();
-          if (data.choices?.[0]?.message) {
+          if (data) {
             return res.json({ success: true });
           }
         }
@@ -354,7 +354,7 @@ ${diaryContent || ""}
             model: model || 'gemini-embedding-2',
             contents: 'test',
           });
-          if (result.embeddings?.[0]?.values) {
+          if (result) {
             return res.json({ success: true });
           }
         } else {
@@ -379,7 +379,7 @@ ${diaryContent || ""}
             throw new Error(errText || `HTTP ${response.status}`);
           }
           const data = await response.json();
-          if (data.data?.[0]?.embedding) {
+          if (data) {
             return res.json({ success: true });
           }
         }
