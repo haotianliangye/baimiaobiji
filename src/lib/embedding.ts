@@ -61,10 +61,21 @@ const QUEUE_KEY = 'baimiao_pending_embeddings';
 
 export interface EmbeddingTask {
   id: string;
-  type: 'record' | 'diary' | 'review';
+  type: EntityType;
   retryCount: number;
   force?: boolean; // true when content changed and the embedding must be regenerated even if version matches
 }
+
+// Single source of truth for the three embeddable entity types. Drives the
+// queue processor, the backfill scan and the Dexie hooks so none of them
+// repeat the record/diary/review cascade. `table` is typed loosely because
+// Dexie's Table<T,K> differs per entity and we only call get/update/toArray/hook.
+type EntityType = 'record' | 'diary' | 'review';
+const ENTITY_CONFIG: Record<EntityType, { table: any; textField: 'content' | 'ai_editorial' | 'ai_review' }> = {
+  record: { table: db.raw_logs, textField: 'content' },
+  diary: { table: db.daily_diaries, textField: 'ai_editorial' },
+  review: { table: db.daily_reviews, textField: 'ai_review' },
+};
 
 function getQueue(): EmbeddingTask[] {
   try {
@@ -101,7 +112,7 @@ function removeTask(task: EmbeddingTask) {
   saveQueue(queue);
 }
 
-export function enqueueEmbeddingTask(id: string, type: 'record' | 'diary' | 'review', force = false) {
+export function enqueueEmbeddingTask(id: string, type: EntityType, force = false) {
   const queue = getQueue();
   const existing = queue.find(t => t.id === id && t.type === type);
   if (existing) {
@@ -140,31 +151,14 @@ export async function processEmbeddingQueue(
 
       const task = currentQueue[0];
       try {
-        let text = '';
-
-        if (task.type === 'record') {
-          const log = await db.raw_logs.get(task.id);
-          if (!log) { removeTask(task); continue; }
-          // Skip if already embedded with same model version AND no content change forced it
-          if (log.embedding && log.embedding.length > 0 && log.embedding_version === versionTag && !task.force) {
-            removeTask(task); continue;
-          }
-          text = log.content;
-        } else if (task.type === 'diary') {
-          const diary = await db.daily_diaries.get(task.id);
-          if (!diary) { removeTask(task); continue; }
-          if (diary.embedding && diary.embedding.length > 0 && diary.embedding_version === versionTag && !task.force) {
-            removeTask(task); continue;
-          }
-          text = diary.ai_editorial || '';
-        } else if (task.type === 'review') {
-          const review = await db.daily_reviews.get(task.id);
-          if (!review) { removeTask(task); continue; }
-          if (review.embedding && review.embedding.length > 0 && review.embedding_version === versionTag && !task.force) {
-            removeTask(task); continue;
-          }
-          text = review.ai_review || '';
+        const { table, textField } = ENTITY_CONFIG[task.type];
+        const record = await table.get(task.id);
+        if (!record) { removeTask(task); continue; }
+        // Skip if already embedded with same model version AND no content change forced it
+        if (record.embedding && record.embedding.length > 0 && record.embedding_version === versionTag && !task.force) {
+          removeTask(task); continue;
         }
+        const text: string = record[textField] || '';
 
         if (!text.trim()) {
           removeTask(task);
@@ -174,13 +168,7 @@ export async function processEmbeddingQueue(
         const embedding = await requestEmbedding(text);
 
         // Write back to IndexedDB
-        if (task.type === 'record') {
-          await db.raw_logs.update(task.id, { embedding, embedding_version: versionTag });
-        } else if (task.type === 'diary') {
-          await db.daily_diaries.update(task.id, { embedding, embedding_version: versionTag });
-        } else if (task.type === 'review') {
-          await db.daily_reviews.update(task.id, { embedding, embedding_version: versionTag });
-        }
+        await table.update(task.id, { embedding, embedding_version: versionTag });
 
         // Remove from queue on success (re-read queue to avoid clobbering concurrent enqueues)
         removeTask(task);
@@ -225,64 +213,33 @@ export function initEmbeddingQueueListener() {
 }
 
 // --- Dexie hooks for automatic queueing ---
-db.raw_logs.hook('creating', (primKey, obj, transaction) => {
-  transaction.on('complete', () => {
-    const settings = useSettingsStore.getState();
-    if (settings.embedEnabled && (!obj.embedding || obj.embedding.length === 0)) {
-      enqueueEmbeddingTask(obj.id, 'record');
-      processEmbeddingQueue();
-    }
+// One factory registers creating + updating hooks for a single entity type,
+// avoiding 6 near-identical hook blocks. `textField` is the column whose
+// mutation signals a content change requiring re-embedding.
+function registerEntityHooks(type: EntityType, textField: 'content' | 'ai_editorial' | 'ai_review') {
+  const { table } = ENTITY_CONFIG[type];
+  table.hook('creating', (_primKey, obj, transaction) => {
+    transaction.on('complete', () => {
+      const settings = useSettingsStore.getState();
+      if (settings.embedEnabled && (!obj.embedding || obj.embedding.length === 0)) {
+        enqueueEmbeddingTask(obj.id, type);
+        processEmbeddingQueue();
+      }
+    });
   });
-});
+  table.hook('updating', (mods, obj, transaction) => {
+    transaction.on('complete', () => {
+      const settings = useSettingsStore.getState();
+      if (settings.embedEnabled && textField in mods) {
+        enqueueEmbeddingTask(obj.id, type, true);
+        processEmbeddingQueue();
+      }
+    });
+  });
+}
 
-db.raw_logs.hook('updating', (mods, primKey, obj, transaction) => {
-  transaction.on('complete', () => {
-    const settings = useSettingsStore.getState();
-    if (settings.embedEnabled && 'content' in mods) {
-      enqueueEmbeddingTask(obj.id, 'record', true);
-      processEmbeddingQueue();
-    }
-  });
-});
-
-db.daily_diaries.hook('creating', (primKey, obj, transaction) => {
-  transaction.on('complete', () => {
-    const settings = useSettingsStore.getState();
-    if (settings.embedEnabled && (!obj.embedding || obj.embedding.length === 0)) {
-      enqueueEmbeddingTask(obj.id, 'diary');
-      processEmbeddingQueue();
-    }
-  });
-});
-
-db.daily_diaries.hook('updating', (mods, primKey, obj, transaction) => {
-  transaction.on('complete', () => {
-    const settings = useSettingsStore.getState();
-    if (settings.embedEnabled && 'ai_editorial' in mods) {
-      enqueueEmbeddingTask(obj.id, 'diary', true);
-      processEmbeddingQueue();
-    }
-  });
-});
-
-db.daily_reviews.hook('creating', (primKey, obj, transaction) => {
-  transaction.on('complete', () => {
-    const settings = useSettingsStore.getState();
-    if (settings.embedEnabled && (!obj.embedding || obj.embedding.length === 0)) {
-      enqueueEmbeddingTask(obj.id, 'review');
-      processEmbeddingQueue();
-    }
-  });
-});
-
-db.daily_reviews.hook('updating', (mods, primKey, obj, transaction) => {
-  transaction.on('complete', () => {
-    const settings = useSettingsStore.getState();
-    if (settings.embedEnabled && 'ai_review' in mods) {
-      enqueueEmbeddingTask(obj.id, 'review', true);
-      processEmbeddingQueue();
-    }
-  });
+(Object.keys(ENTITY_CONFIG) as EntityType[]).forEach((type) => {
+  registerEntityHooks(type, ENTITY_CONFIG[type].textField);
 });
 
 // --- Enqueue all items missing embeddings (for historical data backfilling) ---
@@ -292,39 +249,16 @@ export async function enqueueAllMissingEmbeddings(): Promise<number> {
   const queueSet = new Set(queue.map(t => `${t.type}:${t.id}`));
   let addedCount = 0;
 
-  // 1. Records
-  const logs = await db.raw_logs.toArray();
-  for (const log of logs) {
-    if ((!log.embedding || log.embedding.length === 0 || log.embedding_version !== versionTag) && log.content.trim()) {
-      const key = `record:${log.id}`;
+  for (const type of Object.keys(ENTITY_CONFIG) as EntityType[]) {
+    const { table, textField } = ENTITY_CONFIG[type];
+    const rows = await table.toArray();
+    for (const row of rows) {
+      const text: string = row[textField] || '';
+      if (!text.trim()) continue;
+      if (row.embedding && row.embedding.length > 0 && row.embedding_version === versionTag) continue;
+      const key = `${type}:${row.id}`;
       if (!queueSet.has(key)) {
-        queue.push({ id: log.id, type: 'record', retryCount: 0 });
-        queueSet.add(key);
-        addedCount++;
-      }
-    }
-  }
-
-  // 2. Diaries
-  const diaries = await db.daily_diaries.toArray();
-  for (const d of diaries) {
-    if ((!d.embedding || d.embedding.length === 0 || d.embedding_version !== versionTag) && d.ai_editorial.trim()) {
-      const key = `diary:${d.id}`;
-      if (!queueSet.has(key)) {
-        queue.push({ id: d.id, type: 'diary', retryCount: 0 });
-        queueSet.add(key);
-        addedCount++;
-      }
-    }
-  }
-
-  // 3. Reviews
-  const reviews = await db.daily_reviews.toArray();
-  for (const r of reviews) {
-    if ((!r.embedding || r.embedding.length === 0 || r.embedding_version !== versionTag) && r.ai_review.trim()) {
-      const key = `review:${r.id}`;
-      if (!queueSet.has(key)) {
-        queue.push({ id: r.id, type: 'review', retryCount: 0 });
+        queue.push({ id: row.id, type, retryCount: 0 });
         queueSet.add(key);
         addedCount++;
       }
