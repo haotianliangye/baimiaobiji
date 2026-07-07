@@ -38,7 +38,7 @@ export default function Settings() {
 
   const { syncStatus, syncErrorMessage, syncNow, checkAndGenerateHistoryTasks, isProcessingQueue, autoGenTasks, isQueuePaused, setQueuePaused, clearQueue } = useAppStore();
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState<'model' | 'data' | 'prompt'>(
+  const [activeTab, setActiveTab] = useState<'model' | 'embedding' | 'data' | 'prompt'>(
     (location.state as any)?.tab || 'model'
   );
   const [showApiKey, setShowApiKey] = useState(false);
@@ -354,18 +354,26 @@ export default function Settings() {
         <div className="flex-1 overflow-y-auto thin-scrollbar w-full p-3 space-y-4 pb-16">
         
         {/* Navigation Tabs */}
-        <div className="flex bg-[#f0edf4]/60 p-1 rounded-xl border border-baimiao-border/20">
+        <div className="flex bg-[#f0edf4]/60 p-1 rounded-xl border border-baimiao-border/20 gap-0.5">
           <button
             onClick={() => setActiveTab('model')}
-            className={`flex-1 flex justify-center py-2 text-[13px] font-medium rounded-lg transition-colors ${
+            className={`flex-1 flex justify-center py-2 text-[12px] font-medium rounded-lg transition-colors ${
               activeTab === 'model' ? 'bg-white shadow-md shadow-baimiao-mysteria/5 text-baimiao-mysteria font-bold' : 'text-[#8a859e] hover:text-stone-700'
             }`}
           >
-            系统设置
+            对话模型
+          </button>
+          <button
+            onClick={() => setActiveTab('embedding')}
+            className={`flex-1 flex justify-center py-2 text-[12px] font-medium rounded-lg transition-colors ${
+              activeTab === 'embedding' ? 'bg-white shadow-md shadow-baimiao-mysteria/5 text-baimiao-mysteria font-bold' : 'text-[#8a859e] hover:text-stone-700'
+            }`}
+          >
+            向量与语义
           </button>
           <button
             onClick={() => setActiveTab('data')}
-            className={`flex-1 flex justify-center py-2 text-[13px] font-medium rounded-lg transition-colors ${
+            className={`flex-1 flex justify-center py-2 text-[12px] font-medium rounded-lg transition-colors ${
               activeTab === 'data' ? 'bg-white shadow-md shadow-baimiao-mysteria/5 text-baimiao-mysteria font-bold' : 'text-[#8a859e] hover:text-stone-700'
             }`}
           >
@@ -373,11 +381,11 @@ export default function Settings() {
           </button>
           <button
             onClick={() => setActiveTab('prompt')}
-            className={`flex-1 flex justify-center py-2 text-[13px] font-medium rounded-lg transition-colors ${
+            className={`flex-1 flex justify-center py-2 text-[12px] font-medium rounded-lg transition-colors ${
               activeTab === 'prompt' ? 'bg-white shadow-md shadow-baimiao-mysteria/5 text-baimiao-mysteria font-bold' : 'text-[#8a859e] hover:text-stone-700'
             }`}
           >
-            提示词 (Prompt)
+            提示词配置
           </button>
         </div>
 
@@ -526,9 +534,11 @@ export default function Settings() {
                   </div>
                 </div>
               </section>
+            </>
+          )}
 
-              {/* Embedding Model Selection */}
-              <section className="space-y-3">
+          {activeTab === 'embedding' && (
+            <section className="space-y-3">
                 <div className="baimiao-card-diary p-4 space-y-3">
                   <div className="flex items-center justify-between border-b border-stone-100 pb-2 mb-1">
                     <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase">本地向量与语义搜索</h3>
@@ -658,7 +668,6 @@ export default function Settings() {
                   )}
                 </div>
               </section>
-            </>
           )}
 
           {activeTab === 'prompt' && (
