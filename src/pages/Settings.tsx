@@ -541,7 +541,7 @@ export default function Settings() {
                           ].find(x => x.id === provider)?.link;
                           
                           return linkInfo ? (
-                            <a href={linkInfo} target="_blank" rel="noreferrer" className="text-[11px] text-blue-500 hover:underline font-normal ml-1">申请密钥</a>
+                            <a href={linkInfo} target="_blank" rel="noreferrer" className="text-[11.5px] text-[#8a859e] hover:text-baimiao-mysteria transition-colors hover:underline font-normal ml-4">申请密钥</a>
                           ) : null;
                         })()}
                       </label>
@@ -714,7 +714,7 @@ export default function Settings() {
                               ].find(x => x.id === embedProvider)?.link;
                               
                               return linkInfo ? (
-                                <a href={linkInfo} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 hover:underline font-normal ml-1">申请密钥</a>
+                                <a href={linkInfo} target="_blank" rel="noreferrer" className="text-[11px] text-[#8a859e] hover:text-baimiao-mysteria transition-colors hover:underline font-normal ml-4">申请密钥</a>
                               ) : null;
                             })()}
                           </label>
