@@ -4,6 +4,7 @@ import { generateUUID } from '../lib/utils';
 import { SYNC_CONSTANTS } from '../config/constants';
 import { useSettingsStore, getActivePromptIndices } from './settings.store';
 import { cosineSimilarity, requestEmbedding, getEmbedSettings, registerQueueChangeListener } from '../lib/embedding';
+import { computeCosineBatch, type CosineCandidate, type CosineScore } from '../lib/cosineWorker';
 import { encryptData, decryptData } from '../lib/crypto';
 import { WebDAVClient } from '../lib/webdav';
 import { OneDriveClient, GDriveClient, DropboxClient } from '../lib/cloudClients';
@@ -1018,28 +1019,32 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (queryEmbedding && queryEmbedding.length > 0) {
       const semanticResults: Array<SearchItem & { similarity: number }> = [];
 
+      // Gather survivors of date/prompt/seenIds/embedding pre-filtering into a
+      // candidate list for the worker. Metadata is stored alongside so the
+      // worker-returned scores can be mapped back to SearchItems without the
+      // worker needing to know about Dexie records (PRD §4.3.4).
+      const candidates: CosineCandidate[] = [];
+      const metaByKey = new Map<string, SearchItem>();
+
       if (modules.includes('record')) {
         // Pre-filter by the created_at index when a bounded range is set, instead of
         // loading the whole table (PRD §4.3.4). Fall back to toArray() for "全部".
         const logs = filterRange
           ? await db.raw_logs.where('created_at').between(filterRange.start, filterRange.end).toArray()
           : await db.raw_logs.toArray();
-        const candidates = logs.slice(0, MAX_SEMANTIC_CANDIDATES);
-        for (const log of candidates) {
+        for (const log of logs.slice(0, MAX_SEMANTIC_CANDIDATES)) {
           if (!log.embedding || log.embedding.length === 0) continue;
           if (seenIds.has(log.id)) continue;
-          const sim = cosineSimilarity(queryEmbedding, log.embedding);
-          if (sim > SEMANTIC_THRESHOLD) {
-            semanticResults.push({
-              id: log.id,
-              type: 'record',
-              title: `[语义] 碎屑记录 . ${format(new Date(log.created_at), 'yyyy-MM-dd HH:mm')}`,
-              content: log.content,
-              date: format(new Date(log.created_at), 'yyyy-MM-dd'),
-              highlightSnippets: getHighlightSnippet(log.content, query),
-              similarity: sim,
-            });
-          }
+          const key = `record:${log.id}`;
+          metaByKey.set(key, {
+            id: log.id,
+            type: 'record',
+            title: `[语义] 碎屑记录 . ${format(new Date(log.created_at), 'yyyy-MM-dd HH:mm')}`,
+            content: log.content,
+            date: format(new Date(log.created_at), 'yyyy-MM-dd'),
+            highlightSnippets: getHighlightSnippet(log.content, query),
+          });
+          candidates.push({ key, embedding: log.embedding });
         }
       }
 
@@ -1052,18 +1057,16 @@ export const useAppStore = create<AppState>((set, get) => ({
           // Multi-template isolation (PRD §4.3.2): when a diary prompt is selected,
           // restrict semantic matches to that template only.
           if (diaryPromptIndex !== undefined && d.prompt_index !== diaryPromptIndex) continue;
-          const sim = cosineSimilarity(queryEmbedding, d.embedding);
-          if (sim > SEMANTIC_THRESHOLD) {
-            semanticResults.push({
-              id: d.id,
-              type: 'diary',
-              title: `[语义] 整合日记 . ${d.diary_date}`,
-              content: d.ai_editorial,
-              date: d.diary_date,
-              highlightSnippets: getHighlightSnippet(d.ai_editorial || '', query),
-              similarity: sim,
-            });
-          }
+          const key = `diary:${d.id}`;
+          metaByKey.set(key, {
+            id: d.id,
+            type: 'diary',
+            title: `[语义] 整合日记 . ${d.diary_date}`,
+            content: d.ai_editorial,
+            date: d.diary_date,
+            highlightSnippets: getHighlightSnippet(d.ai_editorial || '', query),
+          });
+          candidates.push({ key, embedding: d.embedding });
         }
       }
 
@@ -1073,19 +1076,41 @@ export const useAppStore = create<AppState>((set, get) => ({
           if (!r.embedding || r.embedding.length === 0) continue;
           if (seenIds.has(r.id)) continue;
           if (!isDateInFilter(parseISO(r.review_date), dateRange, customStartDate, customEndDate)) continue;
-          const sim = cosineSimilarity(queryEmbedding, r.embedding);
-          if (sim > SEMANTIC_THRESHOLD) {
-            semanticResults.push({
-              id: r.id,
-              type: 'review',
-              title: `[语义] 反思回顾 . ${r.review_date}`,
-              content: r.ai_review,
-              date: r.review_date,
-              highlightSnippets: getHighlightSnippet(r.ai_review || '', query),
-              similarity: sim,
-            });
-          }
+          const key = `review:${r.id}`;
+          metaByKey.set(key, {
+            id: r.id,
+            type: 'review',
+            title: `[语义] 反思回顾 . ${r.review_date}`,
+            content: r.ai_review,
+            date: r.review_date,
+            highlightSnippets: getHighlightSnippet(r.ai_review || '', query),
+          });
+          candidates.push({ key, embedding: r.embedding });
         }
+      }
+
+      // Cosine scoring runs in a Web Worker to keep the main thread responsive
+      // (PRD §2 / §4.3.4). Falls back to an inline main-thread loop if the
+      // worker is unavailable, so semantic search still works on old WebViews.
+      let scores: CosineScore[];
+      try {
+        const res = await computeCosineBatch(myRequestId, queryEmbedding, candidates, SEMANTIC_THRESHOLD);
+        // A newer search may have started while the worker was computing; drop this result.
+        if (res.requestId !== searchRequestId) return;
+        scores = res.results;
+      } catch (err) {
+        console.warn('[Semantic Search] worker unavailable, falling back to main thread:', err);
+        scores = [];
+        for (const c of candidates) {
+          const sim = cosineSimilarity(queryEmbedding, c.embedding);
+          if (sim > SEMANTIC_THRESHOLD) scores.push({ key: c.key, sim });
+        }
+        scores.sort((a, b) => b.sim - a.sim);
+      }
+
+      for (const { key, sim } of scores) {
+        const item = metaByKey.get(key);
+        if (item) semanticResults.push({ ...item, similarity: sim });
       }
 
       // Sort semantic results by similarity descending, take top 20
