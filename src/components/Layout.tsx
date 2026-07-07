@@ -725,6 +725,7 @@ export default function Layout() {
 }
 
 function TabItem({ to, icon, label, disabled = false }: { to: string, icon: React.ReactNode, label: string, disabled?: boolean }) {
+  const setCopilotMode = useAppStore(state => state.setCopilotMode);
   if (disabled) {
     return (
       <div className="flex flex-col items-center justify-center p-2 opacity-30 cursor-not-allowed">
@@ -736,6 +737,7 @@ function TabItem({ to, icon, label, disabled = false }: { to: string, icon: Reac
   return (
     <NavLink
       to={to}
+      onClick={() => setCopilotMode(false)}
       className={({ isActive }) =>
         `relative flex flex-col items-center justify-center px-4 py-1.5 rounded-xl transition-all duration-200 select-none ${
           isActive

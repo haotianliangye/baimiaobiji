@@ -228,11 +228,11 @@ function registerEntityHooks(type: EntityType, textField: 'content' | 'ai_editor
       }
     });
   });
-  table.hook('updating', (mods, obj, transaction) => {
-    transaction.on('complete', () => {
+  table.hook('updating', (mods, primKey, obj, transaction) => {
+    transaction?.on('complete', () => {
       const settings = useSettingsStore.getState();
       if (settings.embedEnabled && textField in mods) {
-        enqueueEmbeddingTask(obj.id, type, true);
+        enqueueEmbeddingTask(primKey, type, true);
         processEmbeddingQueue();
       }
     });

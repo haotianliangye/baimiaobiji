@@ -40,7 +40,7 @@ export default function Copilot() {
   // message of a new conversation creates the Dexie row mid-send, which
   // would unmount the component and drop the in-flight fetch.
   const [sessionKey, setSessionKey] = useState(0);
-  const [showHistory, setShowHistory] = useState(false);
+  const [activeTab, setActiveTab] = useState<'chat' | 'history'>('chat');
   const [showDateDropdown, setShowDateDropdown] = useState(false);
   const [showPromptDropdown, setShowPromptDropdown] = useState(false);
 
@@ -61,7 +61,6 @@ export default function Copilot() {
   const embedReady = embedEnabled && (embedProvider === 'custom' || !!embedApiKey || !!apiKey);
 
   const closeDropdowns = () => {
-    setShowHistory(false);
     setShowDateDropdown(false);
     setShowPromptDropdown(false);
     setCalendarTarget('none');
@@ -71,6 +70,7 @@ export default function Copilot() {
     setCurrentId(null);
     citationMapRef.current = new Map();
     setSessionKey(k => k + 1);
+    setActiveTab('chat');
     closeDropdowns();
   };
 
@@ -78,6 +78,7 @@ export default function Copilot() {
     setCurrentId(id);
     citationMapRef.current = new Map();
     setSessionKey(k => k + 1);
+    setActiveTab('chat');
     closeDropdowns();
   };
 
@@ -166,14 +167,10 @@ export default function Copilot() {
     <div className="absolute inset-0 bg-[#f0eef5] flex flex-col overflow-hidden animate-in fade-in duration-200">
       {/* Header */}
       <div className="flex h-[54px] shrink-0 items-center px-4 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white gap-2 select-none border-b border-white/5">
-        <Sparkles className="w-4 h-4 text-white/85 shrink-0" />
-        <button
-          onClick={() => { setShowHistory(!showHistory); setShowDateDropdown(false); setShowPromptDropdown(false); }}
-          className="flex items-center gap-1 flex-1 min-w-0 hover:opacity-80 transition-opacity"
-        >
-          <span className="text-[14px] font-medium truncate">{currentConv?.title || '新对话'}</span>
-          <ChevronDown className="w-3.5 h-3.5 text-white/70 shrink-0" />
-        </button>
+        <Sparkles className="w-4.5 h-4.5 text-white/90 shrink-0 translate-y-[2px]" />
+        <span className="text-[14px] font-normal flex-1 font-serif baimiao-editorial-title translate-y-[2px] tracking-wide select-none">
+          白描 Copilot
+        </span>
         <button onClick={handleNewConversation} title="新对话" className="p-1.5 hover:opacity-70 transition-opacity active:scale-95 shrink-0">
           <Plus className="w-[18px] h-[18px]" />
         </button>
@@ -182,230 +179,270 @@ export default function Copilot() {
         </button>
       </div>
 
-      {/* History dropdown */}
-      {showHistory && (
-        <>
-          <div className="fixed inset-0 z-[85]" onClick={closeDropdowns} />
-          <div className="absolute left-4 top-[60px] w-64 max-h-[50vh] overflow-y-auto thin-scrollbar bg-white rounded-2xl border border-stone-200/60 shadow-xl z-[90] py-1 animate-in fade-in zoom-in-95 duration-100">
+      {/* Top Tab Toggle */}
+      <div className="px-4 py-2 bg-white border-b border-stone-200/50 flex gap-2 shrink-0 select-none">
+        <button
+          onClick={() => setActiveTab('chat')}
+          className={`flex-1 text-center py-2 rounded-xl text-[12.5px] font-semibold tracking-wide transition-all active:scale-[0.98] ${
+            activeTab === 'chat'
+              ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-md shadow-baimiao-mysteria/10'
+              : 'bg-stone-50 text-stone-600 hover:bg-stone-100 border border-stone-200/60'
+          }`}
+        >
+          当前对话
+        </button>
+        <button
+          onClick={() => setActiveTab('history')}
+          className={`flex-1 text-center py-2 rounded-xl text-[12.5px] font-semibold tracking-wide transition-all active:scale-[0.98] ${
+            activeTab === 'history'
+              ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-md shadow-baimiao-mysteria/10'
+              : 'bg-stone-50 text-stone-600 hover:bg-stone-100 border border-stone-200/60'
+          }`}
+        >
+          历史会话
+        </button>
+      </div>
+
+      {activeTab === 'history' ? (
+        <div className="flex-1 overflow-hidden flex flex-col bg-white">
+          <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3 thin-scrollbar">
             {conversations && conversations.length > 0 ? (
               conversations.map(c => (
                 <div
                   key={c.id}
                   onClick={() => handleSelectConversation(c.id)}
-                  className={`flex items-center justify-between px-3 py-2 cursor-pointer transition-colors ${c.id === currentId ? 'bg-stone-100' : 'hover:bg-stone-50'}`}
+                  className={`flex items-center justify-between p-4 cursor-pointer rounded-2xl border transition-all ${
+                    c.id === currentId
+                      ? 'bg-gradient-to-r from-baimiao-mysteria/10 to-[#2c2957]/10 border-baimiao-mysteria/40 shadow-sm'
+                      : 'bg-white hover:bg-stone-50 border-stone-200/60 shadow-sm'
+                  }`}
                 >
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[13px] text-stone-800 truncate">{c.title || '新对话'}</div>
-                    <div className="text-[10px] text-stone-400 font-mono">{format(new Date(c.updated_at), 'MM-dd HH:mm')}</div>
+                  <div className="flex-1 min-w-0 pr-4">
+                    <div className="text-[13.5px] font-semibold text-stone-800 truncate mb-1">{c.title || '新对话'}</div>
+                    <div className="text-[11px] text-stone-400 font-medium font-mono">{format(new Date(c.updated_at), 'yyyy-MM-dd HH:mm')}</div>
                   </div>
                   <button
                     onClick={(e) => { e.stopPropagation(); handleDeleteConversation(c.id); }}
-                    className="text-stone-300 hover:text-rose-500 p-1 transition-colors shrink-0"
+                    className="text-[#8a859e] hover:text-rose-500 p-2 transition-colors shrink-0 rounded-lg hover:bg-rose-50 active:scale-95"
+                    title="删除会话"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               ))
             ) : (
-              <div className="px-3 py-6 text-[12px] text-stone-400 text-center select-none">暂无历史对话</div>
+              <div className="flex flex-col items-center justify-center py-20 text-center select-none">
+                <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mb-4">
+                  <Sparkles className="w-7 h-7 text-stone-300 stroke-[1.5px]" />
+                </div>
+                <h3 className="text-[14px] text-stone-800 font-semibold mb-1">暂无历史对话</h3>
+                <p className="text-[12px] text-stone-500 mb-4 max-w-[200px]">开启一次新对话，Copilot 会根据您的提问自动生成会话记录。</p>
+                <button
+                  onClick={handleNewConversation}
+                  className="bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white px-4 py-2 rounded-full text-[12.5px] font-medium shadow-sm hover:brightness-110 active:scale-95 transition-all"
+                >
+                  新建对话
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Filter row — single horizontal line, scrolls instead of wrapping.
+              Keeping all controls on one row prevents layout jumping when the
+              diary-template chip conditionally appears. */}
+          {embedReady && (
+            <div className="flex items-center px-4 py-2 bg-white border-b border-stone-200/50 gap-2 shrink-0 relative overflow-x-auto no-scrollbar">
+              {/* Module chips */}
+              {(['record', 'diary', 'review', 'insight'] as const).map(mod => {
+                const isSelected = modules.includes(mod);
+                return (
+                  <button
+                    key={mod}
+                    onClick={() => {
+                      let nm = [...modules];
+                      if (isSelected) {
+                        if (nm.length > 1) nm = nm.filter(m => m !== mod);
+                      } else {
+                        nm.push(mod);
+                      }
+                      setModules(nm);
+                    }}
+                    className={`px-3 py-1 rounded-xl text-[12px] font-medium border transition-all shrink-0 active:scale-95 ${
+                      isSelected
+                        ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white border-transparent shadow-sm'
+                        : 'bg-[#f0edf4]/50 text-[#8a859e] border-stone-200/20 hover:bg-[#f0edf4]'
+                    }`}
+                  >
+                    {MODULE_LABELS[mod]}
+                  </button>
+                );
+              })}
+
+              {/* Date range dropdown — uses fixed positioning to bypass overflow clipping. */}
+              <div className="relative shrink-0">
+                <button
+                  onClick={() => { setShowDateDropdown(!showDateDropdown); setShowPromptDropdown(false); setCalendarTarget('none'); }}
+                  className="flex items-center gap-1.5 bg-stone-100 hover:bg-stone-200/80 text-stone-750 px-3 py-1 rounded-xl text-[12px] font-medium border border-stone-200/40 outline-none transition-colors cursor-pointer active:scale-95"
+                >
+                  <span className="whitespace-nowrap">{dateLabel}</span>
+                  <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
+                </button>
+                {showDateDropdown && (
+                  <>
+                    <div className="fixed inset-0 z-[85]" onClick={closeDropdowns} />
+                    <div className="fixed top-[144px] left-4 bg-white rounded-2xl border border-stone-200/60 shadow-lg py-1 z-[90] min-w-[220px] animate-in fade-in zoom-in-95 duration-100">
+                      {calendarTarget === 'none' ? (
+                        <>
+                          {DATE_PRESETS.map(range => (
+                            <button
+                              key={range}
+                              onClick={() => {
+                                setDateRange(range);
+                                setCustomStartDate('');
+                                setCustomEndDate('');
+                                setShowDateDropdown(false);
+                              }}
+                              className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-stone-100 ${dateRange === range ? 'text-baimiao-mysteria font-medium' : 'text-stone-700'}`}
+                            >
+                              {range === '全部' ? '全部日期' : range}
+                            </button>
+                          ))}
+                          <div className="border-t border-stone-200/60 my-1" />
+                          <div className="px-3 py-1.5 flex flex-col gap-1.5">
+                            <span className="text-[10.5px] font-semibold text-stone-400 uppercase tracking-wider">自定义时间</span>
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-[11.5px] text-stone-500 shrink-0">开始</span>
+                                <button
+                                  onClick={() => setCalendarTarget('start')}
+                                  className="bg-stone-50 border border-stone-200 text-stone-700 rounded-lg px-2 py-1 text-[11px] font-mono text-left w-32 outline-none hover:border-stone-300 active:bg-stone-100 transition-colors"
+                                >
+                                  {customStartDate || '选择日期'}
+                                </button>
+                              </div>
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-[11.5px] text-stone-500 shrink-0">结束</span>
+                                <button
+                                  onClick={() => setCalendarTarget('end')}
+                                  className="bg-stone-50 border border-stone-200 text-stone-700 rounded-lg px-2 py-1 text-[11px] font-mono text-left w-32 outline-none hover:border-stone-300 active:bg-stone-100 transition-colors"
+                                >
+                                  {customEndDate || '选择日期'}
+                                </button>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => {
+                                if (!customStartDate || !customEndDate) {
+                                  alert('请选择完整的开始和结束日期');
+                                  return;
+                                }
+                                if (customStartDate > customEndDate) {
+                                  alert('开始日期不能晚于结束日期');
+                                  return;
+                                }
+                                setDateRange('自定义');
+                                setShowDateDropdown(false);
+                                setCalendarTarget('none');
+                              }}
+                              disabled={!customStartDate || !customEndDate}
+                              className="w-full mt-1 py-1.5 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white rounded-lg text-[11.5px] font-semibold flex items-center justify-center gap-1 active:scale-[0.98] disabled:opacity-40"
+                            >
+                              <CalendarIcon className="w-3 h-3" />
+                              确定
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <MiniCalendar
+                          value={calendarTarget === 'start' ? customStartDate : customEndDate}
+                          onChange={(val) => {
+                            if (calendarTarget === 'start') setCustomStartDate(val);
+                            else setCustomEndDate(val);
+                            setCalendarTarget('none');
+                          }}
+                          onBack={() => setCalendarTarget('none')}
+                          title={calendarTarget === 'start' ? '选择开始日期' : '选择结束日期'}
+                        />
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Diary template filter (PRD §4.3.2) — uses fixed positioning to bypass overflow clipping. */}
+              {modules.includes('diary') && (
+                <div className="relative shrink-0">
+                  <button
+                    onClick={() => { setShowPromptDropdown(!showPromptDropdown); setShowDateDropdown(false); }}
+                    className="flex items-center gap-1.5 bg-stone-100 hover:bg-stone-200/80 text-stone-750 px-3 py-1 rounded-xl text-[12px] font-medium border border-stone-200/40 outline-none transition-colors cursor-pointer active:scale-95"
+                  >
+                    <span className="whitespace-nowrap">{templateLabel}</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
+                  </button>
+                  {showPromptDropdown && (
+                    <>
+                      <div className="fixed inset-0 z-[85]" onClick={closeDropdowns} />
+                      <div className="fixed top-[144px] right-4 bg-white rounded-2xl border border-stone-200/60 shadow-lg py-1 z-[90] min-w-[200px] animate-in fade-in zoom-in-95 duration-100">
+                        <button
+                          onClick={() => { setDiaryPromptIndex(undefined); setShowPromptDropdown(false); }}
+                          className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-stone-100 ${diaryPromptIndex === undefined ? 'text-baimiao-mysteria font-medium' : 'text-stone-700'}`}
+                        >
+                          全部模板
+                        </button>
+                        {diaryPrompts.map((p: string, i: number) => p.trim() && (
+                          <button
+                            key={i}
+                            onClick={() => { setDiaryPromptIndex(i); setShowPromptDropdown(false); }}
+                            className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-stone-100 ${diaryPromptIndex === i ? 'text-baimiao-mysteria font-medium' : 'text-stone-700'}`}
+                          >
+                            <div className="font-medium">{DIARY_PROMPT_LABELS[i] || `模板 ${i}`}</div>
+                            <div className="text-[10.5px] text-stone-400 truncate mt-0.5">{p.trim().slice(0, 18)}…</div>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Body */}
+          <div className="flex-1 overflow-hidden flex flex-col bg-white">
+            {!embedReady ? (
+              <div className="flex flex-col items-center justify-center text-center mt-10 flex-1 px-6 select-none">
+                <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mb-4">
+                  <Sparkles className="w-7 h-7 text-stone-300 stroke-[1.5px]" />
+                </div>
+                <h3 className="text-[15px] text-stone-800 font-semibold mb-2">语义检索未开启</h3>
+                <p className="text-[12.5px] text-stone-500 leading-relaxed mb-6 max-w-[260px]">
+                  Copilot 依赖本地向量检索你的碎屑、日记与回顾。请先在设置中配置并开启向量模型。
+                </p>
+                <button
+                  onClick={() => { setCopilotMode(false); navigate('/settings'); }}
+                  className="bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white px-5 py-2 rounded-full text-[13px] font-medium shadow-sm hover:brightness-110 active:scale-95"
+                >
+                  前往设置
+                </button>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto thin-scrollbar px-4 py-4 flex flex-col">
+                <ContextChat
+                  key={sessionKey}
+                  chatHistory={currentConv?.messages || []}
+                  apiEndpoint="/api/copilot-chat"
+                  getDynamicContext={getDynamicContext}
+                  onCitationClick={onCitationClick}
+                  onUpdateHistory={onUpdateHistory}
+                  inputPlaceholder="问 Copilot 任何关于你记录的问题…"
+                />
+              </div>
             )}
           </div>
         </>
       )}
-
-      {/* Filter row — single horizontal line, scrolls instead of wrapping.
-          Keeping all controls on one row prevents layout jumping when the
-          diary-template chip conditionally appears. */}
-      {embedReady && (
-        <div className="flex items-center px-4 py-2 bg-white border-b border-stone-200/50 gap-2 shrink-0 relative overflow-x-auto no-scrollbar">
-          {/* Module chips */}
-          {(['record', 'diary', 'review', 'insight'] as const).map(mod => {
-            const isSelected = modules.includes(mod);
-            return (
-              <button
-                key={mod}
-                onClick={() => {
-                  let nm = [...modules];
-                  if (isSelected) {
-                    if (nm.length > 1) nm = nm.filter(m => m !== mod);
-                  } else {
-                    nm.push(mod);
-                  }
-                  setModules(nm);
-                }}
-                className={`px-3 py-1 rounded-xl text-[12px] font-medium border transition-all shrink-0 active:scale-95 ${
-                  isSelected
-                    ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white border-transparent shadow-sm'
-                    : 'bg-[#f0edf4]/50 text-[#8a859e] border-stone-200/20 hover:bg-[#f0edf4]'
-                }`}
-              >
-                {MODULE_LABELS[mod]}
-              </button>
-            );
-          })}
-
-          {/* Date range dropdown — two-phase: presets / custom range. */}
-          <div className="relative shrink-0">
-            <button
-              onClick={() => { setShowDateDropdown(!showDateDropdown); setShowPromptDropdown(false); setCalendarTarget('none'); }}
-              className="flex items-center gap-1.5 bg-stone-100 hover:bg-stone-200/80 text-stone-750 px-3 py-1 rounded-xl text-[12px] font-medium border border-stone-200/40 outline-none transition-colors cursor-pointer active:scale-95"
-            >
-              <span className="whitespace-nowrap">{dateLabel}</span>
-              <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
-            </button>
-            {showDateDropdown && (
-              <>
-                <div className="fixed inset-0 z-[85]" onClick={closeDropdowns} />
-                <div className="absolute top-full left-0 mt-1 bg-white rounded-2xl border border-stone-200/60 shadow-lg py-1 z-[90] min-w-[220px] animate-in fade-in zoom-in-95 duration-100">
-                  {calendarTarget === 'none' ? (
-                    <>
-                      {DATE_PRESETS.map(range => (
-                        <button
-                          key={range}
-                          onClick={() => {
-                            setDateRange(range);
-                            setCustomStartDate('');
-                            setCustomEndDate('');
-                            setShowDateDropdown(false);
-                          }}
-                          className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-stone-100 ${dateRange === range ? 'text-baimiao-mysteria font-medium' : 'text-stone-700'}`}
-                        >
-                          {range === '全部' ? '全部日期' : range}
-                        </button>
-                      ))}
-                      <div className="border-t border-stone-200/60 my-1" />
-                      <div className="px-3 py-1.5 flex flex-col gap-1.5">
-                        <span className="text-[10.5px] font-semibold text-stone-400 uppercase tracking-wider">自定义时间</span>
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-[11.5px] text-stone-500 shrink-0">开始</span>
-                            <button
-                              onClick={() => setCalendarTarget('start')}
-                              className="bg-stone-50 border border-stone-200 text-stone-700 rounded-lg px-2 py-1 text-[11px] font-mono text-left w-32 outline-none hover:border-stone-300 active:bg-stone-100 transition-colors"
-                            >
-                              {customStartDate || '选择日期'}
-                            </button>
-                          </div>
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-[11.5px] text-stone-500 shrink-0">结束</span>
-                            <button
-                              onClick={() => setCalendarTarget('end')}
-                              className="bg-stone-50 border border-stone-200 text-stone-700 rounded-lg px-2 py-1 text-[11px] font-mono text-left w-32 outline-none hover:border-stone-300 active:bg-stone-100 transition-colors"
-                            >
-                              {customEndDate || '选择日期'}
-                            </button>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => {
-                            if (!customStartDate || !customEndDate) {
-                              alert('请选择完整的开始和结束日期');
-                              return;
-                            }
-                            if (customStartDate > customEndDate) {
-                              alert('开始日期不能晚于结束日期');
-                              return;
-                            }
-                            setDateRange('自定义');
-                            setShowDateDropdown(false);
-                            setCalendarTarget('none');
-                          }}
-                          disabled={!customStartDate || !customEndDate}
-                          className="w-full mt-1 py-1.5 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white rounded-lg text-[11.5px] font-semibold flex items-center justify-center gap-1 active:scale-[0.98] disabled:opacity-40"
-                        >
-                          <CalendarIcon className="w-3 h-3" />
-                          确定
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <MiniCalendar
-                      value={calendarTarget === 'start' ? customStartDate : customEndDate}
-                      onChange={(val) => {
-                        if (calendarTarget === 'start') setCustomStartDate(val);
-                        else setCustomEndDate(val);
-                        setCalendarTarget('none');
-                      }}
-                      onBack={() => setCalendarTarget('none')}
-                      title={calendarTarget === 'start' ? '选择开始日期' : '选择结束日期'}
-                    />
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Diary template filter (PRD §4.3.2) — uses prompt names so users
-              know which template they're selecting. */}
-          {modules.includes('diary') && (
-            <div className="relative shrink-0">
-              <button
-                onClick={() => { setShowPromptDropdown(!showPromptDropdown); setShowDateDropdown(false); }}
-                className="flex items-center gap-1.5 bg-stone-100 hover:bg-stone-200/80 text-stone-750 px-3 py-1 rounded-xl text-[12px] font-medium border border-stone-200/40 outline-none transition-colors cursor-pointer active:scale-95"
-              >
-                <span className="whitespace-nowrap">{templateLabel}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
-              </button>
-              {showPromptDropdown && (
-                <>
-                  <div className="fixed inset-0 z-[85]" onClick={closeDropdowns} />
-                  <div className="absolute top-full left-0 mt-1 bg-white rounded-2xl border border-stone-200/60 shadow-lg py-1 z-[90] min-w-[200px] animate-in fade-in zoom-in-95 duration-100">
-                    <button
-                      onClick={() => { setDiaryPromptIndex(undefined); setShowPromptDropdown(false); }}
-                      className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-stone-100 ${diaryPromptIndex === undefined ? 'text-baimiao-mysteria font-medium' : 'text-stone-700'}`}
-                    >
-                      全部模板
-                    </button>
-                    {diaryPrompts.map((p: string, i: number) => p.trim() && (
-                      <button
-                        key={i}
-                        onClick={() => { setDiaryPromptIndex(i); setShowPromptDropdown(false); }}
-                        className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-stone-100 ${diaryPromptIndex === i ? 'text-baimiao-mysteria font-medium' : 'text-stone-700'}`}
-                      >
-                        <div className="font-medium">{DIARY_PROMPT_LABELS[i] || `模板 ${i}`}</div>
-                        <div className="text-[10.5px] text-stone-400 truncate mt-0.5">{p.trim().slice(0, 18)}…</div>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Body */}
-      <div className="flex-1 overflow-hidden flex flex-col bg-white">
-        {!embedReady ? (
-          <div className="flex flex-col items-center justify-center text-center mt-10 flex-1 px-6 select-none">
-            <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mb-4">
-              <Sparkles className="w-7 h-7 text-stone-300 stroke-[1.5px]" />
-            </div>
-            <h3 className="text-[15px] text-stone-800 font-semibold mb-2">语义检索未开启</h3>
-            <p className="text-[12.5px] text-stone-500 leading-relaxed mb-6 max-w-[260px]">
-              Copilot 依赖本地向量检索你的碎屑、日记与回顾。请先在设置中配置并开启向量模型。
-            </p>
-            <button
-              onClick={() => { setCopilotMode(false); navigate('/settings'); }}
-              className="bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white px-5 py-2 rounded-full text-[13px] font-medium shadow-sm hover:brightness-110 transition-all active:scale-95"
-            >
-              前往设置
-            </button>
-          </div>
-        ) : (
-          <div className="flex-1 overflow-y-auto thin-scrollbar px-4 py-4 flex flex-col">
-            <ContextChat
-              key={sessionKey}
-              chatHistory={currentConv?.messages || []}
-              apiEndpoint="/api/copilot-chat"
-              getDynamicContext={getDynamicContext}
-              onCitationClick={onCitationClick}
-              onUpdateHistory={onUpdateHistory}
-              inputPlaceholder="问 Copilot 任何关于你记录的问题…"
-            />
-          </div>
-        )}
-      </div>
     </div>
   );
 }
