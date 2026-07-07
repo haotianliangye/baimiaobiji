@@ -189,9 +189,18 @@ export default function Diary() {
      await generateDiaryTimeline(dateStr, logs, diaryIdToOverwrite, promptIndex);
   };
 
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
   const handleSaveEdit = async (id: string) => {
-     await db.daily_diaries.update(id, { ai_editorial: editText });
-     setEditingDiaryId(null);
+     setIsSavingEdit(true);
+     try {
+       await db.daily_diaries.update(id, { ai_editorial: editText });
+       setEditingDiaryId(null);
+     } catch (err: any) {
+       alert('保存失败：' + (err?.message || '请重试'));
+     } finally {
+       setIsSavingEdit(false);
+     }
   };
 
   useEffect(() => {
@@ -384,12 +393,13 @@ export default function Diary() {
                              >
                                取消
                              </button>
-                             <button 
+                             <button
                                onClick={() => handleSaveEdit(diary.id)}
-                               className="flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] border border-white/10 hover:brightness-110 transition-all shadow-sm select-none"
+                               disabled={isSavingEdit}
+                               className="flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] border border-white/10 hover:brightness-110 transition-all shadow-sm select-none disabled:opacity-60"
                              >
-                               <Save className="w-3.5 h-3.5" />
-                               保存
+                               {isSavingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                               {isSavingEdit ? '保存中' : '保存'}
                              </button>
                            </div>
                          </div>

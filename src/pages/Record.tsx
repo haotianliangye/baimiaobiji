@@ -154,6 +154,7 @@ export default function Record() {
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
   const [isEditingModalOpen, setIsEditingModalOpen] = useState(false);
   const [editContent, setEditContent] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
 
   // New multi-select & context menu states
@@ -956,17 +957,23 @@ export default function Record() {
               </button>
               <button
                 onClick={async () => {
-                  if (activeLog && editContent.trim()) {
+                  if (!activeLog || !editContent.trim() || isSavingEdit) return;
+                  setIsSavingEdit(true);
+                  try {
                     await db.raw_logs.update(activeLog.id, {
                       content: editContent.trim(),
                     });
                     setIsEditingModalOpen(false);
+                  } catch (err: any) {
+                    alert('保存失败：' + (err?.message || '请重试'));
+                  } finally {
+                    setIsSavingEdit(false);
                   }
                 }}
-                disabled={!editContent.trim()}
+                disabled={!editContent.trim() || isSavingEdit}
                 className="flex-1 py-2.5 rounded-xl text-[13.5px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 active:scale-[0.98] shadow-md shadow-baimiao-mysteria/10 transition-all disabled:opacity-30 disabled:scale-100 disabled:shadow-none"
               >
-                保存
+                {isSavingEdit ? '保存中…' : '保存'}
               </button>
             </div>
           </div>

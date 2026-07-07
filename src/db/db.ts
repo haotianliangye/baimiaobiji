@@ -72,6 +72,7 @@ export interface Insight {
   start_date: string;
   end_date: string;
   content: string;
+  ai_summary?: string;        // one-line poetic summary (mirrors DailyReview)
   created_at: number;
   chat_history?: InsightMessage[];
   embedding?: number[];       // vector float array for semantic search
@@ -133,6 +134,8 @@ export class WhitewashDiaryDB extends dexie {
     });
     // Version 6: insight embedding fields (no new indexes needed).
     this.version(6).stores({});
+    // Version 7: insight ai_summary field for the Diary/Review-style card.
+    this.version(7).stores({});
   }
 }
 

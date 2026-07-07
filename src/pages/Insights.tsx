@@ -14,7 +14,16 @@ import ActionSheet from '../components/ActionSheet';
 const MENU_HALF_WIDTH = 140;
 const MENU_SAFE_MARGIN = 296;
 
-const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, onDelete: (id: string) => void, onRegenerate: (insight: Insight) => void }) => {
+interface InsightCardProps {
+  insight: Insight;
+  isEditing: boolean;
+  onStartEdit: () => void;
+  onEndEdit: () => void;
+  onDelete: (id: string) => void;
+  onRegenerate: (insight: Insight) => void;
+}
+
+const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onRegenerate }: InsightCardProps) => {
   const [expanded, setExpanded] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [contextMenuState, setContextMenuState] = useState<{
@@ -28,8 +37,8 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
   });
   const holdTimeoutRef = useRef<any>(null);
 
-  const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(insight.content || '');
+  const [isSaving, setIsSaving] = useState(false);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -44,10 +53,16 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
   }, [editText, isEditing]);
 
   const handleSaveEdit = async () => {
-     if (insight.id) {
-        await db.insights.update(insight.id, { content: editText });
-        setIsEditing(false);
-     }
+    if (!insight.id) return;
+    setIsSaving(true);
+    try {
+      await db.insights.update(insight.id, { content: editText });
+      onEndEdit();
+    } catch (err: any) {
+      alert('保存失败：' + (err?.message || '请重试'));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   useEffect(() => {
@@ -56,13 +71,21 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
     }
   }, [expanded]);
 
+  const summary = insight.ai_summary || '暂无内容概要';
+  // range_label is the user-facing title; keep the existing representation per
+  // the requirement that the header title/date must not change.
+  const title = insight.range_label;
+  const headerDate = format(new Date(insight.created_at), 'MM-dd HH:mm');
+
   return (
     <>
-    <div 
-      className="p-5 mb-4 relative overflow-hidden baimiao-card-diary" 
+    <div
+      className="p-5 mb-4 relative overflow-hidden baimiao-card-diary"
     >
-      <div 
-        className="cursor-pointer select-none"
+      {/* Header button — mirrors Diary/Review (title + chevron). The existing
+          range_label + created_at are preserved as required. */}
+      <button
+        type="button"
         onClick={() => { if (isEditing) return; setExpanded(!expanded); }}
         onTouchStart={(e) => {
            if (isEditing) return;
@@ -82,62 +105,72 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
            if (window.navigator?.vibrate) window.navigator.vibrate(50);
            setContextMenuState({ isOpen: true, x: e.clientX, y: e.clientY });
         }}
+        className="w-full flex items-center justify-between gap-2 text-left select-none"
       >
-        <div className="flex justify-between items-center mb-3">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-stone-400" />
-            <span className="text-[15px] font-semibold text-stone-800">{insight.range_label}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-[12px] text-stone-400 font-mono">{format(new Date(insight.created_at), 'MM-dd HH:mm')}</span>
+        <div className="flex items-center gap-2 min-w-0">
+          <Sparkles className="w-4 h-4 text-stone-400 shrink-0" />
+          <span className="text-[15px] font-semibold text-stone-800 truncate">{title}</span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-[12px] text-stone-400 font-mono">{headerDate}</span>
+          {expanded ? <ChevronUp className="w-4 h-4 text-stone-300" /> : <ChevronDown className="w-4 h-4 text-stone-300" />}
+        </div>
+      </button>
+
+      {/* Subtitle — mirrors DailyDiary/DailyReview's ai_summary line. */}
+      <div
+        className={`mt-1.5 text-[12.5px] text-stone-500 leading-relaxed select-none ${expanded ? '' : 'line-clamp-2'}`}
+      >
+        {summary}
+      </div>
+
+      {isEditing ? (
+        <div className="flex flex-col gap-3 relative z-10 w-full animate-in fade-in zoom-in-95 duration-200 mt-3">
+          <textarea
+            ref={editTextareaRef}
+            value={editText}
+            onChange={e => setEditText(e.target.value)}
+            className="w-full bg-white p-4 rounded-xl border border-stone-200 shadow-sm focus:outline-none focus:border-stone-300 focus:ring-2 focus:ring-stone-100 resize-none font-sans text-[15px] leading-relaxed text-stone-900 overflow-hidden min-h-[200px]"
+            placeholder="开始编辑洞察..."
+            autoFocus
+            onClick={(e) => e.stopPropagation()}
+          />
+          <div className="flex justify-end gap-2 pr-1">
+            <button
+              onClick={(e) => { e.stopPropagation(); onEndEdit(); }}
+              className="px-4 py-2 rounded-full text-[13px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors shadow-sm select-none"
+            >
+              取消
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleSaveEdit(); }}
+              disabled={isSaving}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] border border-white/10 hover:brightness-110 transition-all shadow-sm select-none disabled:opacity-60"
+            >
+              {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              {isSaving ? '保存中' : '保存'}
+            </button>
           </div>
         </div>
-        
-        {isEditing ? (
-          <div className="flex flex-col gap-3 relative z-10 w-full animate-in fade-in zoom-in-95 duration-200 mt-2">
-            <textarea
-              ref={editTextareaRef}
-              value={editText}
-              onChange={e => setEditText(e.target.value)}
-              className="w-full bg-white p-4 rounded-xl border border-stone-200 shadow-sm focus:outline-none focus:border-stone-300 focus:ring-2 focus:ring-stone-100 resize-none font-sans text-[15px] leading-relaxed text-stone-900 overflow-hidden min-h-[200px]"
-              placeholder="开始编辑洞察..."
-              autoFocus
-              onClick={(e) => e.stopPropagation()}
-            />
-            <div className="flex justify-end gap-2 pr-1">
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsEditing(false);
-                }}
-                className="px-4 py-2 rounded-full text-[13px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors shadow-sm select-none"
-              >
-                取消
-              </button>
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleSaveEdit();
-                }}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] border border-white/10 hover:brightness-110 transition-all shadow-sm select-none"
-              >
-                <Save className="w-3.5 h-3.5" />
-                保存
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div 
-            className={`markdown-body prose prose-stone baimiao-editorial-body prose-h1:text-[19px] prose-h2:text-[17px] prose-h3:text-[16px] prose-headings:font-medium prose-headings:font-serif baimiao-editorial-title prose-p:text-baimiao-ink prose-li:text-baimiao-ink text-[15.5px] leading-relaxed relative z-10 selection:bg-stone-200 cursor-pointer ${expanded ? '' : 'line-clamp-4 before:absolute before:bottom-0 before:left-0 before:right-0 before:h-12 before:bg-gradient-to-t before:from-white before:to-transparent'}`}
-            onClick={(e) => {
-              if ((e.target as HTMLElement).tagName.toLowerCase() === 'a') return;
-              setExpanded(!expanded);
-            }}
-          >
-             <ReactMarkdown>{washCitations(formatDiaryMarkdown(insight.content))}</ReactMarkdown>
-          </div>
-        )}
-      </div>
+      ) : (
+        <>
+        {/* Prompt/range meta sub-header — mirrors Diary/Review's "日记 (默认) · 09:42". */}
+        <div className="mt-3 px-3 py-1.5 border-t border-black/[0.03] bg-stone-50/60 text-[10.5px] text-stone-400 font-mono flex items-center justify-between select-none">
+          <span>洞察 · {headerDate}</span>
+          <span>{insight.range_type === 'custom' ? '自定义' : insight.range_type}</span>
+        </div>
+        <div
+          className={`mt-3 markdown-body prose prose-stone baimiao-editorial-body prose-h1:text-[19px] prose-h2:text-[17px] prose-h3:text-[16px] prose-headings:font-medium prose-headings:font-serif baimiao-editorial-title prose-p:text-baimiao-ink prose-li:text-baimiao-ink text-[15.5px] leading-relaxed relative z-10 selection:bg-stone-200 cursor-pointer ${expanded ? '' : 'line-clamp-4 before:absolute before:bottom-0 before:left-0 before:right-0 before:h-12 before:bg-gradient-to-t before:from-white before:to-transparent'}`}
+          onClick={(e) => {
+            if (isEditing) return;
+            if ((e.target as HTMLElement).tagName.toLowerCase() === 'a') return;
+            setExpanded(!expanded);
+          }}
+        >
+           <ReactMarkdown>{washCitations(formatDiaryMarkdown(insight.content))}</ReactMarkdown>
+        </div>
+        </>
+      )}
 
       {expanded && !isEditing && (
         <div className="flex flex-col gap-3 mt-5 pt-4 border-t border-stone-100 select-none">
@@ -171,7 +204,7 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
                onClick={(e) => {
                   e.stopPropagation();
                   setEditText(insight.content || '');
-                  setIsEditing(true);
+                  onStartEdit();
                }}
                className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
             >
@@ -193,7 +226,7 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
                收起
             </button>
           </div>
-          
+
           <button
              onClick={(e) => { e.stopPropagation(); setShowChat(!showChat); }}
              className={`flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl text-[13px] font-medium transition-colors ${showChat ? 'bg-stone-800 text-white' : 'bg-stone-100 hover:bg-stone-200 text-stone-700'}`}
@@ -205,7 +238,7 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
       )}
 
       {expanded && showChat && !isEditing && (
-        <ContextChat 
+        <ContextChat
           chatHistory={insight.chat_history || []}
           contextContent={insight.content}
           apiEndpoint="/api/insight-chat"
@@ -218,7 +251,7 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
       )}
 
       {!expanded && (
-        <div 
+        <div
           className="flex justify-center mt-2 text-stone-300 cursor-pointer"
           onClick={() => setExpanded(true)}
         >
@@ -226,7 +259,7 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
         </div>
       )}
     </div>
-    
+
     {contextMenuState.isOpen && (
         <div
           className="fixed inset-0 z-[100]"
@@ -257,7 +290,7 @@ const InsightCard = ({ insight, onDelete, onRegenerate }: { insight: Insight, on
             <button
               onClick={() => {
                 setEditText(insight.content || '');
-                setIsEditing(true);
+                onStartEdit();
                 setExpanded(true);
                 setContextMenuState({ ...contextMenuState, isOpen: false });
               }}
@@ -300,7 +333,7 @@ export default function Insights() {
   const [customEnd, setCustomEnd] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -322,13 +355,19 @@ export default function Insights() {
     { value: 'year', label: '一年' },
     { value: 'custom', label: '自选范围' },
   ];
-  
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  
+
   const [showFloatBtn, setShowFloatBtn] = useState(false);
   const floatBtnTimeoutRef = useRef<any>(null);
+
+  // Edit state lifted to the page so the floating "生成当前洞察" button can
+  // hide whenever any insight is being edited/saved — otherwise its
+  // pointer-events-auto overlay can intercept clicks on the Save/Cancel
+  // buttons, making the save button look unresponsive.
+  const [editingInsightId, setEditingInsightId] = useState<string | null>(null);
 
   const handleInteraction = useCallback(() => {
     setShowFloatBtn(true);
@@ -354,7 +393,7 @@ export default function Insights() {
   const handleGenerate = async () => {
     setIsGenerating(true);
     setErrorMsg("");
-    
+
     try {
       const today = new Date();
       let startTime = today.getTime();
@@ -428,7 +467,8 @@ export default function Insights() {
 
       const data = await res.json();
       const content = data.report || "";
-      
+      const aiSummary = (data.ai_summary || '').toString().trim() || '暂无内容概要';
+
       if (content) {
         await db.insights.add({
           id: generateUUID(),
@@ -437,13 +477,14 @@ export default function Insights() {
           start_date: new Date(startTime).toISOString(),
           end_date: new Date(endTime).toISOString(),
           content,
+          ai_summary: aiSummary,
           created_at: Date.now()
         });
         setTimeout(() => {
           scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
         }, 100);
       }
-      
+
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err.message || "生成失败，请重试");
@@ -455,7 +496,7 @@ export default function Insights() {
   const handleRegenerate = async (oldInsight: Insight) => {
     setIsGenerating(true);
     setErrorMsg("");
-    
+
     try {
       const startTime = new Date(oldInsight.start_date).getTime();
       const endTime = new Date(oldInsight.end_date).getTime();
@@ -492,7 +533,8 @@ export default function Insights() {
 
       const data = await res.json();
       const content = data.report || "";
-      
+      const aiSummary = (data.ai_summary || '').toString().trim() || oldInsight.ai_summary || '暂无内容概要';
+
       if (content) {
         if (oldInsight.id) {
            await db.insights.delete(oldInsight.id);
@@ -504,13 +546,14 @@ export default function Insights() {
           start_date: oldInsight.start_date,
           end_date: oldInsight.end_date,
           content,
+          ai_summary: aiSummary,
           created_at: Date.now()
         });
         setTimeout(() => {
           scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
         }, 100);
       }
-      
+
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err.message || "重新生成失败，请重试");
@@ -531,7 +574,7 @@ export default function Insights() {
            时光洞察
          </h2>
          <div className="relative" ref={dropdownRef}>
-           <button 
+           <button
              onClick={() => setShowDropdown(!showDropdown)}
              className="flex items-center gap-1.5 bg-transparent text-[13px] font-medium text-stone-600 outline-none cursor-pointer hover:bg-stone-100 px-2 py-1 rounded transition-colors"
            >
@@ -548,8 +591,8 @@ export default function Insights() {
                      setShowDropdown(false);
                    }}
                    className={`px-3 py-2 text-[13px] font-medium rounded-lg text-left transition-colors ${
-                     timeRange === opt.value 
-                       ? 'bg-white/10 text-white' 
+                     timeRange === opt.value
+                       ? 'bg-white/10 text-white'
                        : 'text-white/70 hover:text-white hover:bg-white/5'
                    }`}
                  >
@@ -563,24 +606,24 @@ export default function Insights() {
 
       {timeRange === 'custom' && (
         <div className="flex bg-white border-b border-stone-100 p-3 justify-center gap-2 items-center z-10 relative shadow-sm">
-           <input 
-             type="date" 
+           <input
+             type="date"
              value={customStart}
              onChange={e => setCustomStart(e.target.value)}
-             className="text-[12px] p-2 rounded-lg border border-stone-200 bg-stone-50 focus:border-stone-400 focus:outline-none transition-colors" 
+             className="text-[12px] p-2 rounded-lg border border-stone-200 bg-stone-50 focus:border-stone-400 focus:outline-none transition-colors"
            />
            <span className="text-stone-400 text-[12px] font-medium">至</span>
-           <input 
-             type="date" 
+           <input
+             type="date"
              value={customEnd}
              onChange={e => setCustomEnd(e.target.value)}
-             className="text-[12px] p-2 rounded-lg border border-stone-200 bg-stone-50 focus:border-stone-400 focus:outline-none transition-colors" 
+             className="text-[12px] p-2 rounded-lg border border-stone-200 bg-stone-50 focus:border-stone-400 focus:outline-none transition-colors"
            />
         </div>
       )}
-      
-      <div 
-        ref={scrollContainerRef} 
+
+      <div
+        ref={scrollContainerRef}
         className="flex-1 overflow-y-auto thin-scrollbar px-4 py-6 pb-32 max-w-2xl mx-auto w-full flex flex-col"
         onClick={handleInteraction}
         onTouchStart={handleInteraction}
@@ -607,7 +650,15 @@ export default function Insights() {
         {insights && insights.length > 0 ? (
           <div className="flex flex-col w-full animate-in slide-in-from-bottom-4 fade-in duration-700">
             {insights.map(insight => (
-              <InsightCard key={insight.id} insight={insight} onDelete={handleDelete} onRegenerate={handleRegenerate} />
+              <InsightCard
+                key={insight.id}
+                insight={insight}
+                isEditing={editingInsightId === insight.id}
+                onStartEdit={() => setEditingInsightId(insight.id || null)}
+                onEndEdit={() => setEditingInsightId(null)}
+                onDelete={handleDelete}
+                onRegenerate={handleRegenerate}
+              />
             ))}
           </div>
         ) : (
@@ -625,10 +676,13 @@ export default function Insights() {
         )}
       </div>
 
-      <div 
+      {/* Floating generate button — hidden while an insight is being edited
+          so it can't intercept the Save/Cancel clicks below it. */}
+      {!editingInsightId && (
+      <div
         className={`fixed bottom-24 left-0 w-full flex justify-center pointer-events-none z-20 transition-opacity duration-500 max-w-md mx-auto right-0 ${(showFloatBtn || isGenerating || (!insights || insights.length === 0)) ? 'opacity-100' : 'opacity-0'}`}
       >
-        <button 
+        <button
           onClick={handleGenerate}
           disabled={isGenerating}
           className={`bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-md border border-white/10 text-white px-6 py-2.5 rounded-full text-[13px] font-medium tracking-wide transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:active:scale-100 min-w-[160px] ${(showFloatBtn || isGenerating || (!insights || insights.length === 0)) ? 'pointer-events-auto' : 'pointer-events-none'}`}
@@ -637,6 +691,7 @@ export default function Insights() {
           {isGenerating ? '深度整理中...' : '生成当前洞察'}
         </button>
       </div>
+      )}
     </div>
   );
 }

@@ -9,7 +9,7 @@ import { formatDiaryMarkdown } from '../lib/utils';
 import { washCitations } from '../lib/citationWash';
 import ActionSheet from '../components/ActionSheet';
 import ContextChat from '../components/ContextChat';
-import { Trash2, ChevronDown, ChevronUp, RefreshCw, X, Sparkles, MessageCircle, Copy, Activity, Save, Edit2 } from 'lucide-react';
+import { Trash2, ChevronDown, ChevronUp, RefreshCw, X, Sparkles, MessageCircle, Copy, Activity, Save, Edit2, Loader2 } from 'lucide-react';
 import { useAppStore } from '../store/app.store';
 import { useSettingsStore, getActivePromptIndices } from '../store/settings.store';
 
@@ -58,10 +58,18 @@ export default function Review() {
   const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
   const [editText, setEditText] = useState<string>('');
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const handleSaveEdit = async (id: string) => {
-     await db.daily_reviews.update(id, { ai_review: editText });
-     setEditingReviewId(null);
+     setIsSavingEdit(true);
+     try {
+       await db.daily_reviews.update(id, { ai_review: editText });
+       setEditingReviewId(null);
+     } catch (err: any) {
+       alert('保存失败：' + (err?.message || '请重试'));
+     } finally {
+       setIsSavingEdit(false);
+     }
   };
 
   useEffect(() => {
@@ -410,12 +418,13 @@ export default function Review() {
                               >
                                 取消
                               </button>
-                              <button 
+                              <button
                                 onClick={() => handleSaveEdit(review.id)}
-                                className="flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] border border-white/10 hover:brightness-110 transition-all shadow-sm select-none"
+                                disabled={isSavingEdit}
+                                className="flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] border border-white/10 hover:brightness-110 transition-all shadow-sm select-none disabled:opacity-60"
                               >
-                                <Save className="w-3.5 h-3.5" />
-                                保存
+                                {isSavingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                                {isSavingEdit ? '保存中' : '保存'}
                               </button>
                             </div>
                           </div>

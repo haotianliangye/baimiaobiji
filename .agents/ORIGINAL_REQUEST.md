@@ -34,3 +34,47 @@ Integrity mode: development
 - [ ] 无任何去拼音化变量/路径违规，`baimiao` 关键字 100% 妥善保留。
 - [ ] 系统 CSS 防回弹样式安全，最基础容器没有被多余滚动泄漏所破坏。
 - [ ] 编译通过，无残留未引入任何 TypeScript 变量或语法报错。
+
+## Follow-up — 2026-07-07T12:04:37Z
+
+审查 `baimiaobiji` 项目中 2026-07-07（今天）发生的所有已提交和未提交代码改动，重点对照 RAG 修复计划、Web Worker + Copilot 后续计划以及项目规范文件，产出一份详尽的进度、质量与合规性审查报告。
+
+Working directory: d:/baimiaobiji
+Integrity mode: development
+
+## Requirements
+
+### R1. 今日已提交代码改动审计
+审查今天（2026-07-07，即 `cbde628` 之后）提交的所有 commit：
+- 对照 `.scratch/fix_plan_p0_p7.md`（P0 - P6）与 `.scratch/followup_plan_worker_copilot.md`（Phase A - Phase B）评估每个阶段的实现完备性与正确性。
+- 特别关注：Web Worker 传输与兜底降级、Copilot 本地检索（RAG）、UUID 占位符清洗（`washCitations`）等核心逻辑。
+
+### R2. 工作区未提交改动 analysis
+审查当前工作区（working tree）中未提交的所有代码修改（涉及 `src/db/db.ts`、`src/pages/Copilot.tsx`、`src/pages/Diary.tsx` – 已经审查修改、`src/pages/Insights.tsx`、`src/pages/Record.tsx`、`src/pages/Review.tsx`）：
+- 分析这些改动的具体意图和作用。
+- 评估这些改动目前完成到了哪一步，是否存在未完结、写了一半或有语法/逻辑漏洞的部分。
+
+### R3. 项目红线与规约符合性审计
+对照 `GEMINI.md` 和 `AGENTS.md` 的规范：
+- 确认是否存在将 `baimiao` 重命名/去拼音化的情况。
+- 验证移动端 WebView 锁定与防回弹规约（`overflow: hidden` 及 `overscroll-behavior: none`）是否被新页面/新 UI 破坏。
+- 确认大模型非标输出超链接“占位符保护清洗算法”是否安全地应用在 Markdown 渲染前。
+- 确认移动端虚拟键盘 Enter 换行拦截规则的执行。
+- 确认仿宋体/Logo 垂直对齐的 translate-y-[2px] 补偿微调。
+
+### R4. 代码质量与编译校验
+- 确认 `tsc --noEmit`（即 `npm run lint`）能够顺利通过，无 TS 编译报错。
+- 检查是否存在明显的代码味道、未捕获异常的 API 调用、或者可能引发崩溃的 Windows 终端 Unicode 表情输出。
+
+## Acceptance Criteria
+
+### Progress & Completeness
+- [ ] 产出一份结构清晰的 Markdown 审查报告，列出 P0 - P7 的每一步完成状态（已完成/进行中/未开始），并说明具体证据。
+- [ ] 对工作区未提交的文件进行逐一剖析，列出其修改点、设计意图 and 完成度。
+
+### Standards Compliance
+- [ ] 报告中包含针对 `GEMINI.md` / `AGENTS.md` 所有相关规则的合规性清单（Pass/Fail）。
+- [ ] 报告指出可能存在的问题，并给出明确的修复建议。
+
+### Programmatic Check
+- [ ] 工作区代码已通过 `npm run lint` 验证，无编译错误。
