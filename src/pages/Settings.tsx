@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning } from 'lucide-react';
 import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_WARM_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_SUMMARY_PROMPT } from '../store/settings.store';
 import { db } from '../db/db';
+import { enqueueAllMissingEmbeddings } from '../lib/embedding';
 import { checkStorageStatus, requestStoragePersistence, StorageEstimateInfo } from '../lib/storage';
 import { useAppStore } from '../store/app.store';
 import { SYNC_CONSTANTS } from '../config/constants';
@@ -36,7 +37,20 @@ export default function Settings() {
     setSettings 
   } = settingsStore;
 
-  const { syncStatus, syncErrorMessage, syncNow, checkAndGenerateHistoryTasks, isProcessingQueue, autoGenTasks, isQueuePaused, setQueuePaused, clearQueue } = useAppStore();
+  const { 
+    syncStatus, 
+    syncErrorMessage, 
+    syncNow, 
+    checkAndGenerateHistoryTasks, 
+    isProcessingQueue, 
+    autoGenTasks, 
+    isQueuePaused, 
+    setQueuePaused, 
+    clearQueue,
+    totalVectorsCount,
+    embeddingQueueSize,
+    updateVectorsCount
+  } = useAppStore();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState<'model' | 'embedding' | 'data' | 'prompt'>(
     (location.state as any)?.tab || 'model'
@@ -538,7 +552,8 @@ export default function Settings() {
           )}
 
           {activeTab === 'embedding' && (
-            <section className="space-y-3">
+            <>
+              <section className="space-y-3">
                 <div className="baimiao-card-diary p-4 space-y-3">
                   <div className="flex items-center justify-between border-b border-stone-100 pb-2 mb-1">
                     <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase">本地向量与语义搜索</h3>
@@ -668,6 +683,44 @@ export default function Settings() {
                   )}
                 </div>
               </section>
+
+              {embedEnabled && (
+                <section className="space-y-3 animate-in fade-in duration-250">
+                  <div className="baimiao-card-diary p-4 space-y-3">
+                    <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase flex items-center gap-1.5 border-b border-stone-100 pb-2 mb-1">
+                      本地向量同步状态
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center text-[13px] text-stone-700">
+                        <span>本地已就绪向量数：</span>
+                        <span className="font-mono font-bold text-stone-900">{totalVectorsCount} 条</span>
+                      </div>
+
+                      <div className="flex justify-between items-center text-[13px] text-stone-700">
+                        <span>后台待处理任务数：</span>
+                        <span className="font-mono font-bold text-amber-600">
+                          {embeddingQueueSize > 0 ? `${embeddingQueueSize} 条` : '0 (已全部就绪)'}
+                        </span>
+                      </div>
+
+                      <div className="pt-2 border-t border-stone-100 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const count = await enqueueAllMissingEmbeddings();
+                            updateVectorsCount();
+                            alert(`扫描完毕！已将 ${count} 条缺少向量的记录推入生成队列。`);
+                          }}
+                          className="flex-1 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white hover:opacity-90 active:scale-[0.98] py-2 px-3 rounded-xl text-[12px] font-medium shadow-sm transition-all text-center"
+                        >
+                          扫描并补齐历史向量
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              )}
+            </>
           )}
 
           {activeTab === 'prompt' && (
