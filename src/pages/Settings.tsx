@@ -251,6 +251,80 @@ export default function Settings() {
   const [localSummaryPrompt, setLocalSummaryPrompt] = useState(summaryPrompt || DEFAULT_SUMMARY_PROMPT);
   const [localDiarySummaryPrompt, setLocalDiarySummaryPrompt] = useState(diarySummaryPrompt || DEFAULT_DIARY_SUMMARY_PROMPT);
 
+  const [chatTestStatus, setChatTestStatus] = useState<'idle' | 'testing' | 'success' | 'fail'>('idle');
+  const [chatTestError, setChatTestError] = useState('');
+  const [embedTestStatus, setEmbedTestStatus] = useState<'idle' | 'testing' | 'success' | 'fail'>('idle');
+  const [embedTestError, setEmbedTestError] = useState('');
+
+  const handleTestChatConnection = async () => {
+    if (!apiKey && provider !== 'custom') {
+      setChatTestStatus('fail');
+      setChatTestError('API Key 不能为空');
+      setTimeout(() => setChatTestStatus('idle'), 3000);
+      return;
+    }
+    setChatTestStatus('testing');
+    setChatTestError('');
+    try {
+      const res = await fetch('/api/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'chat',
+          provider,
+          apiKey,
+          baseUrl,
+          model
+        })
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || `HTTP ${res.status}`);
+      }
+      setChatTestStatus('success');
+    } catch (err: any) {
+      setChatTestStatus('fail');
+      setChatTestError(err.message || '测试失败');
+    } finally {
+      setTimeout(() => setChatTestStatus('idle'), 4000);
+    }
+  };
+
+  const handleTestEmbedConnection = async () => {
+    const actualEmbedKey = embedApiKey || (embedProvider === 'gemini' ? apiKey : '');
+    if (!actualEmbedKey && embedProvider !== 'custom') {
+      setEmbedTestStatus('fail');
+      setEmbedTestError('API Key 不能为空');
+      setTimeout(() => setEmbedTestStatus('idle'), 3000);
+      return;
+    }
+    setEmbedTestStatus('testing');
+    setEmbedTestError('');
+    try {
+      const res = await fetch('/api/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'embed',
+          provider: embedProvider,
+          apiKey: actualEmbedKey,
+          baseUrl: embedBaseUrl,
+          model: embedModel
+        })
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || `HTTP ${res.status}`);
+      }
+      setEmbedTestStatus('success');
+    } catch (err: any) {
+      setEmbedTestStatus('fail');
+      setEmbedTestError(err.message || '测试失败');
+    } finally {
+      setTimeout(() => setEmbedTestStatus('idle'), 4000);
+    }
+  };
+
   const convertBlobToBase64 = (blob: Blob): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -452,25 +526,52 @@ export default function Settings() {
                       <label className="flex items-center gap-2 text-[13px] font-medium text-stone-700">
                         <KeyRound className="w-4 h-4 text-stone-400" />
                         API Key
+                        {(() => {
+                          const linkInfo = [
+                            { id: 'gemini', link: 'https://aistudio.google.com/app/apikey' },
+                            { id: 'openai', link: 'https://platform.openai.com/api-keys' },
+                            { id: 'volcengine', link: 'https://console.volcengine.com/ark/region:ark+cn-beijing/endpoint' },
+                            { id: 'kimi', link: 'https://platform.moonshot.cn/console/api-keys' },
+                            { id: 'zhipu', link: 'https://bigmodel.cn/usercenter/apikeys' },
+                            { id: 'minimax', link: 'https://platform.minimaxi.com/user-center/basic-information' },
+                            { id: 'mimo', link: 'https://open.xiaomi.com/' },
+                            { id: 'anthropic', link: 'https://console.anthropic.com/' },
+                            { id: 'deepseek', link: 'https://platform.deepseek.com/' },
+                            { id: 'siliconflow', link: 'https://cloud.siliconflow.cn/account/ak' },
+                          ].find(x => x.id === provider)?.link;
+                          
+                          return linkInfo ? (
+                            <a href={linkInfo} target="_blank" rel="noreferrer" className="text-[11px] text-blue-500 hover:underline font-normal ml-1">申请密钥</a>
+                          ) : null;
+                        })()}
                       </label>
-                      {(() => {
-                        const linkInfo = [
-                          { id: 'gemini', link: 'https://aistudio.google.com/app/apikey' },
-                          { id: 'openai', link: 'https://platform.openai.com/api-keys' },
-                          { id: 'volcengine', link: 'https://console.volcengine.com/ark/region:ark+cn-beijing/endpoint' },
-                          { id: 'kimi', link: 'https://platform.moonshot.cn/console/api-keys' },
-                          { id: 'zhipu', link: 'https://bigmodel.cn/usercenter/apikeys' },
-                          { id: 'minimax', link: 'https://platform.minimaxi.com/user-center/basic-information' },
-                          { id: 'mimo', link: 'https://open.xiaomi.com/' },
-                          { id: 'anthropic', link: 'https://console.anthropic.com/' },
-                          { id: 'deepseek', link: 'https://platform.deepseek.com/' },
-                          { id: 'siliconflow', link: 'https://cloud.siliconflow.cn/account/ak' },
-                        ].find(x => x.id === provider)?.link;
-                        
-                        return linkInfo ? (
-                          <a href={linkInfo} target="_blank" rel="noreferrer" className="text-[11px] text-blue-500 hover:underline">申请密钥</a>
-                        ) : null;
-                      })()}
+                      <div>
+                        {chatTestStatus === 'testing' ? (
+                          <span className="text-[11px] text-stone-400 flex items-center gap-1 select-none font-medium">
+                            <Loader2 className="w-3 h-3 animate-spin text-baimiao-mysteria" />
+                            测试中...
+                          </span>
+                        ) : chatTestStatus === 'success' ? (
+                          <span className="text-[11px] text-green-600 font-semibold flex items-center gap-0.5 animate-in fade-in select-none">
+                            已连通 ✅
+                          </span>
+                        ) : chatTestStatus === 'fail' ? (
+                          <span 
+                            className="text-[11px] text-rose-500 font-semibold flex items-center gap-0.5 animate-in fade-in cursor-help select-none"
+                            title={chatTestError}
+                          >
+                            连接失败 ❌
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleTestChatConnection}
+                            className="text-[11px] text-[#8a859e] hover:text-baimiao-mysteria font-medium hover:underline select-none active:scale-95 transition-all"
+                          >
+                            测试连接
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div className="relative">
                       <input
@@ -604,19 +705,46 @@ export default function Settings() {
                           <label className="flex items-center gap-2 text-[12px] font-medium text-stone-700">
                             <KeyRound className="w-3.5 h-3.5 text-stone-400" />
                             向量接口 API Key
+                            {(() => {
+                              const linkInfo = [
+                                { id: 'gemini', link: 'https://aistudio.google.com/app/apikey' },
+                                { id: 'openai', link: 'https://platform.openai.com/api-keys' },
+                                { id: 'siliconflow', link: 'https://cloud.siliconflow.cn/account/ak' },
+                                { id: 'zhipu', link: 'https://bigmodel.cn/usercenter/apikeys' }
+                              ].find(x => x.id === embedProvider)?.link;
+                              
+                              return linkInfo ? (
+                                <a href={linkInfo} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 hover:underline font-normal ml-1">申请密钥</a>
+                              ) : null;
+                            })()}
                           </label>
-                          {(() => {
-                            const linkInfo = [
-                              { id: 'gemini', link: 'https://aistudio.google.com/app/apikey' },
-                              { id: 'openai', link: 'https://platform.openai.com/api-keys' },
-                              { id: 'siliconflow', link: 'https://cloud.siliconflow.cn/account/ak' },
-                              { id: 'zhipu', link: 'https://bigmodel.cn/usercenter/apikeys' }
-                            ].find(x => x.id === embedProvider)?.link;
-                            
-                            return linkInfo ? (
-                              <a href={linkInfo} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 hover:underline">申请密钥</a>
-                            ) : null;
-                          })()}
+                          <div>
+                            {embedTestStatus === 'testing' ? (
+                              <span className="text-[11px] text-stone-400 flex items-center gap-1 select-none font-medium">
+                                <Loader2 className="w-3 h-3 animate-spin text-baimiao-mysteria" />
+                                测试中...
+                              </span>
+                            ) : embedTestStatus === 'success' ? (
+                              <span className="text-[11px] text-green-600 font-semibold flex items-center gap-0.5 animate-in fade-in select-none">
+                                已连通 ✅
+                              </span>
+                            ) : embedTestStatus === 'fail' ? (
+                              <span 
+                                className="text-[11px] text-rose-500 font-semibold flex items-center gap-0.5 animate-in fade-in cursor-help select-none"
+                                title={embedTestError}
+                              >
+                                连接失败 ❌
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={handleTestEmbedConnection}
+                                className="text-[11px] text-[#8a859e] hover:text-baimiao-mysteria font-medium hover:underline select-none active:scale-95 transition-all"
+                              >
+                                测试连接
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <div className="relative">
                           <input

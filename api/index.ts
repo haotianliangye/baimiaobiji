@@ -276,6 +276,121 @@ ${diaryContent || ""}
     }
   });
 
+  // --- Test Connection endpoint ---
+  app.post('/api/test-connection', async (req, res) => {
+    try {
+      const { type, provider = 'gemini', apiKey, baseUrl, model } = req.body;
+
+      if (!apiKey && provider !== 'custom') {
+        return res.status(400).json({ error: 'API Key 不能为空' });
+      }
+
+      if (type === 'chat') {
+        if (provider === 'gemini') {
+          const genAiConfig: any = { apiKey };
+          let finalBaseUrl = baseUrl;
+          if (finalBaseUrl === 'https://generativelanguage.googleapis.com/v1beta') {
+            finalBaseUrl = 'https://generativelanguage.googleapis.com';
+          }
+          if (finalBaseUrl) {
+            genAiConfig.httpOptions = { baseUrl: finalBaseUrl };
+          }
+          const ai = new GoogleGenAI(genAiConfig);
+          const response = await ai.models.generateContent({
+            model: model || 'gemini-3.1-flash-lite',
+            contents: 'Say ok',
+            config: {
+              maxOutputTokens: 2
+            }
+          });
+          if (response.text) {
+            return res.json({ success: true });
+          }
+        } else {
+          // OpenAI compatible chat completions
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json'
+          };
+          if (apiKey) {
+            headers['Authorization'] = `Bearer ${apiKey}`;
+          }
+          const apiBase = (baseUrl || '').replace(/\/$/, '');
+          const response = await fetch(`${apiBase}/chat/completions`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              model,
+              messages: [{ role: 'user', content: 'Say ok' }],
+              max_tokens: 2
+            })
+          });
+          if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(errText || `HTTP ${response.status}`);
+          }
+          const data = await response.json();
+          if (data.choices?.[0]?.message) {
+            return res.json({ success: true });
+          }
+        }
+      } else if (type === 'embed') {
+        if (provider === 'gemini') {
+          const genAiConfig: any = { apiKey };
+          let finalBaseUrl = baseUrl;
+          if (finalBaseUrl === 'https://generativelanguage.googleapis.com/v1beta') {
+            finalBaseUrl = 'https://generativelanguage.googleapis.com';
+          }
+          if (finalBaseUrl) {
+            genAiConfig.httpOptions = { baseUrl: finalBaseUrl };
+          }
+          const ai = new GoogleGenAI(genAiConfig);
+          const result = await ai.models.embedContent({
+            model: model || 'gemini-embedding-2',
+            contents: 'test',
+          });
+          if (result.embeddings?.[0]?.values) {
+            return res.json({ success: true });
+          }
+        } else {
+          // OpenAI compatible embeddings
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json'
+          };
+          if (apiKey) {
+            headers['Authorization'] = `Bearer ${apiKey}`;
+          }
+          const apiBase = (baseUrl || '').replace(/\/$/, '');
+          const response = await fetch(`${apiBase}/embeddings`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              model,
+              input: 'test'
+            })
+          });
+          if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(errText || `HTTP ${response.status}`);
+          }
+          const data = await response.json();
+          if (data.data?.[0]?.embedding) {
+            return res.json({ success: true });
+          }
+        }
+      }
+
+      throw new Error('测试连接响应异常');
+    } catch (err: any) {
+      console.error('Test connection error:', err);
+      let cleanMsg = err.message || '';
+      try {
+        const parsed = JSON.parse(cleanMsg);
+        if (parsed.error?.message) cleanMsg = parsed.error.message;
+      } catch(e){}
+      res.status(500).json({ error: cleanMsg || '测试连接失败，请检查网络或配置' });
+    }
+  });
+
   app.post('/api/generate-insights', async (req, res) => {
     try {
       const { logs, timeRange, timeRangeLabel, settings } = req.body;
