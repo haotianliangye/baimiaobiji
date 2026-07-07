@@ -208,6 +208,80 @@ ${diaryContent || ""}
     }
   });
 
+  // --- Embedding (vector) generation endpoint ---
+  app.post('/api/generate-embedding', async (req, res) => {
+    try {
+      const { text, settings } = req.body;
+      const { provider = 'gemini', apiKey, baseUrl, embeddingModel } = settings || {};
+
+      if (!text || !text.trim()) {
+        return res.status(400).json({ error: 'text is required and must not be empty' });
+      }
+      if (!apiKey) {
+        return res.status(400).json({ error: 'API Key is required for embedding generation' });
+      }
+
+      let embedding: number[] = [];
+
+      if (provider === 'gemini') {
+        // Use @google/genai SDK for Gemini embedding
+        const genAiConfig: any = { apiKey };
+        let finalBaseUrl = baseUrl;
+        if (finalBaseUrl === 'https://generativelanguage.googleapis.com/v1beta') {
+          finalBaseUrl = 'https://generativelanguage.googleapis.com';
+        }
+        if (finalBaseUrl) {
+          genAiConfig.httpOptions = { baseUrl: finalBaseUrl };
+        }
+        const ai = new GoogleGenAI(genAiConfig);
+        const result = await ai.models.embedContent({
+          model: embeddingModel || 'text-embedding-004',
+          contents: text.trim(),
+        });
+        embedding = result.embeddings?.[0]?.values || [];
+      } else {
+        // OpenAI-compatible embedding endpoint (OpenAI, SiliconFlow, Volcengine, Zhipu, etc.)
+        const defConfigs: Record<string, { baseUrl: string; model: string }> = {
+          openai: { baseUrl: 'https://api.openai.com/v1', model: 'text-embedding-3-small' },
+          siliconflow: { baseUrl: 'https://api.siliconflow.cn/v1', model: 'BAAI/bge-large-zh-v1.5' },
+          volcengine: { baseUrl: 'https://ark.cn-beijing.volces.com/api/v3', model: 'doubao-embedding' },
+          zhipu: { baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: 'embedding-3' },
+          custom: { baseUrl: 'http://127.0.0.1:11434/v1', model: 'nomic-embed-text' },
+        };
+        const def = defConfigs[provider] || defConfigs['custom'];
+        const apiBase = (baseUrl || def.baseUrl).replace(/\/$/, '');
+        const apiUrl = `${apiBase}/embeddings`;
+        const actualModel = embeddingModel || def.model;
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({ input: text.trim(), model: actualModel }),
+        });
+
+        if (!response.ok) {
+          const errBody = await response.text();
+          throw new Error(`Embedding API error: ${response.status} ${errBody}`);
+        }
+
+        const data = await response.json();
+        embedding = data.data?.[0]?.embedding || [];
+      }
+
+      if (!embedding.length) {
+        throw new Error('Embedding API returned empty vector');
+      }
+
+      res.json({ embedding });
+    } catch (err: any) {
+      console.error('Embedding generation error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.post('/api/generate-insights', async (req, res) => {
     try {
       const { logs, timeRange, timeRangeLabel, settings } = req.body;
