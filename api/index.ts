@@ -279,7 +279,8 @@ ${diaryContent || ""}
   // --- Test Connection endpoint ---
   app.post('/api/test-connection', async (req, res) => {
     try {
-      const { type, provider = 'gemini', apiKey, baseUrl, model } = req.body;
+      const { type, settings } = req.body;
+      const { provider = 'gemini', apiKey, baseUrl, model } = settings || {};
 
       if (!apiKey && provider !== 'custom') {
         return res.status(400).json({ error: 'API Key 不能为空' });

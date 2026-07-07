@@ -271,10 +271,7 @@ export default function Settings() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'chat',
-          provider,
-          apiKey,
-          baseUrl,
-          model
+          settings: { provider, apiKey, baseUrl, model }
         })
       });
       if (!res.ok) {
@@ -306,10 +303,7 @@ export default function Settings() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'embed',
-          provider: embedProvider,
-          apiKey: actualEmbedKey,
-          baseUrl: embedBaseUrl,
-          model: embedModel
+          settings: { provider: embedProvider, apiKey: actualEmbedKey, baseUrl: embedBaseUrl, model: embedModel }
         })
       });
       if (!res.ok) {
