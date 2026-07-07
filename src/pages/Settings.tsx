@@ -527,7 +527,7 @@ export default function Settings() {
                         <KeyRound className="w-4 h-4 text-stone-400" />
                         API Key
                       </label>
-                      <div className="flex items-center gap-3.5">
+                      <div className="flex items-center gap-6">
                         {(() => {
                           const linkInfo = [
                             { id: 'gemini', link: 'https://aistudio.google.com/app/apikey' },
@@ -543,36 +543,34 @@ export default function Settings() {
                           ].find(x => x.id === provider)?.link;
                           
                           return linkInfo ? (
-                            <a href={linkInfo} target="_blank" rel="noreferrer" className="text-[11.5px] text-[#8a859e] hover:text-baimiao-mysteria transition-colors hover:underline font-normal select-none">申请密钥</a>
+                            <a href={linkInfo} target="_blank" rel="noreferrer" className="text-[11.5px] text-[#8a859e] hover:text-baimiao-mysteria transition-colors hover:underline font-normal select-none leading-none">申请密钥</a>
                           ) : null;
                         })()}
-                        <div>
-                          {chatTestStatus === 'testing' ? (
-                            <span className="text-[11px] text-stone-400 flex items-center gap-1 select-none font-medium">
-                              <Loader2 className="w-3 h-3 animate-spin text-baimiao-mysteria" />
-                              测试中...
-                            </span>
-                          ) : chatTestStatus === 'success' ? (
-                            <span className="text-[11px] text-green-600 font-semibold flex items-center gap-0.5 animate-in fade-in select-none">
-                              已连通 ✅
-                            </span>
-                          ) : chatTestStatus === 'fail' ? (
-                            <span 
-                              className="text-[11px] text-rose-500 font-semibold flex items-center gap-0.5 animate-in fade-in cursor-help select-none"
-                              title={chatTestError}
-                            >
-                              连接失败 ❌
-                            </span>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={handleTestChatConnection}
-                              className="text-[11px] text-[#8a859e] hover:text-baimiao-mysteria font-medium hover:underline select-none active:scale-95 transition-all"
-                            >
-                              测试连接
-                            </button>
-                          )}
-                        </div>
+                        {chatTestStatus === 'testing' ? (
+                          <span className="text-[11.5px] text-stone-400 flex items-center gap-1 select-none font-medium leading-none">
+                            <Loader2 className="w-3 h-3 animate-spin text-baimiao-mysteria" />
+                            测试中...
+                          </span>
+                        ) : chatTestStatus === 'success' ? (
+                          <span className="text-[11.5px] text-green-600 font-semibold flex items-center gap-0.5 animate-in fade-in select-none leading-none">
+                            已连通 ✅
+                          </span>
+                        ) : chatTestStatus === 'fail' ? (
+                          <span 
+                            className="text-[11.5px] text-rose-500 font-semibold flex items-center gap-0.5 animate-in fade-in cursor-help select-none leading-none"
+                            title={chatTestError}
+                          >
+                            连接失败 ❌
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleTestChatConnection}
+                            className="text-[11.5px] text-[#8a859e] hover:text-baimiao-mysteria font-medium hover:underline select-none active:scale-95 transition-all leading-none"
+                          >
+                            测试连接
+                          </button>
+                        )}
                       </div>
                     </div>
                     <div className="relative">
@@ -708,7 +706,7 @@ export default function Settings() {
                             <KeyRound className="w-3.5 h-3.5 text-stone-400" />
                             向量接口 API Key
                           </label>
-                          <div className="flex items-center gap-3.5">
+                          <div className="flex items-center gap-6">
                             {(() => {
                               const linkInfo = [
                                 { id: 'gemini', link: 'https://aistudio.google.com/app/apikey' },
@@ -718,36 +716,34 @@ export default function Settings() {
                               ].find(x => x.id === embedProvider)?.link;
                               
                               return linkInfo ? (
-                                <a href={linkInfo} target="_blank" rel="noreferrer" className="text-[11px] text-[#8a859e] hover:text-baimiao-mysteria transition-colors hover:underline font-normal select-none">申请密钥</a>
+                                <a href={linkInfo} target="_blank" rel="noreferrer" className="text-[11.5px] text-[#8a859e] hover:text-baimiao-mysteria transition-colors hover:underline font-normal select-none leading-none">申请密钥</a>
                               ) : null;
                             })()}
-                            <div>
-                              {embedTestStatus === 'testing' ? (
-                                <span className="text-[11px] text-stone-400 flex items-center gap-1 select-none font-medium">
-                                  <Loader2 className="w-3 h-3 animate-spin text-baimiao-mysteria" />
-                                  测试中...
-                                </span>
-                              ) : embedTestStatus === 'success' ? (
-                                <span className="text-[11px] text-green-600 font-semibold flex items-center gap-0.5 animate-in fade-in select-none">
-                                  已连通 ✅
-                                </span>
-                              ) : embedTestStatus === 'fail' ? (
-                                <span 
-                                  className="text-[11px] text-rose-500 font-semibold flex items-center gap-0.5 animate-in fade-in cursor-help select-none"
-                                  title={embedTestError}
-                                >
-                                  连接失败 ❌
-                                </span>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={handleTestEmbedConnection}
-                                  className="text-[11px] text-[#8a859e] hover:text-baimiao-mysteria font-medium hover:underline select-none active:scale-95 transition-all"
-                                >
-                                  测试连接
-                                </button>
-                              )}
-                            </div>
+                            {embedTestStatus === 'testing' ? (
+                              <span className="text-[11.5px] text-stone-400 flex items-center gap-1 select-none font-medium leading-none">
+                                <Loader2 className="w-3 h-3 animate-spin text-baimiao-mysteria" />
+                                测试中...
+                              </span>
+                            ) : embedTestStatus === 'success' ? (
+                              <span className="text-[11.5px] text-green-600 font-semibold flex items-center gap-0.5 animate-in fade-in select-none leading-none">
+                                已连通 ✅
+                              </span>
+                            ) : embedTestStatus === 'fail' ? (
+                              <span 
+                                className="text-[11.5px] text-rose-500 font-semibold flex items-center gap-0.5 animate-in fade-in cursor-help select-none leading-none"
+                                title={embedTestError}
+                              >
+                                连接失败 ❌
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={handleTestEmbedConnection}
+                                className="text-[11.5px] text-[#8a859e] hover:text-baimiao-mysteria font-medium hover:underline select-none active:scale-95 transition-all leading-none"
+                              >
+                                测试连接
+                              </button>
+                            )}
                           </div>
                         </div>
                         <div className="relative">
