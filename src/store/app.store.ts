@@ -393,6 +393,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           raw_log_ids: logs.map(l => l.id),
           timeline_json: timelineContent,
           ai_editorial: data.ai_editorial,
+          ai_summary: data.ai_summary || "暂无内容概要",
           ai_review: data.ai_review,
           updated_at: Date.now(),
           prompt_index: activePromptIndex,
@@ -551,6 +552,8 @@ export const useAppStore = create<AppState>((set, get) => ({
           } catch {}
           return true;
         });
+        // Recover tasks stuck in 'processing' from a previous crashed/closed session
+        tasks = tasks.map(t => t.status === 'processing' ? { ...t, status: 'pending' as const } : t);
         set({ autoGenTasks: tasks });
         localStorage.setItem('baimiao_autogen_tasks', JSON.stringify(tasks));
       }
@@ -734,6 +737,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                 timeline_json: timelineContent,
                 raw_log_ids: logs.map(l => l.id),
                 ai_editorial: data.ai_editorial,
+                ai_summary: data.ai_summary || "暂无内容概要",
                 ai_review: data.ai_review,
                 updated_at: Date.now()
               });
@@ -751,6 +755,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                 raw_log_ids: logs.map(l => l.id),
                 timeline_json: timelineContent,
                 ai_editorial: data.ai_editorial,
+                ai_summary: data.ai_summary || "暂无内容概要",
                 ai_review: data.ai_review,
                 updated_at: Date.now(),
                 prompt_index: activePromptIndex,
@@ -869,7 +874,11 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setSearchQuery: (query) => {
     set({ searchQuery: query });
-    get().executeSearch();
+    // Debounce so we don't fire an embedding request + full-table scans per keystroke
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+      get().executeSearch();
+    }, 250);
   },
 
   setSearchFilters: (filters) => {
@@ -889,6 +898,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
 
+    const myRequestId = ++searchRequestId;
     set({ isSearching: true, searchError: null });
 
     const query = searchQuery.trim();
@@ -899,7 +909,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     // --- Semantic search branch ---
     const settings = useSettingsStore.getState();
     const { semanticSearchEnabled } = get();
-    const useSemanticSearch = semanticSearchEnabled && settings.embedEnabled && (settings.embedApiKey || settings.apiKey);
+    const useSemanticSearch = semanticSearchEnabled && settings.embedEnabled && (settings.embedProvider === 'custom' || settings.embedApiKey || settings.apiKey);
     let queryEmbedding: number[] | null = null;
 
     if (useSemanticSearch) {
@@ -909,6 +919,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         console.error('[Semantic Search] Failed to get query embedding:', err);
         set({ searchError: err.message || '生成搜索向量失败，请检查设置或网络' });
       }
+      // A newer search may have started while awaiting the embedding; abort early
+      if (myRequestId !== searchRequestId) return;
     }
 
     // 1. 碎屑记录搜索
@@ -1017,7 +1029,7 @@ export const useAppStore = create<AppState>((set, get) => ({
               title: `[语义] 碎屑记录 . ${format(new Date(log.created_at), 'yyyy-MM-dd HH:mm')}`,
               content: log.content,
               date: format(new Date(log.created_at), 'yyyy-MM-dd'),
-              highlightSnippets: log.content.slice(0, 80) + (log.content.length > 80 ? '...' : ''),
+              highlightSnippets: getHighlightSnippet(log.content, query),
               similarity: sim,
             });
           }
@@ -1038,7 +1050,7 @@ export const useAppStore = create<AppState>((set, get) => ({
               title: `[语义] 整合日记 . ${d.diary_date}`,
               content: d.ai_editorial,
               date: d.diary_date,
-              highlightSnippets: (d.ai_editorial || '').slice(0, 80) + '...',
+              highlightSnippets: getHighlightSnippet(d.ai_editorial || '', query),
               similarity: sim,
             });
           }
@@ -1059,7 +1071,7 @@ export const useAppStore = create<AppState>((set, get) => ({
               title: `[语义] 反思回顾 . ${r.review_date}`,
               content: r.ai_review,
               date: r.review_date,
-              highlightSnippets: (r.ai_review || '').slice(0, 80) + '...',
+              highlightSnippets: getHighlightSnippet(r.ai_review || '', query),
               similarity: sim,
             });
           }
@@ -1068,11 +1080,23 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       // Sort semantic results by similarity descending, take top 20
       semanticResults.sort((a, b) => b.similarity - a.similarity);
-      const topSemantic = semanticResults.slice(0, 20);
-      // Prepend semantic results (higher priority)
-      results.unshift(...topSemantic);
+      const topSemantic = semanticResults.slice(0, 20).map(({ similarity, ...rest }) => rest);
+
+      // Reciprocal Rank Fusion: merge keyword (date-ranked) and semantic (similarity-ranked)
+      // lists into one ranked list, instead of blindly prepending semantic results which
+      // could bury an exact keyword match behind tangential semantic hits.
+      const RRF_K = 60;
+      const rrf = new Map<string, number>();
+      results.forEach((r, i) => rrf.set(r.id, 1 / (RRF_K + i + 1)));
+      topSemantic.forEach((r, i) => rrf.set(r.id, (rrf.get(r.id) || 0) + 1 / (RRF_K + i + 1)));
+      const merged = [...results, ...topSemantic];
+      merged.sort((a, b) => (rrf.get(b.id) || 0) - (rrf.get(a.id) || 0));
+      results.length = 0;
+      results.push(...merged);
     }
 
+    // Discard this result if a newer search has superseded it
+    if (myRequestId !== searchRequestId) return;
     set({ searchResults: results, isSearching: false });
   },
 
@@ -1348,28 +1372,45 @@ const isDateInFilter = (
   return isWithinInterval(target, { start, end });
 };
 
+const escapeHtml = (str: string) => str
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
 const escapeRegExp = (str: string) => {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 };
+
+// Debounce timer + monotonic request id for search. The id lets a newer search
+// discard the result of a slower in-flight one (e.g. a semantic embedding call
+// that completes after the user kept typing).
+let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+let searchRequestId = 0;
 
 const getHighlightSnippet = (text: string, query: string): string => {
   if (!text) return '';
   const cleanText = text.replace(/[\r\n]+/g, ' '); // 扁平化多行文本
   const index = cleanText.toLowerCase().indexOf(query.toLowerCase());
-  
+
   if (index === -1) {
-    return cleanText.slice(0, 80) + (cleanText.length > 80 ? '...' : '');
+    return escapeHtml(cleanText.slice(0, 80)) + (cleanText.length > 80 ? '...' : '');
   }
-  
+
   const start = Math.max(0, index - 20);
   const end = Math.min(cleanText.length, index + query.length + 40);
   let snippet = cleanText.slice(start, end);
-  
+
   if (start > 0) snippet = '...' + snippet;
   if (end < cleanText.length) snippet = snippet + '...';
-  
-  const escapedQuery = escapeRegExp(query);
+
+  // Escape HTML first (prevents XSS from imported/synced content rendered via
+  // dangerouslySetInnerHTML), then highlight the query match. The query is escaped
+  // the same way so its HTML-special chars match the escaped snippet.
+  const escaped = escapeHtml(snippet);
+  const escapedQuery = escapeRegExp(escapeHtml(query));
   const regex = new RegExp(`(${escapedQuery})`, 'gi');
-  return snippet.replace(regex, '<mark class="bg-amber-100 text-amber-900 rounded-[3px] px-0.5 font-medium">$1</mark>');
+  return escaped.replace(regex, '<mark class="bg-amber-100 text-amber-900 rounded-[3px] px-0.5 font-medium">$1</mark>');
 };
 

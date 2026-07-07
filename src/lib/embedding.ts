@@ -63,6 +63,7 @@ export interface EmbeddingTask {
   id: string;
   type: 'record' | 'diary' | 'review';
   retryCount: number;
+  force?: boolean; // true when content changed and the embedding must be regenerated even if version matches
 }
 
 function getQueue(): EmbeddingTask[] {
@@ -91,12 +92,35 @@ function saveQueue(queue: EmbeddingTask[]) {
   }
 }
 
-export function enqueueEmbeddingTask(id: string, type: 'record' | 'diary' | 'review') {
+// Removes a task by id+type, re-reading the queue first so enqueues that happen
+// during a long embedding API call (e.g. from Dexie hooks) are not overwritten.
+function removeTask(task: EmbeddingTask) {
   const queue = getQueue();
-  if (queue.some(t => t.id === id && t.type === type)) return;
-  queue.push({ id, type, retryCount: 0 });
+  const idx = queue.findIndex(t => t.id === task.id && t.type === task.type);
+  if (idx !== -1) queue.splice(idx, 1);
   saveQueue(queue);
 }
+
+export function enqueueEmbeddingTask(id: string, type: 'record' | 'diary' | 'review', force = false) {
+  const queue = getQueue();
+  const existing = queue.find(t => t.id === id && t.type === type);
+  if (existing) {
+    // A content edit requires re-embedding even if the task is already queued
+    if (force && !existing.force) {
+      existing.force = true;
+      saveQueue(queue);
+    }
+    return;
+  }
+  queue.push({ id, type, retryCount: 0, force });
+  saveQueue(queue);
+}
+
+// Mutex: ensures only one processing loop runs at a time. Dexie hooks, the
+// online listener, the init timer and the settings subscriber can all trigger
+// processEmbeddingQueue concurrently; without this guard they spawn parallel
+// loops that duplicate API calls and clobber each other's queue writes.
+let isProcessing = false;
 
 export async function processEmbeddingQueue(
   onProgress?: (remaining: number) => void
@@ -104,80 +128,80 @@ export async function processEmbeddingQueue(
   const settings = useSettingsStore.getState();
   if (!settings.embedEnabled) return;
   if (!navigator.onLine) return;
+  if (isProcessing) return;
 
-  const queue = getQueue();
-  if (queue.length === 0) return;
-
+  isProcessing = true;
   const versionTag = getEmbedVersionTag();
-  let processed = 0;
+  try {
+    while (true) {
+      const currentQueue = getQueue();
+      if (currentQueue.length === 0) break;
+      if (!navigator.onLine) break;
 
-  while (true) {
-    const currentQueue = getQueue();
-    if (currentQueue.length === 0) break;
-    if (!navigator.onLine) break;
+      const task = currentQueue[0];
+      try {
+        let text = '';
 
-    const task = currentQueue[0];
-    try {
-      let text = '';
-
-      if (task.type === 'record') {
-        const log = await db.raw_logs.get(task.id);
-        if (!log) { currentQueue.shift(); saveQueue(currentQueue); continue; }
-        // Skip if already embedded with same model version
-        if (log.embedding && log.embedding.length > 0 && log.embedding_version === versionTag) {
-          currentQueue.shift(); saveQueue(currentQueue); continue;
+        if (task.type === 'record') {
+          const log = await db.raw_logs.get(task.id);
+          if (!log) { removeTask(task); continue; }
+          // Skip if already embedded with same model version AND no content change forced it
+          if (log.embedding && log.embedding.length > 0 && log.embedding_version === versionTag && !task.force) {
+            removeTask(task); continue;
+          }
+          text = log.content;
+        } else if (task.type === 'diary') {
+          const diary = await db.daily_diaries.get(task.id);
+          if (!diary) { removeTask(task); continue; }
+          if (diary.embedding && diary.embedding.length > 0 && diary.embedding_version === versionTag && !task.force) {
+            removeTask(task); continue;
+          }
+          text = diary.ai_editorial || '';
+        } else if (task.type === 'review') {
+          const review = await db.daily_reviews.get(task.id);
+          if (!review) { removeTask(task); continue; }
+          if (review.embedding && review.embedding.length > 0 && review.embedding_version === versionTag && !task.force) {
+            removeTask(task); continue;
+          }
+          text = review.ai_review || '';
         }
-        text = log.content;
-      } else if (task.type === 'diary') {
-        const diary = await db.daily_diaries.get(task.id);
-        if (!diary) { currentQueue.shift(); saveQueue(currentQueue); continue; }
-        if (diary.embedding && diary.embedding.length > 0 && diary.embedding_version === versionTag) {
-          currentQueue.shift(); saveQueue(currentQueue); continue;
+
+        if (!text.trim()) {
+          removeTask(task);
+          continue;
         }
-        text = diary.ai_editorial || '';
-      } else if (task.type === 'review') {
-        const review = await db.daily_reviews.get(task.id);
-        if (!review) { currentQueue.shift(); saveQueue(currentQueue); continue; }
-        if (review.embedding && review.embedding.length > 0 && review.embedding_version === versionTag) {
-          currentQueue.shift(); saveQueue(currentQueue); continue;
+
+        const embedding = await requestEmbedding(text);
+
+        // Write back to IndexedDB
+        if (task.type === 'record') {
+          await db.raw_logs.update(task.id, { embedding, embedding_version: versionTag });
+        } else if (task.type === 'diary') {
+          await db.daily_diaries.update(task.id, { embedding, embedding_version: versionTag });
+        } else if (task.type === 'review') {
+          await db.daily_reviews.update(task.id, { embedding, embedding_version: versionTag });
         }
-        text = review.ai_review || '';
-      }
 
-      if (!text.trim()) {
-        currentQueue.shift();
-        saveQueue(currentQueue);
-        continue;
+        // Remove from queue on success (re-read queue to avoid clobbering concurrent enqueues)
+        removeTask(task);
+        onProgress?.(getQueue().length);
+      } catch (err) {
+        console.error(`[Embedding Queue] Failed to process ${task.type}:${task.id}`, err);
+        // Exponential backoff: remove this task, re-enqueue at back with incremented retry
+        const queue = getQueue();
+        const idx = queue.findIndex(t => t.id === task.id && t.type === task.type);
+        if (idx !== -1) queue.splice(idx, 1);
+        if (task.retryCount < 5) {
+          queue.push({ ...task, retryCount: task.retryCount + 1 });
+        }
+        saveQueue(queue);
+        // Wait before retrying (exponential: 2^retry * 1000ms)
+        const delay = Math.min(Math.pow(2, task.retryCount) * 1000, 30000);
+        await new Promise(r => setTimeout(r, delay));
       }
-
-      const embedding = await requestEmbedding(text);
-
-      // Write back to IndexedDB
-      if (task.type === 'record') {
-        await db.raw_logs.update(task.id, { embedding, embedding_version: versionTag });
-      } else if (task.type === 'diary') {
-        await db.daily_diaries.update(task.id, { embedding, embedding_version: versionTag });
-      } else if (task.type === 'review') {
-        await db.daily_reviews.update(task.id, { embedding, embedding_version: versionTag });
-      }
-
-      // Remove from queue on success
-      currentQueue.shift();
-      saveQueue(currentQueue);
-      processed++;
-      onProgress?.(currentQueue.length);
-    } catch (err) {
-      console.error(`[Embedding Queue] Failed to process ${task.type}:${task.id}`, err);
-      // Exponential backoff: move to back with incremented retry
-      currentQueue.shift();
-      if (task.retryCount < 5) {
-        currentQueue.push({ ...task, retryCount: task.retryCount + 1 });
-      }
-      saveQueue(currentQueue);
-      // Wait before retrying (exponential: 2^retry * 1000ms)
-      const delay = Math.min(Math.pow(2, task.retryCount) * 1000, 30000);
-      await new Promise(r => setTimeout(r, delay));
     }
+  } finally {
+    isProcessing = false;
   }
 }
 
@@ -215,7 +239,7 @@ db.raw_logs.hook('updating', (mods, primKey, obj, transaction) => {
   transaction.on('complete', () => {
     const settings = useSettingsStore.getState();
     if (settings.embedEnabled && 'content' in mods) {
-      enqueueEmbeddingTask(obj.id, 'record');
+      enqueueEmbeddingTask(obj.id, 'record', true);
       processEmbeddingQueue();
     }
   });
@@ -235,7 +259,7 @@ db.daily_diaries.hook('updating', (mods, primKey, obj, transaction) => {
   transaction.on('complete', () => {
     const settings = useSettingsStore.getState();
     if (settings.embedEnabled && 'ai_editorial' in mods) {
-      enqueueEmbeddingTask(obj.id, 'diary');
+      enqueueEmbeddingTask(obj.id, 'diary', true);
       processEmbeddingQueue();
     }
   });
@@ -255,7 +279,7 @@ db.daily_reviews.hook('updating', (mods, primKey, obj, transaction) => {
   transaction.on('complete', () => {
     const settings = useSettingsStore.getState();
     if (settings.embedEnabled && 'ai_review' in mods) {
-      enqueueEmbeddingTask(obj.id, 'review');
+      enqueueEmbeddingTask(obj.id, 'review', true);
       processEmbeddingQueue();
     }
   });

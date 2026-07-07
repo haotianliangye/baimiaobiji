@@ -217,7 +217,7 @@ ${diaryContent || ""}
       if (!text || !text.trim()) {
         return res.status(400).json({ error: 'text is required and must not be empty' });
       }
-      if (!apiKey) {
+      if (!apiKey && provider !== 'custom') {
         return res.status(400).json({ error: 'API Key is required for embedding generation' });
       }
 
@@ -309,7 +309,7 @@ ${diaryContent || ""}
               maxOutputTokens: 2
             }
           });
-          if (response) {
+          if (response.text) {
             return res.json({ success: true });
           }
         } else {
@@ -335,7 +335,7 @@ ${diaryContent || ""}
             throw new Error(errText || `HTTP ${response.status}`);
           }
           const data = await response.json();
-          if (data) {
+          if (data.choices?.[0]?.message) {
             return res.json({ success: true });
           }
         }
@@ -354,7 +354,7 @@ ${diaryContent || ""}
             model: model || 'gemini-embedding-2',
             contents: 'test',
           });
-          if (result) {
+          if (result.embeddings?.[0]?.values) {
             return res.json({ success: true });
           }
         } else {
@@ -379,7 +379,7 @@ ${diaryContent || ""}
             throw new Error(errText || `HTTP ${response.status}`);
           }
           const data = await response.json();
-          if (data) {
+          if (data.data?.[0]?.embedding) {
             return res.json({ success: true });
           }
         }
@@ -388,21 +388,6 @@ ${diaryContent || ""}
       throw new Error('测试连接响应异常');
     } catch (err: any) {
       console.error('Test connection error:', err);
-      try {
-        const fs = await import('fs');
-        const path = await import('path');
-        const logDir = 'C:\\Users\\haoti\\.gemini\\antigravity\\brain\\7d86f579-6936-4dc4-95d3-acb1dea60162\\scratch';
-        fs.writeFileSync(
-          path.join(logDir, 'test_error.log'),
-          JSON.stringify({
-            timestamp: new Date().toISOString(),
-            error: err.message || String(err),
-            stack: err.stack,
-            body: req.body
-          }, null, 2),
-          'utf-8'
-        );
-      } catch (logErr) {}
       let cleanMsg = err.message || '';
       try {
         const parsed = JSON.parse(cleanMsg);
@@ -849,8 +834,12 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  // Bind to loopback by default to prevent SSRF / unauthenticated LAN access to the
+  // local AI-proxy endpoints (test-connection, generate-embedding fetch attacker-supplied URLs).
+  // Set HOST=0.0.0.0 env var to allow LAN access (e.g. mobile PWA hitting this server).
+  const HOST = process.env.HOST || '127.0.0.1';
+  app.listen(PORT, HOST, () => {
+    console.log(`Server running on http://localhost:${PORT}` + (HOST === '0.0.0.0' ? ' (LAN accessible)' : ' (loopback only)'));
   });
 }
 

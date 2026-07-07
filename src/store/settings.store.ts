@@ -109,12 +109,16 @@ export const DEFAULT_EMBED_PROVIDER_CONFIGS: Record<string, { apiKey: string; ba
   custom: { apiKey: '', baseUrl: 'http://127.0.0.1:11434/v1', model: 'nomic-embed-text' }
 };
 
-const obfuscate = (str: string) => {
+// NOTE: base64 *encoding*, NOT encryption. localStorage is readable by any
+// script running in this origin (incl. XSS / browser extensions); there is no
+// way to truly encrypt secrets in a pure client-side app without a server-held
+// key. This only prevents casual eyeballing of persisted values.
+const encodeB64 = (str: string) => {
   if (!str) return str;
   try { return btoa(encodeURIComponent(str)); } catch(e) { return str; }
 };
 
-const deobfuscate = (str: string) => {
+const decodeB64 = (str: string) => {
   if (!str) return str;
   try { return decodeURIComponent(atob(str)); } catch(e) { return str; }
 };
@@ -316,10 +320,10 @@ export const useSettingsStore = create<SettingsState>()(
         partialize: (state) => {
           const { syncPassword, syncPasswordE2EE, ...rest } = state;
           if (state.syncRememberCredentials) {
-            return { 
-              ...rest, 
-              syncPassword: obfuscate(syncPassword), 
-              syncPasswordE2EE: obfuscate(syncPasswordE2EE) 
+            return {
+              ...rest,
+              syncPassword: encodeB64(syncPassword),
+              syncPasswordE2EE: encodeB64(syncPasswordE2EE)
             };
           }
           return rest;
@@ -327,11 +331,11 @@ export const useSettingsStore = create<SettingsState>()(
         merge: (persistedState: any, currentState: SettingsState) => {
           if (persistedState.syncRememberCredentials) {
             if (persistedState.syncPassword) {
-              persistedState.syncPassword = deobfuscate(persistedState.syncPassword);
+              persistedState.syncPassword = decodeB64(persistedState.syncPassword);
               sessionStorage.setItem('baimiao_syncPassword', persistedState.syncPassword);
             }
             if (persistedState.syncPasswordE2EE) {
-              persistedState.syncPasswordE2EE = deobfuscate(persistedState.syncPasswordE2EE);
+              persistedState.syncPasswordE2EE = decodeB64(persistedState.syncPasswordE2EE);
               sessionStorage.setItem('baimiao_syncPasswordE2EE', persistedState.syncPasswordE2EE);
             }
           }
