@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Book, Clock, Edit3, Loader2, PieChart, SlidersHorizontal, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning } from 'lucide-react';
+import { Book, Clock, Edit3, Loader2, PieChart, SlidersHorizontal, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning, Sparkles } from 'lucide-react';
 import { subDays, startOfDay, endOfDay, format } from 'date-fns';
 import { db } from '../db/db';
 import { useAppStore } from '../store/app.store';
@@ -33,10 +33,15 @@ export default function Layout() {
     addSearchHistory,
     syncStatus,
     syncErrorMessage,
-    syncNow
+    syncNow,
+    semanticSearchEnabled,
+    setSemanticSearchEnabled,
+    isSearching,
+    searchError,
+    totalVectorsCount
   } = useAppStore();
 
-  const { syncEnabled } = useSettingsStore();
+  const { syncEnabled, embedEnabled } = useSettingsStore();
 
   const [showDateDropdown, setShowDateDropdown] = useState(false);
   const dateDropdownRef = useRef<HTMLDivElement>(null);
@@ -391,7 +396,39 @@ export default function Layout() {
                 </button>
               );
             })}
+
+            {/* Semantic search toggle */}
+            {embedEnabled && (
+              <button
+                type="button"
+                onClick={() => setSemanticSearchEnabled(!semanticSearchEnabled)}
+                className={`px-3 py-1 rounded-xl text-[12px] font-medium border transition-all shrink-0 active:scale-95 flex items-center gap-1 ${
+                  semanticSearchEnabled 
+                    ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria border-baimiao-mysteria/30 shadow-sm shadow-baimiao-mysteria/5' 
+                    : 'bg-[#f0edf4]/50 text-[#8a859e] border-stone-200/20 hover:bg-[#f0edf4]'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>语义搜索</span>
+              </button>
+            )}
           </div>
+
+          {/* Semantic Status Bar */}
+          {embedEnabled && semanticSearchEnabled && (
+            <div className="px-4 py-1.5 bg-[#f6f4f9] border-b border-stone-250/20 text-[11px] text-[#8a859e] flex items-center justify-between shrink-0 select-none animate-in slide-in-from-top duration-200">
+              <span className="flex items-center gap-1.5">
+                <span className={`w-1.5 h-1.5 rounded-full ${totalVectorsCount > 0 ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`}></span>
+                {totalVectorsCount > 0 
+                  ? `本地向量库已就绪 (共 ${totalVectorsCount} 条记录)` 
+                  : '本地向量库尚未生成，请在设置中启用以开始生成'
+                }
+              </span>
+              {totalVectorsCount === 0 && (
+                <span className="text-[10px] text-amber-600 font-medium">正在后台计算...</span>
+              )}
+            </div>
+          )}
 
           {/* Date range filter dropdown card (rendered outside overflow-x-auto bar to avoid clipping) */}
           {showDateDropdown && (
@@ -538,41 +575,64 @@ export default function Layout() {
             {/* Results mode */}
             {searchQuery && (
               <div className="space-y-3">
-                {searchResults.length === 0 ? (
-                  <div className="text-center py-20 select-none">
-                    <p className="text-[13px] text-stone-400">未找到匹配的内容</p>
+                {isSearching ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-center select-none space-y-3 animate-in fade-in duration-200">
+                    <Loader2 className="w-7 h-7 text-baimiao-mysteria animate-spin stroke-[1.5px]" />
+                    <p className="text-[12px] text-stone-400 font-medium">正在生成搜索向量并检索本地数据库...</p>
                   </div>
                 ) : (
-                  searchResults.map((item) => (
-                    <div
-                      key={`${item.type}-${item.id}`}
-                      onClick={() => handleResultClick(item)}
-                      className="bg-white p-3.5 rounded-2xl border border-black/[0.03] hover:border-black/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.01)] hover:shadow-md transition-all cursor-pointer space-y-1.5 active:scale-[0.99]"
-                    >
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className={`px-1.5 py-0.5 rounded-md font-medium text-[10px] uppercase ${
-                          item.type === 'record' ? 'bg-amber-50 text-amber-600' :
-                          item.type === 'diary' ? 'bg-blue-50 text-blue-600' :
-                          item.type === 'review' ? 'bg-purple-50 text-purple-600' :
-                          'bg-emerald-50 text-emerald-600'
-                        }`}>
-                          {item.type === 'record' ? '记录' :
-                           item.type === 'diary' ? '日记' :
-                           item.type === 'review' ? '回顾' : '洞察'}
-                        </span>
-                        <span className="text-stone-400 font-mono">{item.date}</span>
+                  <>
+                    {searchError && (
+                      <div className="p-3 bg-amber-50/70 border border-amber-100/60 rounded-2xl text-[12px] text-amber-800 flex flex-col gap-0.5 animate-in fade-in duration-200">
+                        <div className="font-semibold flex items-center gap-1.5 text-amber-900">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                          语义搜索不可用
+                        </div>
+                        <div className="text-amber-800/80 leading-normal">{searchError}</div>
+                        <div className="text-[10.5px] text-stone-400 mt-1">提示：当前展示为普通文本检索结果。</div>
                       </div>
-                      
-                      <h4 className="text-[13.5px] font-semibold text-stone-850 leading-snug">
-                        {item.title}
-                      </h4>
-                      
-                      <p 
-                        className="text-[12.5px] text-stone-550 leading-relaxed break-all selection:bg-amber-100"
-                        dangerouslySetInnerHTML={{ __html: item.highlightSnippets }}
-                      />
-                    </div>
-                  ))
+                    )}
+
+                    {searchResults.length === 0 ? (
+                      <div className="text-center py-20 select-none space-y-1 animate-in fade-in duration-200">
+                        <p className="text-[13px] text-stone-400 font-medium">未找到匹配的内容</p>
+                        <p className="text-[11px] text-stone-300">
+                          已进行{semanticSearchEnabled ? '本地向量比对与' : ''}全文文本匹配。
+                        </p>
+                      </div>
+                    ) : (
+                      searchResults.map((item) => (
+                        <div
+                          key={`${item.type}-${item.id}`}
+                          onClick={() => handleResultClick(item)}
+                          className="bg-white p-3.5 rounded-2xl border border-black/[0.03] hover:border-black/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.01)] hover:shadow-md transition-all cursor-pointer space-y-1.5 active:scale-[0.99] animate-in fade-in slide-in-from-bottom-2 duration-200"
+                        >
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className={`px-1.5 py-0.5 rounded-md font-medium text-[10px] uppercase ${
+                              item.type === 'record' ? 'bg-amber-50 text-amber-600' :
+                              item.type === 'diary' ? 'bg-blue-50 text-blue-600' :
+                              item.type === 'review' ? 'bg-purple-50 text-purple-600' :
+                              'bg-emerald-50 text-emerald-600'
+                            }`}>
+                              {item.type === 'record' ? '记录' :
+                               item.type === 'diary' ? '日记' :
+                               item.type === 'review' ? '回顾' : '洞察'}
+                            </span>
+                            <span className="text-stone-400 font-mono">{item.date}</span>
+                          </div>
+                          
+                          <h4 className="text-[13.5px] font-semibold text-stone-850 leading-snug">
+                            {item.title}
+                          </h4>
+                          
+                          <p 
+                            className="text-[12.5px] text-stone-550 leading-relaxed break-all selection:bg-amber-100"
+                            dangerouslySetInnerHTML={{ __html: item.highlightSnippets }}
+                          />
+                        </div>
+                      ))
+                    )}
+                  </>
                 )}
               </div>
             )}

@@ -67,6 +67,9 @@ interface AppState {
   };
   searchResults: SearchItem[];
   semanticSearchEnabled: boolean;
+  isSearching: boolean;
+  searchError: string | null;
+  totalVectorsCount: number;
 
   // 云同步状态
   syncStatus: 'idle' | 'syncing' | 'error' | 'disabled' | 'credentials_missing';
@@ -105,6 +108,7 @@ interface AppState {
   executeSearch: () => Promise<void>;
   addSearchHistory: (query: string) => void;
   setSemanticSearchEnabled: (enabled: boolean) => void;
+  updateVectorsCount: () => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -149,6 +153,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   searchResults: [],
   semanticSearchEnabled: false,
+  isSearching: false,
+  searchError: null,
+  totalVectorsCount: 0,
 
   clearDiaryError: (dateStr) => {
     set((state) => {
@@ -844,7 +851,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSearchMode: (open) => {
     set({ isSearchMode: open });
     if (!open) {
-      set({ searchQuery: '', searchResults: [] });
+      set({ searchQuery: '', searchResults: [], searchError: null, isSearching: false });
+    } else {
+      get().updateVectorsCount();
     }
   },
 
@@ -866,9 +875,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   executeSearch: async () => {
     const { searchQuery, searchFilters } = get();
     if (!searchQuery.trim()) {
-      set({ searchResults: [] });
+      set({ searchResults: [], searchError: null, isSearching: false });
       return;
     }
+
+    set({ isSearching: true, searchError: null });
 
     const query = searchQuery.trim();
     const { dateRange, modules, customStartDate, customEndDate } = searchFilters;
@@ -878,14 +889,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     // --- Semantic search branch ---
     const settings = useSettingsStore.getState();
     const { semanticSearchEnabled } = get();
-    const useSemanticSearch = semanticSearchEnabled && settings.embedEnabled && settings.embedApiKey;
+    const useSemanticSearch = semanticSearchEnabled && settings.embedEnabled && (settings.embedApiKey || settings.apiKey);
     let queryEmbedding: number[] | null = null;
 
     if (useSemanticSearch) {
       try {
         queryEmbedding = await requestEmbedding(query);
-      } catch (err) {
+      } catch (err: any) {
         console.error('[Semantic Search] Failed to get query embedding:', err);
+        set({ searchError: err.message || '生成搜索向量失败，请检查设置或网络' });
       }
     }
 
@@ -1051,7 +1063,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       results.unshift(...topSemantic);
     }
 
-    set({ searchResults: results });
+    set({ searchResults: results, isSearching: false });
   },
 
   addSearchHistory: (query) => {
@@ -1070,6 +1082,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { searchQuery } = get();
     if (searchQuery.trim()) {
       get().executeSearch();
+    }
+  },
+
+  updateVectorsCount: async () => {
+    try {
+      const logCount = await db.raw_logs.filter(log => !!log.embedding && log.embedding.length > 0).count();
+      const diaryCount = await db.daily_diaries.filter(d => !!d.embedding && d.embedding.length > 0).count();
+      const reviewCount = await db.daily_reviews.filter(r => !!r.embedding && r.embedding.length > 0).count();
+      set({ totalVectorsCount: logCount + diaryCount + reviewCount });
+    } catch (e) {
+      console.error('Failed to update vectors count:', e);
     }
   },
 
