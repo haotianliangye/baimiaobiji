@@ -16,6 +16,20 @@ async function startServer() {
   
   app.use(express.json({ limit: '50mb' }));
 
+  // Build a GoogleGenAI client with base-URL normalization. Shared by every
+  // endpoint that calls Gemini to avoid repeating the config dance.
+  function buildGeminiClient(apiKey: string, baseUrl?: string) {
+    const genAiConfig: any = { apiKey };
+    let finalBaseUrl = baseUrl;
+    if (finalBaseUrl === 'https://generativelanguage.googleapis.com/v1beta') {
+      finalBaseUrl = 'https://generativelanguage.googleapis.com';
+    }
+    if (finalBaseUrl) {
+      genAiConfig.httpOptions = { baseUrl: finalBaseUrl };
+    }
+    return new GoogleGenAI(genAiConfig);
+  }
+
   app.post('/api/generate-timeline', async (req, res) => {
     try {
       const { logs, date, timezone, settings } = req.body;
@@ -50,15 +64,7 @@ ${logs.map((l: any) => `- [${new Date(l.created_at).toLocaleTimeString('zh-CN', 
             return res.status(500).json({ error: '请在设置页面中配置你的 Gemini API Key' });
          }
          
-         const genAiConfig: any = { apiKey: activeKey };
-         let finalBaseUrl = baseUrl;
-         if (finalBaseUrl === 'https://generativelanguage.googleapis.com/v1beta') {
-             finalBaseUrl = 'https://generativelanguage.googleapis.com';
-         }
-         if (finalBaseUrl) {
-            genAiConfig.httpOptions = { baseUrl: finalBaseUrl };
-         }
-         const ai = new GoogleGenAI(genAiConfig);
+         const ai = buildGeminiClient(activeKey, baseUrl);
          
          let finalModel = model || 'gemini-3.1-flash-lite';
 
@@ -147,15 +153,7 @@ ${diaryContent || ""}
             return res.status(500).json({ error: '请在设置页面中配置你的 Gemini API Key' });
          }
          
-         const genAiConfig: any = { apiKey: activeKey };
-         let finalBaseUrl = baseUrl;
-         if (finalBaseUrl === 'https://generativelanguage.googleapis.com/v1beta') {
-             finalBaseUrl = 'https://generativelanguage.googleapis.com';
-         }
-         if (finalBaseUrl) {
-            genAiConfig.httpOptions = { baseUrl: finalBaseUrl };
-         }
-         const ai = new GoogleGenAI(genAiConfig);
+         const ai = buildGeminiClient(activeKey, baseUrl);
          
          let finalModel = model || 'gemini-3.1-flash-lite';
 
@@ -225,15 +223,7 @@ ${diaryContent || ""}
 
       if (provider === 'gemini') {
         // Use @google/genai SDK for Gemini embedding
-        const genAiConfig: any = { apiKey };
-        let finalBaseUrl = baseUrl;
-        if (finalBaseUrl === 'https://generativelanguage.googleapis.com/v1beta') {
-          finalBaseUrl = 'https://generativelanguage.googleapis.com';
-        }
-        if (finalBaseUrl) {
-          genAiConfig.httpOptions = { baseUrl: finalBaseUrl };
-        }
-        const ai = new GoogleGenAI(genAiConfig);
+        const ai = buildGeminiClient(apiKey, baseUrl);
         const result = await ai.models.embedContent({
           model: embeddingModel || 'gemini-embedding-2',
           contents: text.trim(),
@@ -241,6 +231,10 @@ ${diaryContent || ""}
         embedding = result.embeddings?.[0]?.values || [];
       } else {
         // OpenAI-compatible embedding endpoint (OpenAI, SiliconFlow, Volcengine, Zhipu, etc.)
+        // NOTE: the canonical provider→config map lives in src/store/settings.store.ts
+        // (DEFAULT_EMBED_PROVIDER_CONFIGS); this backend copy is only a fallback for
+        // default baseUrl/model when the client omits them. Adding a provider requires
+        // updating the frontend store too.
         const defConfigs: Record<string, { baseUrl: string; model: string }> = {
           openai: { baseUrl: 'https://api.openai.com/v1', model: 'text-embedding-3-small' },
           siliconflow: { baseUrl: 'https://api.siliconflow.cn/v1', model: 'BAAI/bge-large-zh-v1.5' },
@@ -294,15 +288,7 @@ ${diaryContent || ""}
 
       if (type === 'chat') {
         if (provider === 'gemini') {
-          const genAiConfig: any = { apiKey };
-          let finalBaseUrl = baseUrl;
-          if (finalBaseUrl === 'https://generativelanguage.googleapis.com/v1beta') {
-            finalBaseUrl = 'https://generativelanguage.googleapis.com';
-          }
-          if (finalBaseUrl) {
-            genAiConfig.httpOptions = { baseUrl: finalBaseUrl };
-          }
-          const ai = new GoogleGenAI(genAiConfig);
+          const ai = buildGeminiClient(apiKey, baseUrl);
           const response = await ai.models.generateContent({
             model: model || 'gemini-3.1-flash-lite',
             contents: 'Say ok',
@@ -342,15 +328,7 @@ ${diaryContent || ""}
         }
       } else if (type === 'embed') {
         if (provider === 'gemini') {
-          const genAiConfig: any = { apiKey };
-          let finalBaseUrl = baseUrl;
-          if (finalBaseUrl === 'https://generativelanguage.googleapis.com/v1beta') {
-            finalBaseUrl = 'https://generativelanguage.googleapis.com';
-          }
-          if (finalBaseUrl) {
-            genAiConfig.httpOptions = { baseUrl: finalBaseUrl };
-          }
-          const ai = new GoogleGenAI(genAiConfig);
+          const ai = buildGeminiClient(apiKey, baseUrl);
           const result = await ai.models.embedContent({
             model: model || 'gemini-embedding-2',
             contents: 'test',
@@ -425,15 +403,7 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
             return res.status(500).json({ error: '请在设置页面中配置你的 Gemini API Key' });
          }
          
-         const genAiConfig: any = { apiKey: activeKey };
-         let finalBaseUrl = baseUrl;
-         if (finalBaseUrl === 'https://generativelanguage.googleapis.com/v1beta') {
-             finalBaseUrl = 'https://generativelanguage.googleapis.com';
-         }
-         if (finalBaseUrl) {
-            genAiConfig.httpOptions = { baseUrl: finalBaseUrl };
-         }
-         const ai = new GoogleGenAI(genAiConfig);
+         const ai = buildGeminiClient(activeKey, baseUrl);
          
          let finalModel = model || 'gemini-3.1-flash-lite';
 
@@ -474,15 +444,7 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
             return res.status(500).json({ error: '请在设置页面中配置你的 Gemini API Key' });
          }
          
-         const genAiConfig: any = { apiKey: activeKey };
-         let finalBaseUrl = baseUrl;
-         if (finalBaseUrl === 'https://generativelanguage.googleapis.com/v1beta') {
-             finalBaseUrl = 'https://generativelanguage.googleapis.com';
-         }
-         if (finalBaseUrl) {
-            genAiConfig.httpOptions = { baseUrl: finalBaseUrl };
-         }
-         const ai = new GoogleGenAI(genAiConfig);
+         const ai = buildGeminiClient(activeKey, baseUrl);
          
          let finalModel = model || 'gemini-3.1-flash-lite';
          
@@ -558,15 +520,7 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
             return res.status(500).json({ error: '请在设置页面中配置你的 Gemini API Key' });
          }
          
-         const genAiConfig: any = { apiKey: activeKey };
-         let finalBaseUrl = baseUrl;
-         if (finalBaseUrl === 'https://generativelanguage.googleapis.com/v1beta') {
-             finalBaseUrl = 'https://generativelanguage.googleapis.com';
-         }
-         if (finalBaseUrl) {
-            genAiConfig.httpOptions = { baseUrl: finalBaseUrl };
-         }
-         const ai = new GoogleGenAI(genAiConfig);
+         const ai = buildGeminiClient(activeKey, baseUrl);
          
          let finalModel = model || 'gemini-3.1-flash-lite';
 

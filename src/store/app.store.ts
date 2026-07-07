@@ -1022,7 +1022,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           if (seenIds.has(log.id)) continue;
           if (!isDateInFilter(log.created_at, dateRange, customStartDate, customEndDate)) continue;
           const sim = cosineSimilarity(queryEmbedding, log.embedding);
-          if (sim > 0.35) {
+          if (sim > SEMANTIC_THRESHOLD) {
             semanticResults.push({
               id: log.id,
               type: 'record',
@@ -1043,7 +1043,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           if (seenIds.has(d.id)) continue;
           if (!isDateInFilter(parseISO(d.diary_date), dateRange, customStartDate, customEndDate)) continue;
           const sim = cosineSimilarity(queryEmbedding, d.embedding);
-          if (sim > 0.35) {
+          if (sim > SEMANTIC_THRESHOLD) {
             semanticResults.push({
               id: d.id,
               type: 'diary',
@@ -1064,7 +1064,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           if (seenIds.has(r.id)) continue;
           if (!isDateInFilter(parseISO(r.review_date), dateRange, customStartDate, customEndDate)) continue;
           const sim = cosineSimilarity(queryEmbedding, r.embedding);
-          if (sim > 0.35) {
+          if (sim > SEMANTIC_THRESHOLD) {
             semanticResults.push({
               id: r.id,
               type: 'review',
@@ -1334,6 +1334,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 registerQueueChangeListener((size) => {
   useAppStore.setState({ embeddingQueueSize: size });
 });
+
+// Minimum cosine similarity for a vector match to be included in semantic
+// search results. Tunable single source of truth.
+const SEMANTIC_THRESHOLD = 0.35;
 
 // === 搜索辅助函数 ===
 const isDateInFilter = (
