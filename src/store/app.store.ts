@@ -3,7 +3,7 @@ import { db } from '../db/db';
 import { generateUUID } from '../lib/utils';
 import { SYNC_CONSTANTS } from '../config/constants';
 import { useSettingsStore, getActivePromptIndices } from './settings.store';
-import { cosineSimilarity, requestEmbedding, getEmbedSettings } from '../lib/embedding';
+import { cosineSimilarity, requestEmbedding, getEmbedSettings, registerQueueChangeListener } from '../lib/embedding';
 import { encryptData, decryptData } from '../lib/crypto';
 import { WebDAVClient } from '../lib/webdav';
 import { OneDriveClient, GDriveClient, DropboxClient } from '../lib/cloudClients';
@@ -70,6 +70,7 @@ interface AppState {
   isSearching: boolean;
   searchError: string | null;
   totalVectorsCount: number;
+  embeddingQueueSize: number;
 
   // 云同步状态
   syncStatus: 'idle' | 'syncing' | 'error' | 'disabled' | 'credentials_missing';
@@ -156,6 +157,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   isSearching: false,
   searchError: null,
   totalVectorsCount: 0,
+  embeddingQueueSize: (() => {
+    try {
+      return JSON.parse(localStorage.getItem('baimiao_pending_embeddings') || '[]').length;
+    } catch {
+      return 0;
+    }
+  })(),
 
   clearDiaryError: (dateStr) => {
     set((state) => {
@@ -220,6 +228,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (idToOverwrite) {
         await db.daily_diaries.update(idToOverwrite, {
            timeline_json: timelineContent,
+           ai_summary: data.ai_summary || "暂无内容概要",
            raw_log_ids: logs.map(l => l.id),
            ai_editorial: data.ai_editorial,
            ai_review: data.ai_review,
@@ -234,6 +243,7 @@ export const useAppStore = create<AppState>((set, get) => ({
            raw_log_ids: logs.map(l => l.id),
            timeline_json: timelineContent,
            ai_editorial: data.ai_editorial,
+           ai_summary: data.ai_summary || "暂无内容概要",
            ai_review: data.ai_review,
            updated_at: Date.now(),
            prompt_index: activePromptIndex,
@@ -1296,6 +1306,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   }
 }));
+
+registerQueueChangeListener((size) => {
+  useAppStore.setState({ embeddingQueueSize: size });
+});
 
 // === 搜索辅助函数 ===
 const isDateInFilter = (

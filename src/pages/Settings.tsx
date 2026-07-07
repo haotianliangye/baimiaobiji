@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning } from 'lucide-react';
-import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_WARM_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_SUMMARY_PROMPT } from '../store/settings.store';
+import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_WARM_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_SUMMARY_PROMPT, DEFAULT_DIARY_SUMMARY_PROMPT } from '../store/settings.store';
 import { db } from '../db/db';
 import { enqueueAllMissingEmbeddings } from '../lib/embedding';
 import { checkStorageStatus, requestStoragePersistence, StorageEstimateInfo } from '../lib/storage';
@@ -29,6 +29,7 @@ export default function Settings() {
     insightPrompts, 
     insightPromptIndex, 
     summaryPrompt,
+    diarySummaryPrompt,
     embedEnabled,
     embedProvider,
     embedApiKey,
@@ -248,6 +249,7 @@ export default function Settings() {
   const [localInsightIndex, setLocalInsightIndex] = useState<number>(0);
 
   const [localSummaryPrompt, setLocalSummaryPrompt] = useState(summaryPrompt || DEFAULT_SUMMARY_PROMPT);
+  const [localDiarySummaryPrompt, setLocalDiarySummaryPrompt] = useState(diarySummaryPrompt || DEFAULT_DIARY_SUMMARY_PROMPT);
 
   const convertBlobToBase64 = (blob: Blob): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -930,6 +932,32 @@ export default function Settings() {
                   className="w-full h-24 resize-none bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] text-stone-900 placeholder:text-stone-400 transition-all font-mono leading-relaxed focus:bg-white"
                 />
               </section>
+
+              {/* Card 5: 日记一句话摘要生成 Prompt */}
+              <section className="baimiao-card-diary p-4 space-y-3 overflow-hidden">
+                <div className="bg-[#f8f6fa] border-b border-stone-100/80 px-4 py-2.5 -mx-4 -mt-4 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0 border-l-2 border-baimiao-mysteria pl-2">
+                    <label className="flex items-center gap-1.5 text-[13px] font-bold text-stone-700">
+                      <Settings2 className="w-4 h-4 text-baimiao-mysteria" />
+                      日记一句话摘要生成 Prompt
+                    </label>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => setLocalDiarySummaryPrompt(DEFAULT_DIARY_SUMMARY_PROMPT)}
+                    className="text-[11px] text-stone-400 hover:text-red-500 flex items-center gap-1 transition-colors"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    恢复默认
+                  </button>
+                </div>
+                <textarea
+                  placeholder="请输入日记摘要生成提示词..."
+                  value={localDiarySummaryPrompt}
+                  onChange={e => setLocalDiarySummaryPrompt(e.target.value)}
+                  className="w-full h-24 resize-none bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] text-stone-900 placeholder:text-stone-400 transition-all font-mono leading-relaxed focus:bg-white"
+                />
+              </section>
             </div>
           )}
 
@@ -1449,6 +1477,7 @@ export default function Settings() {
                 insightPromptIndex: localInsightIndex,
                 insightPrompt: localInsightPrompts[localInsightIndex],
                 summaryPrompt: localSummaryPrompt,
+                diarySummaryPrompt: localDiarySummaryPrompt,
                 syncEnabled: localSyncEnabled,
                 syncProvider: localSyncProvider,
                 syncEndpoint: localSyncEndpoint,

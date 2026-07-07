@@ -65,7 +65,7 @@ ${logs.map((l: any) => `- [${new Date(l.created_at).toLocaleTimeString('zh-CN', 
          diaryMarkdown = response.text || "";
 
          if (diaryMarkdown) {
-           const summaryPromptStr = settings?.summaryPrompt || `You are an assistant that creates a concise, one-sentence summary of a daily diary. Based on the provided diary text, generate a short, beautiful, and poetic summary in Chinese (no more than 30 characters).`;
+           const summaryPromptStr = settings?.diarySummaryPrompt || `You are an assistant that creates a concise, one-sentence summary of a daily diary. Based on the provided diary text, generate a short, beautiful, and poetic summary in Chinese (no more than 30 characters).`;
            const summaryRes = await ai.models.generateContent({
              model: model || 'gemini-3.1-flash-lite',
              contents: `${summaryPromptStr}\n\nDiary Text:\n${diaryMarkdown}`
@@ -89,7 +89,7 @@ ${logs.map((l: any) => `- [${new Date(l.created_at).toLocaleTimeString('zh-CN', 
          );
 
          if (diaryMarkdown) {
-            const summaryPromptStr = settings?.summaryPrompt || `You are an assistant that creates a concise, one-sentence summary of a daily diary. Based on the provided diary text, generate a short, beautiful, and poetic summary in Chinese (no more than 30 characters).`;
+            const summaryPromptStr = settings?.diarySummaryPrompt || `You are an assistant that creates a concise, one-sentence summary of a daily diary. Based on the provided diary text, generate a short, beautiful, and poetic summary in Chinese (no more than 30 characters).`;
             try {
                summaryMarkdown = await sendLLMRequest(
                   provider,

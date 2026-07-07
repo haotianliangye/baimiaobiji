@@ -334,24 +334,32 @@ export default function Diary() {
                    {/* Card Header */}
                    <button
                      onClick={() => {
-                        if (isEditing) return;
-                        setExpandedDiaryId(isExpanded ? null : diary.id);
+                       if (isEditing) return;
+                       setExpandedDiaryId(isExpanded ? null : diary.id);
                      }}
-                     className="w-full text-left p-4 hover:bg-stone-50/50 active:bg-stone-100 transition-colors flex justify-between items-center select-none"
+                     className="p-4 text-left hover:bg-stone-50 active:bg-stone-100 transition-colors flex flex-col gap-1.5 w-full relative"
                    >
-                     <span className="flex items-center gap-2 text-[16px] font-semibold text-stone-800">
-                       <Sparkles className="w-3.5 h-3.5 text-stone-400 stroke-[2px]" />
-                       日记 ({diary.prompt_name || '默认'})
-                       <span className="text-[12px] font-normal font-mono text-stone-400 ml-1">
-                         {format(new Date(diary.updated_at), 'HH:mm')}
+                     <div className="flex justify-between items-center w-full">
+                       <span className="text-[15px] font-semibold text-stone-800 font-mono tracking-tight leading-none">
+                         {diary.diary_date}
                        </span>
+                       {isExpanded ? (
+                         <ChevronUp className="w-4 h-4 text-stone-400" />
+                       ) : (
+                         <ChevronDown className="w-4 h-4 text-stone-400" />
+                       )}
+                     </div>
+                     <span className="text-[13px] text-stone-500 line-clamp-2 leading-relaxed pr-6 select-none">
+                       {diary.ai_summary || '暂无内容概要'}
                      </span>
-                     {isExpanded ? (
-                       <ChevronUp className="w-4 h-4 text-stone-400" />
-                     ) : (
-                       <ChevronDown className="w-4 h-4 text-stone-400" />
-                     )}
                    </button>
+
+                   {/* Prompt label sub-header */}
+                   <div className="px-4 py-1.5 border-t border-black/[0.03] bg-stone-50/60">
+                     <span className="text-[11px] text-stone-400 font-medium">
+                       日记 ({diary.prompt_name || '默认'}) · {format(new Date(diary.updated_at), 'HH:mm')}
+                     </span>
+                   </div>
 
                    {/* Card Content */}
                    {isExpanded && (

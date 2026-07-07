@@ -25,6 +25,7 @@ export interface DailyDiary {
   raw_log_ids: string[];
   timeline_json: string; // serialized JSON array of TimelineBlock
   ai_editorial: string;
+  ai_summary?: string;
   ai_review?: string; // kept for legacy migration only, not written to anymore
   updated_at: number;
   prompt_index?: number;
