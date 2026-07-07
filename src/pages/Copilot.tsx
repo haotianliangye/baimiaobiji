@@ -257,7 +257,7 @@ export default function Copilot() {
               Keeping all controls on one row prevents layout jumping when the
               diary-template chip conditionally appears. */}
           {embedReady && (
-            <div className="flex items-center px-4 py-2 bg-white border-b border-stone-200/50 gap-1.5 shrink-0 relative flex-wrap justify-end select-none">
+            <div className="flex items-center px-4 py-2 bg-white border-b border-stone-200/50 shrink-0 relative justify-between select-none">
               {/* Module chips */}
               {(['record', 'diary', 'review', 'insight'] as const).map(mod => {
                 const isSelected = modules.includes(mod);
