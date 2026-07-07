@@ -25,6 +25,11 @@
 - 三大模块均支持「默认 + 3 个自定义槽位」的多通道 Prompt，可一键批量生成多套结果
 - 日记 / 回顾 / 洞察卡片内均可展开 AI 对话追问，上下文随卡片独立保存
 
+**白描 Copilot (智能助理)**
+- 基于本地向量数据库的 RAG 检索对话，支持跨时空的碎屑、日记、回顾、洞察内容查询
+- 支持按模块（记录/日记/回顾/洞察）、日期范围（今日/本周/本月/自定义）及日记模板精准过滤 RAG 上下文
+- 支持多轮对话、自动命名会话、历史会话记录的持久化管理
+
 **搜索（关键词 + 语义）**
 - 覆盖碎屑、日记、回顾、洞察四类，关键词高亮预览，按时间/模块过滤
 - 可选的**本地向量语义搜索**：用 embedding 模型对内容建索引，混合关键词与向量结果排序
@@ -106,7 +111,7 @@ src/
 ├── db/db.ts           IndexedDB 声明与迁移
 ├── lib/embedding.ts   向量队列、余弦相似度、语义搜索
 ├── store/             Zustand 状态（app / settings）
-├── pages/             Record · Diary · Review · Insights · Settings
+├── pages/             Record · Diary · Review · Insights · Settings · Copilot
 └── components/        Layout · ContextChat · CalendarHeatmap · MiniCalendar · ActionSheet
 ```
 
