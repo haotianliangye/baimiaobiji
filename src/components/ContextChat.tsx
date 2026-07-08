@@ -24,8 +24,20 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [showExpandBtn, setShowExpandBtn] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const settings = useSettingsStore();
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      // scrollHeight > 50px indicates the input text spans more than 1 line
+      const hasMultipleLines = textareaRef.current.scrollHeight > 50;
+      setShowExpandBtn(hasMultipleLines);
+    } else {
+      setShowExpandBtn(false);
+    }
+  }, [inputValue]);
 
   useEffect(() => {
     // Only sync down from a non-empty chatHistory. Guards against the new-
@@ -251,33 +263,40 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
       )}
 
       <div className="flex items-end gap-2 relative">
-        <button
-          type="button"
-          onClick={() => setIsFullScreen(true)}
-          className="w-11 h-11 shrink-0 flex items-center justify-center bg-stone-50 border border-stone-200/60 text-stone-400 rounded-2xl hover:bg-stone-100 hover:text-stone-750 transition-colors active:scale-95"
-          title="展开为长文本输入"
-        >
-          <Maximize2 className="w-4 h-4" />
-        </button>
-        <textarea
-          className="flex-1 bg-stone-50 border border-stone-200/60 rounded-2xl px-4 py-3 text-[14px] text-stone-800 placeholder-stone-400 focus:outline-none focus:border-stone-300 focus:bg-white focus:ring-4 focus:ring-stone-100/50 transition-all resize-none thin-scrollbar"
-          rows={1}
-          placeholder={inputPlaceholder || "向 AI 追问更多细节..."}
-          value={inputValue}
-          onChange={(e) => {
-             setInputValue(e.target.value);
-             e.target.style.height = 'auto';
-             e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
-          }}
-          onKeyDown={(e) => {
-            const isMobile = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth < 768);
-            if (e.key === 'Enter' && !e.shiftKey && !isMobile) {
-              e.preventDefault();
-              handleSend();
-            }
-          }}
-          style={{ minHeight: '44px' }}
-        />
+        <div className="flex-1 relative flex items-end">
+          {showExpandBtn && (
+            <button
+              type="button"
+              onClick={() => setIsFullScreen(true)}
+              className="absolute left-3 top-3 z-10 w-5.5 h-5.5 flex items-center justify-center bg-white/90 border border-stone-200/60 text-stone-400 hover:text-stone-650 hover:bg-white rounded-lg shadow-sm hover:scale-105 active:scale-95 transition-all select-none"
+              title="展开为长文本输入"
+            >
+              <Maximize2 className="w-3 h-3" />
+            </button>
+          )}
+          <textarea
+            ref={textareaRef}
+            className={`flex-1 bg-stone-50 border border-stone-200/60 rounded-2xl py-3 text-[14px] text-stone-800 placeholder-stone-400 focus:outline-none focus:border-stone-300 focus:bg-white focus:ring-4 focus:ring-stone-100/50 transition-all resize-none thin-scrollbar ${
+              showExpandBtn ? 'pl-11 pr-4' : 'px-4'
+            }`}
+            rows={1}
+            placeholder={inputPlaceholder || "向 AI 追问更多细节..."}
+            value={inputValue}
+            onChange={(e) => {
+               setInputValue(e.target.value);
+               e.target.style.height = 'auto';
+               e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+            }}
+            onKeyDown={(e) => {
+              const isMobile = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth < 768);
+              if (e.key === 'Enter' && !e.shiftKey && !isMobile) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            style={{ minHeight: '44px' }}
+          />
+        </div>
         <button
           onClick={handleSend}
           disabled={!inputValue.trim() || isTyping}
@@ -287,9 +306,9 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
         </button>
       </div>
 
-      {/* Full Screen Text Editor overlay */}
+      {/* Full Screen Text Editor overlay — constrained to centered max-w-md viewport layout */}
       {isFullScreen && (
-        <div className="fixed inset-0 z-[110] flex flex-col bg-white animate-in slide-in-from-bottom duration-300">
+        <div className="fixed inset-y-0 w-full max-w-md bg-white z-[110] flex flex-col shadow-2xl left-1/2 -translate-x-1/2 animate-in slide-in-from-bottom duration-300">
           {/* Header */}
           <div className="flex h-[54px] shrink-0 items-center px-4 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white gap-2 select-none border-b border-white/5">
             <button
@@ -308,7 +327,7 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
           {/* Text Area */}
           <div className="flex-1 bg-white p-6 overflow-y-auto">
             <textarea
-              className="w-full h-full focus:outline-none resize-none text-[15.5px] leading-relaxed text-stone-800 placeholder-stone-400 thin-scrollbar"
+              className="w-full h-full focus:outline-none resize-none text-[15.5px] leading-relaxed text-stone-850 placeholder-stone-400 thin-scrollbar"
               placeholder={inputPlaceholder || "在这里写下长内容，向 AI 追问更多细节..."}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
