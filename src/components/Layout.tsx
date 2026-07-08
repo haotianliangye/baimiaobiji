@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Book, Clock, Edit3, Loader2, PieChart, SlidersHorizontal, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning, Sparkles, MessageSquare } from 'lucide-react';
+import { Book, Clock, Loader2, SlidersHorizontal, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning, Sparkles, MessageSquare, Mic, Lightbulb } from 'lucide-react';
 import { subDays, startOfDay, endOfDay, format } from 'date-fns';
 import { db } from '../db/db';
 import { useAppStore } from '../store/app.store';
@@ -282,10 +282,10 @@ export default function Layout() {
         {/* Tab Bar */}
         <nav className="h-[60px] shrink-0 border-t border-baimiao-border/50 bg-white/80 backdrop-blur-md pb-safe z-50 relative">
           <div className="w-full h-full flex justify-around items-center px-2">
-            <TabItem to="/" icon={<Edit3 />} label="记录" />
+            <TabItem to="/" icon={<Mic />} label="记录" />
             <TabItem to="/diary" icon={<Book />} label="日记" />
             <TabItem to="/review" icon={<Clock />} label="回顾" />
-            <TabItem to="/insights" icon={<PieChart />} label="洞察" />
+            <TabItem to="/insights" icon={<Lightbulb />} label="洞察" />
           </div>
         </nav>
       </div>
