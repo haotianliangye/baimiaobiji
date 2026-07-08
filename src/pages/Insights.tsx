@@ -80,7 +80,7 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
   return (
     <>
     <div
-      className="p-5 mb-4 relative overflow-hidden baimiao-card-diary"
+      className="w-full overflow-hidden baimiao-card-diary mb-4 relative"
       onTouchStart={(e) => {
          if (isEditing) return;
          const touch = e.touches[0];
@@ -100,32 +100,29 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
          setContextMenuState({ isOpen: true, x: e.clientX, y: e.clientY });
       }}
     >
-      {/* Header button — mirrors Diary/Review (title + chevron). The existing
-          range_label + created_at are preserved as required. */}
+      {/* Card Header button — matches Diary/Review layout exactly */}
       <button
         type="button"
         onClick={() => { if (isEditing) return; setExpanded(!expanded); }}
-        className="w-full flex items-center justify-between gap-2 text-left select-none"
+        className="p-4 text-left hover:bg-stone-50 active:bg-stone-100 transition-colors flex flex-col gap-1.5 w-full relative select-none animate-in fade-in duration-200"
       >
-        <div className="flex items-center gap-2 min-w-0">
-          <Sparkles className="w-4 h-4 text-stone-400 shrink-0" />
-          <span className="text-[15px] font-semibold text-stone-800 truncate">{title}</span>
+        <div className="flex justify-between items-center w-full">
+          <div className="flex items-center gap-2 min-w-0">
+            <Sparkles className="w-4 h-4 text-stone-400 shrink-0" />
+            <span className="text-[15px] font-semibold text-stone-800 truncate">{title}</span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[12px] text-stone-400 font-mono">{headerDate}</span>
+            {expanded ? <ChevronUp className="w-4 h-4 text-stone-300" /> : <ChevronDown className="w-4 h-4 text-stone-300" />}
+          </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="text-[12px] text-stone-400 font-mono">{headerDate}</span>
-          {expanded ? <ChevronUp className="w-4 h-4 text-stone-300" /> : <ChevronDown className="w-4 h-4 text-stone-300" />}
-        </div>
+        <span className="text-[13px] text-stone-500 line-clamp-2 leading-relaxed pr-6 select-none">
+          {summary}
+        </span>
       </button>
 
-      {/* Subtitle — mirrors DailyDiary/DailyReview's ai_summary line. */}
-      <div
-        className={`mt-1.5 text-[12.5px] text-stone-500 leading-relaxed select-none ${expanded ? '' : 'line-clamp-2'}`}
-      >
-        {summary}
-      </div>
-
       {isEditing ? (
-        <div className="flex flex-col gap-3 relative z-10 w-full animate-in fade-in zoom-in-95 duration-200 mt-3">
+        <div className="flex flex-col gap-3 relative z-10 w-full animate-in fade-in zoom-in-95 duration-200 p-4 border-t border-black/[0.03]">
           <textarea
             ref={editTextareaRef}
             value={editText}
@@ -154,14 +151,14 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
         </div>
       ) : (
         <>
-        {/* Prompt/range meta sub-header — mirrors Diary/Review's "日记 (默认) · 09:42". */}
-        <div className="mt-3 px-3 py-1.5 border-t border-black/[0.03] bg-stone-50/60 text-[10.5px] text-stone-400 font-mono flex items-center justify-between select-none">
+        {/* Prompt/range meta sub-header — mirrors Diary/Review's sub-header. */}
+        <div className="px-4 py-1.5 border-t border-black/[0.03] bg-stone-50/60 text-[11px] text-stone-400 font-mono flex items-center justify-between select-none">
           <span>洞察 · {headerDate}</span>
           <span>{insight.range_type === 'custom' ? '自定义' : insight.range_type}</span>
         </div>
         {expanded && (
           <div
-            className="mt-3 markdown-body prose prose-stone baimiao-editorial-body prose-h1:text-[19px] prose-h2:text-[17px] prose-h3:text-[16px] prose-headings:font-medium prose-headings:font-serif baimiao-editorial-title prose-p:text-baimiao-ink prose-li:text-baimiao-ink text-[15.5px] leading-relaxed relative z-10 selection:bg-stone-200 cursor-pointer"
+            className="px-4 pb-4 pt-3 border-t border-black/[0.03] markdown-body prose prose-stone baimiao-editorial-body prose-h1:text-[19px] prose-h2:text-[17px] prose-h3:text-[16px] prose-headings:font-medium prose-headings:font-serif baimiao-editorial-title prose-p:text-baimiao-ink prose-li:text-baimiao-ink text-[15.5px] leading-relaxed relative z-10 selection:bg-stone-200 cursor-pointer"
             onClick={(e) => {
               if (isEditing) return;
               if ((e.target as HTMLElement).tagName.toLowerCase() === 'a') return;
@@ -175,7 +172,7 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
       )}
 
       {expanded && !isEditing && (
-        <div className="flex flex-col gap-3 mt-5 pt-4 border-t border-stone-100 select-none">
+        <div className="flex flex-col gap-3 border-t border-black/[0.03] pt-3 pb-4 px-4 select-none">
           <div className="flex justify-between w-full">
             <button
                onClick={(e) => {
@@ -240,16 +237,18 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
       )}
 
       {expanded && showChat && !isEditing && (
-        <ContextChat
-          chatHistory={insight.chat_history || []}
-          contextContent={insight.content}
-          apiEndpoint="/api/insight-chat"
-          onUpdateHistory={async (newHistory) => {
-            if (insight.id) {
-              await db.insights.update(insight.id, { chat_history: newHistory });
-            }
-          }}
-        />
+        <div className="border-t border-black/[0.03] p-4">
+          <ContextChat
+            chatHistory={insight.chat_history || []}
+            contextContent={insight.content}
+            apiEndpoint="/api/insight-chat"
+            onUpdateHistory={async (newHistory) => {
+              if (insight.id) {
+                await db.insights.update(insight.id, { chat_history: newHistory });
+              }
+            }}
+          />
+        </div>
       )}
 
 

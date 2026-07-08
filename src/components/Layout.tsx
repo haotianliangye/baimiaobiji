@@ -439,60 +439,9 @@ export default function Layout() {
                 </button>
               );
             })}
-
-            {/* Semantic search toggle */}
-            {embedEnabled && (
-              <button
-                type="button"
-                onClick={() => setSemanticSearchEnabled(!semanticSearchEnabled)}
-                className={`px-3 py-1 rounded-xl text-[12px] font-medium border transition-all shrink-0 active:scale-95 flex items-center gap-1 ${
-                  semanticSearchEnabled
-                    ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white border-transparent shadow-sm shadow-baimiao-mysteria/10'
-                    : 'bg-[#f0edf4]/50 text-[#8a859e] border-stone-200/20 hover:bg-[#f0edf4]'
-                }`}
-              >
-                <span>语义搜索</span>
-              </button>
-            )}
-
-            {/* Diary template filter — only meaningful for semantic diary search (PRD §4.3.2) */}
-            {embedEnabled && semanticSearchEnabled && searchFilters.modules.includes('diary') && (
-              <div className="relative shrink-0" ref={promptDropdownRef}>
-                <button
-                  onClick={togglePromptDropdown}
-                  className="flex items-center gap-1.5 bg-stone-100 hover:bg-stone-200/80 text-stone-750 px-3 py-1 rounded-xl text-[12px] font-medium border border-stone-200/40 outline-none transition-colors cursor-pointer active:scale-95"
-                >
-                  <span>{searchFilters.diaryPromptIndex === undefined ? '全部模板' : `模板 ${searchFilters.diaryPromptIndex === 0 ? '默认' : searchFilters.diaryPromptIndex}`}</span>
-                  <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
-                </button>
-              </div>
-            )}
           </div>
 
-          {/* Diary template dropdown card (rendered outside overflow-x-auto row to avoid clipping) */}
-          {showPromptDropdown && promptCardPos && (
-            <div
-              ref={promptCardRef}
-              className="fixed bg-white rounded-2xl border border-stone-200/60 shadow-lg py-1 z-[90] min-w-[120px]"
-              style={{ top: promptCardPos.top, left: promptCardPos.left }}
-            >
-              <button
-                onClick={() => { setSearchFilters({ ...searchFilters, diaryPromptIndex: undefined }); setShowPromptDropdown(false); setPromptCardPos(null); }}
-                className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-stone-100 ${searchFilters.diaryPromptIndex === undefined ? 'text-baimiao-mysteria font-medium' : 'text-stone-700'}`}
-              >
-                全部模板
-              </button>
-              {diaryPrompts.map((p: string, i: number) => p.trim() && (
-                <button
-                  key={i}
-                  onClick={() => { setSearchFilters({ ...searchFilters, diaryPromptIndex: i }); setShowPromptDropdown(false); setPromptCardPos(null); }}
-                  className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-stone-100 ${searchFilters.diaryPromptIndex === i ? 'text-baimiao-mysteria font-medium' : 'text-stone-700'}`}
-                >
-                  模板 {i === 0 ? '默认' : i}
-                </button>
-              ))}
-            </div>
-          )}
+
 
           {/* Semantic Status Bar */}
           {embedEnabled && semanticSearchEnabled && (
