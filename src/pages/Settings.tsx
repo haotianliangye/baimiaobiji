@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning } from 'lucide-react';
 import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_WARM_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_SUMMARY_PROMPT, DEFAULT_DIARY_SUMMARY_PROMPT, DEFAULT_INSIGHT_SUMMARY_PROMPT } from '../store/settings.store';
@@ -229,6 +229,7 @@ export default function Settings() {
     logs: true,
     diaries: true,
     insights: true,
+    embeddings: false,
   });
 
   const [localDiaryPrompts, setLocalDiaryPrompts] = useState<string[]>(() => {
@@ -366,7 +367,41 @@ export default function Settings() {
          }
          data.insights = insights;
       }
-      
+      if (exportOptions.embeddings) {
+         // Export only id + embedding + embedding_version from all four tables
+         // (full text content is covered by the other export options)
+         const allLogs = await db.raw_logs.toArray();
+         const filteredLogs = exportDateRange === 'custom'
+           ? allLogs.filter(l => l.created_at >= startMs && l.created_at <= endMs)
+           : allLogs;
+         const allDiaries = await db.daily_diaries.toArray();
+         const filteredDiaries = exportDateRange === 'custom'
+           ? allDiaries.filter(d => d.diary_date >= startStr && d.diary_date <= endStr)
+           : allDiaries;
+         const allDailyReviews = await db.daily_reviews.toArray();
+         const filteredReviews = exportDateRange === 'custom'
+           ? allDailyReviews.filter(r => r.review_date >= startStr && r.review_date <= endStr)
+           : allDailyReviews;
+         const allInsights = await db.insights.toArray();
+         const filteredInsights = exportDateRange === 'custom'
+           ? allInsights.filter(i => i.created_at >= startMs && i.created_at <= endMs)
+           : allInsights;
+         data.embeddings = {
+           logs: filteredLogs
+             .filter(l => l.embedding && l.embedding.length > 0)
+             .map(l => ({ id: l.id, embedding: l.embedding, embedding_version: l.embedding_version })),
+           diaries: filteredDiaries
+             .filter(d => d.embedding && d.embedding.length > 0)
+             .map(d => ({ id: d.id, embedding: d.embedding, embedding_version: d.embedding_version })),
+           daily_reviews: filteredReviews
+             .filter(r => r.embedding && r.embedding.length > 0)
+             .map(r => ({ id: r.id, embedding: r.embedding, embedding_version: r.embedding_version })),
+           insights: filteredInsights
+             .filter(i => i.embedding && i.embedding.length > 0)
+             .map(i => ({ id: i.id, embedding: i.embedding, embedding_version: i.embedding_version })),
+         };
+      }
+
       const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -1535,6 +1570,18 @@ export default function Settings() {
                             <span className="text-[12px] text-stone-400 mt-1">导出生成的近期时间分布汇总及建议。</span>
                          </div>
                       </label>
+                       <label className="flex items-start gap-3 pt-2.5 border-t border-stone-50">
+                          <input 
+                            type="checkbox" 
+                            checked={exportOptions.embeddings}
+                            onChange={e => setExportOptions(prev => ({ ...prev, embeddings: e.target.checked }))}
+                            className="w-4 h-4 mt-0.5 rounded border-stone-300 text-stone-900 focus:ring-black accent-black cursor-pointer" 
+                          />
+                          <div className="flex flex-col cursor-pointer select-none">
+                             <span className="text-[14px] text-stone-800 font-medium leading-none">向量索引数据</span>
+                             <span className="text-[12px] text-stone-400 mt-1">导出本地语义搜索所用的向量数据，迁移设备时可免重建索引。默认不勾选（体积较大）。</span>
+                          </div>
+                       </label>
                     </div>
 
                     {/* Date range selection */}
@@ -1577,7 +1624,7 @@ export default function Settings() {
                  
                  <button 
                    onClick={handleExport}
-                   disabled={!exportOptions.logs && !exportOptions.diaries && !exportOptions.insights}
+                   disabled={!exportOptions.logs && !exportOptions.diaries && !exportOptions.insights && !exportOptions.embeddings}
                    className="w-full mt-4 flex items-center justify-center gap-2 bg-stone-100 text-stone-800 py-3 rounded-xl text-[13px] font-medium hover:bg-stone-200 transition-colors disabled:opacity-30 disabled:hover:bg-stone-100 active:scale-[0.98]"
                  >
                    <FileDown className="w-4 h-4" />
