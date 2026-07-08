@@ -349,7 +349,7 @@ export default function Copilot() {
       {showDateDropdown && (
         <>
           <div className="fixed inset-0 z-[85]" onClick={closeDropdowns} />
-          <div className="absolute top-[144px] right-4 w-52 bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_10px_40px_rgba(27,25,56,0.15)] p-1.5 z-[90] animate-in fade-in zoom-in-95 duration-100 text-white">
+          <div className="absolute top-[144px] right-4 w-52 bg-white border border-stone-200 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-1.5 z-[90] animate-in fade-in zoom-in-95 duration-100 text-stone-800">
             {calendarTarget === 'none' ? (
               <>
                 {DATE_PRESETS.map(range => (
@@ -363,31 +363,31 @@ export default function Copilot() {
                     }}
                     className={`w-full text-left px-3 py-1.5 text-[12px] font-medium rounded-xl transition-colors ${
                       dateRange === range
-                        ? 'bg-white/10 text-white'
-                        : 'text-white/75 hover:text-white hover:bg-white/5'
+                        ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria'
+                        : 'text-stone-600 hover:text-stone-800 hover:bg-stone-100'
                     }`}
                   >
                     {range === '全部' ? '全部日期' : range}
                   </button>
                 ))}
-                <div className="border-t border-white/10 my-1" />
+                <div className="border-t border-stone-100 my-1" />
                 <div className="px-3 py-1.5 flex flex-col gap-2">
-                  <span className="text-[10.5px] font-semibold text-white/40 uppercase tracking-wider">自定义时间</span>
+                  <span className="text-[10.5px] font-semibold text-stone-400 uppercase tracking-wider">自定义时间</span>
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11.5px] text-white/60 shrink-0">开始</span>
+                      <span className="text-[11.5px] text-stone-500 shrink-0">开始</span>
                       <button
                         onClick={() => setCalendarTarget('start')}
-                        className="bg-white/5 border border-white/10 text-white rounded-lg px-2 py-1 text-[11px] font-mono text-left w-32 outline-none hover:border-white/20 active:bg-white/10 transition-colors"
+                        className="bg-stone-50 border border-stone-200 text-stone-700 rounded-lg px-2 py-1 text-[11px] font-mono text-left w-32 outline-none hover:border-baimiao-mysteria/40 active:bg-stone-100 transition-colors"
                       >
                         {customStartDate || '选择日期'}
                       </button>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11.5px] text-white/60 shrink-0">结束</span>
+                      <span className="text-[11.5px] text-stone-500 shrink-0">结束</span>
                       <button
                         onClick={() => setCalendarTarget('end')}
-                        className="bg-white/5 border border-white/10 text-white rounded-lg px-2 py-1 text-[11px] font-mono text-left w-32 outline-none hover:border-white/20 active:bg-white/10 transition-colors"
+                        className="bg-stone-50 border border-stone-200 text-stone-700 rounded-lg px-2 py-1 text-[11px] font-mono text-left w-32 outline-none hover:border-baimiao-mysteria/40 active:bg-stone-100 transition-colors"
                       >
                         {customEndDate || '选择日期'}
                       </button>
@@ -408,7 +408,7 @@ export default function Copilot() {
                       setCalendarTarget('none');
                     }}
                     disabled={!customStartDate || !customEndDate}
-                    className="w-full mt-1.5 py-1.5 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white border border-white/10 rounded-xl text-[11.5px] font-semibold flex items-center justify-center gap-1 active:scale-[0.98] disabled:opacity-40"
+                    className="w-full mt-1.5 py-1.5 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white rounded-xl text-[11.5px] font-semibold flex items-center justify-center gap-1 active:scale-[0.98] disabled:opacity-40"
                   >
                     <CalendarIcon className="w-3 h-3" />
                     确定
@@ -436,13 +436,13 @@ export default function Copilot() {
       {showPromptDropdown && (
         <>
           <div className="fixed inset-0 z-[85]" onClick={closeDropdowns} />
-          <div className="absolute top-[144px] right-4 w-52 bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_10px_40px_rgba(27,25,56,0.15)] p-1.5 z-[90] animate-in fade-in zoom-in-95 duration-100 text-white">
+          <div className="absolute top-[144px] right-4 w-52 bg-white border border-stone-200 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-1.5 z-[90] animate-in fade-in zoom-in-95 duration-100 text-stone-800">
             <button
               onClick={() => { setDiaryPromptIndex(undefined); setShowPromptDropdown(false); }}
               className={`w-full text-left px-3 py-1.5 text-[12px] font-medium rounded-xl transition-colors ${
                 diaryPromptIndex === undefined
-                  ? 'bg-white/10 text-white'
-                  : 'text-white/75 hover:text-white hover:bg-white/5'
+                  ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria'
+                  : 'text-stone-600 hover:text-stone-800 hover:bg-stone-100'
               }`}
             >
               全部模板
@@ -453,12 +453,12 @@ export default function Copilot() {
                 onClick={() => { setDiaryPromptIndex(i); setShowPromptDropdown(false); }}
                 className={`w-full text-left px-3 py-2 text-[12px] rounded-xl transition-colors ${
                   diaryPromptIndex === i
-                    ? 'bg-white/10 text-white font-medium'
-                    : 'text-white/75 hover:text-white hover:bg-white/5'
+                    ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria font-medium'
+                    : 'text-stone-600 hover:text-stone-800 hover:bg-stone-100'
                 }`}
               >
                 <div className="font-semibold text-[12px]">{DIARY_PROMPT_LABELS[i] || `模板 ${i}`}</div>
-                <div className="text-[10px] text-white/50 truncate mt-0.5">{p.trim().slice(0, 18)}…</div>
+                <div className="text-[10px] text-stone-400 truncate mt-0.5">{p.trim().slice(0, 18)}…</div>
               </button>
             ))}
           </div>

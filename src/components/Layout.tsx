@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Book, Clock, Loader2, SlidersHorizontal, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning, Sparkles, MessageSquare, Mic, Lightbulb } from 'lucide-react';
+import { Book, Clock, Loader2, SlidersHorizontal, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning, Sparkles, MessageSquare, Mic, Lightbulb, Calendar as CalendarIcon } from 'lucide-react';
 import { subDays, startOfDay, endOfDay, format } from 'date-fns';
 import { db } from '../db/db';
 import { useAppStore } from '../store/app.store';
@@ -463,9 +463,9 @@ export default function Layout() {
 
           {/* Date range filter dropdown card (rendered outside overflow-x-auto bar to avoid clipping) */}
           {showDateDropdown && (
-            <div 
+            <div
               ref={dropdownCardRef}
-              className="absolute left-4 top-[100px] w-60 bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_10px_40px_rgba(27,25,56,0.15)] flex flex-col p-1.5 animate-in fade-in zoom-in-95 duration-100 z-[90]"
+              className="absolute left-4 top-[100px] w-60 bg-white border border-stone-200 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] flex flex-col p-1.5 animate-in fade-in zoom-in-95 duration-100 z-[90]"
             >
               {calendarTarget === 'none' ? (
                 <>
@@ -484,34 +484,34 @@ export default function Layout() {
                       }}
                       className={`px-3 py-1.5 text-[12px] font-medium rounded-xl text-left transition-colors ${
                         searchFilters.dateRange === range
-                          ? 'bg-white/10 text-white'
-                          : 'text-white/75 hover:text-white hover:bg-white/5'
+                          ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria'
+                          : 'text-stone-600 hover:text-stone-800 hover:bg-stone-100'
                       }`}
                     >
                       {range === '全部' ? '全部日期' : range}
                     </button>
                   ))}
-                  
+
                   {/* 自定义时间范围 */}
-                  <div className="border-t border-white/10 my-1"></div>
+                  <div className="border-t border-stone-100 my-1"></div>
                   <div className="px-3 py-1.5 flex flex-col gap-2">
-                    <span className="text-[10.5px] font-semibold text-white/40 uppercase tracking-wider">自定义时间</span>
-                    
+                    <span className="text-[10.5px] font-semibold text-stone-400 uppercase tracking-wider">自定义时间</span>
+
                     <div className="flex flex-col gap-1.5">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[11.5px] text-white/60 shrink-0">开始时间</span>
+                        <span className="text-[11.5px] text-stone-500 shrink-0">开始时间</span>
                         <button
                           onClick={() => setCalendarTarget('start')}
-                          className="bg-white/5 border border-white/10 text-white rounded-lg px-2 py-1 text-[11px] font-mono text-left w-32 outline-none hover:border-white/20 active:bg-white/10 transition-colors"
+                          className="bg-stone-50 border border-stone-200 text-stone-700 rounded-lg px-2 py-1 text-[11px] font-mono text-left w-32 outline-none hover:border-baimiao-mysteria/40 active:bg-stone-100 transition-colors"
                         >
                           {tempStartDate || '未选择'}
                         </button>
                       </div>
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[11.5px] text-white/60 shrink-0">结束时间</span>
+                        <span className="text-[11.5px] text-stone-500 shrink-0">结束时间</span>
                         <button
                           onClick={() => setCalendarTarget('end')}
-                          className="bg-white/5 border border-white/10 text-white rounded-lg px-2 py-1 text-[11px] font-mono text-left w-32 outline-none hover:border-white/20 active:bg-white/10 transition-colors"
+                          className="bg-stone-50 border border-stone-200 text-stone-700 rounded-lg px-2 py-1 text-[11px] font-mono text-left w-32 outline-none hover:border-baimiao-mysteria/40 active:bg-stone-100 transition-colors"
                         >
                           {tempEndDate || '未选择'}
                         </button>
@@ -536,8 +536,10 @@ export default function Layout() {
                         });
                         setShowDateDropdown(false);
                       }}
-                      className="w-full mt-1.5 py-1.5 baimiao-btn-cream rounded-xl text-[11.5px] font-semibold flex items-center justify-center gap-1 active:scale-[0.98]"
+                      disabled={!tempStartDate || !tempEndDate}
+                      className="w-full mt-1.5 py-1.5 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white rounded-xl text-[11.5px] font-semibold flex items-center justify-center gap-1 active:scale-[0.98] disabled:opacity-40"
                     >
+                      <CalendarIcon className="w-3 h-3" />
                       确定
                     </button>
                   </div>
@@ -668,13 +670,23 @@ export default function Layout() {
               </div>
             )}
           </div>
+
+          {/* Tab Bar (inside search — tapping exits search & navigates to the section) */}
+          <nav className="h-[60px] shrink-0 border-t border-baimiao-border/50 bg-white/80 backdrop-blur-md pb-safe z-50 relative">
+            <div className="w-full h-full flex justify-around items-center px-2">
+              <TabItem to="/" icon={<Mic />} label="记录" onNavigate={() => setSearchMode(false)} />
+              <TabItem to="/diary" icon={<Book />} label="日记" onNavigate={() => setSearchMode(false)} />
+              <TabItem to="/review" icon={<Clock />} label="回顾" onNavigate={() => setSearchMode(false)} />
+              <TabItem to="/insights" icon={<Lightbulb />} label="洞察" onNavigate={() => setSearchMode(false)} />
+            </div>
+          </nav>
         </div>
       )}
     </div>
   );
 }
 
-function TabItem({ to, icon, label, disabled = false }: { to: string, icon: React.ReactNode, label: string, disabled?: boolean }) {
+function TabItem({ to, icon, label, disabled = false, onNavigate }: { to: string, icon: React.ReactNode, label: string, disabled?: boolean, onNavigate?: () => void }) {
   const setCopilotMode = useAppStore(state => state.setCopilotMode);
   if (disabled) {
     return (
@@ -687,7 +699,7 @@ function TabItem({ to, icon, label, disabled = false }: { to: string, icon: Reac
   return (
     <NavLink
       to={to}
-      onClick={() => setCopilotMode(false)}
+      onClick={() => { setCopilotMode(false); onNavigate?.(); }}
       className={({ isActive }) =>
         `relative flex flex-col items-center justify-center px-4 py-1.5 rounded-xl transition-all duration-200 select-none ${
           isActive
