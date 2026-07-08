@@ -184,7 +184,7 @@ export default function Layout() {
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-3">
               {syncEnabled && (
                 <button 
                   onClick={() => syncNow()}

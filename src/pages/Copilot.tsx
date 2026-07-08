@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Plus, ChevronDown, Sparkles, Trash2, Calendar as CalendarIcon } from 'lucide-react';
+import { X, Plus, ChevronDown, Sparkles, Trash2, Calendar as CalendarIcon, MessageSquare } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { format } from 'date-fns';
 import { db, type CopilotConversation, type InsightMessage } from '../db/db';
@@ -171,7 +171,7 @@ export default function Copilot() {
     <div className="absolute inset-0 bg-[#f0eef5] flex flex-col overflow-hidden animate-in fade-in duration-200">
       {/* Header */}
       <div className="flex h-[54px] shrink-0 items-center px-4 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white gap-2 select-none border-b border-white/5">
-        <Sparkles className="w-4.5 h-4.5 text-white/90 shrink-0 translate-y-[2px]" />
+        <MessageSquare className="w-4.5 h-4.5 text-white/90 shrink-0 translate-y-[2px]" />
         <span className="text-[14px] font-normal flex-1 font-serif baimiao-editorial-title translate-y-[2px] tracking-wide select-none">
           白描 Copilot
         </span>
