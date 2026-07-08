@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning } from 'lucide-react';
 import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_WARM_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_SUMMARY_PROMPT, DEFAULT_DIARY_SUMMARY_PROMPT, DEFAULT_INSIGHT_SUMMARY_PROMPT } from '../store/settings.store';
@@ -7,6 +7,7 @@ import { enqueueAllMissingEmbeddings } from '../lib/embedding';
 import { checkStorageStatus, requestStoragePersistence, StorageEstimateInfo } from '../lib/storage';
 import { useAppStore } from '../store/app.store';
 import { SYNC_CONSTANTS } from '../config/constants';
+import DatePickerPopover from '../components/DatePickerPopover';
 
 const SYNC_START_DELAY_MS = 500;
 const OAUTH_CHECK_INTERVAL_MS = 50;
@@ -1603,19 +1604,19 @@ export default function Settings() {
                       </div>
                       
                       {exportDateRange === 'custom' && (
-                        <div className="flex items-center justify-between gap-3 mt-3 p-3 bg-stone-50/80 rounded-lg border border-stone-100/60 shadow-[inset_0_1px_2px_rgb(0_0_0_/_0.01)]">
-                          <input 
-                            type="date" 
-                            className="w-full bg-transparent border-b border-stone-200 pb-1 text-[13px] text-stone-700 outline-none focus:border-stone-400 transition-colors"
+                        <div className="flex items-center justify-center gap-2 mt-3 py-2 overflow-visible">
+                          <DatePickerPopover
                             value={exportStartDate}
-                            onChange={(e) => setExportStartDate(e.target.value)}
+                            onChange={setExportStartDate}
+                            placeholder="开始日期"
+                            align="left"
                           />
-                          <span className="text-stone-400 text-[12px] font-mono shrink-0">to</span>
-                          <input 
-                            type="date" 
-                            className="w-full bg-transparent border-b border-stone-200 pb-1 text-[13px] text-stone-700 outline-none focus:border-stone-400 transition-colors"
+                          <span className="text-stone-400 text-[12px] font-mono shrink-0">-</span>
+                          <DatePickerPopover
                             value={exportEndDate}
-                            onChange={(e) => setExportEndDate(e.target.value)}
+                            onChange={setExportEndDate}
+                            placeholder="结束日期"
+                            align="right"
                           />
                         </div>
                       )}
