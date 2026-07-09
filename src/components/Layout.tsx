@@ -285,7 +285,7 @@ export default function Layout() {
           <div className="w-full h-full flex justify-around items-center px-2">
             <TabItem to="/" icon={<Microphone weight="regular" />} label="记录" />
             <TabItem to="/diary" icon={<Notepad weight="regular" />} label="日记" />
-            <TabItem to="/review" icon={<ClockUser weight="regular" />} label="回顾" />
+            <TabItem to="/review" icon={<ClockUser weight="regular" />} label="回顾" activeWeight="bold" />
             <TabItem to="/insights" icon={<HandEye weight="regular" />} label="洞察" />
           </div>
         </nav>
@@ -677,7 +677,7 @@ export default function Layout() {
             <div className="w-full h-full flex justify-around items-center px-2">
               <TabItem to="/" icon={<Microphone weight="regular" />} label="记录" onNavigate={() => setSearchMode(false)} />
               <TabItem to="/diary" icon={<Notepad weight="regular" />} label="日记" onNavigate={() => setSearchMode(false)} />
-              <TabItem to="/review" icon={<ClockUser weight="regular" />} label="回顾" onNavigate={() => setSearchMode(false)} />
+              <TabItem to="/review" icon={<ClockUser weight="regular" />} label="回顾" activeWeight="bold" onNavigate={() => setSearchMode(false)} />
               <TabItem to="/insights" icon={<HandEye weight="regular" />} label="洞察" onNavigate={() => setSearchMode(false)} />
             </div>
           </nav>
@@ -687,7 +687,7 @@ export default function Layout() {
   );
 }
 
-function TabItem({ to, icon, label, disabled = false, onNavigate }: { to: string, icon: React.ReactNode, label: string, disabled?: boolean, onNavigate?: () => void }) {
+function TabItem({ to, icon, label, disabled = false, onNavigate, activeWeight = 'fill' }: { to: string, icon: React.ReactNode, label: string, disabled?: boolean, onNavigate?: () => void, activeWeight?: 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone' }) {
   const setCopilotMode = useAppStore(state => state.setCopilotMode);
   if (disabled) {
     return (
@@ -717,10 +717,10 @@ function TabItem({ to, icon, label, disabled = false, onNavigate }: { to: string
             }`}
           >
             {React.cloneElement(icon as React.ReactElement<any>, {
-              weight: isActive ? 'fill' : 'regular',
+              weight: isActive ? activeWeight : 'regular',
               className: `w-[22px] h-[22px] transition-all duration-200 ${
                 isActive ? 'text-baimiao-mysteria' : 'text-current'
-              }`,
+              } ${isActive && activeWeight !== 'fill' ? 'stroke-[0.15px]' : ''}`,
             })}
           </div>
           <span
