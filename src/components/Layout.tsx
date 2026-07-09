@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Loader2, SlidersHorizontal, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning, Sparkles, MessageSquare, Calendar as CalendarIcon } from 'lucide-react';
-import { Microphone, Notepad, ClockUser, HeadCircuit } from '@phosphor-icons/react';
+import { Microphone, Notepad, Clock, HeadCircuit } from '@phosphor-icons/react';
 import { subDays, startOfDay, endOfDay, format } from 'date-fns';
 import { db } from '../db/db';
 import { useAppStore } from '../store/app.store';
@@ -281,11 +281,11 @@ export default function Layout() {
         </main>
 
         {/* Tab Bar */}
-        <nav className="h-[60px] shrink-0 border-t border-baimiao-border/50 bg-white/80 backdrop-blur-md pb-safe z-50 relative">
+        <nav className="h-[64px] shrink-0 border-t border-baimiao-border/50 bg-white/80 backdrop-blur-md pb-safe z-50 relative">
           <div className="w-full h-full flex justify-around items-center px-2">
             <TabItem to="/" icon={<Microphone weight="regular" />} label="记录" />
             <TabItem to="/diary" icon={<Notepad weight="regular" />} label="日记" />
-            <TabItem to="/review" icon={<ClockUser weight="regular" />} label="回顾" />
+            <TabItem to="/review" icon={<Clock weight="regular" />} label="回顾" />
             <TabItem to="/insights" icon={<HeadCircuit weight="regular" />} label="洞察" />
           </div>
         </nav>
@@ -677,7 +677,7 @@ export default function Layout() {
             <div className="w-full h-full flex justify-around items-center px-2">
               <TabItem to="/" icon={<Microphone weight="regular" />} label="记录" onNavigate={() => setSearchMode(false)} />
               <TabItem to="/diary" icon={<Notepad weight="regular" />} label="日记" onNavigate={() => setSearchMode(false)} />
-              <TabItem to="/review" icon={<ClockUser weight="regular" />} label="回顾" onNavigate={() => setSearchMode(false)} />
+              <TabItem to="/review" icon={<Clock weight="regular" />} label="回顾" onNavigate={() => setSearchMode(false)} />
               <TabItem to="/insights" icon={<HeadCircuit weight="regular" />} label="洞察" onNavigate={() => setSearchMode(false)} />
             </div>
           </nav>
@@ -702,7 +702,7 @@ function TabItem({ to, icon, label, disabled = false, onNavigate, activeWeight =
       to={to}
       onClick={() => { setCopilotMode(false); onNavigate?.(); }}
       className={({ isActive }) =>
-        `relative flex flex-col items-center justify-center px-4 py-1.5 rounded-xl transition-all duration-200 select-none ${
+        `relative flex flex-col items-center justify-center px-4 py-1 rounded-xl transition-all duration-200 select-none ${
           isActive
             ? 'text-baimiao-mysteria'
             : 'text-[#8a859e] hover:text-baimiao-mysteria/70 active:scale-95'
@@ -718,14 +718,14 @@ function TabItem({ to, icon, label, disabled = false, onNavigate, activeWeight =
           >
             {React.cloneElement(icon as React.ReactElement<any>, {
               weight: isActive ? activeWeight : 'regular',
-              className: `w-[22px] h-[22px] transition-all duration-200 ${
+              className: `w-6 h-6 transition-all duration-200 ${
                 isActive ? 'text-baimiao-mysteria' : 'text-current'
               } ${isActive && activeWeight !== 'fill' ? 'stroke-[0.15px]' : ''}`,
             })}
           </div>
           <span
-            className={`text-[10.5px] tracking-wider transition-all duration-200 ${
-              isActive ? 'font-semibold' : 'font-normal'
+            className={`text-[11.5px] tracking-wider transition-all duration-200 ${
+              isActive ? 'font-semibold' : 'font-medium'
             }`}
           >
             {label}
