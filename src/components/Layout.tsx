@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Loader2, SlidersHorizontal, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning, Sparkles, MessageSquare, Calendar as CalendarIcon } from 'lucide-react';
-import { Microphone, Notepad, ClockUser, HandEye } from '@phosphor-icons/react';
+import { Microphone, Notepad, ClockCounterClockwise, HeadCircuit } from '@phosphor-icons/react';
 import { subDays, startOfDay, endOfDay, format } from 'date-fns';
 import { db } from '../db/db';
 import { useAppStore } from '../store/app.store';
@@ -285,8 +285,8 @@ export default function Layout() {
           <div className="w-full h-full flex justify-around items-center px-2">
             <TabItem to="/" icon={<Microphone weight="regular" />} label="记录" />
             <TabItem to="/diary" icon={<Notepad weight="regular" />} label="日记" />
-            <TabItem to="/review" icon={<ClockUser weight="regular" />} label="回顾" activeWeight="bold" />
-            <TabItem to="/insights" icon={<HandEye weight="regular" />} label="洞察" />
+            <TabItem to="/review" icon={<ClockCounterClockwise weight="regular" />} label="回顾" />
+            <TabItem to="/insights" icon={<HeadCircuit weight="regular" />} label="洞察" />
           </div>
         </nav>
       </div>
@@ -677,8 +677,8 @@ export default function Layout() {
             <div className="w-full h-full flex justify-around items-center px-2">
               <TabItem to="/" icon={<Microphone weight="regular" />} label="记录" onNavigate={() => setSearchMode(false)} />
               <TabItem to="/diary" icon={<Notepad weight="regular" />} label="日记" onNavigate={() => setSearchMode(false)} />
-              <TabItem to="/review" icon={<ClockUser weight="regular" />} label="回顾" activeWeight="bold" onNavigate={() => setSearchMode(false)} />
-              <TabItem to="/insights" icon={<HandEye weight="regular" />} label="洞察" onNavigate={() => setSearchMode(false)} />
+              <TabItem to="/review" icon={<ClockCounterClockwise weight="regular" />} label="回顾" onNavigate={() => setSearchMode(false)} />
+              <TabItem to="/insights" icon={<HeadCircuit weight="regular" />} label="洞察" onNavigate={() => setSearchMode(false)} />
             </div>
           </nav>
         </div>

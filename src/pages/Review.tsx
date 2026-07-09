@@ -10,7 +10,7 @@ import { washCitations } from '../lib/citationWash';
 import ActionSheet from '../components/ActionSheet';
 import ContextChat from '../components/ContextChat';
 import { Trash2, ChevronDown, ChevronUp, RefreshCw, X, Sparkles, MessageCircle, Copy, Activity, Save, Edit2, Loader2 } from 'lucide-react';
-import { ClockUser } from '@phosphor-icons/react';
+import { ClockCounterClockwise } from '@phosphor-icons/react';
 import { useAppStore } from '../store/app.store';
 import { useSettingsStore, getActivePromptIndices } from '../store/settings.store';
 
@@ -250,7 +250,7 @@ export default function Review() {
     <div className="flex flex-col h-full bg-transparent relative">
       <div className="flex h-[52px] items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 z-20 shrink-0 w-full justify-between">
          <h2 className="text-[13.5px] font-bold tracking-wide text-baimiao-mysteria flex items-center gap-1.5 font-serif baimiao-editorial-title">
-           <ClockUser weight="regular" className="w-4 h-4 text-baimiao-mysteria/70 translate-y-[-0.8px] shrink-0" />
+           <ClockCounterClockwise weight="regular" className="w-4 h-4 text-baimiao-mysteria/70 translate-y-[-0.8px] shrink-0" />
            统计回顾
          </h2>
          <div className="flex items-center gap-3">
