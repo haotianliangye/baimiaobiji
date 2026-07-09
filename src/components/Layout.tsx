@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Book, Clock, Loader2, SlidersHorizontal, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning, Sparkles, MessageSquare, Mic, Lightbulb, Calendar as CalendarIcon } from 'lucide-react';
+import { Loader2, SlidersHorizontal, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning, Sparkles, MessageSquare, Calendar as CalendarIcon } from 'lucide-react';
+import { Microphone, BookOpen, Clock, HandEye } from '@phosphor-icons/react';
 import { subDays, startOfDay, endOfDay, format } from 'date-fns';
 import { db } from '../db/db';
 import { useAppStore } from '../store/app.store';
@@ -282,10 +283,10 @@ export default function Layout() {
         {/* Tab Bar */}
         <nav className="h-[60px] shrink-0 border-t border-baimiao-border/50 bg-white/80 backdrop-blur-md pb-safe z-50 relative">
           <div className="w-full h-full flex justify-around items-center px-2">
-            <TabItem to="/" icon={<Mic />} label="记录" />
-            <TabItem to="/diary" icon={<Book />} label="日记" />
-            <TabItem to="/review" icon={<Clock />} label="回顾" />
-            <TabItem to="/insights" icon={<Lightbulb />} label="洞察" />
+            <TabItem to="/" icon={<Microphone weight="regular" />} label="记录" />
+            <TabItem to="/diary" icon={<BookOpen weight="regular" />} label="日记" />
+            <TabItem to="/review" icon={<Clock weight="regular" />} label="回顾" />
+            <TabItem to="/insights" icon={<HandEye weight="regular" />} label="洞察" />
           </div>
         </nav>
       </div>
@@ -674,10 +675,10 @@ export default function Layout() {
           {/* Tab Bar (inside search — tapping exits search & navigates to the section) */}
           <nav className="h-[60px] shrink-0 border-t border-baimiao-border/50 bg-white/80 backdrop-blur-md pb-safe z-50 relative">
             <div className="w-full h-full flex justify-around items-center px-2">
-              <TabItem to="/" icon={<Mic />} label="记录" onNavigate={() => setSearchMode(false)} />
-              <TabItem to="/diary" icon={<Book />} label="日记" onNavigate={() => setSearchMode(false)} />
-              <TabItem to="/review" icon={<Clock />} label="回顾" onNavigate={() => setSearchMode(false)} />
-              <TabItem to="/insights" icon={<Lightbulb />} label="洞察" onNavigate={() => setSearchMode(false)} />
+              <TabItem to="/" icon={<Microphone weight="regular" />} label="记录" onNavigate={() => setSearchMode(false)} />
+              <TabItem to="/diary" icon={<BookOpen weight="regular" />} label="日记" onNavigate={() => setSearchMode(false)} />
+              <TabItem to="/review" icon={<Clock weight="regular" />} label="回顾" onNavigate={() => setSearchMode(false)} />
+              <TabItem to="/insights" icon={<HandEye weight="regular" />} label="洞察" onNavigate={() => setSearchMode(false)} />
             </div>
           </nav>
         </div>
@@ -711,15 +712,14 @@ function TabItem({ to, icon, label, disabled = false, onNavigate }: { to: string
       {({ isActive }) => (
         <>
           <div
-            className={`rounded-full p-1.5 mb-0.5 transition-all duration-200 ${
-              isActive
-                ? 'bg-baimiao-mysteria text-white animate-[tabBounce_0.35s_cubic-bezier(0.34,1.56,0.64,1)_both]'
-                : 'text-current'
+            className={`mb-0.5 transition-transform duration-300 ${
+              isActive ? 'animate-[tabBounce_0.35s_cubic-bezier(0.34,1.56,0.64,1)_both]' : ''
             }`}
           >
             {React.cloneElement(icon as React.ReactElement<any>, {
-              className: `w-[18px] h-[18px] transition-all duration-200 ${
-                isActive ? 'stroke-[2.2px]' : 'stroke-[1.6px]'
+              weight: isActive ? 'fill' : 'regular',
+              className: `w-[22px] h-[22px] transition-all duration-200 ${
+                isActive ? 'text-baimiao-mysteria' : 'text-current'
               }`,
             })}
           </div>
