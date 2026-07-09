@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { startOfDay, endOfDay, format, parse, addDays, subDays, isSameDay } from 'date-fns';
-import { Sparkles, Loader2, RefreshCw, ChevronLeft, ChevronRight, Copy, Trash2, Edit2, Save, X, ChevronDown, ChevronUp, MessageCircle, BookOpen } from 'lucide-react';
+import { Sparkles, Loader2, RefreshCw, ChevronLeft, ChevronRight, Copy, Trash2, Edit2, Save, X, ChevronDown, ChevronUp, MessageCircle } from 'lucide-react';
+import { Notepad } from '@phosphor-icons/react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { db } from '../db/db';
@@ -216,7 +217,7 @@ export default function Diary() {
     <div className="flex flex-col h-full bg-transparent relative">
       <div className="flex h-[52px] items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 z-20 shrink-0 w-full justify-between">
          <h2 className="text-[13.5px] font-bold tracking-wide text-baimiao-mysteria flex items-center gap-1.5 font-serif baimiao-editorial-title">
-           <BookOpen className="w-4 h-4 text-baimiao-mysteria/70 stroke-[2.2px] translate-y-[-0.8px] shrink-0" />
+           <Notepad weight="regular" className="w-4 h-4 text-baimiao-mysteria/70 translate-y-[-0.8px] shrink-0" />
            日记整理
          </h2>
          <div className="flex items-center gap-3">
