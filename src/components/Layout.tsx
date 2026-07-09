@@ -703,7 +703,7 @@ function TabItem({ to, icon, label, disabled = false, onNavigate }: { to: string
       className={({ isActive }) =>
         `relative flex flex-col items-center justify-center px-4 py-1.5 rounded-xl transition-all duration-200 select-none ${
           isActive
-            ? 'text-baimiao-mysteria bg-baimiao-mysteria/[0.06]'
+            ? 'text-baimiao-mysteria'
             : 'text-[#8a859e] hover:text-baimiao-mysteria/70 active:scale-95'
         }`
       }
@@ -711,13 +711,15 @@ function TabItem({ to, icon, label, disabled = false, onNavigate }: { to: string
       {({ isActive }) => (
         <>
           <div
-            className={`transition-transform duration-300 ${
-              isActive ? 'animate-[tabBounce_0.35s_cubic-bezier(0.34,1.56,0.64,1)_both]' : ''
+            className={`rounded-full p-1.5 mb-0.5 transition-all duration-200 ${
+              isActive
+                ? 'bg-baimiao-mysteria text-white animate-[tabBounce_0.35s_cubic-bezier(0.34,1.56,0.64,1)_both]'
+                : 'text-current'
             }`}
           >
             {React.cloneElement(icon as React.ReactElement<any>, {
-              className: `w-[22px] h-[22px] mb-0.5 transition-all duration-200 ${
-                isActive ? 'stroke-[2.5px]' : 'stroke-[1.8px]'
+              className: `w-[18px] h-[18px] transition-all duration-200 ${
+                isActive ? 'stroke-[2.2px]' : 'stroke-[1.6px]'
               }`,
             })}
           </div>
