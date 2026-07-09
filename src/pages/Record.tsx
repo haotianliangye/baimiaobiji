@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Square,
   Copy,
+
   Edit2,
   Trash2,
   RefreshCw,
@@ -28,6 +29,7 @@ import {
   Clock,
   ShieldAlert,
 } from "lucide-react";
+import { ChatCircleDots } from "@phosphor-icons/react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { db } from "../db/db";
 import { generateUUID } from "../lib/utils";
@@ -583,7 +585,7 @@ export default function Record() {
     <div className="flex flex-col h-full bg-transparent relative">
       <div className="flex h-[52px] items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 z-20 shrink-0 w-full justify-between">
         <h2 className="text-[13.5px] font-bold tracking-wide text-baimiao-mysteria flex items-center gap-1.5 font-serif baimiao-editorial-title">
-          <Mic className="w-4 h-4 text-baimiao-mysteria/70 stroke-[2.2px] translate-y-[-0.8px] shrink-0" />
+          <ChatCircleDots weight="regular" className="w-4 h-4 text-baimiao-mysteria/70 translate-y-[-0.8px] shrink-0" />
           时间碎屑
         </h2>
         <div className="flex items-center gap-3">
