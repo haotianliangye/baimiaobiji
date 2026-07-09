@@ -659,11 +659,11 @@ export default function Record() {
             <div className="w-10 h-10 bg-gradient-to-br from-baimiao-mysteria/[0.06] to-[#2c2957]/[0.02] rounded-full flex items-center justify-center mb-3.5 border border-baimiao-mysteria/5 shadow-sm">
               <Sparkles className="w-4 h-4 text-baimiao-mysteria/50 stroke-[1.8px]" />
             </div>
-            <p className="text-[14.5px] text-stone-700 font-medium mb-1.5 font-serif baimiao-editorial-title tracking-wide">
-              碎屑终将汇成星河
+            <p className="text-[14.5px] text-stone-700 font-medium mb-1.5 tracking-wide">
+              随便说两句
             </p>
-            <p className="text-[12px] text-stone-400 max-w-[200px] text-center leading-relaxed">
-              写下此刻闪现的所思所感，哪怕只是片刻的情绪与言语。
+            <p className="text-[12px] text-stone-400 max-w-[220px] text-center leading-relaxed">
+              想到什么就记什么，不用斟字酌句；或者当成树洞随便聊聊。
             </p>
           </div>
         ) : (
