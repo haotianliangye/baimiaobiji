@@ -115,11 +115,11 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, ac
         {/* Top Stats */}
         <div className="flex items-center justify-between w-full px-2 mt-1 text-center">
           <div className="flex flex-col items-center">
-             <span className="text-[32px] font-bold text-stone-900 font-mono tracking-tight leading-none">{totalLogsAllTime}</span>
+             <span className={`text-[32px] font-bold font-mono tracking-tight leading-none ${activeSection === 'record' ? 'text-baimiao-mysteria' : 'text-stone-400'}`}>{totalLogsAllTime}</span>
              <span className="text-[12px] text-stone-400 font-medium mt-1">碎屑</span>
           </div>
           <div className="flex flex-col items-center">
-             <span className="text-[32px] font-bold text-stone-400 font-mono tracking-tight leading-none">{middleCount}</span>
+             <span className={`text-[32px] font-bold font-mono tracking-tight leading-none ${activeSection === 'diary' || activeSection === 'review' ? 'text-baimiao-mysteria' : 'text-stone-400'}`}>{middleCount}</span>
              <span className="text-[12px] text-stone-400 font-medium mt-1">{middleLabel}</span>
           </div>
           <div className="flex flex-col items-center">

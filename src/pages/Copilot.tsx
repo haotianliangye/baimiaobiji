@@ -56,6 +56,14 @@ export default function Copilot() {
   // citation links in the scroll history stay clickable. Reset on conversation switch.
   const citationMapRef = useRef<Map<string, CopilotCitation>>(new Map());
 
+  // Mirror currentId into a ref so the `onUpdateHistory` callback always reads
+  // the freshest id, even when invoked from a stale closure. Without this, the
+  // second `updateAndSave` call inside ContextChat.handleSend (after the AI
+  // response returns) still sees `currentId === null` from the first render
+  // and would create a *second* conversation row instead of updating the one
+  // that was just lazily created.
+  const currentIdRef = useRef<string | null>(null);
+
   const currentConv = conversations?.find(c => c.id === currentId) || null;
 
   const embedReady = embedEnabled && (embedProvider === 'custom' || !!embedApiKey || !!apiKey);
@@ -67,6 +75,7 @@ export default function Copilot() {
   };
 
   const handleNewConversation = () => {
+    currentIdRef.current = null;
     setCurrentId(null);
     citationMapRef.current = new Map();
     setSessionKey(k => k + 1);
@@ -75,6 +84,7 @@ export default function Copilot() {
   };
 
   const handleSelectConversation = (id: string) => {
+    currentIdRef.current = id;
     setCurrentId(id);
     citationMapRef.current = new Map();
     setSessionKey(k => k + 1);
@@ -84,7 +94,8 @@ export default function Copilot() {
 
   const handleDeleteConversation = async (id: string) => {
     await db.copilot_conversations.delete(id);
-    if (currentId === id) {
+    if (currentIdRef.current === id) {
+      currentIdRef.current = null;
       setCurrentId(null);
       citationMapRef.current = new Map();
     }
@@ -122,32 +133,49 @@ export default function Copilot() {
 
   const onUpdateHistory = async (newHistory: InsightMessage[]) => {
     const now = Date.now();
-    if (currentId) {
-      const existing = await db.copilot_conversations.get(currentId);
-      const patch: Partial<CopilotConversation> = { messages: newHistory, updated_at: now };
-      if (existing && (!existing.title || existing.title === '新对话')) {
-        const firstUser = newHistory.find(m => m.role === 'user');
-        if (firstUser) {
-          patch.title = firstUser.content.slice(0, 20) + (firstUser.content.length > 20 ? '…' : '');
+    // Read from the ref (not the closure-captured state) so the second
+    // updateAndSave call inside a single handleSend — which still uses the
+    // first render's closure — targets the conversation row we just created
+    // rather than spawning a duplicate.
+    const id = currentIdRef.current;
+    if (id) {
+      const existing = await db.copilot_conversations.get(id);
+      if (!existing) {
+        // The referenced conversation was deleted elsewhere; clear the stale
+        // id so the next message re-creates a new conversation cleanly.
+        currentIdRef.current = null;
+        setCurrentId(null);
+      } else {
+        const patch: Partial<CopilotConversation> = { messages: newHistory, updated_at: now };
+        if (!existing.title || existing.title === '新对话') {
+          const firstUser = newHistory.find(m => m.role === 'user');
+          if (firstUser) {
+            patch.title = firstUser.content.slice(0, 20) + (firstUser.content.length > 20 ? '…' : '');
+          }
         }
+        await db.copilot_conversations.update(id, patch);
+        return;
       }
-      await db.copilot_conversations.update(currentId, patch);
-    } else {
-      // Lazily create the conversation row on the first message.
-      const newId = generateUUID();
-      const firstUser = newHistory.find(m => m.role === 'user');
-      const title = firstUser
-        ? firstUser.content.slice(0, 20) + (firstUser.content.length > 20 ? '…' : '')
-        : '新对话';
-      await db.copilot_conversations.add({
-        id: newId,
-        title,
-        messages: newHistory,
-        created_at: now,
-        updated_at: now,
-      });
-      setCurrentId(newId);
     }
+
+    // Lazily create the conversation row on the first message.
+    const newId = generateUUID();
+    const firstUser = newHistory.find(m => m.role === 'user');
+    const title = firstUser
+      ? firstUser.content.slice(0, 20) + (firstUser.content.length > 20 ? '…' : '')
+      : '新对话';
+    await db.copilot_conversations.add({
+      id: newId,
+      title,
+      messages: newHistory,
+      created_at: now,
+      updated_at: now,
+    });
+    // Set the ref synchronously so a second onUpdateHistory call awaiting
+    // behind the same handleSend picks up the new id, even if React hasn't
+    // flushed the setCurrentId re-render yet.
+    currentIdRef.current = newId;
+    setCurrentId(newId);
   };
 
   // Stable label that distinguishes presets from the active custom range so the

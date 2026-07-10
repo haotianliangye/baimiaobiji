@@ -728,8 +728,7 @@ function TabItem({ to, icon, label, disabled = false, onNavigate, activeWeight =
               isActive ? 'font-semibold' : 'font-medium'
             }`}
           >
-            {label}
-          </span>
+            {label}</span>
         </>
       )}
     </NavLink>
