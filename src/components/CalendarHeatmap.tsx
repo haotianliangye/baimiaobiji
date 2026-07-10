@@ -2,14 +2,18 @@ import React, { useMemo } from 'react';
 import { startOfDay, format, addDays, subDays, parse, isSameDay } from 'date-fns';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
+import { countChars } from '../lib/wordCount';
+
+export type HeatmapSection = 'record' | 'diary' | 'review';
 
 interface CalendarHeatmapProps {
   currentDate: Date;
   onSelectDate: (date: string) => void;
   onClose: () => void;
+  activeSection?: HeatmapSection;
 }
 
-export default function CalendarHeatmap({ currentDate, onSelectDate, onClose }: CalendarHeatmapProps) {
+export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, activeSection = 'record' }: CalendarHeatmapProps) {
   const today = new Date();
   
   // End of period is target currentDate (selected date)
@@ -55,8 +59,43 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose }: 
 
   const allLogs = useLiveQuery(() => db.raw_logs.toArray());
   const allDiaries = useLiveQuery(() => db.daily_diaries.toArray());
+  const allReviews = useLiveQuery(() => db.daily_reviews.toArray());
 
   const totalLogsAllTime = allLogs?.length || 0;
+  const middleCount = activeSection === 'review' ? (allReviews?.length || 0) : (allDiaries?.length || 0);
+  const middleLabel = activeSection === 'review' ? '回顾' : '日记';
+
+  const sectionNameMap = {
+    record: '碎屑',
+    diary: '日记',
+    review: '回顾',
+  };
+  const sectionName = sectionNameMap[activeSection];
+
+  const currentDateStr = format(currentDate, 'yyyy-MM-dd');
+
+  const wordCountStats = useMemo(() => {
+    if (activeSection === 'record') {
+      const daily = (allLogs || [])
+        .filter(log => format(new Date(log.created_at), 'yyyy-MM-dd') === currentDateStr)
+        .reduce((sum, log) => sum + countChars(log.content), 0);
+      const total = (allLogs || []).reduce((sum, log) => sum + countChars(log.content), 0);
+      return { daily, total };
+    }
+    if (activeSection === 'diary') {
+      const daily = (allDiaries || [])
+        .filter(diary => diary.diary_date === currentDateStr)
+        .reduce((sum, diary) => sum + countChars(diary.ai_editorial), 0);
+      const total = (allDiaries || []).reduce((sum, diary) => sum + countChars(diary.ai_editorial), 0);
+      return { daily, total };
+    }
+    // review
+    const daily = (allReviews || [])
+      .filter(review => review.review_date === currentDateStr)
+      .reduce((sum, review) => sum + countChars(review.ai_review), 0);
+    const total = (allReviews || []).reduce((sum, review) => sum + countChars(review.ai_review), 0);
+    return { daily, total };
+  }, [activeSection, allLogs, allDiaries, allReviews, currentDateStr]);
   
   const firstLogMs = allLogs && allLogs.length > 0 ? allLogs.reduce((acc, log) => Math.min(acc, log.created_at), Date.now()) : Date.now();
   const firstDiaryMs = allDiaries && allDiaries.length > 0 ? allDiaries.reduce((acc, diary) => {
@@ -69,8 +108,8 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose }: 
 
   return (
     <div className="fixed inset-x-0 top-[52px] bottom-0 z-50 flex flex-col items-center p-4 bg-black/20 backdrop-blur-sm transition-all animate-in fade-in duration-200" onClick={onClose}>
-      <div 
-        className="w-[360px] h-[340px] bg-gradient-to-br from-white via-white to-[#faf9fc] rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(27,25,56,0.12)] border border-baimiao-border/70 p-6 flex flex-col justify-between"
+      <div
+        className="w-[360px] h-[370px] bg-gradient-to-br from-white via-white to-[#faf9fc] rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(27,25,56,0.12)] border border-baimiao-border/70 p-6 flex flex-col justify-between"
         onClick={e => e.stopPropagation()}
       >
         {/* Top Stats */}
@@ -80,12 +119,28 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose }: 
              <span className="text-[12px] text-stone-400 font-medium mt-1">碎屑</span>
           </div>
           <div className="flex flex-col items-center">
-             <span className="text-[32px] font-bold text-stone-400 font-mono tracking-tight leading-none">{allDiaries?.length || 0}</span>
-             <span className="text-[12px] text-stone-400 font-medium mt-1">日记</span>
+             <span className="text-[32px] font-bold text-stone-400 font-mono tracking-tight leading-none">{middleCount}</span>
+             <span className="text-[12px] text-stone-400 font-medium mt-1">{middleLabel}</span>
           </div>
           <div className="flex flex-col items-center">
              <span className="text-[32px] font-bold text-stone-400 font-mono tracking-tight leading-none">{daysSinceEpoch}</span>
              <span className="text-[12px] text-stone-400 font-medium mt-1">天</span>
+          </div>
+        </div>
+
+        {/* Word Count Stats */}
+        <div className="flex items-end justify-between w-full px-2 mt-3 mb-1">
+          <div className="flex flex-col items-start">
+            <span className="text-[11px] text-stone-400 font-medium">今日{sectionName}字数</span>
+            <span className="text-[18px] font-bold text-baimiao-mysteria font-mono tracking-tight leading-none mt-0.5">
+              {wordCountStats.daily.toLocaleString()}
+            </span>
+          </div>
+          <div className="flex flex-col items-end">
+            <span className="text-[11px] text-stone-400 font-medium">{sectionName}总字数</span>
+            <span className="text-[18px] font-bold text-baimiao-mysteria font-mono tracking-tight leading-none mt-0.5">
+              {wordCountStats.total.toLocaleString()}
+            </span>
           </div>
         </div>
 
@@ -125,8 +180,8 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose }: 
         </div>
 
         {/* Action Button */}
-        <div className="select-none w-full">
-            <button 
+        <div className="select-none w-full mb-[6px]">
+            <button
               onClick={() => {
                 onSelectDate(format(today, 'yyyy-MM-dd'));
                 onClose();

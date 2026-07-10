@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { db } from '../db/db';
 import CalendarHeatmap from '../components/CalendarHeatmap';
+import { countChars } from '../lib/wordCount';
 import { formatDiaryMarkdown } from '../lib/utils';
 import { washCitations } from '../lib/citationWash';
 import ActionSheet from '../components/ActionSheet';
@@ -218,6 +219,10 @@ export default function Review() {
       });
   }, [allReviews, dateStr]);
 
+  const dailyChars = useMemo(() => {
+    return reviewsForDate.reduce((sum, review) => sum + countChars(review.ai_review), 0);
+  }, [reviewsForDate]);
+
   const lastAutoExpandedDateRef = useRef<string | null>(null);
   const prevReviewsCountRef = useRef(0);
 
@@ -254,17 +259,20 @@ export default function Review() {
            统计回顾
          </h2>
          <div className="flex items-center gap-3">
+           <span className="inline-flex text-[11px] font-medium text-stone-500 bg-stone-100/80 px-2 py-1 rounded-full">
+             今日 {dailyChars} 字
+           </span>
            <button onClick={() => navigateToDate(-1)} className="p-1 hover:bg-stone-200/50 rounded-full transition-colors text-stone-400 hover:text-stone-700">
              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
            </button>
-           <button 
+           <button
              onClick={() => setShowHeatmap(true)}
              className="text-[13px] font-medium font-mono text-stone-700 w-[95px] text-center select-none hover:bg-stone-200/30 py-1 rounded-md transition-colors active:scale-95"
            >
              {dateStr}
            </button>
-           <button 
-             onClick={() => navigateToDate(1)} 
+           <button
+             onClick={() => navigateToDate(1)}
              disabled={isTodayDate}
              className="p-1 hover:bg-stone-200/50 rounded-full transition-colors text-stone-400 hover:text-stone-700 disabled:opacity-30 disabled:hover:bg-transparent"
            >
@@ -272,8 +280,8 @@ export default function Review() {
            </button>
          </div>
       </div>
-      
-      <div 
+
+      <div
         className="flex-1 overflow-y-auto thin-scrollbar p-6 flex flex-col items-center"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
@@ -412,21 +420,24 @@ export default function Review() {
                               placeholder="开始编辑回顾..."
                               autoFocus
                             />
-                            <div className="flex justify-end gap-2 pr-1">
-                              <button 
-                                onClick={() => setEditingReviewId(null)}
-                                className="px-4 py-2 rounded-full text-[13px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors shadow-sm select-none"
-                              >
-                                取消
-                              </button>
-                              <button
-                                onClick={() => handleSaveEdit(review.id)}
-                                disabled={isSavingEdit}
-                                className="flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] border border-white/10 hover:brightness-110 transition-all shadow-sm select-none disabled:opacity-60"
-                              >
-                                {isSavingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                                {isSavingEdit ? '保存中' : '保存'}
-                              </button>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[12px] text-stone-500 pl-1">共 {countChars(editText)} 字</span>
+                              <div className="flex gap-2 pr-1">
+                                <button
+                                  onClick={() => setEditingReviewId(null)}
+                                  className="px-4 py-2 rounded-full text-[13px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors shadow-sm select-none"
+                                >
+                                  取消
+                                </button>
+                                <button
+                                  onClick={() => handleSaveEdit(review.id)}
+                                  disabled={isSavingEdit}
+                                  className="flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] border border-white/10 hover:brightness-110 transition-all shadow-sm select-none disabled:opacity-60"
+                                >
+                                  {isSavingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                                  {isSavingEdit ? '保存中' : '保存'}
+                                </button>
+                              </div>
                             </div>
                           </div>
                         ) : review.ai_review ? (
@@ -593,10 +604,11 @@ export default function Review() {
       </div>
       
       {showHeatmap && (
-        <CalendarHeatmap 
-          currentDate={targetDate} 
-          onSelectDate={(date) => setSearchParams({ date })} 
-          onClose={() => setShowHeatmap(false)} 
+        <CalendarHeatmap
+          currentDate={targetDate}
+          onSelectDate={(date) => setSearchParams({ date })}
+          onClose={() => setShowHeatmap(false)}
+          activeSection="review"
         />
       )}
 

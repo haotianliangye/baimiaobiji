@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import {
   startOfDay,
@@ -15,7 +15,6 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
-  Square,
   Copy,
 
   Edit2,
@@ -33,6 +32,7 @@ import { ChatCircleDots } from "@phosphor-icons/react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { db } from "../db/db";
 import { generateUUID } from "../lib/utils";
+import { countChars } from "../lib/wordCount";
 import { useSettingsStore } from "../store/settings.store";
 import { useAppStore } from "../store/app.store";
 import CalendarHeatmap from "../components/CalendarHeatmap";
@@ -238,6 +238,10 @@ export default function Record() {
       db.raw_logs.where("created_at").between(start, end).sortBy("created_at"),
     [start, end],
   );
+
+  const dailyChars = useMemo(() => {
+    return (logs || []).reduce((sum, log) => sum + countChars(log.content), 0);
+  }, [logs]);
 
   const adjustTextareaHeight = useCallback(() => {
     if (textareaRef.current) {
@@ -581,6 +585,21 @@ export default function Record() {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
+  const handleSaveEdit = async () => {
+    if (!activeLog || !editContent.trim() || isSavingEdit) return;
+    setIsSavingEdit(true);
+    try {
+      await db.raw_logs.update(activeLog.id, {
+        content: editContent.trim(),
+      });
+      setIsEditingModalOpen(false);
+    } catch (err: any) {
+      alert('保存失败：' + (err?.message || '请重试'));
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-transparent relative">
       <div className="flex h-[52px] items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 z-20 shrink-0 w-full justify-between">
@@ -589,6 +608,9 @@ export default function Record() {
           时间碎屑
         </h2>
         <div className="flex items-center gap-3">
+          <span className="inline-flex text-[11px] font-medium text-stone-500 bg-stone-100/80 px-2 py-1 rounded-full">
+            今日 {dailyChars} 字
+          </span>
           <button
             onClick={() => navigateToDate(-1)}
             className="p-1 hover:bg-stone-200/50 rounded-full transition-colors text-stone-400 hover:text-stone-700"
@@ -860,6 +882,7 @@ export default function Record() {
           currentDate={targetDate}
           onSelectDate={(date) => setSearchParams({ date })}
           onClose={() => setShowHeatmap(false)}
+          activeSection="record"
         />
       )}
 
@@ -926,54 +949,55 @@ export default function Record() {
         </div>
       )}
 
-      {/* Edit Modal */}
+      {/* Edit Modal - Inline Content Area */}
       {isEditingModalOpen && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4 transition-opacity animate-in fade-in duration-200">
-          <div className="bg-gradient-to-br from-white via-white to-[#faf9fc] border border-baimiao-border/50 shadow-[0_25px_60px_rgba(27,25,56,0.15)] rounded-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-baimiao-border/40 flex justify-between items-center bg-[#faf9fc]/70">
-              <h3 className="text-[15.5px] font-bold text-baimiao-mysteria font-serif baimiao-editorial-title">
-                编辑碎屑
-              </h3>
+        <div className="fixed left-1/2 -translate-x-1/2 top-[106px] bottom-[64px] w-full max-w-md z-[110] bg-white flex flex-col shadow-[0_20px_60px_rgba(27,25,56,0.18)] animate-in slide-in-from-bottom duration-300">
+          {/* Header */}
+          <div className="flex h-[54px] items-center justify-between px-4 bg-[#faf9fc] border-b border-stone-100 text-stone-900 shrink-0">
+            <button
+              onClick={() => setIsEditingModalOpen(false)}
+              className="p-2 -ml-2 text-stone-500 hover:text-stone-900 transition-colors"
+              aria-label="关闭"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <span className="text-[15.5px] font-bold font-serif baimiao-editorial-title text-stone-900">编辑碎屑</span>
+            <button
+              onClick={handleSaveEdit}
+              disabled={!editContent.trim() || isSavingEdit}
+              className="text-[13.5px] font-medium text-stone-500 hover:text-stone-900 disabled:opacity-40 transition-colors"
+            >
+              {isSavingEdit ? '保存中…' : '保存'}
+            </button>
+          </div>
+
+          {/* Editor */}
+          <div className="flex-1 overflow-y-auto p-5">
+            <textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              className="w-full h-full resize-none outline-none text-[16px] leading-relaxed text-stone-900 placeholder:text-stone-400 bg-transparent"
+              placeholder="内容..."
+              autoFocus
+            />
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between px-5 py-3 border-t border-stone-100 bg-[#faf9fc] shrink-0">
+            <span className="text-[12px] text-stone-500">
+              共 {countChars(editContent)} 字
+            </span>
+            <div className="flex gap-2">
               <button
                 onClick={() => setIsEditingModalOpen(false)}
-                className="text-stone-400 hover:text-stone-600 p-1"
-              >
-                <Square className="w-4 h-4 opacity-0" /> {/* Spacer */}
-              </button>
-            </div>
-            <div className="p-4 bg-white">
-              <textarea
-                value={editContent}
-                onChange={(e) => setEditContent(e.target.value)}
-                className="w-full bg-[#fafaf9]/75 rounded-xl p-3.5 text-[14.5px] outline-none border border-stone-200/60 focus:border-baimiao-mysteria/40 focus:ring-1 focus:ring-baimiao-mysteria/30 text-stone-900 placeholder:text-stone-400 transition-all font-sans leading-relaxed min-h-[120px] resize-none"
-                placeholder="内容..."
-                autoFocus
-              />
-            </div>
-            <div className="p-4 bg-white/50 flex gap-3 border-t border-baimiao-border/10">
-              <button
-                onClick={() => setIsEditingModalOpen(false)}
-                className="flex-1 py-2.5 baimiao-btn-cream rounded-xl text-[13.5px] font-medium transition-all"
+                className="px-4 py-2 rounded-full text-[13px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors"
               >
                 取消
               </button>
               <button
-                onClick={async () => {
-                  if (!activeLog || !editContent.trim() || isSavingEdit) return;
-                  setIsSavingEdit(true);
-                  try {
-                    await db.raw_logs.update(activeLog.id, {
-                      content: editContent.trim(),
-                    });
-                    setIsEditingModalOpen(false);
-                  } catch (err: any) {
-                    alert('保存失败：' + (err?.message || '请重试'));
-                  } finally {
-                    setIsSavingEdit(false);
-                  }
-                }}
+                onClick={handleSaveEdit}
                 disabled={!editContent.trim() || isSavingEdit}
-                className="flex-1 py-2.5 rounded-xl text-[13.5px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 active:scale-[0.98] shadow-md shadow-baimiao-mysteria/10 transition-all disabled:opacity-30 disabled:scale-100 disabled:shadow-none"
+                className="px-4 py-2 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 active:scale-[0.98] shadow-md shadow-baimiao-mysteria/10 transition-all disabled:opacity-30 disabled:scale-100 disabled:shadow-none"
               >
                 {isSavingEdit ? '保存中…' : '保存'}
               </button>

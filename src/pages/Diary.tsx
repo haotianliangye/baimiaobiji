@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { startOfDay, endOfDay, format, parse, addDays, subDays, isSameDay } from 'date-fns';
+import { countChars } from '../lib/wordCount';
 import { Sparkles, Loader2, RefreshCw, ChevronLeft, ChevronRight, Copy, Trash2, Edit2, Save, X, ChevronDown, ChevronUp, MessageCircle } from 'lucide-react';
 import { Notepad } from '@phosphor-icons/react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -136,6 +137,10 @@ export default function Diary() {
     });
   }, [diaries]);
 
+  const dailyChars = useMemo(() => {
+    return (diaries || []).reduce((sum, diary) => sum + countChars(diary.ai_editorial), 0);
+  }, [diaries]);
+
   const prevDateRef = useRef(dateStr);
   const prevDiariesLengthRef = useRef(sortedDiaries.length);
 
@@ -221,17 +226,20 @@ export default function Diary() {
            日记整理
          </h2>
          <div className="flex items-center gap-3">
+           <span className="inline-flex text-[11px] font-medium text-stone-500 bg-stone-100/80 px-2 py-1 rounded-full">
+             今日 {dailyChars} 字
+           </span>
            <button onClick={() => navigateToDate(-1)} className="p-1 hover:bg-stone-200/50 rounded-full transition-colors text-stone-400 hover:text-stone-700">
              <ChevronLeft className="w-4 h-4" />
            </button>
-           <button 
+           <button
              onClick={() => setShowHeatmap(true)}
              className="text-[13px] font-medium font-mono text-stone-700 w-[95px] text-center select-none hover:bg-stone-200/30 py-1 rounded-md transition-colors active:scale-95"
            >
              {dateStr}
            </button>
-           <button 
-             onClick={() => navigateToDate(1)} 
+           <button
+             onClick={() => navigateToDate(1)}
              disabled={isTodayDate}
              className="p-1 hover:bg-stone-200/50 rounded-full transition-colors text-stone-400 hover:text-stone-700 disabled:opacity-30 disabled:hover:bg-transparent"
            >
@@ -240,7 +248,7 @@ export default function Diary() {
          </div>
       </div>
 
-      <div 
+      <div
         className="flex-1 overflow-y-auto thin-scrollbar p-6 flex flex-col items-center pb-24 w-full"
         onClick={handleInteraction}
         onTouchStart={(e) => {
@@ -387,21 +395,24 @@ export default function Diary() {
                              placeholder="开始编辑日记..."
                              autoFocus
                            />
-                           <div className="flex justify-end gap-2 pr-1">
-                             <button 
-                               onClick={() => setEditingDiaryId(null)}
-                               className="px-4 py-2 rounded-full text-[13px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors shadow-sm select-none"
-                             >
-                               取消
-                             </button>
-                             <button
-                               onClick={() => handleSaveEdit(diary.id)}
-                               disabled={isSavingEdit}
-                               className="flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] border border-white/10 hover:brightness-110 transition-all shadow-sm select-none disabled:opacity-60"
-                             >
-                               {isSavingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                               {isSavingEdit ? '保存中' : '保存'}
-                             </button>
+                           <div className="flex items-center justify-between gap-2">
+                             <span className="text-[12px] text-stone-500 pl-1">共 {countChars(editText)} 字</span>
+                             <div className="flex gap-2 pr-1">
+                               <button
+                                 onClick={() => setEditingDiaryId(null)}
+                                 className="px-4 py-2 rounded-full text-[13px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors shadow-sm select-none"
+                               >
+                                 取消
+                               </button>
+                               <button
+                                 onClick={() => handleSaveEdit(diary.id)}
+                                 disabled={isSavingEdit}
+                                 className="flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] border border-white/10 hover:brightness-110 transition-all shadow-sm select-none disabled:opacity-60"
+                               >
+                                 {isSavingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                                 {isSavingEdit ? '保存中' : '保存'}
+                               </button>
+                             </div>
                            </div>
                          </div>
                        ) : (
@@ -549,10 +560,11 @@ export default function Diary() {
       </div>
 
       {showHeatmap && (
-        <CalendarHeatmap 
-          currentDate={targetDate} 
-          onSelectDate={(date) => setSearchParams({ date })} 
-          onClose={() => setShowHeatmap(false)} 
+        <CalendarHeatmap
+          currentDate={targetDate}
+          onSelectDate={(date) => setSearchParams({ date })}
+          onClose={() => setShowHeatmap(false)}
+          activeSection="diary"
         />
       )}
 
