@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, RefreshCw, Copy, Trash2, Maximize2, ChevronDown } from 'lucide-react';
+import { Send, Loader2, RefreshCw, Copy, Check, Trash2, Maximize2, ChevronDown } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { InsightMessage } from '../db/db';
 import { useSettingsStore } from '../store/settings.store';
+import { useAppStore } from '../store/app.store';
+import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { washCitations } from '../lib/citationWash';
 
 interface ContextChatProps {
@@ -229,13 +231,7 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
                         <Trash2 className="w-3 h-3" />
                         删除
                       </button>
-                      <button 
-                        onClick={() => navigator.clipboard.writeText(msg.content)} 
-                        className="flex items-center gap-1 hover:text-stone-700 transition-colors active:scale-95"
-                      >
-                        <Copy className="w-3 h-3" />
-                        复制
-                      </button>
+                      <CopyButton text={msg.content} />
                       <button 
                         onClick={() => handleRegenerate(idx)} 
                         className="flex items-center gap-1 hover:text-stone-700 transition-colors active:scale-95"
@@ -351,5 +347,21 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
         </div>
       )}
     </div>
+  );
+}
+
+function CopyButton({ text }: { text: string }) {
+  const { copied, copy } = useCopyToClipboard();
+
+  return (
+    <button
+      onClick={() => copy(text)}
+      className={`flex items-center gap-1 transition-colors active:scale-95 ${
+        copied ? 'text-emerald-600' : 'hover:text-stone-700'
+      }`}
+    >
+      {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+      {copied ? '已复制' : '复制'}
+    </button>
   );
 }

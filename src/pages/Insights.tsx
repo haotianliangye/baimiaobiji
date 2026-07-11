@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { PieChart, Loader2, Sparkles, ChevronLeft, Calendar, AlertCircle, ChevronDown, ChevronUp, Trash2, Copy, RefreshCw, MessageCircle, Save, Edit2 } from 'lucide-react';
+import { PieChart, Loader2, Sparkles, ChevronLeft, Calendar, AlertCircle, ChevronDown, ChevronUp, Trash2, Copy, Check, RefreshCw, MessageCircle, Save, Edit2 } from 'lucide-react';
 import { HeadCircuit } from '@phosphor-icons/react';
+import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import ContextChat from '../components/ContextChat';
 import { db, Insight } from '../db/db';
 import { useSettingsStore } from '../store/settings.store';
+import { useAppStore } from '../store/app.store';
 import { format, subDays } from 'date-fns';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { generateUUID, formatDiaryMarkdown } from '../lib/utils';
@@ -39,6 +41,7 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
     y: 0,
   });
   const holdTimeoutRef = useRef<any>(null);
+  const { copied, copy } = useCopyToClipboard();
 
   const [editText, setEditText] = useState(insight.content || '');
   const [isSaving, setIsSaving] = useState(false);
@@ -193,14 +196,17 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
                onClick={(e) => {
                   e.stopPropagation();
                   if (insight.content) {
-                     navigator.clipboard.writeText(insight.content);
-                     alert('洞察已复制到剪贴板');
+                     copy(insight.content);
                   }
                }}
-               className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
+               className={`flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
+                  copied
+                    ? 'text-emerald-600 bg-emerald-50'
+                    : 'text-stone-500 hover:text-stone-800 hover:bg-stone-100'
+               }`}
             >
-               <Copy className="w-4 h-4" />
-               复制
+               {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+               {copied ? '已复制' : '复制'}
             </button>
             <button
                onClick={(e) => {
@@ -275,14 +281,18 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
             <button
               onClick={() => {
                  if (insight.content) {
-                    navigator.clipboard.writeText(insight.content);
+                    copy(insight.content);
                  }
                  setContextMenuState({ ...contextMenuState, isOpen: false });
               }}
-              className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 rounded-l-lg disabled:opacity-50"
+              className={`flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 transition-colors rounded-l-lg disabled:opacity-50 ${
+                copied
+                  ? 'text-emerald-300 bg-white/10'
+                  : 'text-white/90 hover:text-white hover:bg-white/10'
+              }`}
             >
-              <Copy className="w-3.5 h-3.5 mb-1.5 text-white/80" />
-              <span className="text-[10px] font-medium tracking-wide">复制内容</span>
+              {copied ? <Check className="w-3.5 h-3.5 mb-1.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5 mb-1.5 text-white/80" />}
+              <span className="text-[10px] font-medium tracking-wide">{copied ? '已复制' : '复制内容'}</span>
             </button>
             <button
               onClick={() => {

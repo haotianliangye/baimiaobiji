@@ -35,6 +35,7 @@ import { generateUUID } from "../lib/utils";
 import { countChars } from "../lib/wordCount";
 import { useSettingsStore } from "../store/settings.store";
 import { useAppStore } from "../store/app.store";
+import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import CalendarHeatmap from "../components/CalendarHeatmap";
 import ActionSheet from "../components/ActionSheet";
 
@@ -130,6 +131,7 @@ export default function Record() {
   const [isPersisted, setIsPersisted] = useState<boolean | null>(null);
   const syncStatus = useAppStore(state => state.syncStatus);
   const syncErrorMessage = useAppStore(state => state.syncErrorMessage);
+  const { copied, copy } = useCopyToClipboard();
   const navigate = useNavigate();
   const [inputText, setInputText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -904,13 +906,17 @@ export default function Record() {
           >
             <button
               onClick={() => {
-                navigator.clipboard.writeText(contextMenuState.log.content);
+                copy(contextMenuState.log.content);
                 setContextMenuState({ ...contextMenuState, isOpen: false });
               }}
-              className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 rounded-l-lg disabled:opacity-50"
+              className={`flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 transition-colors rounded-l-lg disabled:opacity-50 ${
+                copied
+                  ? 'text-emerald-300 bg-white/10'
+                  : 'text-white/90 hover:text-white hover:bg-white/10'
+              }`}
             >
-              <Copy className="w-3.5 h-3.5 mb-1.5 text-white/80" />
-              <span className="text-[10px] font-medium tracking-wide">复制内容</span>
+              {copied ? <Check className="w-3.5 h-3.5 mb-1.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5 mb-1.5 text-white/80" />}
+              <span className="text-[10px] font-medium tracking-wide">{copied ? '已复制' : '复制内容'}</span>
             </button>
             <button
               onClick={() => {

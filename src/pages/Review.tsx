@@ -10,9 +10,10 @@ import { formatDiaryMarkdown } from '../lib/utils';
 import { washCitations } from '../lib/citationWash';
 import ActionSheet from '../components/ActionSheet';
 import ContextChat from '../components/ContextChat';
-import { Trash2, ChevronDown, ChevronUp, RefreshCw, X, Sparkles, MessageCircle, Copy, Activity, Save, Edit2, Loader2 } from 'lucide-react';
+import { Trash2, ChevronDown, ChevronUp, RefreshCw, X, Sparkles, MessageCircle, Copy, Check, Activity, Save, Edit2, Loader2 } from 'lucide-react';
 import { Clock } from '@phosphor-icons/react';
 import { useAppStore } from '../store/app.store';
+import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useSettingsStore, getActivePromptIndices } from '../store/settings.store';
 
 const generateUUID = () => {
@@ -48,6 +49,7 @@ function calcPopoverTop(anchorRect: DOMRect): number {
 export default function Review() {
   const navigate = useNavigate();
   const { isProcessingReviewMap, generateReview, diaryErrorMap, batchProgress, generateAllReviews } = useAppStore();
+  const { copied, copy } = useCopyToClipboard();
   const { reviewPrompts } = useSettingsStore();
   const WEEKS_TO_SHOW = 15;
   const today = new Date();
@@ -502,14 +504,17 @@ export default function Review() {
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     if (review.ai_review) {
-                                      navigator.clipboard.writeText(review.ai_review);
-                                      alert('回顾已复制到剪贴板');
+                                      copy(review.ai_review);
                                     }
                                   }}
-                                  className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
+                                  className={`flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
+                                    copied
+                                      ? 'text-emerald-600 bg-emerald-50'
+                                      : 'text-stone-500 hover:text-stone-800 hover:bg-stone-100'
+                                  }`}
                                 >
-                                  <Copy className="w-4 h-4" />
-                                  复制
+                                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                                  {copied ? '已复制' : '复制'}
                                 </button>
                                 <button
                                   onClick={(e) => {
@@ -702,14 +707,18 @@ export default function Review() {
             <button
               onClick={() => {
                 if (activeReview?.ai_review) {
-                  navigator.clipboard.writeText(activeReview.ai_review);
+                  copy(activeReview.ai_review);
                 }
                 setContextMenuState({ ...contextMenuState, isOpen: false });
               }}
-              className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 rounded-l-lg disabled:opacity-50"
+              className={`flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 transition-colors rounded-l-lg disabled:opacity-50 ${
+                copied
+                  ? 'text-emerald-300 bg-white/10'
+                  : 'text-white/90 hover:text-white hover:bg-white/10'
+              }`}
             >
-              <Copy className="w-3.5 h-3.5 mb-1.5 text-white/80" />
-              <span className="text-[10px] font-medium tracking-wide">复制内容</span>
+              {copied ? <Check className="w-3.5 h-3.5 mb-1.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5 mb-1.5 text-white/80" />}
+              <span className="text-[10px] font-medium tracking-wide">{copied ? '已复制' : '复制内容'}</span>
             </button>
             <button
               onClick={() => {

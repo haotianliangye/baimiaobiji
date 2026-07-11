@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks';
 import { startOfDay, endOfDay, format, parse, addDays, subDays, isSameDay } from 'date-fns';
 import { countChars } from '../lib/wordCount';
-import { Sparkles, Loader2, RefreshCw, ChevronLeft, ChevronRight, Copy, Trash2, Edit2, Save, X, ChevronDown, ChevronUp, MessageCircle } from 'lucide-react';
+import { Sparkles, Loader2, RefreshCw, ChevronLeft, ChevronRight, Copy, Check, Trash2, Edit2, Save, X, ChevronDown, ChevronUp, MessageCircle } from 'lucide-react';
+import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { Notepad } from '@phosphor-icons/react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
@@ -17,6 +18,7 @@ import ContextChat from '../components/ContextChat';
 
 export default function Diary() {
   const { isProcessingDiary, diaryErrorMap, generateDiaryTimeline, batchProgress, generateAllDiaries } = useAppStore();
+  const { copied, copy } = useCopyToClipboard();
   const { diaryPrompts } = useSettingsStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const [showHeatmap, setShowHeatmap] = useState(false);
@@ -468,18 +470,21 @@ export default function Diary() {
                                  <Trash2 className="w-4 h-4" />
                                  删除
                                </button>
-                               <button 
+                               <button
                                  onClick={(e) => {
                                    e.stopPropagation();
                                    if (diary.ai_editorial) {
-                                     navigator.clipboard.writeText(diary.ai_editorial);
-                                     alert('日记已复制到剪贴板');
+                                     copy(diary.ai_editorial);
                                    }
                                  }}
-                                 className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
+                                 className={`flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
+                                   copied
+                                     ? 'text-emerald-600 bg-emerald-50'
+                                     : 'text-stone-500 hover:text-stone-800 hover:bg-stone-100'
+                                 }`}
                                >
-                                 <Copy className="w-4 h-4" />
-                                 复制
+                                 {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                                 {copied ? '已复制' : '复制'}
                                </button>
                                <button 
                                  onClick={(e) => {
@@ -667,14 +672,18 @@ export default function Diary() {
             <button
               onClick={() => {
                 if (activeDiary?.ai_editorial) {
-                   navigator.clipboard.writeText(activeDiary.ai_editorial);
+                   copy(activeDiary.ai_editorial);
                 }
                 setContextMenuState({ ...contextMenuState, isOpen: false });
               }}
-              className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 rounded-l-lg disabled:opacity-50"
+              className={`flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 transition-colors rounded-l-lg disabled:opacity-50 ${
+                copied
+                  ? 'text-emerald-300 bg-white/10'
+                  : 'text-white/90 hover:text-white hover:bg-white/10'
+              }`}
             >
-              <Copy className="w-3.5 h-3.5 mb-1.5 text-white/80" />
-              <span className="text-[10px] font-medium tracking-wide">复制内容</span>
+              {copied ? <Check className="w-3.5 h-3.5 mb-1.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5 mb-1.5 text-white/80" />}
+              <span className="text-[10px] font-medium tracking-wide">{copied ? '已复制' : '复制内容'}</span>
             </button>
             <button
               onClick={() => {
