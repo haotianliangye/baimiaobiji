@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Plus, ChevronDown, Sparkles, Trash2, Calendar as CalendarIcon, MessageSquare } from 'lucide-react';
+import { X, Plus, ChevronDown, Sparkles, Trash2, Calendar as CalendarIcon, MessageSquare, Download } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { format } from 'date-fns';
 import { db, type CopilotConversation, type InsightMessage } from '../db/db';
@@ -41,6 +41,8 @@ export default function Copilot() {
   // would unmount the component and drop the in-flight fetch.
   const [sessionKey, setSessionKey] = useState(0);
   const [activeTab, setActiveTab] = useState<'chat' | 'history'>('chat');
+  // #9 LLM Chat: 'rag' = RAG 问答（检索本地数据），'chat' = 通用 Chat（纯 LLM 对话）
+  const [chatMode, setChatMode] = useState<'rag' | 'chat'>('rag');
   const [showDateDropdown, setShowDateDropdown] = useState(false);
   const [showPromptDropdown, setShowPromptDropdown] = useState(false);
 
@@ -64,6 +66,11 @@ export default function Copilot() {
   // that was just lazily created.
   const currentIdRef = useRef<string | null>(null);
 
+  // Mirror chatMode into a ref so onUpdateHistory (which may run from a stale
+  // closure inside ContextChat.handleSend) always reads the freshest mode.
+  const chatModeRef = useRef<'rag' | 'chat'>('rag');
+  useEffect(() => { chatModeRef.current = chatMode; }, [chatMode]);
+
   const currentConv = conversations?.find(c => c.id === currentId) || null;
 
   const embedReady = embedEnabled && (embedProvider === 'custom' || !!embedApiKey || !!apiKey);
@@ -83,7 +90,25 @@ export default function Copilot() {
     closeDropdowns();
   };
 
+  // #9: Switching mode starts a fresh conversation (mode is per-conversation).
+  const handleSwitchMode = (mode: 'rag' | 'chat') => {
+    if (mode === chatMode) return;
+    chatModeRef.current = mode;
+    setChatMode(mode);
+    currentIdRef.current = null;
+    setCurrentId(null);
+    citationMapRef.current = new Map();
+    setSessionKey(k => k + 1);
+    closeDropdowns();
+  };
+
   const handleSelectConversation = (id: string) => {
+    const conv = conversations?.find(c => c.id === id);
+    if (conv) {
+      const mode = conv.mode || 'rag'; // defensive fallback for pre-v9 rows
+      chatModeRef.current = mode;
+      setChatMode(mode);
+    }
     currentIdRef.current = id;
     setCurrentId(id);
     citationMapRef.current = new Map();
@@ -99,6 +124,28 @@ export default function Copilot() {
       setCurrentId(null);
       citationMapRef.current = new Map();
     }
+  };
+
+  // #9: 导出单条会话为 Markdown 文件。
+  const handleExportConversation = (conv: CopilotConversation) => {
+    const lines: string[] = [`# ${conv.title || '对话记录'}`, ''];
+    for (const msg of conv.messages) {
+      const roleLabel = msg.role === 'user' ? '用户' : 'AI';
+      const time = format(new Date(msg.timestamp), 'yyyy-MM-dd HH:mm');
+      lines.push(`## ${roleLabel}（${time}）`);
+      lines.push('');
+      lines.push(msg.content);
+      lines.push('');
+    }
+    const markdown = lines.join('\n');
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const safeName = (conv.title || '对话记录').replace(/[\\/:*?"<>|]/g, '_');
+    a.download = `${safeName}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const filters: CopilotRetrievalFilters = {
@@ -168,6 +215,7 @@ export default function Copilot() {
       id: newId,
       title,
       messages: newHistory,
+      mode: chatModeRef.current,
       created_at: now,
       updated_at: now,
     });
@@ -249,17 +297,35 @@ export default function Copilot() {
                       : 'bg-white hover:bg-stone-50 border-stone-200/60 shadow-sm'
                   }`}
                 >
-                  <div className="flex-1 min-w-0 pr-4">
-                    <div className="text-[13.5px] font-semibold text-stone-800 truncate mb-1">{c.title || '新对话'}</div>
+                  <div className="flex-1 min-w-0 pr-2">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="text-[13.5px] font-semibold text-stone-800 truncate">{c.title || '新对话'}</div>
+                      <span className={`shrink-0 px-1.5 py-0.5 rounded-md text-[9.5px] font-semibold tracking-wide ${
+                        (c.mode || 'rag') === 'chat'
+                          ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/50'
+                          : 'bg-violet-50 text-violet-600 border border-violet-200/50'
+                      }`}>
+                        {(c.mode || 'rag') === 'chat' ? '对话' : '问答'}
+                      </span>
+                    </div>
                     <div className="text-[11px] text-stone-400 font-medium font-mono">{format(new Date(c.updated_at), 'yyyy-MM-dd HH:mm')}</div>
                   </div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleDeleteConversation(c.id); }}
-                    className="text-[#8a859e] hover:text-rose-500 p-2 transition-colors shrink-0 rounded-lg hover:bg-rose-50 active:scale-95"
-                    title="删除会话"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleExportConversation(c); }}
+                      className="text-[#8a859e] hover:text-stone-700 p-2 transition-colors shrink-0 rounded-lg hover:bg-stone-100 active:scale-95"
+                      title="导出 Markdown"
+                    >
+                      <Download className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteConversation(c.id); }}
+                      className="text-[#8a859e] hover:text-rose-500 p-2 transition-colors shrink-0 rounded-lg hover:bg-rose-50 active:scale-95"
+                      title="删除会话"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               ))
             ) : (
@@ -281,10 +347,33 @@ export default function Copilot() {
         </div>
       ) : (
         <>
+          {/* #9: Mode switcher - RAG 问答 / 通用 Chat */}
+          <div className="px-4 py-1.5 bg-white border-b border-stone-200/50 flex gap-2 shrink-0 select-none">
+            <button
+              onClick={() => handleSwitchMode('rag')}
+              className={`flex-1 text-center py-1.5 rounded-lg text-[11.5px] font-medium tracking-wide transition-all active:scale-[0.98] ${
+                chatMode === 'rag'
+                  ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria border border-baimiao-mysteria/20'
+                  : 'bg-stone-50 text-stone-500 border border-stone-200/40 hover:bg-stone-100'
+              }`}
+            >
+              RAG 问答
+            </button>
+            <button
+              onClick={() => handleSwitchMode('chat')}
+              className={`flex-1 text-center py-1.5 rounded-lg text-[11.5px] font-medium tracking-wide transition-all active:scale-[0.98] ${
+                chatMode === 'chat'
+                  ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria border border-baimiao-mysteria/20'
+                  : 'bg-stone-50 text-stone-500 border border-stone-200/40 hover:bg-stone-100'
+              }`}
+            >
+              通用 Chat
+            </button>
+          </div>
           {/* Filter row — single horizontal line, scrolls instead of wrapping.
               Keeping all controls on one row prevents layout jumping when the
               diary-template chip conditionally appears. */}
-          {embedReady && (
+          {chatMode === 'rag' && embedReady && (
             <div className="flex items-center px-4 py-2 bg-white border-b border-stone-200/50 shrink-0 relative justify-between select-none">
               {/* Module chips */}
               {(['record', 'diary', 'review', 'insight'] as const).map(mod => {
@@ -340,7 +429,7 @@ export default function Copilot() {
 
           {/* Body */}
           <div className="flex-1 overflow-hidden flex flex-col bg-white">
-            {!embedReady ? (
+            {chatMode === 'rag' && !embedReady ? (
               <div className="flex flex-col items-center justify-center text-center mt-10 flex-1 px-6 select-none">
                 <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mb-4">
                   <Sparkles className="w-7 h-7 text-stone-300 stroke-[1.5px]" />
@@ -361,11 +450,11 @@ export default function Copilot() {
                 <ContextChat
                   key={sessionKey}
                   chatHistory={currentConv?.messages || []}
-                  apiEndpoint="/api/copilot-chat"
-                  getDynamicContext={getDynamicContext}
-                  onCitationClick={onCitationClick}
+                  apiEndpoint={chatMode === 'rag' ? '/api/copilot-chat' : '/api/chat'}
+                  getDynamicContext={chatMode === 'rag' ? getDynamicContext : undefined}
+                  onCitationClick={chatMode === 'rag' ? onCitationClick : undefined}
                   onUpdateHistory={onUpdateHistory}
-                  inputPlaceholder="问 Copilot 任何关于你记录的问题…"
+                  inputPlaceholder={chatMode === 'rag' ? '问 Copilot 任何关于你记录的问题…' : '和 AI 聊聊任何话题…'}
                 />
               </div>
             )}
@@ -377,7 +466,7 @@ export default function Copilot() {
       {showDateDropdown && (
         <>
           <div className="fixed inset-0 z-[85]" onClick={closeDropdowns} />
-          <div className="absolute top-[144px] right-4 w-52 bg-white border border-stone-200 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-1.5 z-[90] animate-in fade-in zoom-in-95 duration-100 text-stone-800">
+          <div className="absolute top-[180px] right-4 w-52 bg-white border border-stone-200 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-1.5 z-[90] animate-in fade-in zoom-in-95 duration-100 text-stone-800">
             {calendarTarget === 'none' ? (
               <>
                 {DATE_PRESETS.map(range => (
@@ -464,7 +553,7 @@ export default function Copilot() {
       {showPromptDropdown && (
         <>
           <div className="fixed inset-0 z-[85]" onClick={closeDropdowns} />
-          <div className="absolute top-[144px] right-4 w-52 bg-white border border-stone-200 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-1.5 z-[90] animate-in fade-in zoom-in-95 duration-100 text-stone-800">
+          <div className="absolute top-[180px] right-4 w-52 bg-white border border-stone-200 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-1.5 z-[90] animate-in fade-in zoom-in-95 duration-100 text-stone-800">
             <button
               onClick={() => { setDiaryPromptIndex(undefined); setShowPromptDropdown(false); }}
               className={`w-full text-left px-3 py-1.5 text-[12px] font-medium rounded-xl transition-colors ${

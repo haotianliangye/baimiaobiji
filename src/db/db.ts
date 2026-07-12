@@ -70,6 +70,7 @@ export interface CopilotConversation {
   id: string;
   title: string;        // auto-derived from the first user message
   messages: InsightMessage[];
+  mode: 'rag' | 'chat'; // RAG 问答 vs 通用 Chat（#9）
   created_at: number;
   updated_at: number;
 }
@@ -255,6 +256,16 @@ export class WhitewashDiaryDB extends dexie {
       }
       // daily_diaries 与 insights 在 v8 stores 中显式声明为 null，Dexie 据此删除旧表
       // （注意：Dexie 中省略一个 store 不会删除它，必须显式设 null）。
+    });
+    // Version 9: #9 LLM Chat — copilot_conversations 加 mode 字段。
+    // 旧会话（v5-v8 创建）没有 mode，统一补 'rag'；新会话由前端写入正确的 mode。
+    this.version(9).stores({}).upgrade(async (tx) => {
+      const convs = await tx.table('copilot_conversations').toArray();
+      for (const c of convs) {
+        if (!c.mode) {
+          await tx.table('copilot_conversations').put({ ...c, mode: 'rag' });
+        }
+      }
     });
   }
 }

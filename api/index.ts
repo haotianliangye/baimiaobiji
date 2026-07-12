@@ -540,6 +540,15 @@ ${contextContent || '（本次未检索到相关片段）'}
     await processChatRequest(req, res, systemPrompt);
   });
 
+  // #9 LLM Chat: 通用对话端点，不走 RAG 上下文，直接转发给 LLM。
+  // 复用 processChatRequest 的 Gemini / OpenAI-compatible 调用逻辑。
+  // 请求体与 /api/copilot-chat 一致（chatHistory + userMessage + settings），
+  // contextContent 字段可被忽略。
+  app.post('/api/chat', async (req, res) => {
+    const systemPrompt = `你是「白描」的通用 AI 助手。你可以与用户自由对话，回答问题、提供建议、进行创作。请使用 Markdown 格式输出，用中文回答。`;
+    await processChatRequest(req, res, systemPrompt);
+  });
+
   app.post('/api/transcribe', express.json({limit: '50mb'}), async (req, res) => {
     try {
        const { audio_base64, mime_type, settings } = req.body;
