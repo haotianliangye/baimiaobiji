@@ -10,11 +10,13 @@ import { formatDiaryMarkdown } from '../lib/utils';
 import { washCitations } from '../lib/citationWash';
 import ActionSheet from '../components/ActionSheet';
 import ContextChat from '../components/ContextChat';
-import { Trash2, ChevronDown, ChevronUp, RefreshCw, X, Sparkles, MessageCircle, Copy, Check, Activity, Save, Edit2, Loader2, CheckSquare, Square } from 'lucide-react';
+import { Trash2, ChevronDown, ChevronUp, RefreshCw, X, Sparkles, MessageCircle, Copy, Check, Activity, Save, Edit2, Loader2, CheckSquare, Square, Hash, Plus } from 'lucide-react';
 import { Clock } from '@phosphor-icons/react';
 import { useAppStore } from '../store/app.store';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useSettingsStore, isDiarySlot } from '../store/settings.store';
+import { normalizeTagPath, resolveAlias } from '../lib/tags';
+import { useTagsStore } from '../store/tags.store';
 
 const generateUUID = () => {
   return self.crypto?.randomUUID?.() || Math.random().toString(36).substring(2);
@@ -88,6 +90,37 @@ export default function Review() {
         editTextareaRef.current.style.height = editTextareaRef.current.scrollHeight + 'px';
      }
   }, [editText, editingReviewId]);
+
+  // #4 标签编辑：为回顾卡片添加/删除标签
+  const [addingTagToReview, setAddingTagToReview] = useState<string | null>(null);
+  const [newTagInput, setNewTagInput] = useState('');
+  const refreshAliases = useTagsStore(state => state.refreshAliases);
+  useEffect(() => { refreshAliases(); }, [refreshAliases]);
+
+  const addTagToReview = async (reviewId: string) => {
+    const trimmed = newTagInput.trim();
+    if (!trimmed) { setAddingTagToReview(null); return; }
+    const { aliases, createTag } = useTagsStore.getState();
+    const normalized = normalizeTagPath(trimmed);
+    const resolved = resolveAlias(normalized, aliases);
+    const review = await db.daily_reviews.get(reviewId);
+    if (review) {
+      const currentTags = review.tags || [];
+      if (!currentTags.includes(resolved)) {
+        await db.daily_reviews.update(reviewId, { tags: [...currentTags, resolved] });
+      }
+    }
+    await createTag(resolved);
+    setNewTagInput('');
+    setAddingTagToReview(null);
+  };
+
+  const removeTagFromReview = async (reviewId: string, tagPath: string) => {
+    const review = await db.daily_reviews.get(reviewId);
+    if (review && review.tags) {
+      await db.daily_reviews.update(reviewId, { tags: review.tags.filter(t => t !== tagPath) });
+    }
+  };
 
   const [contextMenuState, setContextMenuState] = useState<{
     isOpen: boolean;
@@ -474,6 +507,49 @@ export default function Review() {
                       <span className="text-[11px] text-stone-400 font-medium">
                         {entryLabel} ({review.prompt_name || '默认'}) · {format(new Date(review.updated_at), 'HH:mm')}
                       </span>
+                    </div>
+
+                    {/* #4 标签显示区（最小实现，卡片角落 chip 行） */}
+                    <div className="px-4 py-1.5 border-t border-black/[0.02] bg-stone-50/30 flex items-center gap-1 flex-wrap min-h-[28px]">
+                      {(review.tags || []).map(tag => (
+                        <span
+                          key={tag}
+                          data-testid={`review-tag-${tag}`}
+                          className="inline-flex items-center gap-0.5 bg-baimiao-mysteria/8 text-baimiao-mysteria text-[10.5px] px-2 py-0.5 rounded-full select-none"
+                        >
+                          <Hash className="w-2.5 h-2.5 opacity-60" />
+                          {tag.split('/').pop()}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); removeTagFromReview(review.id, tag); }}
+                            className="hover:text-rose-500 transition-colors ml-0.5"
+                          >
+                            <X className="w-2.5 h-2.5" />
+                          </button>
+                        </span>
+                      ))}
+                      {addingTagToReview === review.id ? (
+                        <input
+                          type="text"
+                          value={newTagInput}
+                          onChange={e => setNewTagInput(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') { e.stopPropagation(); addTagToReview(review.id); }
+                            if (e.key === 'Escape') { setAddingTagToReview(null); setNewTagInput(''); }
+                          }}
+                          onBlur={() => addTagToReview(review.id)}
+                          placeholder="标签路径"
+                          className="bg-white border border-stone-200 rounded-full px-2 py-0.5 text-[10.5px] outline-none focus:border-baimiao-mysteria/40 w-24"
+                          autoFocus
+                        />
+                      ) : (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setAddingTagToReview(review.id); setNewTagInput(''); }}
+                          data-testid="tag-add-btn"
+                          className="inline-flex items-center justify-center w-5 h-5 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-200/50 transition-colors"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      )}
                     </div>
 
                     {/* Expanded content */}

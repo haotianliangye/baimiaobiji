@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Loader2, SlidersHorizontal, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning, Sparkles, MessageSquare, Calendar as CalendarIcon } from 'lucide-react';
+import { Loader2, SlidersHorizontal, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning, Sparkles, MessageSquare, Calendar as CalendarIcon, Tags as TagsIcon } from 'lucide-react';
 import { ChatCircleDots, Notepad, HeadCircuit, Clock } from '@phosphor-icons/react';
 import { subDays, startOfDay, endOfDay, format } from 'date-fns';
 import { db } from '../db/db';
@@ -204,6 +204,13 @@ export default function Layout() {
                 className="p-1.5 hover:opacity-70 transition-opacity active:scale-95"
               >
                 <Search className="w-[18px] h-[18px]" />
+              </button>
+              <button
+                onClick={() => navigate('/tags')}
+                title="标签管理"
+                className="p-1.5 hover:opacity-70 transition-opacity active:scale-95"
+              >
+                <TagsIcon className="w-[18px] h-[18px]" />
               </button>
               <button
                 onClick={() => setCopilotMode(true)}

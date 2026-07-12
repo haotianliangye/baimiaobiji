@@ -36,6 +36,8 @@ import { countChars } from "../lib/wordCount";
 import { useSettingsStore } from "../store/settings.store";
 import { useAppStore } from "../store/app.store";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
+import { parseTagsFromText, resolveAlias } from "../lib/tags";
+import { useTagsStore } from "../store/tags.store";
 import CalendarHeatmap from "../components/CalendarHeatmap";
 import ActionSheet from "../components/ActionSheet";
 
@@ -256,6 +258,28 @@ export default function Record() {
     adjustTextareaHeight();
   }, [inputText, adjustTextareaHeight]);
 
+  // #4 标签：确保别名缓存已加载（供保存时 resolveAlias 纠正被合并的标签）
+  const refreshAliases = useTagsStore(state => state.refreshAliases);
+  useEffect(() => { refreshAliases(); }, [refreshAliases]);
+
+  /**
+   * #4 从文本解析 #标签，经别名纠正后落库标签定义，返回最终标签路径数组。
+   * 在文本提交、语音转写保存、编辑保存三处调用。
+   */
+  const processTags = async (text: string): Promise<string[]> => {
+    const store = useTagsStore.getState();
+    // 确保别名缓存是最新的（防止刚加载页面时别名尚未加载）
+    await store.refreshAliases();
+    const aliases = useTagsStore.getState().aliases;
+    const rawTags = parseTagsFromText(text);
+    if (rawTags.length === 0) return [];
+    const resolved = rawTags.map(t => resolveAlias(t, aliases));
+    for (const tag of resolved) {
+      await store.createTag(tag);
+    }
+    return resolved;
+  };
+
   const handleToggleListen = async () => {
     if (isMicInitializingRef.current) return;
 
@@ -389,7 +413,10 @@ export default function Record() {
               }
 
               const finalDuration = Math.floor(((stopTime || Date.now()) - startTime) / 1000);
-              
+
+              // #4 解析转写文本中的 #标签
+              const transcribedTags = await processTags(transcribedText);
+
               let saveSuccess = false;
               try {
                 await db.raw_logs.add({
@@ -399,6 +426,7 @@ export default function Record() {
                   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                   audioBlob: audioBlob,
                   audioDuration: finalDuration > 0 ? finalDuration : undefined,
+                  tags: transcribedTags,
                 });
                 saveSuccess = true;
               } catch (dbErr: any) {
@@ -410,6 +438,7 @@ export default function Record() {
                   created_at: Date.now(),
                   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                   audioDuration: finalDuration > 0 ? finalDuration : undefined,
+                  tags: transcribedTags,
                 });
                 saveSuccess = true;
               }
@@ -466,11 +495,13 @@ export default function Record() {
 
     setIsSubmitting(true);
     try {
+      const tags = await processTags(inputText);
       await db.raw_logs.add({
         id: generateUUID(),
         content: inputText.trim(),
         created_at: Date.now(),
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        tags,
       });
       setInputText("");
       if (textareaRef.current) {
@@ -591,8 +622,10 @@ export default function Record() {
     if (!activeLog || !editContent.trim() || isSavingEdit) return;
     setIsSavingEdit(true);
     try {
+      const tags = await processTags(editContent);
       await db.raw_logs.update(activeLog.id, {
         content: editContent.trim(),
+        tags,
       });
       setIsEditingModalOpen(false);
     } catch (err: any) {
@@ -827,6 +860,7 @@ export default function Record() {
               <textarea
                 ref={textareaRef}
                 rows={1}
+                data-testid="tag-input"
                 className="w-full bg-transparent px-2 py-[7.5px] text-[15px] leading-[21px] outline-none placeholder:text-stone-400 min-w-0 resize-none overflow-y-auto no-scrollbar"
                 placeholder={isSubmitting ? "正在解析..." : "输入你想记录的碎片..."}
                 value={inputText}

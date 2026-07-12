@@ -9,6 +9,7 @@ export interface RawLog {
   audioDuration?: number; // seconds
   embedding?: number[];       // vector float array for semantic search
   embedding_version?: string; // "provider:model" e.g. "gemini:gemini-embedding-2"
+  tags?: string[];            // #4 全局标签路径数组（如 ['工作/项目A']）
 }
 
 export interface TimelineBlock {
@@ -58,6 +59,7 @@ export interface DailyReview {
   chat_history?: InsightMessage[];
   embedding?: number[];       // vector float array for semantic search
   embedding_version?: string; // "provider:model" e.g. "gemini:gemini-embedding-2"
+  tags?: string[];            // #4 全局标签路径数组
 }
 
 export interface InsightMessage {
@@ -121,6 +123,19 @@ export interface MigrationBackup {
   created_at: number;
 }
 
+// #4 全局标签定义。path 为完整路径（如 '工作/项目A'），name 为末级名。
+export interface TagDef {
+  path: string;               // 完整路径，主键
+  name: string;               // 末级名（如 '项目A'）
+  created_at: number;
+}
+
+// #4 标签别名：被合并的旧路径 -> 合并目标路径。
+export interface TagAlias {
+  alias: string;              // 被合并的旧路径，主键
+  target: string;             // 合并目标路径
+}
+
 export class WhitewashDiaryDB extends dexie {
   raw_logs!: Table<RawLog>;
   daily_reviews!: Table<DailyReview>;
@@ -128,6 +143,8 @@ export class WhitewashDiaryDB extends dexie {
   thoughts!: Table<Thought>;
   copilot_conversations!: Table<CopilotConversation>;
   migration_backups!: Table<MigrationBackup>;
+  tags!: Table<TagDef>;
+  tag_aliases!: Table<TagAlias>;
 
   constructor() {
     super('whitewash_diary');
@@ -264,6 +281,35 @@ export class WhitewashDiaryDB extends dexie {
       for (const c of convs) {
         if (!c.mode) {
           await tx.table('copilot_conversations').put({ ...c, mode: 'rag' });
+        }
+      }
+    });
+    // Version 10: #4 全局标签系统。
+    // - 新增 tags 表（主键 path）、tag_aliases 表（主键 alias）。
+    // - raw_logs / daily_reviews 加 *tags 多值索引（支持按标签搜索）。
+    // - upgrade：遍历旧 raw_logs / daily_reviews 补 tags: []。
+    this.version(10).stores({
+      raw_logs: 'id, created_at, *tags',
+      daily_reviews: 'id, review_date, entry_type, *tags',
+      thoughts: 'id, created_at',
+      mingwu: 'id, range_type, created_at',
+      copilot_conversations: 'id, updated_at',
+      migration_backups: 'key',
+      tags: 'path, name, created_at',
+      tag_aliases: 'alias, target',
+    }).upgrade(async (tx) => {
+      // 给旧 raw_logs 补 tags: []
+      const rawLogs = await tx.table('raw_logs').toArray();
+      for (const log of rawLogs) {
+        if (!log.tags) {
+          await tx.table('raw_logs').put({ ...log, tags: [] });
+        }
+      }
+      // 给旧 daily_reviews 补 tags: []
+      const reviews = await tx.table('daily_reviews').toArray();
+      for (const review of reviews) {
+        if (!review.tags) {
+          await tx.table('daily_reviews').put({ ...review, tags: [] });
         }
       }
     });

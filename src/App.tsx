@@ -5,6 +5,7 @@ import Review from './pages/Review';
 import Thoughts from './pages/Thoughts';
 import Insights from './pages/Insights';
 import Settings from './pages/Settings';
+import TagManagement from './pages/TagManagement';
 
 // V2 信息架构：碎屑(/) · 回顾(/review) · 沉思(/thoughts) · 明悟(/mingwu)
 // /diary、/insights 为旧链接，重定向到新路由（Copilot/LLM Chat 仍从 Header 进入）。
@@ -36,6 +37,10 @@ const router = createBrowserRouter([
       {
         path: 'insights',
         element: <Navigate to="/mingwu" replace />
+      },
+      {
+        path: 'tags',
+        element: <TagManagement />
       }
     ]
   },
