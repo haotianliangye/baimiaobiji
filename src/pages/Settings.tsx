@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning } from 'lucide-react';
 import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_WARM_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_SUMMARY_PROMPT, DEFAULT_DIARY_SUMMARY_PROMPT, DEFAULT_INSIGHT_SUMMARY_PROMPT } from '../store/settings.store';
-import { db } from '../db/db';
+import { db, normalizeLegacyDiary, normalizeLegacyInsight } from '../db/db';
 import { enqueueAllMissingEmbeddings } from '../lib/embedding';
 import { checkStorageStatus, requestStoragePersistence, StorageEstimateInfo } from '../lib/storage';
 import { useAppStore } from '../store/app.store';
@@ -355,14 +355,16 @@ export default function Settings() {
          }));
       }
       if (exportOptions.diaries) {
-         let diaries = await db.daily_diaries.toArray();
+         // V2: 日记已合并进 daily_reviews（entry_type='diary'）
+         let diaries = await db.daily_reviews.filter(d => d.entry_type === 'diary').toArray();
          if (exportDateRange === 'custom') {
-           diaries = diaries.filter(d => d.diary_date >= startStr && d.diary_date <= endStr);
+           diaries = diaries.filter(d => d.review_date >= startStr && d.review_date <= endStr);
          }
          data.diaries = diaries;
       }
       if (exportOptions.insights) {
-         let insights = await db.insights.toArray();
+         // V2: insights 改名为 mingwu
+         let insights = await db.mingwu.toArray();
          if (exportDateRange === 'custom') {
            insights = insights.filter(i => i.created_at >= startMs && i.created_at <= endMs);
          }
@@ -375,15 +377,15 @@ export default function Settings() {
          const filteredLogs = exportDateRange === 'custom'
            ? allLogs.filter(l => l.created_at >= startMs && l.created_at <= endMs)
            : allLogs;
-         const allDiaries = await db.daily_diaries.toArray();
+         const allDiaries = await db.daily_reviews.filter(d => d.entry_type === 'diary').toArray();
          const filteredDiaries = exportDateRange === 'custom'
-           ? allDiaries.filter(d => d.diary_date >= startStr && d.diary_date <= endStr)
+           ? allDiaries.filter(d => d.review_date >= startStr && d.review_date <= endStr)
            : allDiaries;
-         const allDailyReviews = await db.daily_reviews.toArray();
+         const allDailyReviews = await db.daily_reviews.filter(r => r.entry_type === 'review').toArray();
          const filteredReviews = exportDateRange === 'custom'
            ? allDailyReviews.filter(r => r.review_date >= startStr && r.review_date <= endStr)
            : allDailyReviews;
-         const allInsights = await db.insights.toArray();
+         const allInsights = await db.mingwu.toArray();
          const filteredInsights = exportDateRange === 'custom'
            ? allInsights.filter(i => i.created_at >= startMs && i.created_at <= endMs)
            : allInsights;
@@ -444,13 +446,17 @@ export default function Settings() {
         }
 
         if (data.diaries && Array.isArray(data.diaries)) {
-          await db.daily_diaries.bulkPut(data.diaries);
-          importedCount += data.diaries.length;
+          // V2: 兼容旧导出（diary_date/无 entry_type）与新格式，统一写入 daily_reviews
+          const diariesToPut = data.diaries.map((d: any) => normalizeLegacyDiary(d));
+          await db.daily_reviews.bulkPut(diariesToPut);
+          importedCount += diariesToPut.length;
         }
 
         if (data.insights && Array.isArray(data.insights)) {
-          await db.insights.bulkPut(data.insights);
-          importedCount += data.insights.length;
+          // V2: insights -> mingwu
+          const insightsToPut = data.insights.map((i: any) => normalizeLegacyInsight(i));
+          await db.mingwu.bulkPut(insightsToPut);
+          importedCount += insightsToPut.length;
         }
 
         alert(`成功导入了 ${importedCount} 条历史数据片段！`);
@@ -461,6 +467,27 @@ export default function Settings() {
       }
     };
     reader.readAsText(file);
+  };
+
+  const handleDownloadMigrationBackup = async () => {
+    try {
+      const backup = await db.migration_backups.get('v8');
+      if (!backup) {
+        alert('暂无迁移备份记录（可能是全新安装，未发生过 V2 schema 迁移）。');
+        return;
+      }
+      const blob = new Blob([backup.payload], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `baimiao_migration_backup_v8_${new Date(backup.created_at).toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert('下载迁移备份失败');
+    }
   };
 
   return (
@@ -1648,13 +1675,30 @@ export default function Settings() {
                    className="hidden"
                    id="import-file"
                  />
-                 <label 
+                 <label
                    htmlFor="import-file"
                    className="w-full flex items-center justify-center gap-2 bg-white border border-stone-200 text-stone-700 py-3 rounded-xl text-[13px] font-medium hover:bg-stone-50 hover:border-stone-300 cursor-pointer transition-all shadow-[0_1px_2px_rgb(0_0_0_/_0.02)] active:scale-[0.98]"
                  >
                    <Upload className="w-4 h-4" />
                    选择文件并合并导入
                  </label>
+               </div>
+
+               {/* V2 迁移备份下载 */}
+               <div className="pt-4 border-t border-stone-100">
+                 <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase">V2 迁移备份</h3>
+                 </div>
+                 <p className="text-[12px] text-stone-500 mb-4 leading-relaxed">
+                   升级到 V2 信息架构时，应用会自动备份旧的日记与洞察数据。可在此下载该备份文件留存。
+                 </p>
+                 <button
+                   onClick={handleDownloadMigrationBackup}
+                   className="w-full flex items-center justify-center gap-2 bg-stone-100 text-stone-800 py-3 rounded-xl text-[13px] font-medium hover:bg-stone-200 transition-colors active:scale-[0.98]"
+                 >
+                   <FileDown className="w-4 h-4" />
+                   下载 V2 迁移备份 (JSON)
+                 </button>
                </div>
               </section>
             </div>

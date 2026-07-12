@@ -1,11 +1,13 @@
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Record from './pages/Record';
-import Diary from './pages/Diary';
-import Insights from './pages/Insights';
 import Review from './pages/Review';
+import Thoughts from './pages/Thoughts';
+import Insights from './pages/Insights';
 import Settings from './pages/Settings';
 
+// V2 信息架构：碎屑(/) · 回顾(/review) · 沉思(/thoughts) · 明悟(/mingwu)
+// /diary、/insights 为旧链接，重定向到新路由（Copilot/LLM Chat 仍从 Header 进入）。
 const router = createBrowserRouter([
   {
     path: '/',
@@ -16,16 +18,24 @@ const router = createBrowserRouter([
         element: <Record />
       },
       {
-        path: 'diary',
-        element: <Diary />
+        path: 'review',
+        element: <Review />
       },
       {
-        path: 'insights',
+        path: 'thoughts',
+        element: <Thoughts />
+      },
+      {
+        path: 'mingwu',
         element: <Insights />
       },
       {
-        path: 'review',
-        element: <Review />
+        path: 'diary',
+        element: <Navigate to="/review" replace />
+      },
+      {
+        path: 'insights',
+        element: <Navigate to="/mingwu" replace />
       }
     ]
   },
@@ -38,4 +48,3 @@ const router = createBrowserRouter([
 export default function App() {
   return <RouterProvider router={router} />;
 }
-

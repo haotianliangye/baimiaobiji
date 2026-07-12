@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { db } from '../db/db';
+import { db, normalizeLegacyDiary, normalizeLegacyReview, normalizeLegacyInsight } from '../db/db';
 import { generateUUID } from '../lib/utils';
 import { SYNC_CONSTANTS } from '../config/constants';
 import { useSettingsStore, getActivePromptIndices } from './settings.store';
@@ -203,7 +203,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       : (settings.diaryPromptIndex ?? 0);
       
     if (idToOverwrite && targetPromptIndex === undefined) {
-      const originalDiary = await db.daily_diaries.get(idToOverwrite);
+      const originalDiary = await db.daily_reviews.get(idToOverwrite);
       if (originalDiary && originalDiary.prompt_index !== undefined) {
         activePromptIndex = originalDiary.prompt_index;
       }
@@ -240,7 +240,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const timelineContent = JSON.stringify([{ summary: data.ai_summary || "暂无内容概要" }]);
 
       if (idToOverwrite) {
-        await db.daily_diaries.update(idToOverwrite, {
+        await db.daily_reviews.update(idToOverwrite, {
            timeline_json: timelineContent,
            ai_summary: data.ai_summary || "暂无内容概要",
            raw_log_ids: logs.map(l => l.id),
@@ -251,17 +251,18 @@ export const useAppStore = create<AppState>((set, get) => ({
            updated_at: Date.now()
         });
       } else {
-        await db.daily_diaries.add({
+        await db.daily_reviews.add({
            id: generateUUID(),
-           diary_date: dateStr,
+           review_date: dateStr,
+           entry_type: 'diary',
            raw_log_ids: logs.map(l => l.id),
            timeline_json: timelineContent,
            ai_editorial: data.ai_editorial,
            ai_summary: data.ai_summary || "暂无内容概要",
-           ai_review: data.ai_review,
-           updated_at: Date.now(),
+           ai_review: data.ai_review || '',
            prompt_index: activePromptIndex,
-           prompt_name: activePromptName
+           prompt_name: activePromptName,
+           updated_at: Date.now()
         });
       }
     } catch (err: any) {
@@ -325,11 +326,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       await db.daily_reviews.add({
         id: generateUUID(),
         review_date: dateStr,
+        entry_type: 'review',
         raw_log_ids: logs.map(l => l.id),
         ai_review: data.ai_review || '',
         ai_summary: data.ai_summary || '暂无内容概要',
-        review_prompt_index: activePromptIndex,
-        review_prompt_name: activePromptName,
+        prompt_index: activePromptIndex,
+        prompt_name: activePromptName,
         updated_at: Date.now(),
       });
     } catch (err: any) {
@@ -414,17 +416,18 @@ export const useAppStore = create<AppState>((set, get) => ({
         const timelineContent = JSON.stringify([{ summary: data.ai_summary || "暂无内容概要" }]);
         const diaryId = generateUUID();
 
-        await db.daily_diaries.add({
+        await db.daily_reviews.add({
           id: diaryId,
-          diary_date: dateStr,
+          review_date: dateStr,
+          entry_type: 'diary',
           raw_log_ids: logs.map(l => l.id),
           timeline_json: timelineContent,
           ai_editorial: data.ai_editorial,
           ai_summary: data.ai_summary || "暂无内容概要",
-          ai_review: data.ai_review,
-          updated_at: Date.now(),
+          ai_review: data.ai_review || '',
           prompt_index: activePromptIndex,
-          prompt_name: activePromptName
+          prompt_name: activePromptName,
+          updated_at: Date.now()
         });
         
         lastDiaryId = diaryId;
@@ -494,11 +497,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         await db.daily_reviews.add({
           id: reviewId,
           review_date: dateStr,
+          entry_type: 'review',
           raw_log_ids: logs.map(l => l.id),
           ai_review: data.ai_review || '',
           ai_summary: data.ai_summary || '暂无内容概要',
-          review_prompt_index: activePromptIndex,
-          review_prompt_name: activePromptName,
+          prompt_index: activePromptIndex,
+          prompt_name: activePromptName,
           updated_at: Date.now(),
         });
 
@@ -617,9 +621,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (logs.length === 0) continue;
       
       // Diary check (compare against specific prompt indices)
-      const existingDiaries = await db.daily_diaries
-        .where('diary_date')
+      const existingDiaries = await db.daily_reviews
+        .where('review_date')
         .equals(dateStr)
+        .filter(d => d.entry_type === 'diary')
         .toArray();
       const existingDiaryIndices = new Set(
         existingDiaries.map(d => d.prompt_index).filter(idx => idx !== undefined)
@@ -642,9 +647,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       const existingReviews = await db.daily_reviews
         .where('review_date')
         .equals(dateStr)
+        .filter(r => r.entry_type === 'review')
         .toArray();
       const existingReviewIndices = new Set(
-        existingReviews.map(r => r.review_prompt_index).filter(idx => idx !== undefined)
+        existingReviews.map(r => r.prompt_index).filter(idx => idx !== undefined)
       );
       
       for (const idx of activeReviewPromptIndices) {
@@ -753,14 +759,14 @@ export const useAppStore = create<AppState>((set, get) => ({
             const data = await response.json();
             const timelineContent = JSON.stringify([{ summary: data.ai_summary || "暂无内容概要" }]);
             
-            const existingDiary = await db.daily_diaries
-              .where('diary_date')
+            const existingDiary = await db.daily_reviews
+              .where('review_date')
               .equals(task.dateStr)
-              .filter(d => d.prompt_index === activePromptIndex)
+              .filter(d => d.entry_type === 'diary' && d.prompt_index === activePromptIndex)
               .first();
-              
+
             if (existingDiary) {
-              await db.daily_diaries.update(existingDiary.id, {
+              await db.daily_reviews.update(existingDiary.id, {
                 timeline_json: timelineContent,
                 raw_log_ids: logs.map(l => l.id),
                 ai_editorial: data.ai_editorial,
@@ -776,17 +782,18 @@ export const useAppStore = create<AppState>((set, get) => ({
               });
             } else {
               const newId = generateUUID();
-              await db.daily_diaries.add({
+              await db.daily_reviews.add({
                 id: newId,
-                diary_date: task.dateStr,
+                review_date: task.dateStr,
+                entry_type: 'diary',
                 raw_log_ids: logs.map(l => l.id),
                 timeline_json: timelineContent,
                 ai_editorial: data.ai_editorial,
                 ai_summary: data.ai_summary || "暂无内容概要",
-                ai_review: data.ai_review,
-                updated_at: Date.now(),
+                ai_review: data.ai_review || '',
                 prompt_index: activePromptIndex,
-                prompt_name: activePromptName
+                prompt_name: activePromptName,
+                updated_at: Date.now()
               });
               set({
                 autoGeneratedNotification: {
@@ -829,11 +836,12 @@ export const useAppStore = create<AppState>((set, get) => ({
             await db.daily_reviews.add({
               id: reviewId,
               review_date: task.dateStr,
+              entry_type: 'review',
               raw_log_ids: logs.map(l => l.id),
               ai_review: data.ai_review || '',
               ai_summary: data.ai_summary || '暂无内容概要',
-              review_prompt_index: activePromptIndex,
-              review_prompt_name: activePromptName,
+              prompt_index: activePromptIndex,
+              prompt_name: activePromptName,
               updated_at: Date.now(),
             });
             
@@ -978,9 +986,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     const showDiary = modules.includes('diary');
     const showReview = modules.includes('review');
     if (showDiary) {
-      const diaries = await db.daily_diaries.toArray();
+      const diaries = await db.daily_reviews.filter(d => d.entry_type === 'diary').toArray();
       const matchedDiaries = diaries.filter(d => {
-        const diaryDateObj = parseISO(d.diary_date);
+        const diaryDateObj = parseISO(d.review_date);
         return isDateInFilter(diaryDateObj, dateRange, customStartDate, customEndDate);
       });
 
@@ -989,18 +997,18 @@ export const useAppStore = create<AppState>((set, get) => ({
           results.push({
             id: d.id,
             type: 'diary' as const,
-            title: `整合日记 · ${d.diary_date}`,
+            title: `整合日记 · ${d.review_date}`,
             content: d.ai_editorial,
-            date: d.diary_date,
+            date: d.review_date,
             highlightSnippets: getHighlightSnippet(d.ai_editorial, query)
           });
         }
       });
     }
 
-    // 3. 回顾搜索（独立 daily_reviews 表）
+    // 3. 回顾搜索（daily_reviews 表中 entry_type='review'）
     if (showReview) {
-      const reviews = await db.daily_reviews.toArray();
+      const reviews = await db.daily_reviews.filter(r => r.entry_type === 'review').toArray();
       const matchedReviews = reviews.filter(r => {
         const reviewDateObj = parseISO(r.review_date);
         return isDateInFilter(reviewDateObj, dateRange, customStartDate, customEndDate)
@@ -1019,9 +1027,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
     }
 
-    // 3. 洞察搜索
+    // 4. 洞察搜索（mingwu 表）
     if (modules.includes('insight')) {
-      const insights = await db.insights.toArray();
+      const insights = await db.mingwu.toArray();
       const matchedInsights = insights.filter(ins => {
         const matchesQuery = ins.content.toLowerCase().includes(query.toLowerCase());
         const matchesDate = isDateInFilter(ins.created_at, dateRange, customStartDate, customEndDate);
@@ -1077,11 +1085,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
 
       if (modules.includes('diary')) {
-        const diaries = (await db.daily_diaries.toArray()).slice(0, MAX_SEMANTIC_CANDIDATES);
+        const diaries = (await db.daily_reviews.filter(d => d.entry_type === 'diary').toArray()).slice(0, MAX_SEMANTIC_CANDIDATES);
         for (const d of diaries) {
           if (!d.embedding || d.embedding.length === 0) continue;
           if (seenIds.has(d.id)) continue;
-          if (!isDateInFilter(parseISO(d.diary_date), dateRange, customStartDate, customEndDate)) continue;
+          if (!isDateInFilter(parseISO(d.review_date), dateRange, customStartDate, customEndDate)) continue;
           // Multi-template isolation (PRD §4.3.2): when a diary prompt is selected,
           // restrict semantic matches to that template only.
           if (diaryPromptIndex !== undefined && d.prompt_index !== diaryPromptIndex) continue;
@@ -1089,9 +1097,9 @@ export const useAppStore = create<AppState>((set, get) => ({
           metaByKey.set(key, {
             id: d.id,
             type: 'diary',
-            title: `[语义] 整合日记 . ${d.diary_date}`,
+            title: `[语义] 整合日记 . ${d.review_date}`,
             content: d.ai_editorial,
-            date: d.diary_date,
+            date: d.review_date,
             highlightSnippets: getHighlightSnippet(d.ai_editorial || '', query),
           });
           candidates.push({ key, embedding: d.embedding });
@@ -1099,7 +1107,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
 
       if (modules.includes('review')) {
-        const reviews = (await db.daily_reviews.toArray()).slice(0, MAX_SEMANTIC_CANDIDATES);
+        const reviews = (await db.daily_reviews.filter(r => r.entry_type === 'review').toArray()).slice(0, MAX_SEMANTIC_CANDIDATES);
         for (const r of reviews) {
           if (!r.embedding || r.embedding.length === 0) continue;
           if (seenIds.has(r.id)) continue;
@@ -1118,7 +1126,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
 
       if (modules.includes('insight')) {
-        const insights = (await db.insights.toArray()).slice(0, MAX_SEMANTIC_CANDIDATES);
+        const insights = (await db.mingwu.toArray()).slice(0, MAX_SEMANTIC_CANDIDATES);
         for (const ins of insights) {
           if (!ins.embedding || ins.embedding.length === 0) continue;
           if (!ins.id) continue;
@@ -1205,9 +1213,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   updateVectorsCount: async () => {
     try {
       const logCount = await db.raw_logs.filter(log => !!log.embedding && log.embedding.length > 0).count();
-      const diaryCount = await db.daily_diaries.filter(d => !!d.embedding && d.embedding.length > 0).count();
-      const reviewCount = await db.daily_reviews.filter(r => !!r.embedding && r.embedding.length > 0).count();
-      const insightCount = await db.insights.filter(ins => !!ins.embedding && ins.embedding.length > 0).count();
+      const diaryCount = await db.daily_reviews.filter(d => d.entry_type === 'diary' && !!d.embedding && d.embedding.length > 0).count();
+      const reviewCount = await db.daily_reviews.filter(r => r.entry_type === 'review' && !!r.embedding && r.embedding.length > 0).count();
+      const insightCount = await db.mingwu.filter(ins => !!ins.embedding && ins.embedding.length > 0).count();
       set({ totalVectorsCount: logCount + diaryCount + reviewCount + insightCount });
     } catch (e) {
       console.error('Failed to update vectors count:', e);
@@ -1300,9 +1308,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       // 3. 收集本地数据
       const localLogs = await db.raw_logs.toArray();
-      const localDiaries = await db.daily_diaries.toArray();
-      const localReviews = await db.daily_reviews.toArray();
-      const localInsights = await db.insights.toArray();
+      const localDiaries = await db.daily_reviews.filter(d => d.entry_type === 'diary').toArray();
+      const localReviews = await db.daily_reviews.filter(r => r.entry_type === 'review').toArray();
+      const localInsights = await db.mingwu.toArray();
 
       // 4. 数据合并
       const policy = forcePolicy || settings.syncConflictPolicy || 'merge';
@@ -1311,9 +1319,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         if (policy === 'cloud_wins') {
           // 清空本地数据，以云端为绝对基准
           await db.raw_logs.clear();
-          await db.daily_diaries.clear();
           await db.daily_reviews.clear();
-          await db.insights.clear();
+          await db.mingwu.clear();
         }
 
         // 合并 logs
@@ -1334,36 +1341,39 @@ export const useAppStore = create<AppState>((set, get) => ({
             }
           }
         }
-        // 合并 diaries
+        // 合并 diaries（兼容旧 daily_diaries 格式 -> daily_reviews entry_type='diary'）
         if (cloudData.diaries && Array.isArray(cloudData.diaries)) {
           for (const cDiary of cloudData.diaries) {
-            const exist = await db.daily_diaries.get(cDiary.id);
+            const mapped: any = normalizeLegacyDiary(cDiary);
+            const exist = await db.daily_reviews.get(mapped.id);
             if (!exist) {
-              await db.daily_diaries.add(cDiary);
-            } else if (policy === 'cloud_wins' || cDiary.updated_at > exist.updated_at) {
-              await db.daily_diaries.put(cDiary);
+              await db.daily_reviews.add(mapped);
+            } else if (policy === 'cloud_wins' || mapped.updated_at > exist.updated_at) {
+              await db.daily_reviews.put(mapped);
             }
           }
         }
-        // 合并 reviews
+        // 合并 reviews（兼容旧 review_prompt_* -> prompt_*，补 entry_type='review'）
         if (cloudData.reviews && Array.isArray(cloudData.reviews)) {
           for (const cReview of cloudData.reviews) {
-            const exist = await db.daily_reviews.get(cReview.id);
+            const mapped: any = normalizeLegacyReview(cReview);
+            const exist = await db.daily_reviews.get(mapped.id);
             if (!exist) {
-              await db.daily_reviews.add(cReview);
-            } else if (policy === 'cloud_wins' || cReview.updated_at > exist.updated_at) {
-              await db.daily_reviews.put(cReview);
+              await db.daily_reviews.add(mapped);
+            } else if (policy === 'cloud_wins' || mapped.updated_at > exist.updated_at) {
+              await db.daily_reviews.put(mapped);
             }
           }
         }
-        // 合并 insights
+        // 合并 insights（-> mingwu，补 mingwu_type）
         if (cloudData.insights && Array.isArray(cloudData.insights)) {
           for (const cInsight of cloudData.insights) {
-            const exist = await db.insights.get(cInsight.id);
+            const mapped: any = normalizeLegacyInsight(cInsight);
+            const exist = await db.mingwu.get(mapped.id);
             if (!exist) {
-              await db.insights.add(cInsight);
-            } else if (policy === 'cloud_wins' || cInsight.created_at > exist.created_at) {
-              await db.insights.put(cInsight);
+              await db.mingwu.add(mapped);
+            } else if (policy === 'cloud_wins' || mapped.created_at > exist.created_at) {
+              await db.mingwu.put(mapped);
             }
           }
         }
@@ -1371,9 +1381,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       // 5. 重新读取合并后的最新本地数据，并加密上传到云端
       const mergedLogs = await db.raw_logs.toArray();
-      const mergedDiaries = await db.daily_diaries.toArray();
-      const mergedReviews = await db.daily_reviews.toArray();
-      const mergedInsights = await db.insights.toArray();
+      const mergedDiaries = await db.daily_reviews.filter(d => d.entry_type === 'diary').toArray();
+      const mergedReviews = await db.daily_reviews.filter(r => r.entry_type === 'review').toArray();
+      const mergedInsights = await db.mingwu.toArray();
 
       const packedMergedLogs = await Promise.all(mergedLogs.map(async l => {
         if (l.audioBlob) {

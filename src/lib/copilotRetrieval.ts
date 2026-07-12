@@ -95,18 +95,19 @@ export async function retrieveCopilotContext(
   }
 
   if (filters.modules.includes('diary')) {
-    const diaries = (await db.daily_diaries.toArray()).slice(0, MAX_SEMANTIC_CANDIDATES);
+    // V2: 日记已合并进 daily_reviews（entry_type='diary'）
+    const diaries = (await db.daily_reviews.filter(d => d.entry_type === 'diary').toArray()).slice(0, MAX_SEMANTIC_CANDIDATES);
     for (const d of diaries) {
       if (!d.embedding || d.embedding.length === 0) continue;
-      if (!isDateInFilter(parseISO(d.diary_date), filters.dateRange, filters.customStartDate, filters.customEndDate)) continue;
+      if (!isDateInFilter(parseISO(d.review_date), filters.dateRange, filters.customStartDate, filters.customEndDate)) continue;
       // Multi-template isolation (PRD §4.3.2).
       if (filters.diaryPromptIndex !== undefined && d.prompt_index !== filters.diaryPromptIndex) continue;
       const key = `diary:${d.id}`;
       meta.set(key, {
         type: 'diary',
         id: d.id,
-        navDate: d.diary_date,
-        displayDate: d.diary_date,
+        navDate: d.review_date,
+        displayDate: d.review_date,
         content: d.ai_editorial || '',
         label: '整合日记',
       });
@@ -115,7 +116,7 @@ export async function retrieveCopilotContext(
   }
 
   if (filters.modules.includes('review')) {
-    const reviews = (await db.daily_reviews.toArray()).slice(0, MAX_SEMANTIC_CANDIDATES);
+    const reviews = (await db.daily_reviews.filter(r => r.entry_type === 'review').toArray()).slice(0, MAX_SEMANTIC_CANDIDATES);
     for (const r of reviews) {
       if (!r.embedding || r.embedding.length === 0) continue;
       if (!isDateInFilter(parseISO(r.review_date), filters.dateRange, filters.customStartDate, filters.customEndDate)) continue;
@@ -133,7 +134,7 @@ export async function retrieveCopilotContext(
   }
 
   if (filters.modules.includes('insight')) {
-    const insights = (await db.insights.toArray()).slice(0, MAX_SEMANTIC_CANDIDATES);
+    const insights = (await db.mingwu.toArray()).slice(0, MAX_SEMANTIC_CANDIDATES);
     for (const ins of insights) {
       if (!ins.embedding || ins.embedding.length === 0) continue;
       if (!ins.id) continue;

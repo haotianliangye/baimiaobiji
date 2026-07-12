@@ -48,12 +48,12 @@ function calcPopoverTop(anchorRect: DOMRect): number {
 
 export default function Review() {
   const navigate = useNavigate();
-  const { isProcessingReviewMap, generateReview, diaryErrorMap, batchProgress, generateAllReviews } = useAppStore();
+  const { isProcessingReviewMap, isProcessingDiary, generateReview, generateDiaryTimeline, diaryErrorMap, batchProgress, generateAllReviews, generateAllDiaries } = useAppStore();
   const { copied, copy } = useCopyToClipboard();
-  const { reviewPrompts } = useSettingsStore();
+  const { reviewPrompts, diaryPrompts } = useSettingsStore();
   const WEEKS_TO_SHOW = 15;
   const today = new Date();
-  
+
   const [searchParams, setSearchParams] = useSearchParams();
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
@@ -63,11 +63,19 @@ export default function Review() {
   const [editText, setEditText] = useState<string>('');
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  // V2 合并页：生成菜单的「日记|回顾」切换。#5 将替换为统一 5 槽。
+  const [genMode, setGenMode] = useState<'diary' | 'review'>('review');
 
   const handleSaveEdit = async (id: string) => {
      setIsSavingEdit(true);
      try {
-       await db.daily_reviews.update(id, { ai_review: editText });
+       // V2: 日记编辑 ai_editorial，回顾编辑 ai_review
+       const entry = await db.daily_reviews.get(id);
+       if (entry?.entry_type === 'diary') {
+         await db.daily_reviews.update(id, { ai_editorial: editText });
+       } else {
+         await db.daily_reviews.update(id, { ai_review: editText });
+       }
        setEditingReviewId(null);
      } catch (err: any) {
        alert('保存失败：' + (err?.message || '请重试'));
@@ -136,12 +144,16 @@ export default function Review() {
         alert('该天没有任何记录碎屑，无法重新生成回顾。');
         return;
       }
-      const tempId = generateUUID();
-      setPendingIds(prev => ({ ...prev, [tempId]: true }));
-      try {
-        await generateReview(tempId, existingReview.review_date, logsForDate, '', promptIndex);
-      } finally {
-        setPendingIds(prev => { const n = { ...prev }; delete n[tempId]; return n; });
+      if (existingReview.entry_type === 'diary') {
+        await generateDiaryTimeline(existingReview.review_date, logsForDate, regeneratingReviewId, promptIndex);
+      } else {
+        const tempId = generateUUID();
+        setPendingIds(prev => ({ ...prev, [tempId]: true }));
+        try {
+          await generateReview(tempId, existingReview.review_date, logsForDate, '', promptIndex);
+        } finally {
+          setPendingIds(prev => { const n = { ...prev }; delete n[tempId]; return n; });
+        }
       }
       return;
     }
@@ -154,12 +166,16 @@ export default function Review() {
       alert('该天没有任何记录碎屑，无法生成回顾。');
       return;
     }
-    const tempId = generateUUID();
-    setPendingIds(prev => ({ ...prev, [tempId]: true }));
-    try {
-      await generateReview(tempId, targetDateStr, logsForDate, '', promptIndex);
-    } finally {
-      setPendingIds(prev => { const n = { ...prev }; delete n[tempId]; return n; });
+    if (genMode === 'diary') {
+      await generateDiaryTimeline(targetDateStr, logsForDate, undefined, promptIndex);
+    } else {
+      const tempId = generateUUID();
+      setPendingIds(prev => ({ ...prev, [tempId]: true }));
+      try {
+        await generateReview(tempId, targetDateStr, logsForDate, '', promptIndex);
+      } finally {
+        setPendingIds(prev => { const n = { ...prev }; delete n[tempId]; return n; });
+      }
     }
   };
 
@@ -214,15 +230,19 @@ export default function Review() {
     return allReviews
       .filter(r => r.review_date === dateStr)
       .sort((a, b) => {
-        const idxA = a.review_prompt_index ?? 0;
-        const idxB = b.review_prompt_index ?? 0;
+        // V2: 日记在前、回顾在后；同类按 prompt_index
+        const typeA = a.entry_type === 'diary' ? 0 : 1;
+        const typeB = b.entry_type === 'diary' ? 0 : 1;
+        if (typeA !== typeB) return typeA - typeB;
+        const idxA = a.prompt_index ?? 0;
+        const idxB = b.prompt_index ?? 0;
         if (idxA !== idxB) return idxA - idxB;
         return b.updated_at - a.updated_at;
       });
   }, [allReviews, dateStr]);
 
   const dailyChars = useMemo(() => {
-    return reviewsForDate.reduce((sum, review) => sum + countChars(review.ai_review), 0);
+    return reviewsForDate.reduce((sum, review) => sum + countChars(review.ai_editorial || review.ai_review), 0);
   }, [reviewsForDate]);
 
   const lastAutoExpandedDateRef = useRef<string | null>(null);
@@ -258,7 +278,7 @@ export default function Review() {
       <div className="flex h-[52px] items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 z-20 shrink-0 w-full justify-between">
          <h2 className="text-[13.5px] font-bold tracking-wide text-baimiao-mysteria flex items-center gap-1.5 font-serif baimiao-editorial-title">
            <Clock weight="regular" className="w-4 h-4 text-baimiao-mysteria/70 translate-y-[-0.8px] shrink-0" />
-           统计回顾
+           回顾
          </h2>
          <div className="flex items-center gap-3">
            <span className="inline-flex text-[11px] font-medium text-stone-500 bg-stone-100/80 px-2 py-1 rounded-full">
@@ -328,7 +348,7 @@ export default function Review() {
                   }`}
                 >
                   <Sparkles className="w-4 h-4 stroke-[1.5px]" />
-                  AI 智能回顾
+                  AI 智能整理
                 </button>
               </div>
             </div>
@@ -345,9 +365,11 @@ export default function Review() {
               {/* Reviews list */}
               {reviewsForDate.map((review) => {
                 const isReviewExpanded = expandedReviewId === review.id;
-                const isGenerating = isProcessingReviewMap[review.id];
+                const isGenerating = isProcessingReviewMap[review.id] || (review.entry_type === 'diary' && isProcessingDiary);
                 const errorMsg = diaryErrorMap[dateStr];
                 const isEditing = editingReviewId === review.id;
+                const entryLabel = review.entry_type === 'diary' ? '日记' : '回顾';
+                const entryContent = review.ai_editorial || review.ai_review;
 
                 return (
                   <div
@@ -400,7 +422,7 @@ export default function Review() {
                     {/* Prompt label sub-header */}
                     <div className="px-4 py-1.5 border-t border-black/[0.03] bg-stone-50/60">
                       <span className="text-[11px] text-stone-400 font-medium">
-                        回顾 ({review.review_prompt_name || '默认'}) · {format(new Date(review.updated_at), 'HH:mm')}
+                        {entryLabel} ({review.prompt_name || '默认'}) · {format(new Date(review.updated_at), 'HH:mm')}
                       </span>
                     </div>
 
@@ -442,9 +464,9 @@ export default function Review() {
                               </div>
                             </div>
                           </div>
-                        ) : review.ai_review ? (
+                        ) : entryContent ? (
                           <>
-                            <div 
+                            <div
                               className="markdown-body prose prose-stone baimiao-editorial-body prose-h1:text-[19px] prose-h2:text-[17px] prose-h3:text-[16px] prose-h1:leading-snug prose-headings:font-medium prose-headings:font-serif baimiao-editorial-title max-w-none text-[15.5px] leading-relaxed select-text pointer-events-auto cursor-pointer"
                               onClick={(e) => {
                                 // 避免点击内部链接时触发收起
@@ -476,7 +498,7 @@ export default function Review() {
                                   }
                                 }}
                               >
-                                {washCitations(formatDiaryMarkdown(review.ai_review))}
+                                {washCitations(formatDiaryMarkdown(entryContent))}
                               </ReactMarkdown>
                             </div>
 
@@ -503,8 +525,8 @@ export default function Review() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    if (review.ai_review) {
-                                      copy(review.ai_review);
+                                    if (entryContent) {
+                                      copy(entryContent);
                                     }
                                   }}
                                   className={`flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
@@ -519,7 +541,7 @@ export default function Review() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setEditText(review.ai_review || '');
+                                    setEditText(entryContent);
                                     setEditingReviewId(review.id);
                                   }}
                                   className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
@@ -565,8 +587,8 @@ export default function Review() {
                               <div className="-mx-4 px-4">
                                 <ContextChat
                                   chatHistory={review.chat_history || []}
-                                  contextContent={review.ai_review || ''}
-                                  apiEndpoint="/api/review-chat"
+                                  contextContent={entryContent}
+                                  apiEndpoint={review.entry_type === 'diary' ? '/api/diary-chat' : '/api/review-chat'}
                                   onUpdateHistory={async (newHistory) => {
                                     await db.daily_reviews.update(review.id, { chat_history: newHistory });
                                   }}
@@ -601,7 +623,7 @@ export default function Review() {
                 className="w-full py-3 mt-2 border border-dashed border-stone-350 rounded-2xl bg-white/30 hover:bg-white/60 hover:border-stone-400 text-stone-500 hover:text-stone-700 transition-all flex items-center justify-center gap-1.5 text-[12px] font-medium active:scale-[0.99] disabled:opacity-40"
               >
                 <Sparkles className="w-3.5 h-3.5 stroke-[1.5px]" />
-                + AI 智能回顾 (追加新回顾)
+                + AI 智能整理 (追加)
               </button>
             </>
           )}
@@ -646,9 +668,25 @@ export default function Review() {
             </div>
             
             <div className="flex flex-col gap-0.5 mt-1">
+              {/* V2: 日记|回顾 生成切换（#5 将替换为统一 5 槽） */}
+              <div className="flex gap-0.5 bg-white/5 p-0.5 rounded-lg mb-1">
+                {(['review', 'diary'] as const).map(m => (
+                  <button
+                    key={m}
+                    onClick={() => setGenMode(m)}
+                    className={`flex-1 py-1 text-[11.5px] font-medium rounded-md transition-all ${
+                      genMode === m ? 'bg-white/15 text-white' : 'text-white/60 hover:text-white/90'
+                    }`}
+                  >
+                    {m === 'diary' ? '日记' : '回顾'}
+                  </button>
+                ))}
+              </div>
+
               {/* 全部生成按钮 */}
               {(() => {
-                const activeCount = getActivePromptIndices(reviewPrompts).length;
+                const activePrompts = genMode === 'diary' ? diaryPrompts : reviewPrompts;
+                const activeCount = getActivePromptIndices(activePrompts).length;
                 return activeCount > 1 ? (
                   <button
                     onClick={() => {
@@ -656,9 +694,13 @@ export default function Review() {
                       if (allLogs && allLogs.length > 0) {
                          const logsForDate = allLogs.filter(log => format(new Date(log.created_at), 'yyyy-MM-dd') === dateStr);
                          if (logsForDate.length > 0) {
-                            generateAllReviews(dateStr, logsForDate);
+                            if (genMode === 'diary') {
+                              generateAllDiaries(dateStr, logsForDate);
+                            } else {
+                              generateAllReviews(dateStr, logsForDate);
+                            }
                          } else {
-                            alert('该天没有任何记录碎屑，无法生成回顾。');
+                            alert('该天没有任何记录碎屑，无法生成。');
                          }
                       }
                     }}
@@ -671,7 +713,8 @@ export default function Review() {
               })()}
 
               {['默认 (系统)', '自定义一', '自定义二', '自定义三'].map((name, idx) => {
-                const hasContent = reviewPrompts[idx]?.trim().length > 0;
+                const activePrompts = genMode === 'diary' ? diaryPrompts : reviewPrompts;
+                const hasContent = activePrompts[idx]?.trim().length > 0;
                 return (
                   <button
                     key={name}
@@ -706,8 +749,9 @@ export default function Review() {
           >
             <button
               onClick={() => {
-                if (activeReview?.ai_review) {
-                  copy(activeReview.ai_review);
+                if (activeReview) {
+                  const c = activeReview.ai_editorial || activeReview.ai_review;
+                  if (c) copy(c);
                 }
                 setContextMenuState({ ...contextMenuState, isOpen: false });
               }}
@@ -723,7 +767,7 @@ export default function Review() {
             <button
               onClick={() => {
                 if (activeReview) {
-                  setEditText(activeReview.ai_review || '');
+                  setEditText(activeReview.ai_editorial || activeReview.ai_review || '');
                   setEditingReviewId(activeReview.id);
                   setExpandedReviewId(activeReview.id);
                 }
@@ -749,7 +793,7 @@ export default function Review() {
             </button>
             <button
               onClick={async () => {
-                if (activeReview && confirm('确认删除这篇回顾吗？(日记内容不受影响)')) {
+                if (activeReview && confirm('确认删除这条内容吗？')) {
                   await db.daily_reviews.delete(activeReview.id);
                 }
                 setContextMenuState({ ...contextMenuState, isOpen: false });
@@ -757,7 +801,7 @@ export default function Review() {
               className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-rose-400 hover:text-rose-300 transition-colors hover:bg-white/10 rounded-r-lg"
             >
               <Trash2 className="w-3.5 h-3.5 mb-1.5" />
-              <span className="text-[10px] font-medium tracking-wide">删除回顾</span>
+              <span className="text-[10px] font-medium tracking-wide">删除</span>
             </button>
           </div>
         </div>

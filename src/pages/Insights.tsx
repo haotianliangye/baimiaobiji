@@ -5,7 +5,7 @@ import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import ContextChat from '../components/ContextChat';
-import { db, Insight } from '../db/db';
+import { db, Mingwu } from '../db/db';
 import { useSettingsStore } from '../store/settings.store';
 import { useAppStore } from '../store/app.store';
 import { format, subDays } from 'date-fns';
@@ -20,12 +20,12 @@ const MENU_SAFE_MARGIN = 296;
 
 
 interface InsightCardProps {
-  insight: Insight;
+  insight: Mingwu;
   isEditing: boolean;
   onStartEdit: () => void;
   onEndEdit: () => void;
   onDelete: (id: string) => void;
-  onRegenerate: (insight: Insight) => void;
+  onRegenerate: (insight: Mingwu) => void;
 }
 
 const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onRegenerate }: InsightCardProps) => {
@@ -62,7 +62,7 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
     if (!insight.id) return;
     setIsSaving(true);
     try {
-      await db.insights.update(insight.id, { content: editText });
+      await db.mingwu.update(insight.id, { content: editText });
       onEndEdit();
     } catch (err: any) {
       alert('保存失败：' + (err?.message || '请重试'));
@@ -253,7 +253,7 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
             apiEndpoint="/api/insight-chat"
             onUpdateHistory={async (newHistory) => {
               if (insight.id) {
-                await db.insights.update(insight.id, { chat_history: newHistory });
+                await db.mingwu.update(insight.id, { chat_history: newHistory });
               }
             }}
           />
@@ -395,7 +395,7 @@ export default function Insights() {
 
   const settings = useSettingsStore();
 
-  const insights = useLiveQuery(() => db.insights.orderBy('created_at').reverse().toArray());
+  const insights = useLiveQuery(() => db.mingwu.orderBy('created_at').reverse().toArray());
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -477,7 +477,7 @@ export default function Insights() {
       const aiSummary = (data.ai_summary || '').toString().trim() || '暂无内容概要';
 
       if (content) {
-        await db.insights.add({
+        await db.mingwu.add({
           id: generateUUID(),
           range_type: timeRange,
           range_label: rangeLabel,
@@ -485,6 +485,7 @@ export default function Insights() {
           end_date: new Date(endTime).toISOString(),
           content,
           ai_summary: aiSummary,
+          mingwu_type: 'insight',
           created_at: Date.now()
         });
         setTimeout(() => {
@@ -500,7 +501,7 @@ export default function Insights() {
     }
   };
 
-  const handleRegenerate = async (oldInsight: Insight) => {
+  const handleRegenerate = async (oldInsight: Mingwu) => {
     setIsGenerating(true);
     setErrorMsg("");
 
@@ -544,9 +545,9 @@ export default function Insights() {
 
       if (content) {
         if (oldInsight.id) {
-           await db.insights.delete(oldInsight.id);
+           await db.mingwu.delete(oldInsight.id);
         }
-        await db.insights.add({
+        await db.mingwu.add({
           id: generateUUID(),
           range_type: oldInsight.range_type,
           range_label: rangeLabel,
@@ -554,6 +555,7 @@ export default function Insights() {
           end_date: oldInsight.end_date,
           content,
           ai_summary: aiSummary,
+          mingwu_type: 'insight',
           created_at: Date.now()
         });
         setTimeout(() => {
@@ -570,7 +572,7 @@ export default function Insights() {
   };
 
   const handleDelete = async (id: string) => {
-    await db.insights.delete(id);
+    await db.mingwu.delete(id);
   };
 
   return (

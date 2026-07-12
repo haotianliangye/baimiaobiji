@@ -70,12 +70,17 @@ export interface EmbeddingTask {
 // queue processor, the backfill scan and the Dexie hooks so none of them
 // repeat the record/diary/review/insight cascade. `table` is typed loosely
 // because Dexie's Table<T,K> differs per entity and we only call get/update/toArray/hook.
+//
+// V2: daily_diaries 已合并进 daily_reviews。diary 与 review 共享 daily_reviews 表，
+// 靠 `matches`（按 entry_type 过滤）确保每个 hook 只处理自己那一类行，避免日记行
+// 的 legacy `ai_review` 被 review hook 重复 embedding 并覆盖 `ai_editorial` 向量。
+// 队列 key 仍用 type 前缀，两类记录 id 不冲突。insight -> mingwu。
 type EntityType = 'record' | 'diary' | 'review' | 'insight';
-const ENTITY_CONFIG: Record<EntityType, { table: any; textField: 'content' | 'ai_editorial' | 'ai_review' }> = {
+const ENTITY_CONFIG: Record<EntityType, { table: any; textField: 'content' | 'ai_editorial' | 'ai_review'; matches?: (obj: any) => boolean }> = {
   record: { table: db.raw_logs, textField: 'content' },
-  diary: { table: db.daily_diaries, textField: 'ai_editorial' },
-  review: { table: db.daily_reviews, textField: 'ai_review' },
-  insight: { table: db.insights, textField: 'content' },
+  diary: { table: db.daily_reviews, textField: 'ai_editorial', matches: (o) => o.entry_type === 'diary' },
+  review: { table: db.daily_reviews, textField: 'ai_review', matches: (o) => o.entry_type === 'review' },
+  insight: { table: db.mingwu, textField: 'content' },
 };
 
 function getQueue(): EmbeddingTask[] {
@@ -218,9 +223,10 @@ export function initEmbeddingQueueListener() {
 // avoiding 6 near-identical hook blocks. `textField` is the column whose
 // mutation signals a content change requiring re-embedding.
 function registerEntityHooks(type: EntityType, textField: 'content' | 'ai_editorial' | 'ai_review') {
-  const { table } = ENTITY_CONFIG[type];
+  const { table, matches } = ENTITY_CONFIG[type];
   table.hook('creating', (_primKey, obj, transaction) => {
     transaction.on('complete', () => {
+      if (matches && !matches(obj)) return; // 合并表：仅处理本 entry_type 的行
       const settings = useSettingsStore.getState();
       if (settings.embedEnabled && (!obj.embedding || obj.embedding.length === 0)) {
         enqueueEmbeddingTask(obj.id, type);
@@ -230,6 +236,7 @@ function registerEntityHooks(type: EntityType, textField: 'content' | 'ai_editor
   });
   table.hook('updating', (mods, primKey, obj, transaction) => {
     transaction?.on('complete', () => {
+      if (matches && !matches(obj)) return; // 用 pre-mod 记录的 entry_type 判定
       const settings = useSettingsStore.getState();
       if (settings.embedEnabled && textField in mods) {
         enqueueEmbeddingTask(primKey, type, true);
@@ -251,8 +258,9 @@ export async function enqueueAllMissingEmbeddings(): Promise<number> {
   let addedCount = 0;
 
   for (const type of Object.keys(ENTITY_CONFIG) as EntityType[]) {
-    const { table, textField } = ENTITY_CONFIG[type];
-    const rows = await table.toArray();
+    const { table, textField, matches } = ENTITY_CONFIG[type];
+    let rows = await table.toArray();
+    if (matches) rows = rows.filter(matches); // 合并表：仅扫描本 entry_type 的行
     for (const row of rows) {
       const text: string = row[textField] || '';
       if (!text.trim()) continue;

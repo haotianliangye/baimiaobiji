@@ -58,8 +58,8 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, ac
   };
 
   const allLogs = useLiveQuery(() => db.raw_logs.toArray());
-  const allDiaries = useLiveQuery(() => db.daily_diaries.toArray());
-  const allReviews = useLiveQuery(() => db.daily_reviews.toArray());
+  const allDiaries = useLiveQuery(() => db.daily_reviews.filter(d => d.entry_type === 'diary').toArray());
+  const allReviews = useLiveQuery(() => db.daily_reviews.filter(r => r.entry_type === 'review').toArray());
 
   const totalLogsAllTime = allLogs?.length || 0;
   const middleCount = activeSection === 'review' ? (allReviews?.length || 0) : (allDiaries?.length || 0);
@@ -84,9 +84,9 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, ac
     }
     if (activeSection === 'diary') {
       const daily = (allDiaries || [])
-        .filter(diary => diary.diary_date === currentDateStr)
-        .reduce((sum, diary) => sum + countChars(diary.ai_editorial), 0);
-      const total = (allDiaries || []).reduce((sum, diary) => sum + countChars(diary.ai_editorial), 0);
+        .filter(diary => diary.review_date === currentDateStr)
+        .reduce((sum, diary) => sum + countChars(diary.ai_editorial || ''), 0);
+      const total = (allDiaries || []).reduce((sum, diary) => sum + countChars(diary.ai_editorial || ''), 0);
       return { daily, total };
     }
     // review
@@ -99,7 +99,7 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, ac
   
   const firstLogMs = allLogs && allLogs.length > 0 ? allLogs.reduce((acc, log) => Math.min(acc, log.created_at), Date.now()) : Date.now();
   const firstDiaryMs = allDiaries && allDiaries.length > 0 ? allDiaries.reduce((acc, diary) => {
-    const time = parse(diary.diary_date, 'yyyy-MM-dd', new Date()).getTime();
+    const time = parse(diary.review_date, 'yyyy-MM-dd', new Date()).getTime();
     return isNaN(time) ? acc : Math.min(acc, time);
   }, Date.now()) : Date.now();
   
