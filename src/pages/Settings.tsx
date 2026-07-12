@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning } from 'lucide-react';
+import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning, Download, FileJson, FileText, MessageSquare } from 'lucide-react';
 import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_SUMMARY_PROMPT, DEFAULT_DIARY_SUMMARY_PROMPT, DEFAULT_INSIGHT_SUMMARY_PROMPT } from '../store/settings.store';
 import { db, normalizeLegacyDiary, normalizeLegacyInsight } from '../db/db';
 import { enqueueAllMissingEmbeddings } from '../lib/embedding';
@@ -8,9 +8,23 @@ import { checkStorageStatus, requestStoragePersistence, StorageEstimateInfo } fr
 import { useAppStore } from '../store/app.store';
 import { SYNC_CONSTANTS } from '../config/constants';
 import DatePickerPopover from '../components/DatePickerPopover';
+import { exportData, exportConversations, downloadContent, getExportFilename } from '../lib/dataExport';
+import type { DataType, ExportOptions } from '../lib/dataExport';
+import { importData, importConversations } from '../lib/dataImport';
+import type { ImportStrategy, ImportResult } from '../lib/dataImport';
+import { cn } from '../lib/utils';
 
 const SYNC_START_DELAY_MS = 500;
 const OAUTH_CHECK_INTERVAL_MS = 50;
+
+// #13 统一数据管理 -- 可导出的数据类型选项
+const DATA_TYPE_OPTIONS: { id: DataType; label: string }[] = [
+  { id: 'raw_logs', label: '碎屑' },
+  { id: 'daily_reviews', label: '回顾' },
+  { id: 'thoughts', label: '沉思' },
+  { id: 'mingwu', label: '明悟' },
+  { id: 'copilot_conversations', label: '聊天记录' },
+];
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -234,6 +248,27 @@ export default function Settings() {
     insights: true,
     embeddings: false,
   });
+
+  // #13 统一数据管理 -- 状态
+  const [unifiedExportTypes, setUnifiedExportTypes] = useState<Set<DataType>>(
+    new Set(['raw_logs', 'daily_reviews'])
+  );
+  const [unifiedExportFormat, setUnifiedExportFormat] = useState<'markdown' | 'json'>('json');
+  const [unifiedExportStartDate, setUnifiedExportStartDate] = useState('');
+  const [unifiedExportEndDate, setUnifiedExportEndDate] = useState('');
+  const [isUnifiedExporting, setIsUnifiedExporting] = useState(false);
+
+  const [unifiedImportStrategy, setUnifiedImportStrategy] = useState<ImportStrategy>('overwrite');
+  const [unifiedImportResult, setUnifiedImportResult] = useState<ImportResult | null>(null);
+  const [unifiedImportFile, setUnifiedImportFile] = useState<File | null>(null);
+  const [isUnifiedImporting, setIsUnifiedImporting] = useState(false);
+  const unifiedImportFileRef = useRef<HTMLInputElement>(null);
+
+  const [convImportStrategy, setConvImportStrategy] = useState<ImportStrategy>('overwrite');
+  const [convImportResult, setConvImportResult] = useState<ImportResult | null>(null);
+  const [convImportFile, setConvImportFile] = useState<File | null>(null);
+  const [isConvImporting, setIsConvImporting] = useState(false);
+  const convImportFileRef = useRef<HTMLInputElement>(null);
 
   // #5: 统一 5 槽日记回顾 Prompt（合并旧 diaryPrompts + reviewPrompts）
   const [localReviewPrompts, setLocalReviewPrompts] = useState<string[]>(() => {
@@ -496,6 +531,99 @@ export default function Settings() {
       URL.revokeObjectURL(url);
     } catch (e) {
       alert('下载迁移备份失败');
+    }
+  };
+
+  // #13 统一数据管理 -- 导出
+  const handleUnifiedExport = async () => {
+    const types = Array.from(unifiedExportTypes);
+    if (types.length === 0) return;
+    setIsUnifiedExporting(true);
+    try {
+      const opts: ExportOptions = { types, format: unifiedExportFormat };
+      if (unifiedExportStartDate) {
+        opts.dateStart = new Date(unifiedExportStartDate).getTime();
+      }
+      if (unifiedExportEndDate) {
+        opts.dateEnd = new Date(unifiedExportEndDate).getTime() + 86400000 - 1;
+      }
+      const content = await exportData(opts);
+      // 测试钩子：导出内容存 window 供 E2E 读取
+      (window as any).__testExportData = content;
+      const filename = getExportFilename(unifiedExportFormat);
+      const mimeType = unifiedExportFormat === 'json' ? 'application/json' : 'text/markdown';
+      downloadContent(content, filename, mimeType);
+    } catch (e) {
+      alert('导出失败');
+    } finally {
+      setIsUnifiedExporting(false);
+    }
+  };
+
+  // #13 统一数据管理 -- 导入
+  const handleUnifiedFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUnifiedImportFile(file);
+      setUnifiedImportResult(null);
+    }
+  };
+
+  const handleUnifiedImport = async () => {
+    if (!unifiedImportFile) return;
+    setIsUnifiedImporting(true);
+    setUnifiedImportResult(null);
+    try {
+      const text = await unifiedImportFile.text();
+      const result = await importData(text, unifiedImportStrategy);
+      setUnifiedImportResult(result);
+      (window as any).__testImportResult = result;
+    } catch (e: any) {
+      const errResult: ImportResult = { imported: 0, skipped: 0, errors: [e?.message || '导入失败'] };
+      setUnifiedImportResult(errResult);
+      (window as any).__testImportResult = errResult;
+    } finally {
+      setIsUnifiedImporting(false);
+    }
+  };
+
+  // #13 聊天记录单独导出
+  const handleConvExport = async (format: 'markdown' | 'json') => {
+    try {
+      const content = await exportConversations(format);
+      (window as any).__testExportData = content;
+      const filename = getExportFilename(format, 'baimiao-conversations');
+      const mimeType = format === 'json' ? 'application/json' : 'text/markdown';
+      downloadContent(content, filename, mimeType);
+    } catch (e) {
+      alert('导出聊天记录失败');
+    }
+  };
+
+  // #13 聊天记录单独导入
+  const handleConvFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setConvImportFile(file);
+      setConvImportResult(null);
+    }
+  };
+
+  const handleConvImport = async () => {
+    if (!convImportFile) return;
+    setIsConvImporting(true);
+    setConvImportResult(null);
+    try {
+      const text = await convImportFile.text();
+      const result = await importConversations(text, convImportStrategy);
+      setConvImportResult(result);
+      (window as any).__testImportResult = result;
+    } catch (e: any) {
+      const errResult: ImportResult = { imported: 0, skipped: 0, errors: [e?.message || '导入失败'] };
+      setConvImportResult(errResult);
+      (window as any).__testImportResult = errResult;
+    } finally {
+      setIsConvImporting(false);
     }
   };
 
@@ -1709,6 +1837,310 @@ export default function Settings() {
                    下载 V2 迁移备份 (JSON)
                  </button>
                </div>
+              </section>
+
+              {/* 统一数据管理 (#13) */}
+              <section className="baimiao-card-diary p-4 space-y-4">
+                <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase flex items-center gap-1.5">
+                  <FileJson className="w-4 h-4 text-stone-400" />
+                  统一数据管理
+                </h3>
+
+                {/* 导出面板 */}
+                <div className="space-y-3">
+                  <h4 className="text-[13px] font-medium text-stone-700">导出数据</h4>
+
+                  {/* 时间范围 */}
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] text-stone-500">时间范围（可留空 = 全部）</label>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="date"
+                        data-testid="export-start-date"
+                        value={unifiedExportStartDate}
+                        onChange={(e) => setUnifiedExportStartDate(e.target.value)}
+                        className="flex-1 min-w-0 bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-2.5 py-1.5 rounded-lg text-[12px] text-stone-900 transition-all font-mono"
+                      />
+                      <span className="text-stone-400 text-[12px] font-mono shrink-0">-</span>
+                      <input
+                        type="date"
+                        data-testid="export-end-date"
+                        value={unifiedExportEndDate}
+                        onChange={(e) => setUnifiedExportEndDate(e.target.value)}
+                        className="flex-1 min-w-0 bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-2.5 py-1.5 rounded-lg text-[12px] text-stone-900 transition-all font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 数据类型多选 chip */}
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] text-stone-500">数据类型</label>
+                    <div className="flex flex-wrap gap-2">
+                      {DATA_TYPE_OPTIONS.map((opt) => {
+                        const selected = unifiedExportTypes.has(opt.id);
+                        return (
+                          <button
+                            key={opt.id}
+                            data-testid={`export-type-chip-${opt.id}`}
+                            onClick={() => {
+                              setUnifiedExportTypes((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(opt.id)) next.delete(opt.id);
+                                else next.add(opt.id);
+                                return next;
+                              });
+                            }}
+                            className={cn(
+                              'px-3 py-1.5 rounded-lg text-[12px] font-medium border transition-all active:scale-[0.97]',
+                              selected
+                                ? 'bg-baimiao-mysteria/5 border-baimiao-mysteria/20 text-baimiao-mysteria'
+                                : 'bg-stone-50 border-stone-200/60 text-stone-400 hover:text-stone-600'
+                            )}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 格式单选 */}
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] text-stone-500">导出格式</label>
+                    <div className="flex gap-2">
+                      <button
+                        data-testid="export-format-json"
+                        onClick={() => setUnifiedExportFormat('json')}
+                        className={cn(
+                          'flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[12px] font-medium border transition-all active:scale-[0.98]',
+                          unifiedExportFormat === 'json'
+                            ? 'bg-stone-100 border-stone-200 text-stone-900 shadow-sm'
+                            : 'bg-white border-stone-100/50 text-stone-500 hover:bg-stone-50'
+                        )}
+                      >
+                        <FileJson className="w-3.5 h-3.5" />
+                        JSON
+                      </button>
+                      <button
+                        data-testid="export-format-markdown"
+                        onClick={() => setUnifiedExportFormat('markdown')}
+                        className={cn(
+                          'flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[12px] font-medium border transition-all active:scale-[0.98]',
+                          unifiedExportFormat === 'markdown'
+                            ? 'bg-stone-100 border-stone-200 text-stone-900 shadow-sm'
+                            : 'bg-white border-stone-100/50 text-stone-500 hover:bg-stone-50'
+                        )}
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        Markdown
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    data-testid="export-btn"
+                    onClick={handleUnifiedExport}
+                    disabled={unifiedExportTypes.size === 0 || isUnifiedExporting}
+                    className="w-full flex items-center justify-center gap-2 bg-stone-100 text-stone-800 py-2.5 rounded-xl text-[13px] font-medium hover:bg-stone-200 transition-colors disabled:opacity-30 disabled:hover:bg-stone-100 active:scale-[0.98]"
+                  >
+                    {isUnifiedExporting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
+                    导出数据 ({unifiedExportFormat === 'json' ? 'JSON' : 'Markdown'})
+                  </button>
+                </div>
+
+                {/* 导入面板 */}
+                <div className="space-y-3 pt-4 border-t border-stone-100">
+                  <h4 className="text-[13px] font-medium text-stone-700">导入数据</h4>
+
+                  {/* 文件选择 */}
+                  <div className="space-y-1.5">
+                    <input
+                      type="file"
+                      accept=".json"
+                      data-testid="import-file-input"
+                      ref={unifiedImportFileRef}
+                      onChange={handleUnifiedFileSelect}
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => unifiedImportFileRef.current?.click()}
+                      className="w-full flex items-center justify-center gap-2 bg-white border border-stone-200 text-stone-700 py-2.5 rounded-xl text-[13px] font-medium hover:bg-stone-50 hover:border-stone-300 cursor-pointer transition-all shadow-sm active:scale-[0.98]"
+                    >
+                      <Upload className="w-4 h-4" />
+                      {unifiedImportFile ? unifiedImportFile.name : '选择 JSON 文件'}
+                    </button>
+                  </div>
+
+                  {/* 冲突策略 */}
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] text-stone-500">冲突处理策略</label>
+                    <div className="flex gap-2">
+                      <button
+                        data-testid="import-strategy-overwrite"
+                        onClick={() => setUnifiedImportStrategy('overwrite')}
+                        className={cn(
+                          'flex-1 py-2 rounded-lg text-[12px] font-medium border transition-all active:scale-[0.98]',
+                          unifiedImportStrategy === 'overwrite'
+                            ? 'bg-stone-100 border-stone-200 text-stone-900 shadow-sm'
+                            : 'bg-white border-stone-100/50 text-stone-500 hover:bg-stone-50'
+                        )}
+                      >
+                        以导入为准
+                      </button>
+                      <button
+                        data-testid="import-strategy-skip"
+                        onClick={() => setUnifiedImportStrategy('skip')}
+                        className={cn(
+                          'flex-1 py-2 rounded-lg text-[12px] font-medium border transition-all active:scale-[0.98]',
+                          unifiedImportStrategy === 'skip'
+                            ? 'bg-stone-100 border-stone-200 text-stone-900 shadow-sm'
+                            : 'bg-white border-stone-100/50 text-stone-500 hover:bg-stone-50'
+                        )}
+                      >
+                        跳过已存在
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    data-testid="import-btn"
+                    onClick={handleUnifiedImport}
+                    disabled={!unifiedImportFile || isUnifiedImporting}
+                    className="w-full flex items-center justify-center gap-2 bg-stone-900 text-white py-2.5 rounded-xl text-[13px] font-medium hover:bg-black transition-colors disabled:opacity-30 disabled:bg-stone-300 disabled:cursor-not-allowed active:scale-[0.98]"
+                  >
+                    {isUnifiedImporting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Upload className="w-4 h-4" />
+                    )}
+                    导入数据
+                  </button>
+
+                  {unifiedImportResult && (
+                    <div data-testid="import-result" className="space-y-1.5 p-3 rounded-xl bg-stone-50 border border-stone-100">
+                      <div className="flex justify-between text-[12px]">
+                        <span className="text-emerald-600 font-medium">导入 {unifiedImportResult.imported} 条</span>
+                        <span className="text-stone-500">跳过 {unifiedImportResult.skipped} 条</span>
+                      </div>
+                      {unifiedImportResult.errors.length > 0 && (
+                        <div className="text-[11px] text-rose-500 leading-relaxed">
+                          {unifiedImportResult.errors.slice(0, 5).map((err, i) => (
+                            <div key={i}>{err}</div>
+                          ))}
+                          {unifiedImportResult.errors.length > 5 && (
+                            <div>...等 {unifiedImportResult.errors.length} 条错误</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* 聊天记录单独导入/导出 */}
+                <div className="space-y-3 pt-4 border-t border-stone-100">
+                  <h4 className="text-[13px] font-medium text-stone-700 flex items-center gap-1.5">
+                    <MessageSquare className="w-4 h-4 text-stone-400" />
+                    聊天记录
+                  </h4>
+
+                  <div className="flex gap-2">
+                    <button
+                      data-testid="conversation-export-json"
+                      onClick={() => handleConvExport('json')}
+                      className="flex-1 flex items-center justify-center gap-1.5 bg-stone-100 text-stone-800 py-2 rounded-lg text-[12px] font-medium hover:bg-stone-200 transition-colors active:scale-[0.98]"
+                    >
+                      <FileJson className="w-3.5 h-3.5" />
+                      导出 JSON
+                    </button>
+                    <button
+                      data-testid="conversation-export-md"
+                      onClick={() => handleConvExport('markdown')}
+                      className="flex-1 flex items-center justify-center gap-1.5 bg-stone-100 text-stone-800 py-2 rounded-lg text-[12px] font-medium hover:bg-stone-200 transition-colors active:scale-[0.98]"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      导出 Markdown
+                    </button>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <input
+                      type="file"
+                      accept=".json"
+                      data-testid="conversation-import-file-input"
+                      ref={convImportFileRef}
+                      onChange={handleConvFileSelect}
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => convImportFileRef.current?.click()}
+                      className="w-full flex items-center justify-center gap-2 bg-white border border-stone-200 text-stone-700 py-2 rounded-lg text-[12px] font-medium hover:bg-stone-50 hover:border-stone-300 cursor-pointer transition-all shadow-sm active:scale-[0.98]"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      {convImportFile ? convImportFile.name : '选择聊天记录 JSON 文件'}
+                    </button>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      data-testid="conversation-strategy-overwrite"
+                      onClick={() => setConvImportStrategy('overwrite')}
+                      className={cn(
+                        'flex-1 py-1.5 rounded-lg text-[11px] font-medium border transition-all',
+                        convImportStrategy === 'overwrite'
+                          ? 'bg-stone-100 border-stone-200 text-stone-900'
+                          : 'bg-white border-stone-100/50 text-stone-500'
+                      )}
+                    >
+                      以导入为准
+                    </button>
+                    <button
+                      data-testid="conversation-strategy-skip"
+                      onClick={() => setConvImportStrategy('skip')}
+                      className={cn(
+                        'flex-1 py-1.5 rounded-lg text-[11px] font-medium border transition-all',
+                        convImportStrategy === 'skip'
+                          ? 'bg-stone-100 border-stone-200 text-stone-900'
+                          : 'bg-white border-stone-100/50 text-stone-500'
+                      )}
+                    >
+                      跳过已存在
+                    </button>
+                  </div>
+
+                  <button
+                    data-testid="conversation-import-btn"
+                    onClick={handleConvImport}
+                    disabled={!convImportFile || isConvImporting}
+                    className="w-full flex items-center justify-center gap-2 bg-stone-900 text-white py-2 rounded-lg text-[12px] font-medium hover:bg-black transition-colors disabled:opacity-30 disabled:bg-stone-300 active:scale-[0.98]"
+                  >
+                    {isConvImporting ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="w-3.5 h-3.5" />
+                    )}
+                    导入聊天记录
+                  </button>
+
+                  {convImportResult && (
+                    <div data-testid="conversation-import-result" className="space-y-1 p-2.5 rounded-xl bg-stone-50 border border-stone-100">
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-emerald-600 font-medium">导入 {convImportResult.imported} 条</span>
+                        <span className="text-stone-500">跳过 {convImportResult.skipped} 条</span>
+                      </div>
+                      {convImportResult.errors.length > 0 && (
+                        <div className="text-[10px] text-rose-500 leading-relaxed">
+                          {convImportResult.errors.slice(0, 3).map((err, i) => (
+                            <div key={i}>{err}</div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </section>
             </div>
           )}
