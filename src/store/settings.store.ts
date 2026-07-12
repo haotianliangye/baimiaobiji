@@ -136,6 +136,9 @@ interface SettingsState {
   reviewPrompt: string;
   reviewPrompts: string[];
   reviewPromptIndex: number;
+  // #5: 统一 5 槽日记回顾 Prompt（日记/回顾/自定义1/2/3）
+  reviewPromptNames: string[];
+  reviewSelectedIndices: number[];
   insightPrompt: string;
   insightPrompts: string[];
   insightPromptIndex: number;
@@ -188,8 +191,11 @@ export const useSettingsStore = create<SettingsState>()(
       diaryPrompts: [DEFAULT_DIARY_PROMPT, DEFAULT_WARM_DIARY_PROMPT, '', ''],
       diaryPromptIndex: 0,
       reviewPrompt: DEFAULT_REVIEW_PROMPT,
-      reviewPrompts: [DEFAULT_REVIEW_PROMPT, '', '', ''],
+      reviewPrompts: [DEFAULT_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, '', '', ''],
       reviewPromptIndex: 0,
+      // #5: 5 槽统一 Prompt 名称与多选选中状态
+      reviewPromptNames: ['日记', '回顾', '自定义 1', '自定义 2', '自定义 3'],
+      reviewSelectedIndices: [0, 1],
       insightPrompt: DEFAULT_INSIGHT_PROMPT,
       insightPrompts: [DEFAULT_INSIGHT_PROMPT, '', '', ''],
       insightPromptIndex: 0,
@@ -319,7 +325,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     { 
         name: 'whitewash-settings',
-        version: 7,
+        version: 8,
         partialize: (state) => {
           const { syncPassword, syncPasswordE2EE, ...rest } = state;
           if (state.syncRememberCredentials) {
@@ -344,27 +350,47 @@ export const useSettingsStore = create<SettingsState>()(
           }
           
           const merged = { ...currentState, ...persistedState };
-          
-          // 强力防污染：0号槽位作为只读的默认出厂设置，每次合并时必须强行同步为代码中最新的默认常量
+
+          // --- #5: 5 槽统一 reviewPrompts 防污染 ---
+          // 强制 slot 0 = DEFAULT_DIARY_PROMPT，slot 1 = DEFAULT_REVIEW_PROMPT
+          if (merged.reviewPrompts && merged.reviewPrompts.length >= 2) {
+            merged.reviewPrompts[0] = DEFAULT_DIARY_PROMPT;
+            merged.reviewPrompts[1] = DEFAULT_REVIEW_PROMPT;
+          }
+          // 确保 reviewPrompts 有 5 个槽位
+          if (!merged.reviewPrompts || merged.reviewPrompts.length < 5) {
+            const padded = merged.reviewPrompts ? [...merged.reviewPrompts] : [];
+            while (padded.length < 5) padded.push('');
+            padded[0] = DEFAULT_DIARY_PROMPT;
+            padded[1] = DEFAULT_REVIEW_PROMPT;
+            merged.reviewPrompts = padded;
+          }
+          // 确保 reviewPromptNames 有 5 个槽位，slot 0/1 固定不可改名
+          if (!merged.reviewPromptNames || merged.reviewPromptNames.length < 5) {
+            merged.reviewPromptNames = ['日记', '回顾', '自定义 1', '自定义 2', '自定义 3'];
+          } else {
+            merged.reviewPromptNames[0] = '日记';
+            merged.reviewPromptNames[1] = '回顾';
+          }
+          // 确保 reviewSelectedIndices 默认选中「日记+回顾」
+          if (!merged.reviewSelectedIndices || merged.reviewSelectedIndices.length === 0) {
+            merged.reviewSelectedIndices = [0, 1];
+          }
+
+          // --- 旧 4 槽 diaryPrompts 防污染（Copilot 仍依赖此字段）---
           if (merged.diaryPrompts && merged.diaryPrompts.length === 4) {
             merged.diaryPrompts[0] = DEFAULT_DIARY_PROMPT;
             if (merged.diaryPromptIndex === 0) {
               merged.diaryPrompt = DEFAULT_DIARY_PROMPT;
             }
-            
-            // 强力纠偏：如果 1 号槽位（自定义 1）依然残留着柳比歇夫提示词（与 0 号位重复），则强制将其纠正为最新的“贴心日记助手”
+
+            // 强力纠偏：如果 1 号槽位（自定义 1）依然残留着柳比歇夫提示词（与 0 号位重复），则强制将其纠正为最新的”贴心日记助手”
             const slot1 = merged.diaryPrompts[1];
-            if (slot1 && (slot1.includes("柳比歇夫时间管理") || slot1.includes("柳比歇夫时间日志"))) {
+            if (slot1 && (slot1.includes('柳比歇夫时间管理') || slot1.includes('柳比歇夫时间日志'))) {
               merged.diaryPrompts[1] = DEFAULT_WARM_DIARY_PROMPT;
               if (merged.diaryPromptIndex === 1) {
                 merged.diaryPrompt = DEFAULT_WARM_DIARY_PROMPT;
               }
-            }
-          }
-          if (merged.reviewPrompts && merged.reviewPrompts.length > 0) {
-            merged.reviewPrompts[0] = DEFAULT_REVIEW_PROMPT;
-            if (merged.reviewPromptIndex === 0) {
-              merged.reviewPrompt = DEFAULT_REVIEW_PROMPT;
             }
           }
           if (merged.insightPrompts && merged.insightPrompts.length > 0) {
@@ -373,7 +399,7 @@ export const useSettingsStore = create<SettingsState>()(
               merged.insightPrompt = DEFAULT_INSIGHT_PROMPT;
             }
           }
-          
+
           return merged;
         },
         migrate: (persistedState: any, version) => {
@@ -561,7 +587,35 @@ export const useSettingsStore = create<SettingsState>()(
               persistedState.insightSummaryPrompt = DEFAULT_INSIGHT_SUMMARY_PROMPT;
             }
           }
-         
+
+          // #5: 合并旧 4 槽 diaryPrompts + reviewPrompts 到新 5 槽统一 reviewPrompts
+          if (version < 8) {
+            const oldDiaryPrompts: string[] = persistedState.diaryPrompts || [DEFAULT_DIARY_PROMPT, DEFAULT_WARM_DIARY_PROMPT, '', ''];
+            const oldReviewPrompts: string[] = persistedState.reviewPrompts || [DEFAULT_REVIEW_PROMPT, '', '', ''];
+
+            // 新 5 槽：[日记, 回顾, 自定义1, 自定义2, 自定义3]
+            // 日记槽 = 旧 diaryPrompts[0]（DEFAULT_DIARY_PROMPT）
+            // 回顾槽 = 旧 reviewPrompts[0]（DEFAULT_REVIEW_PROMPT）
+            // 自定义1 = 旧 diaryPrompts[1] || 旧 reviewPrompts[1]（优先保留用户自定义的日记模板）
+            // 自定义2 = 旧 diaryPrompts[2] || 旧 reviewPrompts[2]
+            // 自定义3 = 旧 diaryPrompts[3] || 旧 reviewPrompts[3]
+            persistedState.reviewPrompts = [
+              oldDiaryPrompts[0] || DEFAULT_DIARY_PROMPT,
+              oldReviewPrompts[0] || DEFAULT_REVIEW_PROMPT,
+              oldDiaryPrompts[1] || oldReviewPrompts[1] || '',
+              oldDiaryPrompts[2] || oldReviewPrompts[2] || '',
+              oldDiaryPrompts[3] || oldReviewPrompts[3] || '',
+            ];
+            persistedState.reviewPromptNames = ['日记', '回顾', '自定义 1', '自定义 2', '自定义 3'];
+            // 默认选中「日记 + 回顾」
+            persistedState.reviewSelectedIndices = [0, 1];
+            // 同步 reviewPromptIndex 为回顾槽位（兼容旧代码读取）
+            persistedState.reviewPromptIndex = 1;
+            persistedState.reviewPrompt = persistedState.reviewPrompts[1];
+
+            // 保留旧 diaryPrompts 不变（Copilot 仍依赖此字段做日记模板过滤）
+          }
+
          return persistedState;
        }
     }
@@ -573,4 +627,41 @@ export function getActivePromptIndices(prompts: string[]): number[] {
     .map((p, i) => ({ index: i, hasContent: p.trim().length > 0 }))
     .filter(item => item.hasContent)
     .map(item => item.index);
+}
+
+/**
+ * #5: 默认 5 槽 Prompt 名称（slot 0/1 不可改名）
+ */
+export const DEFAULT_REVIEW_PROMPT_NAMES = ['日记', '回顾', '自定义 1', '自定义 2', '自定义 3'];
+
+/**
+ * #5: 判断某槽位是否为「日记」类型（使用 /api/generate-timeline，entry_type='diary'）。
+ * 只有 slot 0 是日记，其余均为回顾类型（entry_type='review'）。
+ */
+export function isDiarySlot(index: number): boolean {
+  return index === 0;
+}
+
+/**
+ * #5: 根据槽位索引返回 entry_type。
+ * slot 0 -> 'diary'，slot 1-4 -> 'review'
+ */
+export function getEntryTypeForSlot(index: number): 'diary' | 'review' {
+  return isDiarySlot(index) ? 'diary' : 'review';
+}
+
+/**
+ * #5: 旧 prompt_index 到新 prompt_index 的映射，用于自动队列扫描时兼容旧数据。
+ * 旧系统：diary entries 有 prompt_index 0-3，review entries 有 prompt_index 0-3。
+ * 新系统：slot 0(日记)=prompt_index 0，slot 1(回顾)=prompt_index 1，slot 2-4=prompt_index 2-4。
+ * 当扫描新 slot N 是否已生成时，也需检查旧数据中可能存在的等价 prompt_index。
+ */
+export function getLegacyPromptIndices(newSlotIndex: number): number[] {
+  // 新 slot 0(日记) -> 旧 diary prompt_index 0
+  // 新 slot 1(回顾) -> 旧 review prompt_index 0
+  // 新 slot 2(自定义1) -> 旧 diary/review prompt_index 1
+  // 新 slot 3(自定义2) -> 旧 diary/review prompt_index 2
+  // 新 slot 4(自定义3) -> 旧 diary/review prompt_index 3
+  if (newSlotIndex <= 1) return [0];
+  return [newSlotIndex - 1];
 }

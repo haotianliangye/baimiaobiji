@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning } from 'lucide-react';
-import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_WARM_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_SUMMARY_PROMPT, DEFAULT_DIARY_SUMMARY_PROMPT, DEFAULT_INSIGHT_SUMMARY_PROMPT } from '../store/settings.store';
+import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_SUMMARY_PROMPT, DEFAULT_DIARY_SUMMARY_PROMPT, DEFAULT_INSIGHT_SUMMARY_PROMPT } from '../store/settings.store';
 import { db, normalizeLegacyDiary, normalizeLegacyInsight } from '../db/db';
 import { enqueueAllMissingEmbeddings } from '../lib/embedding';
 import { checkStorageStatus, requestStoragePersistence, StorageEstimateInfo } from '../lib/storage';
@@ -15,20 +15,22 @@ const OAUTH_CHECK_INTERVAL_MS = 50;
 export default function Settings() {
   const navigate = useNavigate();
   const settingsStore = useSettingsStore();
-  const { 
-    provider, 
-    apiKey, 
-    baseUrl, 
-    model, 
-    diaryPrompt, 
-    diaryPrompts, 
-    diaryPromptIndex, 
-    reviewPrompt, 
-    reviewPrompts, 
-    reviewPromptIndex, 
-    insightPrompt, 
-    insightPrompts, 
-    insightPromptIndex, 
+  const {
+    provider,
+    apiKey,
+    baseUrl,
+    model,
+    diaryPrompt,
+    diaryPrompts,
+    diaryPromptIndex,
+    reviewPrompt,
+    reviewPrompts,
+    reviewPromptIndex,
+    reviewPromptNames,
+    reviewSelectedIndices,
+    insightPrompt,
+    insightPrompts,
+    insightPromptIndex,
     summaryPrompt,
     diarySummaryPrompt,
     insightSummaryPrompt,
@@ -37,7 +39,7 @@ export default function Settings() {
     embedApiKey,
     embedBaseUrl,
     embedModel,
-    setSettings 
+    setSettings
   } = settingsStore;
 
   const { 
@@ -233,15 +235,22 @@ export default function Settings() {
     embeddings: false,
   });
 
-  const [localDiaryPrompts, setLocalDiaryPrompts] = useState<string[]>(() => {
-    if (diaryPrompts && diaryPrompts.length === 4) return [...diaryPrompts];
-    return [diaryPrompt || DEFAULT_DIARY_PROMPT, DEFAULT_WARM_DIARY_PROMPT, '', ''];
-  });
-  const [localDiaryIndex, setLocalDiaryIndex] = useState<number>(0);
-
+  // #5: 统一 5 槽日记回顾 Prompt（合并旧 diaryPrompts + reviewPrompts）
   const [localReviewPrompts, setLocalReviewPrompts] = useState<string[]>(() => {
-    if (reviewPrompts && reviewPrompts.length === 4) return [...reviewPrompts];
-    return [reviewPrompt || DEFAULT_REVIEW_PROMPT, '', '', ''];
+    if (reviewPrompts && reviewPrompts.length === 5) return [...reviewPrompts];
+    // 兼容旧 4 槽 reviewPrompts（迁移前）
+    if (reviewPrompts && reviewPrompts.length === 4) {
+      return [reviewPrompts[0] || DEFAULT_DIARY_PROMPT, reviewPrompts[0] || DEFAULT_REVIEW_PROMPT, '', '', ''];
+    }
+    return [DEFAULT_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, '', '', ''];
+  });
+  const [localReviewPromptNames, setLocalReviewPromptNames] = useState<string[]>(() => {
+    if (reviewPromptNames && reviewPromptNames.length === 5) return [...reviewPromptNames];
+    return ['日记', '回顾', '自定义 1', '自定义 2', '自定义 3'];
+  });
+  const [localReviewSelectedIndices, setLocalReviewSelectedIndices] = useState<number[]>(() => {
+    if (reviewSelectedIndices && reviewSelectedIndices.length > 0) return [...reviewSelectedIndices];
+    return [0, 1];
   });
   const [localReviewIndex, setLocalReviewIndex] = useState<number>(0);
 
@@ -915,77 +924,18 @@ export default function Settings() {
           {activeTab === 'prompt' && (
             <div className="space-y-4 animate-in fade-in duration-200">
               {/* Card 1: 日记生成 Prompt */}
+              {/* #5: Card 1: 日记回顾生成 Prompt（合并旧日记+回顾，5 槽统一） */}
               <section className="baimiao-card-diary p-4 space-y-3 overflow-hidden">
                 <div className="bg-[#f8f6fa] border-b border-stone-100/80 px-4 py-2 flex flex-col gap-2 -mx-4 -mt-4">
                   <div className="flex items-center justify-between">
                     <label className="flex items-center gap-1.5 text-[13px] font-bold text-stone-700 border-l-2 border-baimiao-mysteria pl-2">
                       <Settings2 className="w-4 h-4 text-baimiao-mysteria" />
-                      日记生成 Prompt
+                      日记回顾生成 Prompt
                     </label>
                   </div>
                   <div className="flex items-center justify-between">
-                    <div className="flex gap-0.5 items-center bg-[#f0edf4]/60 p-0.5 rounded-lg border border-stone-200/30">
-                      {['默认', '自定义 1', '自定义 2', '自定义 3'].map((label, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => setLocalDiaryIndex(idx)}
-                          className={`px-2 py-0.5 text-[10.5px] font-medium rounded transition-all active:scale-[0.93] shrink-0 ${
-                            localDiaryIndex === idx
-                              ? 'bg-white text-baimiao-mysteria font-bold shadow-sm border border-stone-200/40'
-                              : 'text-[#8a859e] hover:text-stone-600'
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                    {localDiaryIndex !== 0 && (
-                      <button 
-                        type="button"
-                        onClick={() => {
-                          const next = [...localDiaryPrompts];
-                          next[localDiaryIndex] = '';
-                          setLocalDiaryPrompts(next);
-                        }}
-                        className="text-[11px] text-stone-400 hover:text-red-500 flex items-center gap-0.5 transition-colors"
-                      >
-                        <RotateCcw className="w-3 h-3" />
-                        清空当前
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <textarea
-                  placeholder={localDiaryIndex === 0 ? '' : '请输入日记生成提示词...'}
-                  value={localDiaryPrompts[localDiaryIndex]}
-                  readOnly={localDiaryIndex === 0}
-                  onChange={e => {
-                    if (localDiaryIndex === 0) return;
-                    const next = [...localDiaryPrompts];
-                    next[localDiaryIndex] = e.target.value;
-                    setLocalDiaryPrompts(next);
-                  }}
-                  className={`w-full h-32 resize-none border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] transition-all font-mono leading-relaxed ${
-                    localDiaryIndex === 0
-                      ? 'bg-stone-50 text-stone-400 border-dashed border-stone-200 cursor-not-allowed'
-                      : 'bg-white text-stone-900 focus:bg-white'
-                  }`}
-                />
-              </section>
-
-              {/* Card 2: 回顾生成 Prompt */}
-              <section className="baimiao-card-diary p-4 space-y-3 overflow-hidden">
-                <div className="bg-[#f8f6fa] border-b border-stone-100/80 px-4 py-2 flex flex-col gap-2 -mx-4 -mt-4">
-                  <div className="flex items-center justify-between">
-                    <label className="flex items-center gap-1.5 text-[13px] font-bold text-stone-700 border-l-2 border-baimiao-mysteria pl-2">
-                      <Settings2 className="w-4 h-4 text-baimiao-mysteria" />
-                      回顾生成 Prompt
-                    </label>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex gap-0.5 items-center bg-[#f0edf4]/60 p-0.5 rounded-lg border border-stone-200/30">
-                      {['默认', '自定义 1', '自定义 2', '自定义 3'].map((label, idx) => (
+                    <div className="flex gap-0.5 items-center bg-[#f0edf4]/60 p-0.5 rounded-lg border border-stone-200/30 flex-wrap">
+                      {localReviewPromptNames.map((label, idx) => (
                         <button
                           key={idx}
                           type="button"
@@ -1000,8 +950,8 @@ export default function Settings() {
                         </button>
                       ))}
                     </div>
-                    {localReviewIndex !== 0 && (
-                      <button 
+                    {localReviewIndex >= 2 && (
+                      <button
                         type="button"
                         onClick={() => {
                           const next = [...localReviewPrompts];
@@ -1016,22 +966,81 @@ export default function Settings() {
                     )}
                   </div>
                 </div>
+
+                {/* 自定义槽位（2/3/4）可改名 */}
+                {localReviewIndex >= 2 && (
+                  <div className="flex items-center gap-2">
+                    <label className="text-[11px] text-stone-500 font-medium shrink-0">槽位名称</label>
+                    <input
+                      type="text"
+                      value={localReviewPromptNames[localReviewIndex]}
+                      onChange={e => {
+                        const next = [...localReviewPromptNames];
+                        next[localReviewIndex] = e.target.value;
+                        setLocalReviewPromptNames(next);
+                      }}
+                      placeholder="如：知识、决策、复盘"
+                      className="flex-1 bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-2.5 py-1.5 rounded-lg text-[12.5px] text-stone-900 transition-all"
+                    />
+                  </div>
+                )}
+
                 <textarea
-                  placeholder={localReviewIndex === 0 ? '' : '请输入回顾生成提示词...'}
-                  value={localReviewPrompts[localReviewIndex]}
-                  readOnly={localReviewIndex === 0}
+                  placeholder={localReviewIndex < 2 ? '' : '请输入生成提示词...'}
+                  value={localReviewPrompts[localReviewIndex] || ''}
+                  readOnly={localReviewIndex < 2}
                   onChange={e => {
-                    if (localReviewIndex === 0) return;
+                    if (localReviewIndex < 2) return;
                     const next = [...localReviewPrompts];
                     next[localReviewIndex] = e.target.value;
                     setLocalReviewPrompts(next);
                   }}
-                  className={`w-full h-24 resize-none border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] transition-all font-mono leading-relaxed ${
-                    localReviewIndex === 0
+                  className={`w-full h-28 resize-none border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] transition-all font-mono leading-relaxed ${
+                    localReviewIndex < 2
                       ? 'bg-stone-50 text-stone-400 border-dashed border-stone-200 cursor-not-allowed'
                       : 'bg-white text-stone-900 focus:bg-white'
                   }`}
                 />
+
+                {/* #5: 自动生成选中状态 - 每个槽位可勾选 */}
+                <div className="pt-2 border-t border-stone-100">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <span className="text-[11px] font-semibold text-stone-500">自动生成选中</span>
+                    <span className="text-[10px] text-stone-400">（至少保留一项，默认选中日记+回顾）</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {localReviewPromptNames.map((name, idx) => {
+                      const isSelected = localReviewSelectedIndices.includes(idx);
+                      const canToggle = !isSelected || localReviewSelectedIndices.length > 1;
+                      return (
+                        <label
+                          key={idx}
+                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer transition-all select-none ${
+                            isSelected
+                              ? 'bg-baimiao-mysteria/5 border-baimiao-mysteria/20 text-baimiao-mysteria'
+                              : 'bg-stone-50 border-stone-200/60 text-stone-400'
+                          } ${!canToggle ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            disabled={!canToggle}
+                            onChange={() => {
+                              if (isSelected) {
+                                if (localReviewSelectedIndices.length <= 1) return;
+                                setLocalReviewSelectedIndices(localReviewSelectedIndices.filter(i => i !== idx));
+                              } else {
+                                setLocalReviewSelectedIndices([...localReviewSelectedIndices, idx].sort((a, b) => a - b));
+                              }
+                            }}
+                            className="w-3.5 h-3.5 rounded border-stone-300 text-baimiao-mysteria focus:ring-baimiao-mysteria/20 accent-baimiao-mysteria cursor-pointer"
+                          />
+                          <span className="text-[11.5px] font-medium">{name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
               </section>
 
               {/* Card 3: 洞察生成 Prompt */}
@@ -1709,10 +1718,14 @@ export default function Settings() {
           <button
             onClick={() => {
               setSettings({
-                diaryPrompts: localDiaryPrompts,
-                diaryPromptIndex: localDiaryIndex,
-                diaryPrompt: localDiaryPrompts[localDiaryIndex],
+                // #5: 保留旧 diaryPrompts 供 Copilot 兼容（只含日记槽位内容）
+                diaryPrompts: [localReviewPrompts[0], '', '', ''],
+                diaryPromptIndex: 0,
+                diaryPrompt: localReviewPrompts[0],
+                // #5: 统一 5 槽 reviewPrompts + 名称 + 选中状态
                 reviewPrompts: localReviewPrompts,
+                reviewPromptNames: localReviewPromptNames,
+                reviewSelectedIndices: localReviewSelectedIndices,
                 reviewPromptIndex: localReviewIndex,
                 reviewPrompt: localReviewPrompts[localReviewIndex],
                 insightPrompts: localInsightPrompts,
