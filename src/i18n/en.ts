@@ -499,6 +499,10 @@ export const en: TranslationDict = {
   'copilot.templateN': 'Template {n}',
   'copilot.selectDate': 'Select date',
   'copilot.exportMd': 'Export Markdown',
+  // Seam 3: flattened navigation RAG -> CHAT -> History
+  'copilot.navRag': 'RAG',
+  'copilot.navChat': 'CHAT',
+  'copilot.navHistory': 'History',
 
   // --- TagManagement ---
   'tags.title': 'Tag Management',

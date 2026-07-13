@@ -500,6 +500,10 @@ export const zh: TranslationDict = {
   'copilot.templateN': '模板 {n}',
   'copilot.selectDate': '选择日期',
   'copilot.exportMd': '导出 Markdown',
+  // Seam 3: 扁平化导航 RAG -> CHAT -> 历史
+  'copilot.navRag': 'RAG',
+  'copilot.navChat': 'CHAT',
+  'copilot.navHistory': '历史',
 
   // --- TagManagement ---
   'tags.title': '标签管理',

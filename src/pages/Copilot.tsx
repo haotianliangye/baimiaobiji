@@ -51,7 +51,9 @@ export default function Copilot() {
   // message of a new conversation creates the Dexie row mid-send, which
   // would unmount the component and drop the in-flight fetch.
   const [sessionKey, setSessionKey] = useState(0);
-  const [activeTab, setActiveTab] = useState<'chat' | 'history'>('chat');
+  // Seam 3: flattened navigation - RAG / CHAT / 历史 in a single row.
+  // Replaces the old "对话/历史会话" two-level tab + RAG/Chat mode switcher.
+  const [navView, setNavView] = useState<'rag' | 'chat' | 'history'>('rag');
   // #9 LLM Chat: 'rag' = RAG 问答（检索本地数据），'chat' = 通用 Chat（纯 LLM 对话）
   const [chatMode, setChatMode] = useState<'rag' | 'chat'>('rag');
   const [showDateDropdown, setShowDateDropdown] = useState(false);
@@ -97,15 +99,16 @@ export default function Copilot() {
     setCurrentId(null);
     citationMapRef.current = new Map();
     setSessionKey(k => k + 1);
-    setActiveTab('chat');
+    setNavView(chatMode);
     closeDropdowns();
   };
 
   // #9: Switching mode starts a fresh conversation (mode is per-conversation).
   const handleSwitchMode = (mode: 'rag' | 'chat') => {
-    if (mode === chatMode) return;
+    if (mode === chatMode && navView === mode) return;
     chatModeRef.current = mode;
     setChatMode(mode);
+    setNavView(mode);
     currentIdRef.current = null;
     setCurrentId(null);
     citationMapRef.current = new Map();
@@ -113,18 +116,22 @@ export default function Copilot() {
     closeDropdowns();
   };
 
+  // Seam 3: Switch to the history list view without altering the current mode.
+  const handleSwitchToHistory = () => {
+    setNavView('history');
+    closeDropdowns();
+  };
+
   const handleSelectConversation = (id: string) => {
     const conv = conversations?.find(c => c.id === id);
-    if (conv) {
-      const mode = conv.mode || 'rag'; // defensive fallback for pre-v9 rows
-      chatModeRef.current = mode;
-      setChatMode(mode);
-    }
+    const mode = conv?.mode || 'rag'; // defensive fallback for pre-v9 rows
+    chatModeRef.current = mode;
+    setChatMode(mode);
     currentIdRef.current = id;
     setCurrentId(id);
     citationMapRef.current = new Map();
     setSessionKey(k => k + 1);
-    setActiveTab('chat');
+    setNavView(mode);
     closeDropdowns();
   };
 
@@ -270,31 +277,41 @@ export default function Copilot() {
         </button>
       </div>
 
-      {/* Top Tab Toggle */}
+      {/* Top Nav: Seam 3 flattened RAG -> CHAT -> 历史 horizontal navigation */}
       <div className="px-4 py-2 bg-white border-b border-stone-200/50 flex gap-2 shrink-0 select-none">
         <button
-          onClick={() => setActiveTab('chat')}
+          onClick={() => handleSwitchMode('rag')}
           className={`flex-1 text-center py-2 rounded-xl text-[12.5px] font-semibold tracking-wide transition-all active:scale-[0.98] ${
-            activeTab === 'chat'
+            navView === 'rag'
               ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-md shadow-baimiao-mysteria/10'
               : 'bg-stone-50 text-stone-600 hover:bg-stone-100 border border-stone-200/60'
           }`}
         >
-          {t('copilot.chat')}
+          {t('copilot.navRag')}
         </button>
         <button
-          onClick={() => setActiveTab('history')}
+          onClick={() => handleSwitchMode('chat')}
           className={`flex-1 text-center py-2 rounded-xl text-[12.5px] font-semibold tracking-wide transition-all active:scale-[0.98] ${
-            activeTab === 'history'
+            navView === 'chat'
               ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-md shadow-baimiao-mysteria/10'
               : 'bg-stone-50 text-stone-600 hover:bg-stone-100 border border-stone-200/60'
           }`}
         >
-          {t('copilot.history')}
+          {t('copilot.navChat')}
+        </button>
+        <button
+          onClick={handleSwitchToHistory}
+          className={`flex-1 text-center py-2 rounded-xl text-[12.5px] font-semibold tracking-wide transition-all active:scale-[0.98] ${
+            navView === 'history'
+              ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-md shadow-baimiao-mysteria/10'
+              : 'bg-stone-50 text-stone-600 hover:bg-stone-100 border border-stone-200/60'
+          }`}
+        >
+          {t('copilot.navHistory')}
         </button>
       </div>
 
-      {activeTab === 'history' ? (
+      {navView === 'history' ? (
         <div className="flex-1 overflow-hidden flex flex-col bg-white">
           <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3 thin-scrollbar">
             {conversations && conversations.length > 0 ? (
@@ -358,33 +375,10 @@ export default function Copilot() {
         </div>
       ) : (
         <>
-          {/* #9: Mode switcher - RAG 问答 / 通用 Chat */}
-          <div className="px-4 py-1.5 bg-white border-b border-stone-200/50 flex gap-2 shrink-0 select-none">
-            <button
-              onClick={() => handleSwitchMode('rag')}
-              className={`flex-1 text-center py-1.5 rounded-lg text-[11.5px] font-medium tracking-wide transition-all active:scale-[0.98] ${
-                chatMode === 'rag'
-                  ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria border border-baimiao-mysteria/20'
-                  : 'bg-stone-50 text-stone-500 border border-stone-200/40 hover:bg-stone-100'
-              }`}
-            >
-              {t('copilot.ragMode')}
-            </button>
-            <button
-              onClick={() => handleSwitchMode('chat')}
-              className={`flex-1 text-center py-1.5 rounded-lg text-[11.5px] font-medium tracking-wide transition-all active:scale-[0.98] ${
-                chatMode === 'chat'
-                  ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria border border-baimiao-mysteria/20'
-                  : 'bg-stone-50 text-stone-500 border border-stone-200/40 hover:bg-stone-100'
-              }`}
-            >
-              {t('copilot.chatMode')}
-            </button>
-          </div>
           {/* Filter row — single horizontal line, scrolls instead of wrapping.
               Keeping all controls on one row prevents layout jumping when the
               diary-template chip conditionally appears. */}
-          {chatMode === 'rag' && embedReady && (
+          {navView === 'rag' && embedReady && (
             <div className="flex items-center px-4 py-2 bg-white border-b border-stone-200/50 shrink-0 relative justify-between select-none">
               {/* Module chips */}
               {(['record', 'diary', 'review', 'insight'] as const).map(mod => {
@@ -440,7 +434,7 @@ export default function Copilot() {
 
           {/* Body */}
           <div className="flex-1 overflow-hidden flex flex-col bg-white">
-            {chatMode === 'rag' && !embedReady ? (
+            {navView === 'rag' && !embedReady ? (
               <div className="flex flex-col items-center justify-center text-center mt-10 flex-1 px-6 select-none">
                 <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mb-4">
                   <Sparkles className="w-7 h-7 text-stone-300 stroke-[1.5px]" />
@@ -477,7 +471,7 @@ export default function Copilot() {
       {showDateDropdown && (
         <>
           <div className="fixed inset-0 z-[85]" onClick={closeDropdowns} />
-          <div className="absolute top-[180px] right-4 w-52 bg-white border border-stone-200 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-1.5 z-[90] animate-in fade-in zoom-in-95 duration-100 text-stone-800">
+          <div className="absolute top-[142px] right-4 w-52 bg-white border border-stone-200 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-1.5 z-[90] animate-in fade-in zoom-in-95 duration-100 text-stone-800">
             {calendarTarget === 'none' ? (
               <>
                 {DATE_PRESETS.map(range => (
@@ -564,7 +558,7 @@ export default function Copilot() {
       {showPromptDropdown && (
         <>
           <div className="fixed inset-0 z-[85]" onClick={closeDropdowns} />
-          <div className="absolute top-[180px] right-4 w-52 bg-white border border-stone-200 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-1.5 z-[90] animate-in fade-in zoom-in-95 duration-100 text-stone-800">
+          <div className="absolute top-[142px] right-4 w-52 bg-white border border-stone-200 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-1.5 z-[90] animate-in fade-in zoom-in-95 duration-100 text-stone-800">
             <button
               onClick={() => { setDiaryPromptIndex(undefined); setShowPromptDropdown(false); }}
               className={`w-full text-left px-3 py-1.5 text-[12px] font-medium rounded-xl transition-colors ${
