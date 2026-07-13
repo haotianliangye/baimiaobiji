@@ -13,7 +13,7 @@
  * - 附件：图片以 data URL 存 AttachmentMeta.ref（最小实现，#6 完善多媒体 Blob）。
  * - 删除/编辑用 db.thoughts.update/delete；embedding 由 embedding.ts 钩子自动索引。
  */
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { format } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
@@ -31,6 +31,10 @@ import {
   Check,
   Sparkles,
   Lightbulb,
+  ChevronUp,
+  ChevronDown,
+  Film,
+  Music,
 } from 'lucide-react';
 import { db, type Thought, type AttachmentMeta } from '../db/db';
 import { useThoughtsStore } from '../store/thoughts.store';
@@ -228,6 +232,7 @@ export default function Thoughts() {
               <div key={t.id} className="break-inside-avoid mb-2.5">
                 <ThoughtCard
                   thought={t}
+                  view={view}
                   copied={copied}
                   onCopy={() => copy(t.content)}
                   onEdit={() => openEdit(t)}
@@ -255,6 +260,7 @@ export default function Thoughts() {
                   <ThoughtCard
                     key={t.id}
                     thought={t}
+                    view={view}
                     copied={copied}
                     onCopy={() => copy(t.content)}
                     onEdit={() => openEdit(t)}
@@ -427,44 +433,136 @@ function EmptyState() {
 /** 单条沉思卡片 */
 interface ThoughtCardProps {
   thought: Thought;
+  view: ViewMode;
   copied: boolean;
   onCopy: () => void;
   onEdit: () => void;
 }
 
-function ThoughtCard({ thought, copied, onCopy, onEdit }: ThoughtCardProps) {
+/** 折叠态最大高度（按正文行高 ~22px 估算：时间线 7 行，瀑布流 12 行）。 */
+const COLLAPSED_MAX_H_TIMELINE = 160; // px
+const COLLAPSED_MAX_H_MASONRY = 270; // px
+/** 缩略图网格：时间线一行 3 个 / 瀑布流一行 2 个；最多展示 2 行，超出显示 +N。 */
+const THUMB_CAP_TIMELINE = 6; // 3 * 2
+const THUMB_CAP_MASONRY = 4; // 2 * 2
+
+function ThoughtCard({ thought, view, copied, onCopy, onEdit }: ThoughtCardProps) {
   const { t } = useTranslation();
   const tags = thought.tags || [];
   const attachments = thought.attachments || [];
+
+  const collapsedMaxH = view === 'timeline' ? COLLAPSED_MAX_H_TIMELINE : COLLAPSED_MAX_H_MASONRY;
+  const thumbCap = view === 'timeline' ? THUMB_CAP_TIMELINE : THUMB_CAP_MASONRY;
+
+  const [expanded, setExpanded] = useState(false);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 测量内容是否超出折叠高度（ResizeObserver 兼顾图片加载后的高度变化）
+  useLayoutEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const check = () => setIsOverflowing(el.scrollHeight > collapsedMaxH + 2);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [collapsedMaxH, thought.content, attachments]);
+
+  // 卸载时清理单击计时器
+  useEffect(() => {
+    return () => {
+      if (clickTimer.current) clearTimeout(clickTimer.current);
+    };
+  }, []);
+
+  // 单击切换展开/折叠；300ms 内第二次点击判双击，取消单击进入编辑
+  const handleCardClick = () => {
+    if (clickTimer.current) {
+      clearTimeout(clickTimer.current);
+      clickTimer.current = null;
+      onEdit();
+      return;
+    }
+    clickTimer.current = setTimeout(() => {
+      clickTimer.current = null;
+      setExpanded((e) => !e);
+    }, 300);
+  };
+
+  const toggleExpand = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (clickTimer.current) {
+      clearTimeout(clickTimer.current);
+      clickTimer.current = null;
+    }
+    setExpanded((x) => !x);
+  };
+
+  // 多媒体缩略图（image/video/audio），link 不计入缩略图网格
+  const mediaAttachments = attachments.filter(
+    (a) => a.kind === 'image' || a.kind === 'video' || a.kind === 'audio'
+  );
+  const showOverflow = mediaAttachments.length > thumbCap;
+  const visibleMedia = showOverflow ? mediaAttachments.slice(0, thumbCap - 1) : mediaAttachments;
+  const overflowCount = mediaAttachments.length - (thumbCap - 1);
+
   return (
     <div
       data-testid="thought-card"
       data-thought-id={thought.id}
-      onDoubleClick={onEdit}
+      onClick={handleCardClick}
       className="baimiao-card-bubble p-3.5 cursor-pointer group select-none"
-      title={t('thoughts.doubleClickEdit')}
+      title={t('thoughts.cardHint')}
     >
-      {/* 正文 Markdown */}
-      {thought.content.trim() && (
-        <div className="markdown-body prose prose-stone baimiao-editorial-body prose-headings:font-serif baimiao-editorial-title max-w-none text-[13.5px] leading-relaxed prose-h1:text-[16px] prose-h2:text-[15px] prose-h3:text-[14px]">
-          <ReactMarkdown>{thought.content}</ReactMarkdown>
-        </div>
-      )}
+      {/* 可折叠内容区：正文 + 多媒体缩略图 */}
+      <div
+        ref={contentRef}
+        style={!expanded && isOverflowing ? { maxHeight: `${collapsedMaxH}px` } : undefined}
+        className="relative overflow-hidden"
+      >
+        {/* 正文 Markdown */}
+        {thought.content.trim() && (
+          <div className="markdown-body prose prose-stone baimiao-editorial-body prose-headings:font-serif baimiao-editorial-title max-w-none text-[13.5px] leading-relaxed prose-h1:text-[16px] prose-h2:text-[15px] prose-h3:text-[14px]">
+            <ReactMarkdown>{thought.content}</ReactMarkdown>
+          </div>
+        )}
 
-      {/* 附件图片缩略图 */}
-      {attachments.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          {attachments.map((att, idx) =>
-            att.kind === 'image' && att.ref ? (
-              <img
-                key={idx}
-                src={att.ref}
-                alt={att.name || t('record.addAttachment')}
-                className="w-16 h-16 object-cover rounded-lg border border-stone-200"
-              />
-            ) : null
-          )}
-        </div>
+        {/* 多媒体缩略图：统一 1:1，时间线一行 3 个，瀑布流一行 2 个 */}
+        {mediaAttachments.length > 0 && (
+          <div className={`grid gap-1.5 mt-2 ${view === 'timeline' ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            {visibleMedia.map((att, idx) => (
+              <ThumbTile key={idx} att={att} name={att.name} />
+            ))}
+            {showOverflow && (
+              <button
+                type="button"
+                onClick={toggleExpand}
+                className="relative aspect-square rounded-lg overflow-hidden border border-stone-200 bg-stone-100/80 flex items-center justify-center text-stone-500 text-[13px] font-semibold hover:bg-stone-200/70 transition-colors"
+              >
+                {t('thoughts.moreCount', { count: overflowCount })}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* 折叠态渐变遮罩 */}
+        {!expanded && isOverflowing && (
+          <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-[#fdfdfc] via-[#fdfdfc]/80 to-transparent pointer-events-none" />
+        )}
+      </div>
+
+      {/* 展开/收起按钮（仅在内容溢出时显示） */}
+      {isOverflowing && (
+        <button
+          type="button"
+          onClick={toggleExpand}
+          className="mt-1.5 -mb-0.5 flex items-center gap-0.5 text-[11px] font-medium text-baimiao-mysteria/70 hover:text-baimiao-mysteria transition-colors"
+        >
+          {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          {expanded ? t('thoughts.collapse') : t('thoughts.expand')}
+        </button>
       )}
 
       {/* 标签 */}
@@ -504,6 +602,33 @@ function ThoughtCard({ thought, copied, onCopy, onEdit }: ThoughtCardProps) {
           {copied ? t('thoughts.copied') : t('thoughts.copy')}
         </button>
       </div>
+    </div>
+  );
+}
+
+/** 单个多媒体缩略图（1:1）：image 显示图片，video/audio 用图标占位。 */
+function ThumbTile({ att, name }: { att: AttachmentMeta; name?: string }) {
+  const { t } = useTranslation();
+  if (att.kind === 'image' && att.ref) {
+    return (
+      <img
+        src={att.ref}
+        alt={name || t('record.image')}
+        className="w-full aspect-square object-cover rounded-lg border border-stone-200"
+      />
+    );
+  }
+  if (att.kind === 'video') {
+    return (
+      <div className="w-full aspect-square rounded-lg border border-stone-200 bg-stone-100 flex items-center justify-center text-stone-400">
+        <Film className="w-5 h-5" />
+      </div>
+    );
+  }
+  // audio
+  return (
+    <div className="w-full aspect-square rounded-lg border border-stone-200 bg-stone-100 flex items-center justify-center text-stone-400">
+      <Music className="w-5 h-5" />
     </div>
   );
 }
