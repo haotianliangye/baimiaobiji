@@ -508,4 +508,7 @@ export const en: TranslationDict = {
   'dataType.thoughts': 'Reflections',
   'dataType.mingwu': 'Insights',
   'dataType.copilot_conversations': 'Chat records',
+  'dataType.tags': 'Tag definitions',
+  'dataType.tag_aliases': 'Tag aliases',
+  'dataType.attachments': 'Attachment files',
 };

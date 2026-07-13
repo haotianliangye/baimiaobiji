@@ -527,7 +527,10 @@ export const useSettingsStore = create<SettingsState>()(
           summaryPrompt: newSummaryPrompt,
           diarySummaryPrompt: newDiarySummaryPrompt,
           insightSummaryPrompt: newInsightSummaryPrompt,
-          // Keep diaryPrompts (legacy Copilot) in sync with slot 0
+          // diaryPrompts (legacy Copilot)：slot 0 随语言切换为默认日记槽；
+          // slot 1-3 保留用户自定义内容（可能为旧语言）——该字段是 Copilot 旧逻辑遗留，
+          // 未纳入 per-language 管理，以避免覆盖用户自定义。如需完全切换语言，
+          // 用户可在 Prompt 配置页手动重置自定义槽。
           diaryPrompts: [newReviewPrompts[0], state.diaryPrompts[1] || '', state.diaryPrompts[2] || '', state.diaryPrompts[3] || ''],
           diaryPrompt: state.diaryPromptIndex === 0 ? newReviewPrompts[0] : state.diaryPrompt,
           reviewPromptsByLang,
@@ -918,16 +921,6 @@ export const useSettingsStore = create<SettingsState>()(
             }
           }
 
-         // Migrate insightPrompts (from 1-slot or 3-slot to 4-slot)
-         if (!persistedState.insightPrompts) {
-            persistedState.insightPrompts = [DEFAULT_INSIGHT_PROMPT, persistedState.insightPrompt || DEFAULT_INSIGHT_PROMPT, '', ''];
-            persistedState.insightPromptIndex = 0;
-         } else if (persistedState.insightPrompts.length === 3) {
-            const oldSlots = persistedState.insightPrompts;
-            persistedState.insightPrompts = [DEFAULT_INSIGHT_PROMPT, oldSlots[0] || '', oldSlots[1] || '', oldSlots[2] || ''];
-            persistedState.insightPromptIndex = persistedState.insightPromptIndex !== undefined ? persistedState.insightPromptIndex + 1 : 0;
-         }
-         
          if (version < 4) {
             // 1. 对调日记提示词：把默认（贴心助手）与自定义 1（柳比歇夫）互换
             if (persistedState.diaryPrompts && persistedState.diaryPrompts.length === 4) {

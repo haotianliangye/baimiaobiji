@@ -351,6 +351,13 @@ function registerEntityHooks(type: EntityType, textField: 'content' | 'ai_editor
         enqueueEmbeddingTask(primKey, type, true);
         processEmbeddingQueue();
       }
+      // #6 tags 变更：轻量同步 chunks 表的 tags 元数据（不重新生成向量），
+      // 避免未来启用分块级标签过滤时 chunks.tags 与记录不一致。
+      // 用 source_id 过滤（primKey 是 UUID，跨表碰撞概率可忽略）。
+      if ('tags' in mods) {
+        const newTags = Array.isArray(mods.tags) ? mods.tags : (obj.tags || []);
+        db.chunks.where('source_id').equals(primKey).modify((c) => { c.tags = newTags; }).catch(() => {});
+      }
     });
   });
 }

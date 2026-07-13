@@ -509,4 +509,7 @@ export const zh: TranslationDict = {
   'dataType.thoughts': '沉思',
   'dataType.mingwu': '明悟',
   'dataType.copilot_conversations': '聊天记录',
+  'dataType.tags': '标签定义',
+  'dataType.tag_aliases': '标签别名',
+  'dataType.attachments': '附件原文件',
 };

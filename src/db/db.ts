@@ -346,6 +346,14 @@ export class WhitewashDiaryDB extends dexie {
           await tx.table('daily_reviews').put({ ...review, tags: [] });
         }
       }
+      // 给旧 mingwu 补 tags: []（v8 从 insights 迁移来的旧数据无 tags 字段；
+      // 运行时读取已有 `|| []` 防御，此处补全保持数据一致）
+      const mingwu = await tx.table('mingwu').toArray();
+      for (const m of mingwu) {
+        if (!m.tags) {
+          await tx.table('mingwu').put({ ...m, tags: [] });
+        }
+      }
     });
     // Version 11: #6 多媒体附件。
     // - 新增 attachments store（id, blob, type, created_at），存放原始 Blob 不压缩。

@@ -25,6 +25,9 @@ const DATA_TYPE_OPTIONS: { id: DataType; labelKey: string }[] = [
   { id: 'thoughts', labelKey: 'dataType.thoughts' },
   { id: 'mingwu', labelKey: 'dataType.mingwu' },
   { id: 'copilot_conversations', labelKey: 'dataType.copilot_conversations' },
+  { id: 'tags', labelKey: 'dataType.tags' },
+  { id: 'tag_aliases', labelKey: 'dataType.tag_aliases' },
+  { id: 'attachments', labelKey: 'dataType.attachments' },
 ];
 
 export default function Settings() {

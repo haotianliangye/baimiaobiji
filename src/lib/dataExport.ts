@@ -8,7 +8,7 @@
  */
 import { db } from '../db/db';
 
-export type DataType = 'raw_logs' | 'daily_reviews' | 'thoughts' | 'mingwu' | 'copilot_conversations';
+export type DataType = 'raw_logs' | 'daily_reviews' | 'thoughts' | 'mingwu' | 'copilot_conversations' | 'tags' | 'tag_aliases' | 'attachments';
 
 export interface ExportOptions {
   dateStart?: number; // timestamp (ms)，可选
@@ -24,6 +24,9 @@ const TYPE_LABELS: Record<DataType, string> = {
   thoughts: '沉思',
   mingwu: '明悟',
   copilot_conversations: '聊天记录',
+  tags: '标签定义',
+  tag_aliases: '标签别名',
+  attachments: '附件原文件',
 };
 
 /** 时间戳 -> YYYY-MM-DD 字符串（用于 daily_reviews.review_date 字符串比较） */
@@ -46,13 +49,32 @@ function formatDateTime(ts: number): string {
   return `${y}-${m}-${day} ${h}:${min}`;
 }
 
-/** 剥离不可序列化 / 大体积字段（audioBlob、embedding） */
+/** 剥离不可序列化 / 大体积字段（audioBlob、embedding 向量、attachment 向量） */
 function cleanRecord(record: any): any {
   if (!record || typeof record !== 'object') return record;
-  const { audioBlob, embedding, ...rest } = record;
+  const {
+    audioBlob,
+    embedding,
+    embedding_version,
+    attachment_embedding,
+    attachment_embedding_version,
+    ...rest
+  } = record;
   void audioBlob;
   void embedding;
+  void embedding_version;
+  void attachment_embedding;
+  void attachment_embedding_version;
   return rest;
+}
+
+/** Blob -> base64 字符串（用于导出附件原始文件到 JSON；导入时还原为 Blob） */
+async function blobToBase64(blob: Blob): Promise<string> {
+  const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
 }
 
 /** 按类型 + 时间范围读取记录，返回已清理的纯数据 */
@@ -116,6 +138,31 @@ async function fetchRecords(
         });
       }
       return records; // 无 Blob / embedding 需剥离
+    }
+    case 'tags': {
+      // 标签定义体积小，全量导出（不受时间范围过滤，无 created_at 语义）
+      return await db.tags.toArray();
+    }
+    case 'tag_aliases': {
+      return await db.tag_aliases.toArray();
+    }
+    case 'attachments': {
+      // 附件原始 Blob 以 base64 编码导出，导入时还原为 Blob（避免悬空引用）
+      const records = await db.attachments.toArray();
+      const encoded: any[] = [];
+      for (const a of records) {
+        if (a.blob instanceof Blob) {
+          encoded.push({
+            ...a,
+            blob: undefined,
+            blob_base64: await blobToBase64(a.blob),
+            blob_type: a.blob.type,
+          });
+        } else {
+          encoded.push(a);
+        }
+      }
+      return encoded;
     }
   }
 }
@@ -188,6 +235,17 @@ function recordsToMarkdown(type: DataType, records: any[]): string {
             lines.push('');
           }
         }
+        break;
+      case 'tags':
+        lines.push(`### ${record.path}`);
+        lines.push('');
+        break;
+      case 'tag_aliases':
+        lines.push(`### ${record.alias} -> ${record.target}`);
+        lines.push('');
+        break;
+      case 'attachments':
+        // 附件原文件（Blob）不导出 Markdown，仅 JSON 导出含 base64
         break;
     }
     lines.push('---');

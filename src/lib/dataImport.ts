@@ -25,7 +25,18 @@ const TABLE_NAMES: DataType[] = [
   'thoughts',
   'mingwu',
   'copilot_conversations',
+  'tags',
+  'tag_aliases',
+  'attachments',
 ];
+
+/** base64 字符串 -> Blob（导入附件原始文件时还原，与 dataExport.blobToBase64 对应） */
+function base64ToBlob(b64: string, type: string): Blob {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type });
+}
 
 /**
  * 导入 JSON 数据。
@@ -59,12 +70,22 @@ export async function importData(
 
     for (const record of records) {
       try {
+        // attachments：base64 还原为 Blob（导出时编码，导入时还原，避免悬空引用）
+        let toWrite: any = record;
+        if (type === 'attachments' && record.blob_base64) {
+          toWrite = {
+            ...record,
+            blob: base64ToBlob(record.blob_base64, record.blob_type || ''),
+            blob_base64: undefined,
+            blob_type: undefined,
+          };
+        }
         if (strategy === 'overwrite') {
-          await table.put(record);
+          await table.put(toWrite);
           result.imported++;
         } else {
           // skip：先查 id 是否已存在
-          const id = record.id ?? record.key;
+          const id = toWrite.id ?? toWrite.key;
           if (id !== undefined && id !== null) {
             const existing = await table.get(id);
             if (existing) {
@@ -72,7 +93,7 @@ export async function importData(
               continue;
             }
           }
-          await table.add(record);
+          await table.add(toWrite);
           result.imported++;
         }
       } catch (e: any) {
