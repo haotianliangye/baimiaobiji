@@ -75,12 +75,13 @@ export interface EmbeddingTask {
 // 靠 `matches`（按 entry_type 过滤）确保每个 hook 只处理自己那一类行，避免日记行
 // 的 legacy `ai_review` 被 review hook 重复 embedding 并覆盖 `ai_editorial` 向量。
 // 队列 key 仍用 type 前缀，两类记录 id 不冲突。insight -> mingwu。
-type EntityType = 'record' | 'diary' | 'review' | 'insight';
+type EntityType = 'record' | 'diary' | 'review' | 'insight' | 'thought';
 const ENTITY_CONFIG: Record<EntityType, { table: any; textField: 'content' | 'ai_editorial' | 'ai_review'; matches?: (obj: any) => boolean }> = {
   record: { table: db.raw_logs, textField: 'content' },
   diary: { table: db.daily_reviews, textField: 'ai_editorial', matches: (o) => o.entry_type === 'diary' },
   review: { table: db.daily_reviews, textField: 'ai_review', matches: (o) => o.entry_type === 'review' },
   insight: { table: db.mingwu, textField: 'content' },
+  thought: { table: db.thoughts, textField: 'content' },
 };
 
 function getQueue(): EmbeddingTask[] {
