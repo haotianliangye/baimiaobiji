@@ -75,13 +75,29 @@ export interface EmbeddingTask {
 // 靠 `matches`（按 entry_type 过滤）确保每个 hook 只处理自己那一类行，避免日记行
 // 的 legacy `ai_review` 被 review hook 重复 embedding 并覆盖 `ai_editorial` 向量。
 // 队列 key 仍用 type 前缀，两类记录 id 不冲突。insight -> mingwu。
-type EntityType = 'record' | 'diary' | 'review' | 'insight' | 'thought';
-const ENTITY_CONFIG: Record<EntityType, { table: any; textField: 'content' | 'ai_editorial' | 'ai_review'; matches?: (obj: any) => boolean }> = {
+type EntityType = 'record' | 'diary' | 'review' | 'insight' | 'thought' | 'multimedia';
+const ENTITY_CONFIG: Record<EntityType, {
+  table: any;
+  textField: 'content' | 'ai_editorial' | 'ai_review' | 'attachment_summary';
+  embedField?: string;       // 向量存储字段名（默认 'embedding'）
+  versionField?: string;     // 版本标记字段名（默认 'embedding_version'）
+  matches?: (obj: any) => boolean;
+}> = {
   record: { table: db.raw_logs, textField: 'content' },
   diary: { table: db.daily_reviews, textField: 'ai_editorial', matches: (o) => o.entry_type === 'diary' },
   review: { table: db.daily_reviews, textField: 'ai_review', matches: (o) => o.entry_type === 'review' },
   insight: { table: db.mingwu, textField: 'content' },
   thought: { table: db.thoughts, textField: 'content' },
+  // #6 多媒体摘要：对 raw_logs 的 attachment_summary 字段做 embedding，写入独立的
+  // attachment_embedding 字段（避免与 content 的 embedding 互相覆盖）。
+  // matches 过滤只对有摘要的记录入队，避免与 record 的 content 钩子重复处理无摘要记录。
+  multimedia: {
+    table: db.raw_logs,
+    textField: 'attachment_summary',
+    embedField: 'attachment_embedding',
+    versionField: 'attachment_embedding_version',
+    matches: (o) => !!(o.attachment_summary && String(o.attachment_summary).trim()),
+  },
 };
 
 function getQueue(): EmbeddingTask[] {
@@ -158,11 +174,13 @@ export async function processEmbeddingQueue(
 
       const task = currentQueue[0];
       try {
-        const { table, textField } = ENTITY_CONFIG[task.type];
+        const { table, textField, embedField, versionField } = ENTITY_CONFIG[task.type];
+        const eField = embedField || 'embedding';
+        const vField = versionField || 'embedding_version';
         const record = await table.get(task.id);
         if (!record) { removeTask(task); continue; }
         // Skip if already embedded with same model version AND no content change forced it
-        if (record.embedding && record.embedding.length > 0 && record.embedding_version === versionTag && !task.force) {
+        if (record[eField] && record[eField].length > 0 && record[vField] === versionTag && !task.force) {
           removeTask(task); continue;
         }
         const text: string = record[textField] || '';
@@ -175,7 +193,7 @@ export async function processEmbeddingQueue(
         const embedding = await requestEmbedding(text);
 
         // Write back to IndexedDB
-        await table.update(task.id, { embedding, embedding_version: versionTag });
+        await table.update(task.id, { [eField]: embedding, [vField]: versionTag });
 
         // Remove from queue on success (re-read queue to avoid clobbering concurrent enqueues)
         removeTask(task);
@@ -223,13 +241,14 @@ export function initEmbeddingQueueListener() {
 // One factory registers creating + updating hooks for a single entity type,
 // avoiding 6 near-identical hook blocks. `textField` is the column whose
 // mutation signals a content change requiring re-embedding.
-function registerEntityHooks(type: EntityType, textField: 'content' | 'ai_editorial' | 'ai_review') {
-  const { table, matches } = ENTITY_CONFIG[type];
+function registerEntityHooks(type: EntityType, textField: 'content' | 'ai_editorial' | 'ai_review' | 'attachment_summary') {
+  const { table, matches, embedField } = ENTITY_CONFIG[type];
+  const eField = embedField || 'embedding';
   table.hook('creating', (_primKey, obj, transaction) => {
     transaction.on('complete', () => {
       if (matches && !matches(obj)) return; // 合并表：仅处理本 entry_type 的行
       const settings = useSettingsStore.getState();
-      if (settings.embedEnabled && (!obj.embedding || obj.embedding.length === 0)) {
+      if (settings.embedEnabled && (!obj[eField] || obj[eField].length === 0)) {
         enqueueEmbeddingTask(obj.id, type);
         processEmbeddingQueue();
       }
@@ -237,7 +256,10 @@ function registerEntityHooks(type: EntityType, textField: 'content' | 'ai_editor
   });
   table.hook('updating', (mods, primKey, obj, transaction) => {
     transaction?.on('complete', () => {
-      if (matches && !matches(obj)) return; // 用 pre-mod 记录的 entry_type 判定
+      // 用 pre-mod 记录 + mods 合并后判定：diary/review 的 entry_type 不变（pre-mod 即可），
+      // 多媒体摘要可能在 update 中首次设置（merged 才能拿到新值）。
+      const merged = { ...obj, ...mods };
+      if (matches && !matches(merged)) return;
       const settings = useSettingsStore.getState();
       if (settings.embedEnabled && textField in mods) {
         enqueueEmbeddingTask(primKey, type, true);
@@ -259,13 +281,15 @@ export async function enqueueAllMissingEmbeddings(): Promise<number> {
   let addedCount = 0;
 
   for (const type of Object.keys(ENTITY_CONFIG) as EntityType[]) {
-    const { table, textField, matches } = ENTITY_CONFIG[type];
+    const { table, textField, matches, embedField, versionField } = ENTITY_CONFIG[type];
+    const eField = embedField || 'embedding';
+    const vField = versionField || 'embedding_version';
     let rows = await table.toArray();
     if (matches) rows = rows.filter(matches); // 合并表：仅扫描本 entry_type 的行
     for (const row of rows) {
       const text: string = row[textField] || '';
       if (!text.trim()) continue;
-      if (row.embedding && row.embedding.length > 0 && row.embedding_version === versionTag) continue;
+      if (row[eField] && row[eField].length > 0 && row[vField] === versionTag) continue;
       const key = `${type}:${row.id}`;
       if (!queueSet.has(key)) {
         queue.push({ id: row.id, type, retryCount: 0 });

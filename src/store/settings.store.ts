@@ -176,6 +176,9 @@ interface SettingsState {
   embedModel: string;
   embedConfigs: Record<string, { apiKey: string; baseUrl: string; model: string }>;
 
+  // #6 多媒体：生成回顾/明悟时是否向模型提交多媒体摘要
+  submitMultimedia: boolean;
+
   setSettings: (settings: Partial<SettingsState>) => void;
 }
 
@@ -232,6 +235,9 @@ export const useSettingsStore = create<SettingsState>()(
       embedBaseUrl: DEFAULT_EMBED_PROVIDER_CONFIGS['gemini'].baseUrl,
       embedModel: DEFAULT_EMBED_PROVIDER_CONFIGS['gemini'].model,
       embedConfigs: {},
+
+      // #6 多媒体：默认在生成回顾/明悟时提交多媒体摘要
+      submitMultimedia: true,
 
       setSettings: (newSettings) => set((state) => {
          const nextRemember = newSettings.syncRememberCredentials !== undefined ? newSettings.syncRememberCredentials : state.syncRememberCredentials;

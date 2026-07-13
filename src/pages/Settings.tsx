@@ -53,6 +53,7 @@ export default function Settings() {
     embedApiKey,
     embedBaseUrl,
     embedModel,
+    submitMultimedia,
     setSettings
   } = settingsStore;
 
@@ -845,6 +846,28 @@ export default function Settings() {
                       className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-lg text-[14px] text-stone-900 transition-all font-mono placeholder:text-stone-300"
                     />
                   </div>
+                </div>
+              </section>
+
+              {/* #6 多媒体提交开关 */}
+              <section className="baimiao-card-diary p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 pr-3">
+                    <h3 className="text-[13px] font-semibold text-stone-700 mb-1">多媒体摘要提交</h3>
+                    <p className="text-[11.5px] text-stone-400 leading-relaxed">
+                      生成回顾/明悟时，是否将图片/视频附件的 AI 摘要一并提交给模型。关闭后仅提交文本内容。
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={submitMultimedia}
+                      onChange={e => setSettings({ submitMultimedia: e.target.checked })}
+                      data-testid="submit-multimedia-toggle"
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-baimiao-mysteria"></div>
+                  </label>
                 </div>
               </section>
             </>

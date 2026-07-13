@@ -10,6 +10,11 @@ export interface RawLog {
   embedding?: number[];       // vector float array for semantic search
   embedding_version?: string; // "provider:model" e.g. "gemini:gemini-embedding-2"
   tags?: string[];            // #4 全局标签路径数组（如 ['工作/项目A']）
+  // #6 多媒体附件
+  attachments?: AttachmentMeta[];        // 附件元数据引用（原始 Blob 存 attachments store）
+  attachment_summary?: string;           // 多模态模型生成的文本摘要（用于 embedding）
+  attachment_embedding?: number[];       // 附件摘要向量（独立于 content 的 embedding）
+  attachment_embedding_version?: string; // 附件摘要向量版本标记
 }
 
 export interface TimelineBlock {
@@ -108,12 +113,21 @@ export interface Thought {
   embedding_version?: string;
 }
 
-// 多媒体附件元数据占位（#7 会扩展为 Blob 存储 + 类型字段）。
+// 多媒体附件元数据。image/audio/video 的 ref 指向 attachments store 的 id；
+// link 的 ref 直接存外链 URL。原始 Blob 不压缩存 attachments store。
 export interface AttachmentMeta {
   kind: 'image' | 'audio' | 'video' | 'link';
   name?: string;
-  ref?: string;               // IndexedDB Blob 引用或外链 URL
+  ref?: string;               // IndexedDB attachments store id 或外链 URL
   summary?: string;           // AI 生成的文本摘要（用于 embedding）
+}
+
+// #6 多媒体附件原始文件存储。Blob 不压缩，以独立 store 存放，供未来多模态 embedding 复用。
+export interface AttachmentBlob {
+  id: string;                 // uuid，与 AttachmentMeta.ref 对应
+  blob: Blob;                 // 原始文件
+  type: 'image' | 'audio' | 'video';
+  created_at: number;
 }
 
 // V2 迁移备份：启动迁移前把旧表数据快照存此，供设置页下载。
@@ -145,6 +159,7 @@ export class WhitewashDiaryDB extends dexie {
   migration_backups!: Table<MigrationBackup>;
   tags!: Table<TagDef>;
   tag_aliases!: Table<TagAlias>;
+  attachments!: Table<AttachmentBlob>;
 
   constructor() {
     super('whitewash_diary');
@@ -312,6 +327,22 @@ export class WhitewashDiaryDB extends dexie {
           await tx.table('daily_reviews').put({ ...review, tags: [] });
         }
       }
+    });
+    // Version 11: #6 多媒体附件。
+    // - 新增 attachments store（id, blob, type, created_at），存放原始 Blob 不压缩。
+    // - raw_logs 接口加 attachments / attachment_summary / attachment_embedding 字段
+    //   （非索引，无需改 stores 声明，旧数据无此字段按 undefined 处理即可）。
+    // - upgrade 无需迁旧数据（纯新表）。
+    this.version(11).stores({
+      raw_logs: 'id, created_at, *tags',
+      daily_reviews: 'id, review_date, entry_type, *tags',
+      thoughts: 'id, created_at',
+      mingwu: 'id, range_type, created_at',
+      copilot_conversations: 'id, updated_at',
+      migration_backups: 'key',
+      tags: 'path, name, created_at',
+      tag_aliases: 'alias, target',
+      attachments: 'id, type, created_at',
     });
   }
 }

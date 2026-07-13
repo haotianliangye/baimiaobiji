@@ -27,6 +27,11 @@ import {
   Sparkles,
   Clock,
   ShieldAlert,
+  Paperclip,
+  Image as ImageIcon,
+  Music,
+  Video,
+  Link as LinkIcon,
 } from "lucide-react";
 import { ChatCircleDots } from "@phosphor-icons/react";
 import { useSearchParams, useNavigate } from "react-router-dom";
@@ -40,6 +45,18 @@ import { parseTagsFromText, resolveAlias } from "../lib/tags";
 import { useTagsStore } from "../store/tags.store";
 import CalendarHeatmap from "../components/CalendarHeatmap";
 import ActionSheet from "../components/ActionSheet";
+import { saveAttachmentBlob, blobToBase64, generateAttachmentSummary } from "../lib/multimedia";
+import type { AttachmentMeta } from "../db/db";
+
+/** 待提交的附件（含原始 File，提交时转为 AttachmentMeta + Blob 存 IDB）。 */
+interface PendingAttachment {
+  id: string;
+  kind: 'image' | 'audio' | 'video' | 'link';
+  file?: File;
+  url?: string;
+  name?: string;
+  previewUrl?: string;
+}
 
 const AudioPlayer = ({ blob }: { blob: Blob | any }) => {
   const [url, setUrl] = React.useState<string | undefined>(undefined);
@@ -186,6 +203,14 @@ export default function Record() {
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isMicInitializingRef = useRef(false);
   const isCancelledRef = useRef(false);
+
+  // #6 多媒体附件状态
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
+  const [showAttachmentSheet, setShowAttachmentSheet] = useState(false);
+  const [showLinkInput, setShowLinkInput] = useState(false);
+  const [linkInput, setLinkInput] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [fileAccept, setFileAccept] = useState("");
 
   const today = new Date();
   const dateParam = searchParams.get("date");
@@ -485,9 +510,76 @@ export default function Record() {
     }
   };
 
+  // #6 多媒体附件处理
+  /** 根据文件 MIME 类型判断附件种类。 */
+  const getFileKind = (file: File): 'image' | 'audio' | 'video' => {
+    if (file.type.startsWith('image/')) return 'image';
+    if (file.type.startsWith('audio/')) return 'audio';
+    return 'video';
+  };
+
+  /** 选择附件类型后，打开文件选择器或链接输入。 */
+  const handleSelectAttachmentKind = (kind: 'image' | 'audio' | 'video' | 'link') => {
+    if (kind === 'link') {
+      setLinkInput('');
+      setShowLinkInput(true);
+      return;
+    }
+    const acceptMap: Record<string, string> = {
+      image: 'image/*',
+      audio: 'audio/*',
+      video: 'video/*',
+    };
+    setFileAccept(acceptMap[kind]);
+    // 延迟点击，确保 accept 已更新
+    setTimeout(() => fileInputRef.current?.click(), 0);
+  };
+
+  /** 文件选择回调：将 File 转为 PendingAttachment。 */
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const newAttachments: PendingAttachment[] = [];
+    for (const file of Array.from(files)) {
+      const kind = getFileKind(file);
+      const previewUrl = kind === 'image' ? URL.createObjectURL(file) : undefined;
+      newAttachments.push({
+        id: generateUUID(),
+        kind,
+        file,
+        name: file.name,
+        previewUrl,
+      });
+    }
+    setPendingAttachments((prev) => [...prev, ...newAttachments]);
+    // 重置 input 以便重复选择同一文件
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  /** 添加链接附件。 */
+  const handleAddLink = () => {
+    const url = linkInput.trim();
+    if (!url) return;
+    setPendingAttachments((prev) => [
+      ...prev,
+      { id: generateUUID(), kind: 'link', url, name: url },
+    ]);
+    setLinkInput('');
+    setShowLinkInput(false);
+  };
+
+  /** 移除待提交附件。 */
+  const handleRemoveAttachment = (id: string) => {
+    setPendingAttachments((prev) => {
+      const removed = prev.find((a) => a.id === id);
+      if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl);
+      return prev.filter((a) => a.id !== id);
+    });
+  };
+
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!inputText.trim()) return;
+    if (!inputText.trim() && pendingAttachments.length === 0) return;
 
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop();
@@ -496,16 +588,81 @@ export default function Record() {
     setIsSubmitting(true);
     try {
       const tags = await processTags(inputText);
+      const logId = generateUUID();
+      let content = inputText.trim();
+
+      // #6 处理附件：保存 Blob 到 IDB，音频走 STT 转写，图片/视频标记待生成摘要
+      const finalAttachments: AttachmentMeta[] = [];
+      let hasMediaForSummary = false;
+
+      for (const pending of pendingAttachments) {
+        if (pending.kind === 'link') {
+          finalAttachments.push({ kind: 'link', ref: pending.url, name: pending.name });
+        } else if (pending.file) {
+          const meta = await saveAttachmentBlob(pending.file, pending.kind);
+          finalAttachments.push(meta);
+
+          if (pending.kind === 'audio') {
+            // 语音附件走现有 STT，转写文本拼入 content
+            try {
+              const base64 = await blobToBase64(pending.file);
+              const settings = useSettingsStore.getState();
+              const data = await fetchTranscriptionWithRetry({
+                audio_base64: base64,
+                mime_type: pending.file.type || 'audio/webm',
+                settings,
+              });
+              if (data?.text) {
+                content = content ? `${content}\n${data.text}` : data.text;
+              }
+            } catch (err) {
+              console.error('[Multimedia] Audio transcription failed:', err);
+              content = content ? `${content}\n[音频转写失败]` : '[音频转写失败]';
+            }
+          } else {
+            // image / video：标记需要生成多模态摘要
+            hasMediaForSummary = true;
+          }
+        }
+      }
+
       await db.raw_logs.add({
-        id: generateUUID(),
-        content: inputText.trim(),
+        id: logId,
+        content: content || '[多媒体记录]',
         created_at: Date.now(),
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         tags,
+        attachments: finalAttachments.length > 0 ? finalAttachments : undefined,
       });
+
+      // 清理预览 URL
+      for (const att of pendingAttachments) {
+        if (att.previewUrl) URL.revokeObjectURL(att.previewUrl);
+      }
       setInputText("");
+      setPendingAttachments([]);
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto"; // Reset size
+      }
+
+      // 异步：对图片/视频附件生成多模态摘要，写入 attachment_summary
+      if (hasMediaForSummary) {
+        generateAttachmentSummary(finalAttachments)
+          .then(async ({ attachments: updated, summary }) => {
+            if (summary) {
+              await db.raw_logs.update(logId, {
+                attachments: updated,
+                attachment_summary: summary,
+              });
+            }
+          })
+          .catch((err) => {
+            console.error('[Multimedia] Summary generation failed:', err);
+          });
+      }
+
+      if (endOfListRef.current) {
+        endOfListRef.current.scrollIntoView({ behavior: "smooth" });
       }
     } catch (err) {
       console.error(err);
@@ -791,6 +948,15 @@ export default function Record() {
                         )}
                       </div>
                     )}
+                    {log.attachments && log.attachments.length > 0 && (
+                      <div className="mt-2 flex items-center gap-1 text-[10.5px] text-stone-400">
+                        <Paperclip className="w-3 h-3" />
+                        <span>{log.attachments.length} 个附件</span>
+                        {log.attachment_summary && (
+                          <span className="text-stone-300">· 含多媒体摘要</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   {typeof log.content === "string" && log.content.includes("解析失败") && log.audioBlob && (
                     <button
@@ -836,6 +1002,44 @@ export default function Record() {
              </button>
           </div>
         ) : (
+        <>
+        {/* #6 待提交附件预览 */}
+        {pendingAttachments.length > 0 && (
+          <div data-testid="attachment-preview" className="flex flex-wrap gap-2 mb-2 px-1">
+            {pendingAttachments.map((att) => (
+              <div
+                key={att.id}
+                className="relative group bg-stone-100 rounded-lg overflow-hidden shrink-0"
+              >
+                {att.kind === 'image' && att.previewUrl ? (
+                  <img
+                    src={att.previewUrl}
+                    alt={att.name || '附件'}
+                    data-testid={`attachment-thumb-${att.id}`}
+                    className="w-14 h-14 object-cover"
+                  />
+                ) : (
+                  <div className="w-14 h-14 flex flex-col items-center justify-center gap-0.5 px-1">
+                    {att.kind === 'audio' && <Music className="w-4 h-4 text-stone-500" />}
+                    {att.kind === 'video' && <Video className="w-4 h-4 text-stone-500" />}
+                    {att.kind === 'link' && <LinkIcon className="w-4 h-4 text-stone-500" />}
+                    <span className="text-[8px] text-stone-500 leading-tight line-clamp-2 text-center break-all">
+                      {att.kind === 'link' ? '链接' : att.name || att.kind}
+                    </span>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleRemoveAttachment(att.id)}
+                  className="absolute top-0 right-0 w-4 h-4 flex items-center justify-center bg-black/50 text-white rounded-bl-lg opacity-80 hover:opacity-100"
+                  data-testid={`attachment-remove-${att.id}`}
+                >
+                  <X className="w-2.5 h-2.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <form
           onSubmit={handleSubmit}
           className={`flex items-end bg-white rounded-2xl p-1.5 border transition-all shadow-[0_2px_10px_rgb(0_0_0_/_0.03)] ${
@@ -872,11 +1076,26 @@ export default function Record() {
             )}
           </div>
 
+          {/* #6 附件按钮 */}
+          {!isListening && (
+            <button
+              type="button"
+              onClick={() => setShowAttachmentSheet(true)}
+              disabled={isSubmitting}
+              data-testid="attachment-button"
+              className="w-[36px] h-[36px] flex items-center justify-center rounded-xl text-stone-400 hover:text-stone-900 hover:bg-stone-100/50 disabled:opacity-30 transition-colors shrink-0"
+              title="添加附件"
+            >
+              <Paperclip className="w-[19px] h-[19px]" />
+            </button>
+          )}
+
           {!isListening ? (
-            inputText.trim() || isSubmitting ? (
+            inputText.trim() || isSubmitting || pendingAttachments.length > 0 ? (
               <button
                  type="submit"
-                 disabled={!inputText.trim() || isSubmitting}
+                 disabled={(!inputText.trim() && pendingAttachments.length === 0) || isSubmitting}
+                 data-testid="submit-button"
                  className="w-[36px] h-[36px] flex items-center justify-center rounded-xl text-stone-400 hover:text-stone-900 hover:bg-stone-100/50 disabled:opacity-30 disabled:bg-transparent transition-colors shrink-0"
               >
                  {isSubmitting ? (
@@ -910,6 +1129,16 @@ export default function Record() {
             </button>
           )}
         </form>
+        {/* 隐藏文件选择器 */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={fileAccept}
+          multiple
+          onChange={handleFileChange}
+          className="hidden"
+        />
+        </>
         )}
       </div>
 
@@ -920,6 +1149,59 @@ export default function Record() {
           onClose={() => setShowHeatmap(false)}
           activeSection="record"
         />
+      )}
+
+      {/* #6 附件类型选择 ActionSheet */}
+      <ActionSheet
+        isOpen={showAttachmentSheet}
+        onClose={() => setShowAttachmentSheet(false)}
+        actions={[
+          { label: '图片', icon: <ImageIcon className="w-5 h-5 text-stone-400" />, onClick: () => handleSelectAttachmentKind('image') },
+          { label: '音频', icon: <Music className="w-5 h-5 text-stone-400" />, onClick: () => handleSelectAttachmentKind('audio') },
+          { label: '视频', icon: <Video className="w-5 h-5 text-stone-400" />, onClick: () => handleSelectAttachmentKind('video') },
+          { label: '链接', icon: <LinkIcon className="w-5 h-5 text-stone-400" />, onClick: () => handleSelectAttachmentKind('link') },
+        ]}
+      />
+
+      {/* #6 链接输入弹窗 */}
+      {showLinkInput && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-6"
+          onClick={() => setShowLinkInput(false)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-sm p-4 space-y-3 shadow-2xl animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-[14px] font-semibold text-stone-700">添加链接</h3>
+            <input
+              type="url"
+              data-testid="link-input"
+              autoFocus
+              value={linkInput}
+              onChange={(e) => setLinkInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddLink(); } }}
+              placeholder="https://..."
+              className="w-full bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 text-[14px] outline-none focus:border-baimiao-mysteria/40"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowLinkInput(false)}
+                className="px-3.5 py-1.5 rounded-full text-[13px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                data-testid="link-add-confirm"
+                onClick={handleAddLink}
+                disabled={!linkInput.trim()}
+                className="px-4 py-1.5 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 transition-all disabled:opacity-40"
+              >
+                添加
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Custom Context Menu */}

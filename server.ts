@@ -775,6 +775,60 @@ ${contextContent || '（本次未检索到相关片段）'}
      }
    });
 
+  // #6 多媒体摘要：用 Gemini 多模态模型对图片/视频生成文本摘要。
+  // 音频附件走 /api/transcribe，不经过此端点。读 GOOGLE_API_KEY 环境变量作为后备。
+  app.post('/api/multimedia-summarize', async (req, res) => {
+    try {
+      const { file_base64, mime_type, kind, settings } = req.body;
+      const { provider = 'gemini', apiKey, baseUrl, model } = settings || {};
+
+      if (!file_base64 || !mime_type) {
+        return res.status(400).json({ error: 'Missing file data or mime type' });
+      }
+
+      let summary = '';
+
+      if (provider === 'gemini') {
+        const activeKey = apiKey || process.env.GOOGLE_API_KEY;
+        if (!activeKey) {
+          return res.status(500).json({ error: '请在设置页面中配置你的 Gemini API Key' });
+        }
+
+        const ai = buildGeminiClient(activeKey, baseUrl);
+        const finalModel = model || 'gemini-3.1-flash-lite';
+        const cleanMimeType = mime_type.split(';')[0];
+        const kindLabel = kind === 'video' ? '视频' : '图片';
+        const response = await ai.models.generateContent({
+          model: finalModel,
+          contents: [
+            {
+              inlineData: {
+                mimeType: cleanMimeType,
+                data: file_base64,
+              },
+            },
+            {
+              text: `请用简练的中文描述这个${kindLabel}的内容，包括场景、物体、人物动作、文字信息等关键要素，生成一段100字以内的摘要。`,
+            },
+          ],
+          config: {
+            temperature: 0.3,
+            systemInstruction: '你是一个多媒体内容描述助手。请根据提供的图片或视频，用简练准确的中文描述其内容，生成100字以内的摘要。',
+          },
+        });
+        summary = response.text || '';
+      } else {
+        // 非 Gemini 提供商：多模态支持有限，返回占位提示
+        summary = `[多媒体摘要仅支持 Gemini 提供商，当前为 ${provider}]`;
+      }
+
+      res.json({ summary: summary.trim() });
+    } catch (err: any) {
+      console.error('Multimedia summarize error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.post('/api/webdav-proxy', async (req, res) => {
     try {
       const { endpoint, method, path: filePath, auth, body, headers } = req.body;
