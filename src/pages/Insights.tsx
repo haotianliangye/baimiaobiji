@@ -1,34 +1,32 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { PieChart, Loader2, Sparkles, ChevronLeft, Calendar, AlertCircle, ChevronDown, ChevronUp, Trash2, Copy, Check, RefreshCw, MessageCircle, Save, Edit2 } from 'lucide-react';
+import { Loader2, Sparkles, Calendar, AlertCircle, ChevronDown, ChevronUp, Trash2, Copy, Check, RefreshCw, MessageCircle, Save, Edit2 } from 'lucide-react';
 import { HeadCircuit } from '@phosphor-icons/react';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
-import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import ContextChat from '../components/ContextChat';
 import { db, Mingwu } from '../db/db';
-import { useSettingsStore } from '../store/settings.store';
 import { useAppStore } from '../store/app.store';
+import { useMingwuStore } from '../store/mingwu.store';
 import { format, subDays } from 'date-fns';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { generateUUID, formatDiaryMarkdown } from '../lib/utils';
+import { formatDiaryMarkdown } from '../lib/utils';
 import { washCitations } from '../lib/citationWash';
-import ActionSheet from '../components/ActionSheet';
 import DatePickerPopover from '../components/DatePickerPopover';
 
 const MENU_HALF_WIDTH = 140;
 const MENU_SAFE_MARGIN = 296;
 
 
-interface InsightCardProps {
-  insight: Mingwu;
+interface MingwuCardProps {
+  mingwu: Mingwu;
   isEditing: boolean;
   onStartEdit: () => void;
   onEndEdit: () => void;
   onDelete: (id: string) => void;
-  onRegenerate: (insight: Mingwu) => void;
+  onRegenerate: (mingwu: Mingwu) => void;
 }
 
-const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onRegenerate }: InsightCardProps) => {
+const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onRegenerate }: MingwuCardProps) => {
   const [expanded, setExpanded] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [contextMenuState, setContextMenuState] = useState<{
@@ -43,13 +41,16 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
   const holdTimeoutRef = useRef<any>(null);
   const { copied, copy } = useCopyToClipboard();
 
-  const [editText, setEditText] = useState(insight.content || '');
+  const [editText, setEditText] = useState(mingwu.content || '');
   const [isSaving, setIsSaving] = useState(false);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const isMingwuType = mingwu.mingwu_type === 'mingwu';
+  const typeLabel = isMingwuType ? '明悟' : '洞察';
+
   useEffect(() => {
-     setEditText(insight.content || '');
-  }, [insight.content]);
+     setEditText(mingwu.content || '');
+  }, [mingwu.content]);
 
   useEffect(() => {
      if (isEditing && editTextareaRef.current) {
@@ -59,10 +60,10 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
   }, [editText, isEditing]);
 
   const handleSaveEdit = async () => {
-    if (!insight.id) return;
+    if (!mingwu.id) return;
     setIsSaving(true);
     try {
-      await db.mingwu.update(insight.id, { content: editText });
+      await db.mingwu.update(mingwu.id, { content: editText });
       onEndEdit();
     } catch (err: any) {
       alert('保存失败：' + (err?.message || '请重试'));
@@ -77,15 +78,15 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
     }
   }, [expanded]);
 
-  const summary = insight.ai_summary || '暂无内容概要';
-  // range_label is the user-facing title; keep the existing representation per
-  // the requirement that the header title/date must not change.
-  const title = insight.range_label;
-  const headerDate = format(new Date(insight.created_at), 'MM-dd HH:mm');
+  const summary = mingwu.ai_summary || '暂无内容概要';
+  const title = mingwu.range_label;
+  const headerDate = format(new Date(mingwu.created_at), 'MM-dd HH:mm');
 
   return (
     <>
     <div
+      data-testid="mingwu-card"
+      data-mingwu-type={mingwu.mingwu_type}
       className="w-full overflow-hidden baimiao-card-diary mb-4 relative"
       onTouchStart={(e) => {
          if (isEditing) return;
@@ -106,7 +107,7 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
          setContextMenuState({ isOpen: true, x: e.clientX, y: e.clientY });
       }}
     >
-      {/* Card Header button — matches Diary/Review layout exactly */}
+      {/* Card Header button - matches Diary/Review layout exactly */}
       <button
         type="button"
         onClick={() => { if (isEditing) return; setExpanded(!expanded); }}
@@ -114,8 +115,18 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
       >
         <div className="flex justify-between items-center w-full">
           <div className="flex items-center gap-2 min-w-0">
-            <Sparkles className="w-4 h-4 text-stone-400 shrink-0" />
+            <Sparkles className={`w-4 h-4 shrink-0 ${isMingwuType ? 'text-baimiao-mysteria' : 'text-stone-400'}`} />
             <span className="text-[15px] font-semibold text-stone-800 truncate">{title}</span>
+            <span
+              data-testid={`mingwu-type-badge-${mingwu.mingwu_type}`}
+              className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                isMingwuType
+                  ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria'
+                  : 'bg-stone-100 text-stone-500'
+              }`}
+            >
+              {typeLabel}
+            </span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-[12px] text-stone-400 font-mono">{headerDate}</span>
@@ -134,7 +145,7 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
             value={editText}
             onChange={e => setEditText(e.target.value)}
             className="w-full bg-white p-4 rounded-xl border border-stone-200 shadow-sm focus:outline-none focus:border-stone-300 focus:ring-2 focus:ring-stone-100 resize-none font-sans text-[15px] leading-relaxed text-stone-900 overflow-hidden min-h-[200px]"
-            placeholder="开始编辑洞察..."
+            placeholder={`开始编辑${typeLabel}...`}
             autoFocus
             onClick={(e) => e.stopPropagation()}
           />
@@ -157,13 +168,14 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
         </div>
       ) : (
         <>
-        {/* Prompt/range meta sub-header — mirrors Diary/Review's sub-header. */}
+        {/* Prompt/range meta sub-header - mirrors Diary/Review's sub-header. */}
         <div className="px-4 py-1.5 border-t border-black/[0.03] bg-stone-50/60 text-[11px] text-stone-400 font-mono flex items-center justify-between select-none">
-          <span>洞察 · {headerDate}</span>
-          <span>{insight.range_type === 'custom' ? '自定义' : insight.range_type}</span>
+          <span>{typeLabel} · {headerDate}</span>
+          <span>{mingwu.range_type === 'custom' ? '自定义' : mingwu.range_type}</span>
         </div>
         {expanded && (
           <div
+            data-testid="mingwu-card-content"
             className="px-4 pb-4 pt-3 border-t border-black/[0.03] markdown-body prose prose-stone baimiao-editorial-body prose-h1:text-[19px] prose-h2:text-[17px] prose-h3:text-[16px] prose-headings:font-medium prose-headings:font-serif baimiao-editorial-title prose-p:text-baimiao-ink prose-li:text-baimiao-ink text-[15.5px] leading-relaxed relative z-10 selection:bg-stone-200 cursor-pointer"
             onClick={(e) => {
               if (isEditing) return;
@@ -171,7 +183,7 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
               setExpanded(!expanded);
             }}
           >
-             <ReactMarkdown>{washCitations(formatDiaryMarkdown(insight.content))}</ReactMarkdown>
+             <ReactMarkdown>{washCitations(formatDiaryMarkdown(mingwu.content))}</ReactMarkdown>
           </div>
         )}
         </>
@@ -183,8 +195,8 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
             <button
                onClick={(e) => {
                   e.stopPropagation();
-                  if (confirm('确认删除这篇洞察吗？') && insight.id) {
-                     onDelete(insight.id);
+                  if (confirm(`确认删除这篇${typeLabel}吗？`) && mingwu.id) {
+                     onDelete(mingwu.id);
                   }
                }}
                className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-rose-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
@@ -195,8 +207,8 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
             <button
                onClick={(e) => {
                   e.stopPropagation();
-                  if (insight.content) {
-                     copy(insight.content);
+                  if (mingwu.content) {
+                     copy(mingwu.content);
                   }
                }}
                className={`flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
@@ -211,7 +223,7 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
             <button
                onClick={(e) => {
                   e.stopPropagation();
-                  setEditText(insight.content || '');
+                  setEditText(mingwu.content || '');
                   onStartEdit();
                }}
                className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
@@ -220,7 +232,7 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
                编辑
             </button>
             <button
-               onClick={(e) => { e.stopPropagation(); onRegenerate(insight); }}
+               onClick={(e) => { e.stopPropagation(); onRegenerate(mingwu); }}
                className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
             >
                <RefreshCw className="w-4 h-4" />
@@ -248,12 +260,12 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
       {expanded && showChat && !isEditing && (
         <div className="border-t border-black/[0.03] p-4">
           <ContextChat
-            chatHistory={insight.chat_history || []}
-            contextContent={insight.content}
+            chatHistory={mingwu.chat_history || []}
+            contextContent={mingwu.content}
             apiEndpoint="/api/insight-chat"
             onUpdateHistory={async (newHistory) => {
-              if (insight.id) {
-                await db.mingwu.update(insight.id, { chat_history: newHistory });
+              if (mingwu.id) {
+                await db.mingwu.update(mingwu.id, { chat_history: newHistory });
               }
             }}
           />
@@ -280,8 +292,8 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
           >
             <button
               onClick={() => {
-                 if (insight.content) {
-                    copy(insight.content);
+                 if (mingwu.content) {
+                    copy(mingwu.content);
                  }
                  setContextMenuState({ ...contextMenuState, isOpen: false });
               }}
@@ -296,7 +308,7 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
             </button>
             <button
               onClick={() => {
-                setEditText(insight.content || '');
+                setEditText(mingwu.content || '');
                 onStartEdit();
                 setExpanded(true);
                 setContextMenuState({ ...contextMenuState, isOpen: false });
@@ -308,7 +320,7 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
             </button>
             <button
               onClick={() => {
-                onRegenerate(insight);
+                onRegenerate(mingwu);
                 setContextMenuState({ ...contextMenuState, isOpen: false });
               }}
               className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 disabled:opacity-50"
@@ -318,13 +330,13 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
             </button>
             <button
               onClick={() => {
-                 if (insight.id) onDelete(insight.id);
+                 if (mingwu.id) onDelete(mingwu.id);
                  setContextMenuState({ ...contextMenuState, isOpen: false });
               }}
               className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-rose-400 hover:text-rose-300 transition-colors hover:bg-white/10 rounded-r-lg disabled:opacity-50"
             >
               <Trash2 className="w-3.5 h-3.5 mb-1.5" />
-              <span className="text-[10px] font-medium tracking-wide">删除洞察</span>
+              <span className="text-[10px] font-medium tracking-wide">删除{typeLabel}</span>
             </button>
           </div>
         </div>
@@ -334,7 +346,6 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
 };
 
 export default function Insights() {
-  const navigate = useNavigate();
   const [timeRange, setTimeRange] = useState('week');
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
@@ -363,18 +374,18 @@ export default function Insights() {
     { value: 'custom', label: '自选范围' },
   ];
 
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
+  const { isGeneratingMingwu, mingwuError } = useAppStore();
+  const { generateMingwu, regenerateMingwu } = useMingwuStore();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const [showFloatBtn, setShowFloatBtn] = useState(false);
   const floatBtnTimeoutRef = useRef<any>(null);
 
-  // Edit state lifted to the page so the floating "生成当前洞察" button can
-  // hide whenever any insight is being edited/saved — otherwise its
+  // Edit state lifted to the page so the floating "生成明悟" button can
+  // hide whenever any card is being edited/saved - otherwise its
   // pointer-events-auto overlay can intercept clicks on the Save/Cancel
   // buttons, making the save button look unresponsive.
-  const [editingInsightId, setEditingInsightId] = useState<string | null>(null);
+  const [editingMingwuId, setEditingMingwuId] = useState<string | null>(null);
 
   const handleInteraction = useCallback(() => {
     setShowFloatBtn(true);
@@ -393,182 +404,73 @@ export default function Insights() {
     };
   }, [handleInteraction]);
 
-  const settings = useSettingsStore();
+  const mingwuList = useLiveQuery(() => db.mingwu.orderBy('created_at').reverse().toArray());
 
-  const insights = useLiveQuery(() => db.mingwu.orderBy('created_at').reverse().toArray());
+  const computeRange = () => {
+    const today = new Date();
+    let startTime = today.getTime();
+    let endTime = today.getTime();
+    let rangeLabel = "最近一周";
+
+    switch (timeRange) {
+      case 'day':
+        startTime = subDays(today, 1).getTime();
+        rangeLabel = "今天";
+        break;
+      case 'week':
+        startTime = subDays(today, 7).getTime();
+        rangeLabel = "最近一周";
+        break;
+      case 'month':
+        startTime = subDays(today, 30).getTime();
+        rangeLabel = "最近一月";
+        break;
+      case 'quarter':
+        startTime = subDays(today, 90).getTime();
+        rangeLabel = "最近一季度";
+        break;
+      case 'half-year':
+        startTime = subDays(today, 180).getTime();
+        rangeLabel = "最近半年";
+        break;
+      case 'year':
+        startTime = subDays(today, 365).getTime();
+        rangeLabel = "最近一年";
+        break;
+      case 'custom':
+        if (!customStart || !customEnd) {
+           throw new Error("请选择完整的起止时间");
+        }
+        startTime = new Date(customStart).getTime();
+        endTime = new Date(customEnd).getTime() + 86400000;
+        rangeLabel = `${customStart} 至 ${customEnd}`;
+        break;
+    }
+    return { startTime, endTime, rangeLabel };
+  };
 
   const handleGenerate = async () => {
-    setIsGenerating(true);
-    setErrorMsg("");
-
     try {
-      const today = new Date();
-      let startTime = today.getTime();
-      let endTime = today.getTime();
-      let rangeLabel = "最近一周";
-
-      switch (timeRange) {
-        case 'day':
-          startTime = subDays(today, 1).getTime();
-          rangeLabel = "今天";
-          break;
-        case 'week':
-          startTime = subDays(today, 7).getTime();
-          rangeLabel = "最近一周";
-          break;
-        case 'month':
-          startTime = subDays(today, 30).getTime();
-          rangeLabel = "最近一月";
-          break;
-        case 'quarter':
-          startTime = subDays(today, 90).getTime();
-          rangeLabel = "最近一季度";
-          break;
-        case 'half-year':
-          startTime = subDays(today, 180).getTime();
-          rangeLabel = "最近半年";
-          break;
-        case 'year':
-          startTime = subDays(today, 365).getTime();
-          rangeLabel = "最近一年";
-          break;
-        case 'custom':
-          if (!customStart || !customEnd) {
-             throw new Error("请选择完整的起止时间");
-          }
-          startTime = new Date(customStart).getTime();
-          endTime = new Date(customEnd).getTime() + 86400000;
-          rangeLabel = `${customStart} 至 ${customEnd}`;
-          break;
-      }
-
-      // Fetch all raw logs in this range
-      const logs = await db.raw_logs
-        .where('created_at')
-        .between(startTime, endTime, true, true)
-        .toArray();
-
-      if (logs.length === 0) {
-        throw new Error("这段时间内还没有任何记录。换个时间范围或者去记录点什么吧！");
-      }
-
-      const res = await fetch('/api/generate-insights', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          timeRangeLabel: rangeLabel,
-          logs: logs.map(l => ({
-            id: l.id,
-            date: format(new Date(l.created_at), 'yyyy-MM-dd HH:mm'),
-            content: l.content
-          })),
-          settings
-        })
+      const { startTime, endTime, rangeLabel } = computeRange();
+      await generateMingwu({
+        rangeType: timeRange,
+        startTime,
+        endTime,
+        rangeLabel,
       });
-
-      if (!res.ok) {
-        let errStr = await res.text();
-        try { const d = JSON.parse(errStr); errStr = d.error || errStr; } catch(e){}
-        throw new Error(errStr);
-      }
-
-      const data = await res.json();
-      const content = data.report || "";
-      const aiSummary = (data.ai_summary || '').toString().trim() || '暂无内容概要';
-
-      if (content) {
-        await db.mingwu.add({
-          id: generateUUID(),
-          range_type: timeRange,
-          range_label: rangeLabel,
-          start_date: new Date(startTime).toISOString(),
-          end_date: new Date(endTime).toISOString(),
-          content,
-          ai_summary: aiSummary,
-          mingwu_type: 'insight',
-          created_at: Date.now()
-        });
-        setTimeout(() => {
-          scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-        }, 100);
-      }
-
+      setTimeout(() => {
+        scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 100);
     } catch (err: any) {
       console.error(err);
-      setErrorMsg(err.message || "生成失败，请重试");
-    } finally {
-      setIsGenerating(false);
     }
   };
 
-  const handleRegenerate = async (oldInsight: Mingwu) => {
-    setIsGenerating(true);
-    setErrorMsg("");
-
-    try {
-      const startTime = new Date(oldInsight.start_date).getTime();
-      const endTime = new Date(oldInsight.end_date).getTime();
-      const rangeLabel = oldInsight.range_label;
-
-      const logs = await db.raw_logs
-        .where('created_at')
-        .between(startTime, endTime, true, true)
-        .toArray();
-
-      if (logs.length === 0) {
-        throw new Error("此时间段内容为空，无法重新生成。");
-      }
-
-      const res = await fetch('/api/generate-insights', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          timeRangeLabel: rangeLabel,
-          logs: logs.map(l => ({
-            id: l.id,
-            date: format(new Date(l.created_at), 'yyyy-MM-dd HH:mm'),
-            content: l.content
-          })),
-          settings
-        })
-      });
-
-      if (!res.ok) {
-        let errStr = await res.text();
-        try { const d = JSON.parse(errStr); errStr = d.error || errStr; } catch(e){}
-        throw new Error(errStr);
-      }
-
-      const data = await res.json();
-      const content = data.report || "";
-      const aiSummary = (data.ai_summary || '').toString().trim() || oldInsight.ai_summary || '暂无内容概要';
-
-      if (content) {
-        if (oldInsight.id) {
-           await db.mingwu.delete(oldInsight.id);
-        }
-        await db.mingwu.add({
-          id: generateUUID(),
-          range_type: oldInsight.range_type,
-          range_label: rangeLabel,
-          start_date: oldInsight.start_date,
-          end_date: oldInsight.end_date,
-          content,
-          ai_summary: aiSummary,
-          mingwu_type: 'insight',
-          created_at: Date.now()
-        });
-        setTimeout(() => {
-          scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-        }, 100);
-      }
-
-    } catch (err: any) {
-      console.error(err);
-      setErrorMsg(err.message || "重新生成失败，请重试");
-    } finally {
-      setIsGenerating(false);
-    }
+  const handleRegenerate = async (oldMingwu: Mingwu) => {
+    await regenerateMingwu(oldMingwu);
+    setTimeout(() => {
+      scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 100);
   };
 
   const handleDelete = async (id: string) => {
@@ -580,10 +482,11 @@ export default function Insights() {
       <div className="flex h-[52px] items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 z-20 shrink-0 w-full justify-between">
          <h2 className="text-[13.5px] font-bold tracking-wide text-baimiao-mysteria flex items-center gap-1.5 font-serif baimiao-editorial-title">
            <HeadCircuit weight="regular" className="w-4 h-4 text-baimiao-mysteria/70 translate-y-[-0.8px] shrink-0" />
-           时光洞察
+           明悟
          </h2>
          <div className="relative" ref={dropdownRef}>
            <button
+             data-testid="mingwu-range-dropdown"
              onClick={() => setShowDropdown(!showDropdown)}
              className="flex items-center gap-1.5 bg-transparent text-[13px] font-medium text-stone-600 outline-none cursor-pointer hover:bg-stone-100 px-2 py-1 rounded transition-colors"
            >
@@ -595,6 +498,7 @@ export default function Insights() {
                {rangeOptions.map((opt) => (
                  <button
                    key={opt.value}
+                   data-testid={`mingwu-range-option-${opt.value}`}
                    onClick={() => {
                      setTimeRange(opt.value);
                      setShowDropdown(false);
@@ -638,70 +542,70 @@ export default function Insights() {
         onTouchStart={handleInteraction}
         onScroll={handleInteraction}
       >
-        {errorMsg && (
-           <div className="mb-6 px-4 py-3 bg-red-50 text-red-600 text-[13px] rounded-xl border border-red-100 flex items-center gap-2 animate-in fade-in shrink-0">
-             <AlertCircle className="w-4 h-4 shrink-0" />
-             {errorMsg}
-           </div>
+        {mingwuError && (
+          <div data-testid="mingwu-error" className="mb-6 px-4 py-3 bg-red-50 text-red-600 text-[13px] rounded-xl border border-red-100 flex items-center gap-2 animate-in fade-in shrink-0">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            {mingwuError}
+          </div>
         )}
 
-        {isGenerating && (
-          <div className="flex flex-col items-center justify-center py-10 animate-in fade-in zoom-in duration-300 shrink-0">
+        {isGeneratingMingwu && (
+          <div data-testid="mingwu-generating" className="flex flex-col items-center justify-center py-10 animate-in fade-in zoom-in duration-300 shrink-0">
             <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-stone-100 flex items-center justify-center mb-4 relative">
                <div className="absolute inset-0 bg-stone-100/50 animate-pulse rounded-2xl"></div>
                <Loader2 className="w-8 h-8 text-stone-900 animate-spin relative z-10" />
             </div>
-            <h3 className="text-[15px] text-stone-900 font-medium tracking-tight mb-1">正在深度整理...</h3>
-            <p className="text-[13px] text-stone-500 font-mono">挖掘行为轨迹与生活灵感</p>
+            <h3 className="text-[15px] text-stone-900 font-medium tracking-tight mb-1">正在明悟中...</h3>
+            <p className="text-[13px] text-stone-500 font-mono">观照碎屑与沉思，浮现生命脉络</p>
           </div>
         )}
 
-        {insights && insights.length > 0 ? (
-          <div className="flex flex-col w-full animate-in slide-in-from-bottom-4 fade-in duration-700">
-            {insights.map(insight => (
-              <InsightCard
-                key={insight.id}
-                insight={insight}
-                isEditing={editingInsightId === insight.id}
-                onStartEdit={() => setEditingInsightId(insight.id || null)}
-                onEndEdit={() => setEditingInsightId(null)}
+        {mingwuList && mingwuList.length > 0 ? (
+          <div data-testid="mingwu-card-list" className="flex flex-col w-full animate-in slide-in-from-bottom-4 fade-in duration-700">
+            {mingwuList.map(mw => (
+              <MingwuCard
+                key={mw.id}
+                mingwu={mw}
+                isEditing={editingMingwuId === mw.id}
+                onStartEdit={() => setEditingMingwuId(mw.id || null)}
+                onEndEdit={() => setEditingMingwuId(null)}
                 onDelete={handleDelete}
                 onRegenerate={handleRegenerate}
               />
             ))}
           </div>
         ) : (
-          !isGenerating && (
-            <div className="flex flex-col items-center justify-center text-center mt-10 flex-1">
+          !isGeneratingMingwu && (
+            <div data-testid="mingwu-empty" className="flex flex-col items-center justify-center text-center mt-10 flex-1">
               <div className="w-20 h-20 bg-stone-100 rounded-full flex items-center justify-center mb-6">
                 <Calendar className="w-8 h-8 text-stone-400 stroke-[1.5px]" />
               </div>
-              <h3 className="text-[17px] text-stone-900 font-semibold tracking-tight mb-3">开启过去的回音</h3>
+              <h3 className="text-[17px] text-stone-900 font-semibold tracking-tight mb-3">开启明悟之旅</h3>
               <p className="text-[14px] text-stone-500 mb-8 leading-relaxed max-w-[260px]">
-                 点击下方按钮，由 AI 根据你在这个时间段内的记录，提炼出深度的行动洞察与建议。
+                 点击下方按钮，由 AI 观照你在这段时间内的碎屑与沉思，浮现明悟与洞察。
               </p>
             </div>
           )
         )}
       </div>
 
-      {/* Floating generate button — hidden while an insight is being edited
+      {/* Floating generate button - hidden while a card is being edited
           so it can't intercept the Save/Cancel clicks below it. */}
-      {!editingInsightId && (
+      {!editingMingwuId && (
       <div
-        className={`fixed bottom-24 left-0 w-full flex justify-center pointer-events-none z-20 transition-opacity duration-500 max-w-md mx-auto right-0 ${(showFloatBtn || isGenerating || (!insights || insights.length === 0)) ? 'opacity-100' : 'opacity-0'}`}
+        className={`fixed bottom-24 left-0 w-full flex justify-center pointer-events-none z-20 transition-opacity duration-500 max-w-md mx-auto right-0 ${(showFloatBtn || isGeneratingMingwu || (!mingwuList || mingwuList.length === 0)) ? 'opacity-100' : 'opacity-0'}`}
       >
         <button
+          data-testid="mingwu-generate-btn"
           onClick={handleGenerate}
-          disabled={isGenerating}
-          className={`bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-md border border-white/10 text-white px-6 py-2.5 rounded-full text-[13px] font-medium tracking-wide transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:active:scale-100 min-w-[160px] ${(showFloatBtn || isGenerating || (!insights || insights.length === 0)) ? 'pointer-events-auto' : 'pointer-events-none'}`}
+          disabled={isGeneratingMingwu}
+          className={`bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-md border border-white/10 text-white px-6 py-2.5 rounded-full text-[13px] font-medium tracking-wide transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:active:scale-100 min-w-[160px] ${(showFloatBtn || isGeneratingMingwu || (!mingwuList || mingwuList.length === 0)) ? 'pointer-events-auto' : 'pointer-events-none'}`}
         >
-          {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-          {isGenerating ? '深度整理中...' : '生成当前洞察'}
+          {isGeneratingMingwu ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+          {isGeneratingMingwu ? '明悟中...' : '生成明悟'}
         </button>
       </div>
       )}
     </div>
   );
 }
-

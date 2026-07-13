@@ -454,6 +454,148 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
     }
   });
 
+  // #8 明悟生成端点：一次调用同时产出「明悟」与「洞察」两类报告。
+  // 数据源 = raw_logs + thoughts；按 settings.submitMultimedia 决定是否提交多媒体摘要。
+  // 返回 mingwu_report/mingwu_summary + insight_report/insight_summary。
+  app.post('/api/generate-mingwu', async (req, res) => {
+    try {
+      const { logs, thoughts, timeRangeLabel, settings } = req.body;
+      const { provider = 'gemini', apiKey, baseUrl, model, mingwuPrompt, insightPrompt, insightSummaryPrompt } = settings || {};
+
+      const defaultMingwuPrompt = `你是一位兼具东方哲学智慧与现代心理学素养的「明悟」导师。请审视用户一段时间内的记录与沉思，超越表层行为与情绪，直抵生命深层脉络，产出一份通透、克制、富有启悟力量的明悟报告。`;
+      const defaultInsightPrompt = `You are a productivity and life coach assistant. Based on the user's activity logs and diaries, provide deep insights into their routines, highlighting positive trends, areas for potential improvement, and actionable suggestions to enhance well-being and productivity.`;
+
+      const logsSection = (logs || []).map((l: any) => `- [${l.date}] (ID: ${l.id}): ${l.content}${l.attachment_summary ? `\n  [附件摘要] ${l.attachment_summary}` : ''}`).join('\n');
+      const thoughtsSection = (thoughts || []).map((t: any) => `- [${t.date}] (ID: ${t.id}): ${t.content}`).join('\n');
+
+      const mingwuContext = `${mingwuPrompt || defaultMingwuPrompt}
+
+Context:
+- Analysis Time Range: ${timeRangeLabel}
+- Logs count: ${(logs || []).length}
+- Thoughts count: ${(thoughts || []).length}
+
+Raw Logs:
+${logsSection || '（无碎屑记录）'}
+
+Thoughts (沉思):
+${thoughtsSection || '（无沉思笔记）'}
+
+请用清晰克制的 Markdown 格式输出你的明悟报告。可在文中以 #标签 形式标注浮现的关键生命主题。`;
+
+      const insightContext = `${insightPrompt || defaultInsightPrompt}
+
+Context:
+- Analysis Time Range: ${timeRangeLabel}
+- Logs count: ${(logs || []).length}
+- Thoughts count: ${(thoughts || []).length}
+
+Raw Logs:
+${logsSection || '（无碎屑记录）'}
+
+Thoughts (沉思):
+${thoughtsSection || '（无沉思笔记）'}
+
+Output your insights in a clear, well-structured Markdown format. Group your insights logically (e.g., Summary, Key Trends, Actionable Advice).
+`;
+
+      let mingwuMarkdown = "";
+      let insightMarkdown = "";
+
+      if (provider === 'gemini') {
+        const activeKey = apiKey;
+        if (!activeKey) {
+          return res.status(500).json({ error: '请在设置页面中配置你的 Gemini API Key' });
+        }
+        const ai = buildGeminiClient(activeKey, baseUrl);
+        const finalModel = model || 'gemini-3.1-flash-lite';
+
+        const mingwuResponse = await ai.models.generateContent({
+          model: finalModel,
+          contents: mingwuContext,
+        });
+        mingwuMarkdown = mingwuResponse.text || "";
+
+        const insightResponse = await ai.models.generateContent({
+          model: finalModel,
+          contents: insightContext,
+        });
+        insightMarkdown = insightResponse.text || "";
+      } else {
+        mingwuMarkdown = await sendLLMRequest(
+          provider, baseUrl, apiKey, model,
+          "You output well-formatted Markdown text.",
+          [{ role: "user", content: mingwuContext }]
+        );
+        insightMarkdown = await sendLLMRequest(
+          provider, baseUrl, apiKey, model,
+          "You output well-formatted Markdown text.",
+          [{ role: "user", content: insightContext }]
+        );
+      }
+
+      const summaryPromptStr = insightSummaryPrompt || `你是一个用于生成一句话摘要的助手。请根据提供的文本，生成一句简短、优美、富有诗意的中文摘要（不超过30个字）。`;
+      let mingwuSummary = "";
+      let insightSummary = "";
+
+      if (mingwuMarkdown) {
+        try {
+          if (provider === 'gemini') {
+            const ai = buildGeminiClient(apiKey, baseUrl);
+            const finalModel = model || 'gemini-3.1-flash-lite';
+            const summaryResponse = await ai.models.generateContent({
+              model: finalModel,
+              contents: `${summaryPromptStr}\n\nReport:\n${mingwuMarkdown}`,
+            });
+            mingwuSummary = summaryResponse.text || "";
+          } else {
+            mingwuSummary = await sendLLMRequest(
+              provider, baseUrl, apiKey, model,
+              summaryPromptStr,
+              [{ role: "user", content: `Report:\n${mingwuMarkdown}` }],
+              1024
+            );
+          }
+        } catch (err) {
+          console.error("Failed to generate mingwu summary:", err);
+        }
+      }
+
+      if (insightMarkdown) {
+        try {
+          if (provider === 'gemini') {
+            const ai = buildGeminiClient(apiKey, baseUrl);
+            const finalModel = model || 'gemini-3.1-flash-lite';
+            const summaryResponse = await ai.models.generateContent({
+              model: finalModel,
+              contents: `${summaryPromptStr}\n\nInsight Report:\n${insightMarkdown}`,
+            });
+            insightSummary = summaryResponse.text || "";
+          } else {
+            insightSummary = await sendLLMRequest(
+              provider, baseUrl, apiKey, model,
+              summaryPromptStr,
+              [{ role: "user", content: `Insight Report:\n${insightMarkdown}` }],
+              1024
+            );
+          }
+        } catch (err) {
+          console.error("Failed to generate insight summary:", err);
+        }
+      }
+
+      res.json({
+        mingwu_report: mingwuMarkdown,
+        mingwu_summary: mingwuSummary,
+        insight_report: insightMarkdown,
+        insight_summary: insightSummary,
+      });
+    } catch (err: any) {
+      console.error(err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   async function processChatRequest(req: any, res: any, systemPrompt: string) {
     try {
       const { chatHistory, userMessage, settings } = req.body;

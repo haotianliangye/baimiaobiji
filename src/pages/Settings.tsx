@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning, Download, FileJson, FileText, MessageSquare } from 'lucide-react';
-import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_SUMMARY_PROMPT, DEFAULT_DIARY_SUMMARY_PROMPT, DEFAULT_INSIGHT_SUMMARY_PROMPT } from '../store/settings.store';
+import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_MINGWU_PROMPT, DEFAULT_SUMMARY_PROMPT, DEFAULT_DIARY_SUMMARY_PROMPT, DEFAULT_INSIGHT_SUMMARY_PROMPT } from '../store/settings.store';
 import { db, normalizeLegacyDiary, normalizeLegacyInsight } from '../db/db';
 import { enqueueAllMissingEmbeddings } from '../lib/embedding';
 import { checkStorageStatus, requestStoragePersistence, StorageEstimateInfo } from '../lib/storage';
@@ -45,6 +45,9 @@ export default function Settings() {
     insightPrompt,
     insightPrompts,
     insightPromptIndex,
+    mingwuPrompt,
+    mingwuPrompts,
+    mingwuPromptIndex,
     summaryPrompt,
     diarySummaryPrompt,
     insightSummaryPrompt,
@@ -295,6 +298,13 @@ export default function Settings() {
     return [insightPrompt || DEFAULT_INSIGHT_PROMPT, '', '', ''];
   });
   const [localInsightIndex, setLocalInsightIndex] = useState<number>(0);
+
+  // #8 明悟生成 Prompt（4 槽：默认 + 自定义1/2/3）
+  const [localMingwuPrompts, setLocalMingwuPrompts] = useState<string[]>(() => {
+    if (mingwuPrompts && mingwuPrompts.length === 4) return [...mingwuPrompts];
+    return [mingwuPrompt || DEFAULT_MINGWU_PROMPT, '', '', ''];
+  });
+  const [localMingwuIndex, setLocalMingwuIndex] = useState<number>(0);
 
   const [localSummaryPrompt, setLocalSummaryPrompt] = useState(summaryPrompt || DEFAULT_SUMMARY_PROMPT);
   const [localDiarySummaryPrompt, setLocalDiarySummaryPrompt] = useState(diarySummaryPrompt || DEFAULT_DIARY_SUMMARY_PROMPT);
@@ -1192,6 +1202,66 @@ export default function Settings() {
                     })}
                   </div>
                 </div>
+              </section>
+
+              {/* Card: 明悟生成 Prompt（#8） */}
+              <section className="baimiao-card-diary p-4 space-y-3 overflow-hidden">
+                <div className="bg-[#f8f6fa] border-b border-stone-100/80 px-4 py-2 flex flex-col gap-2 -mx-4 -mt-4">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-1.5 text-[13px] font-bold text-stone-700 border-l-2 border-baimiao-mysteria pl-2">
+                      <Settings2 className="w-4 h-4 text-baimiao-mysteria" />
+                      明悟生成 Prompt
+                    </label>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex gap-0.5 items-center bg-[#f0edf4]/60 p-0.5 rounded-lg border border-stone-200/30">
+                      {['默认', '自定义 1', '自定义 2', '自定义 3'].map((label, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setLocalMingwuIndex(idx)}
+                          className={`px-2 py-0.5 text-[10.5px] font-medium rounded transition-all active:scale-[0.93] shrink-0 ${
+                            localMingwuIndex === idx
+                              ? 'bg-white text-baimiao-mysteria font-bold shadow-sm border border-stone-200/40'
+                              : 'text-[#8a859e] hover:text-stone-600'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {localMingwuIndex !== 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = [...localMingwuPrompts];
+                          next[localMingwuIndex] = '';
+                          setLocalMingwuPrompts(next);
+                        }}
+                        className="text-[11px] text-stone-400 hover:text-red-500 flex items-center gap-0.5 transition-colors"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        清空当前
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <textarea
+                  placeholder={localMingwuIndex === 0 ? '' : '请输入明悟生成提示词...'}
+                  value={localMingwuPrompts[localMingwuIndex]}
+                  readOnly={localMingwuIndex === 0}
+                  onChange={e => {
+                    if (localMingwuIndex === 0) return;
+                    const next = [...localMingwuPrompts];
+                    next[localMingwuIndex] = e.target.value;
+                    setLocalMingwuPrompts(next);
+                  }}
+                  className={`w-full h-24 resize-none border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] transition-all font-mono leading-relaxed ${
+                    localMingwuIndex === 0
+                      ? 'bg-stone-50 text-stone-400 border-dashed border-stone-200 cursor-not-allowed'
+                      : 'bg-white text-stone-900 focus:bg-white'
+                  }`}
+                />
               </section>
 
               {/* Card 3: 洞察生成 Prompt */}
@@ -2186,6 +2256,10 @@ export default function Settings() {
                 insightPrompts: localInsightPrompts,
                 insightPromptIndex: localInsightIndex,
                 insightPrompt: localInsightPrompts[localInsightIndex],
+                // #8 明悟生成 Prompt
+                mingwuPrompts: localMingwuPrompts,
+                mingwuPromptIndex: localMingwuIndex,
+                mingwuPrompt: localMingwuPrompts[localMingwuIndex],
                 summaryPrompt: localSummaryPrompt,
                 diarySummaryPrompt: localDiarySummaryPrompt,
                 insightSummaryPrompt: localInsightSummaryPrompt,

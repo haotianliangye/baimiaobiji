@@ -99,6 +99,7 @@ export interface Mingwu {
   chat_history?: InsightMessage[];
   embedding?: number[];       // vector float array for semantic search
   embedding_version?: string; // "provider:model" e.g. "gemini:gemini-embedding-2"
+  tags?: string[];            // #4 全局标签路径数组（AI 产出自动打标签，非索引）
 }
 
 // V2「沉思」笔记（flomo 式慢思考）。#3 仅建表，UI/CRUD 留给 #7。
