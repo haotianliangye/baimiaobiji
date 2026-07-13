@@ -590,7 +590,7 @@ export default function Settings() {
       const mimeType = unifiedExportFormat === 'json' ? 'application/json' : 'text/markdown';
       downloadContent(content, filename, mimeType);
     } catch (e) {
-      alert('导出失败');
+      alert(t('settings.exportFailed'));
     } finally {
       setIsUnifiedExporting(false);
     }

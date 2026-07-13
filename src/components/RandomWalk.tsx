@@ -41,15 +41,21 @@ import { db, type Thought, type RawLog, type DailyReview, type Mingwu } from '..
 import { useTagsStore } from '../store/tags.store';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { normalizeTagPath } from '../lib/tags';
+import { useTranslation } from '../lib/i18n';
 
 type SourceType = 'raw_logs' | 'thoughts' | 'daily_reviews' | 'mingwu';
 
 const ALL_SOURCES: SourceType[] = ['raw_logs', 'thoughts', 'daily_reviews', 'mingwu'];
-const SOURCE_LABELS: Record<SourceType, string> = {
-  raw_logs: '碎屑',
-  thoughts: '沉思',
-  daily_reviews: '回顾',
-  mingwu: '明悟',
+
+/** 翻译函数类型（与 i18n.ts 的 t 签名一致） */
+type TFunc = (key: string, params?: Record<string, string | number>) => string;
+
+/** 数据源 -> TabBar 标签 key 映射 */
+const SOURCE_LABEL_KEYS: Record<SourceType, string> = {
+  raw_logs: 'tab.record',
+  thoughts: 'tab.thoughts',
+  daily_reviews: 'tab.review',
+  mingwu: 'tab.mingwu',
 };
 
 const LS_SOURCES = 'random-walk-sources';
@@ -131,20 +137,21 @@ function toWalkItems(
   rawLogs: RawLog[],
   reviews: DailyReview[],
   mingwu: Mingwu[],
-  sources: SourceType[]
+  sources: SourceType[],
+  tf: TFunc
 ): WalkItem[] {
   const items: WalkItem[] = [];
   if (sources.includes('thoughts')) {
-    for (const t of thoughts) {
+    for (const th of thoughts) {
       items.push({
-        key: `thoughts:${t.id}`,
+        key: `thoughts:${th.id}`,
         type: 'thoughts',
-        id: t.id,
-        content: t.content,
-        createdAt: t.created_at,
-        tags: t.tags || [],
-        rawText: t.content,
-        typeLabel: '沉思',
+        id: th.id,
+        content: th.content,
+        createdAt: th.created_at,
+        tags: th.tags || [],
+        rawText: th.content,
+        typeLabel: tf('tab.thoughts'),
       });
     }
   }
@@ -158,7 +165,7 @@ function toWalkItems(
         createdAt: r.created_at,
         tags: r.tags || [],
         rawText: r.content,
-        typeLabel: '碎屑',
+        typeLabel: tf('tab.record'),
       });
     }
   }
@@ -178,7 +185,7 @@ function toWalkItems(
         tags: r.tags || [],
         reviewDate: r.review_date,
         rawText: body,
-        typeLabel: isDiary ? '日记' : '回顾',
+        typeLabel: isDiary ? tf('review.diary') : tf('review.review'),
       });
     }
   }
@@ -194,7 +201,7 @@ function toWalkItems(
         createdAt: m.created_at,
         tags: [],
         rawText: m.content,
-        typeLabel: m.mingwu_type === 'insight' ? '洞察' : '明悟',
+        typeLabel: m.mingwu_type === 'insight' ? tf('mingwu.insight') : tf('mingwu.mingwu'),
       });
     }
   }
@@ -216,6 +223,7 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
   const navigate = useNavigate();
   const { copied, copy } = useCopyToClipboard();
   const createTag = useTagsStore((s) => s.createTag);
+  const { t } = useTranslation();
 
   // --- 数据源（live query，始终保持最新，draw 时读取） ---
   const allThoughts = useLiveQuery(() => db.thoughts.toArray(), []);
@@ -265,7 +273,8 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
       dataRef.current.rawLogs,
       dataRef.current.reviews,
       dataRef.current.mingwu,
-      sourcesRef.current
+      sourcesRef.current,
+      t
     );
     const shown = loadShown();
     const now = Date.now();
@@ -289,7 +298,7 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
     setEnded(batch.length === 0);
     setDragX(0);
     setLoading(false);
-  }, []);
+  }, [t]);
 
   // 首次：等 live query 数据就绪后抽取
   const ready =
@@ -329,7 +338,7 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
 
   const handleDelete = async () => {
     if (!current) return;
-    if (!confirm('确认删除这条记录吗？删除后不可恢复。')) return;
+    if (!confirm(t('randomWalk.confirmDelete'))) return;
     switch (current.type) {
       case 'thoughts':
         await db.thoughts.delete(current.id);
@@ -465,7 +474,7 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
       <div className="flex h-[52px] items-center px-4 bg-white/85 backdrop-blur border-b border-baimiao-border/40 z-20 shrink-0 justify-between">
         <h2 className="text-[13.5px] font-bold tracking-wide text-baimiao-mysteria flex items-center gap-1.5 font-serif baimiao-editorial-title">
           <Lightbulb className="w-4 h-4 text-amber-400 translate-y-[-0.5px] shrink-0" />
-          随机漫步
+          {t('randomWalk.title')}
           {items.length > 0 && !ended && (
             <span className="text-[11px] font-medium text-stone-400 ml-1">
               {currentIndex + 1}/{items.length}
@@ -481,7 +490,7 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
                 ? 'text-baimiao-mysteria bg-baimiao-mysteria/8'
                 : 'text-stone-400 hover:text-stone-700 hover:bg-stone-100'
             }`}
-            title="数据源与冷却期"
+            title={t('randomWalk.settingsTitle')}
           >
             <Settings2 className="w-4 h-4" />
           </button>
@@ -499,7 +508,7 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
       {showSettings && (
         <div className="shrink-0 bg-white/90 backdrop-blur border-b border-baimiao-border/40 px-4 py-3 flex flex-col gap-3 animate-in slide-in-from-top-2 duration-200">
           <div>
-            <p className="text-[11.5px] font-semibold text-stone-500 mb-1.5">数据源</p>
+            <p className="text-[11.5px] font-semibold text-stone-500 mb-1.5">{t('randomWalk.dataSources')}</p>
             <div className="flex flex-wrap gap-1.5">
               {ALL_SOURCES.map((src) => {
                 const on = sources.includes(src);
@@ -514,14 +523,14 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
                         : 'bg-stone-100 text-stone-500'
                     }`}
                   >
-                    {SOURCE_LABELS[src]}
+                    {t(SOURCE_LABEL_KEYS[src])}
                   </button>
                 );
               })}
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <p className="text-[11.5px] font-semibold text-stone-500 shrink-0">冷却期</p>
+            <p className="text-[11.5px] font-semibold text-stone-500 shrink-0">{t('randomWalk.cooldown')}</p>
             <input
               data-testid="walk-cooldown-input"
               type="number"
@@ -530,7 +539,7 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
               onChange={(e) => changeCooldown(Number(e.target.value))}
               className="w-16 bg-stone-50 border border-stone-200 rounded-lg px-2 py-1 text-[12px] text-stone-700 outline-none focus:border-baimiao-mysteria/40"
             />
-            <span className="text-[11px] text-stone-400">天（已展示记录在此期内不重复出现）</span>
+            <span className="text-[11px] text-stone-400">{t('randomWalk.cooldownUnit')}</span>
           </div>
         </div>
       )}
@@ -538,7 +547,7 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
       {/* 卡片堆叠区 */}
       <div className="flex-1 overflow-hidden relative px-5 py-4 flex items-center justify-center">
         {loading ? (
-          <div className="text-[13px] text-stone-400">加载中...</div>
+          <div className="text-[13px] text-stone-400">{t('randomWalk.loading')}</div>
         ) : ended ? (
           <div
             data-testid="walk-empty"
@@ -548,10 +557,10 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
               <Lightbulb className="w-6 h-6 stroke-[1.5px]" />
             </div>
             <p className="text-[14px] text-stone-700 font-medium mb-1 font-serif baimiao-editorial-title">
-              暂时没有新的记录了
+              {t('randomWalk.emptyTitle')}
             </p>
             <p className="text-[12px] text-stone-400 leading-relaxed mb-5">
-              已浏览完所有可漫步的记录。换一批重新抽取，或重置历史从头再来。
+              {t('randomWalk.emptyDesc')}
             </p>
             <div className="flex flex-col gap-2 w-full">
               <button
@@ -560,7 +569,7 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
                 className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 transition-all"
               >
                 <Shuffle className="w-4 h-4" />
-                换一批
+                {t('randomWalk.shuffle')}
               </button>
               <button
                 data-testid="walk-reset"
@@ -568,7 +577,7 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
                 className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-[12.5px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                重置历史
+                {t('randomWalk.resetHistory')}
               </button>
             </div>
           </div>
@@ -653,7 +662,7 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
                   {isActive && (
                     <div className="flex items-center justify-center gap-1 mt-2 text-[10px] text-stone-300 shrink-0">
                       <ChevronRight className="w-3 h-3" />
-                      左右滑动切换
+                      {t('randomWalk.swipeHint')}
                     </div>
                   )}
                 </div>
@@ -673,7 +682,7 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
               className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-stone-500 hover:bg-stone-100 hover:text-baimiao-mysteria transition-colors"
             >
               <Eye className="w-5 h-5" />
-              <span className="text-[10.5px] font-medium">已阅</span>
+              <span className="text-[10.5px] font-medium">{t('randomWalk.read')}</span>
             </button>
             <button
               data-testid="walk-tags"
@@ -681,7 +690,7 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
               className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-stone-500 hover:bg-stone-100 hover:text-baimiao-mysteria transition-colors"
             >
               <Hash className="w-5 h-5" />
-              <span className="text-[10.5px] font-medium">标签</span>
+              <span className="text-[10.5px] font-medium">{t('randomWalk.tags')}</span>
             </button>
             <button
               data-testid="walk-edit"
@@ -689,7 +698,7 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
               className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-stone-500 hover:bg-stone-100 hover:text-baimiao-mysteria transition-colors"
             >
               <Pencil className="w-5 h-5" />
-              <span className="text-[10.5px] font-medium">编辑</span>
+              <span className="text-[10.5px] font-medium">{t('randomWalk.edit')}</span>
             </button>
             <button
               data-testid="walk-copy"
@@ -701,7 +710,7 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
               }`}
             >
               {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
-              <span className="text-[10.5px] font-medium">{copied ? '已复制' : '复制'}</span>
+              <span className="text-[10.5px] font-medium">{copied ? t('record.copied') : t('record.copyContent')}</span>
             </button>
             <button
               data-testid="walk-delete"
@@ -709,7 +718,7 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
               className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-stone-500 hover:bg-rose-50 hover:text-rose-500 transition-colors"
             >
               <Trash2 className="w-5 h-5" />
-              <span className="text-[10.5px] font-medium">删除</span>
+              <span className="text-[10.5px] font-medium">{t('randomWalk.delete')}</span>
             </button>
           </div>
           {/* 换一批 / 下一张 */}
@@ -720,7 +729,7 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
                 onClick={advance}
                 className="flex items-center gap-1 px-3 py-1 rounded-full text-[11.5px] font-medium text-stone-500 bg-stone-100 hover:bg-stone-200 transition-colors"
               >
-                下一张
+                {t('randomWalk.next')}
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
             )}
@@ -730,7 +739,7 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
               className="flex items-center gap-1 px-3 py-1 rounded-full text-[11.5px] font-medium text-baimiao-mysteria bg-baimiao-mysteria/8 hover:bg-baimiao-mysteria/12 transition-colors"
             >
               <Shuffle className="w-3.5 h-3.5" />
-              换一批
+              {t('randomWalk.shuffle')}
             </button>
           </div>
         </div>
@@ -752,7 +761,7 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-stone-100 shrink-0">
               <span className="text-[13.5px] font-semibold text-baimiao-mysteria font-serif baimiao-editorial-title">
-                标签 · {current.typeLabel}
+                {t('randomWalk.tagSheetTitle', { type: current.typeLabel })}
               </span>
               <button
                 onClick={() => {
@@ -787,7 +796,7 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
                   ))}
                 </div>
               ) : (
-                <p className="text-[12.5px] text-stone-400">暂无标签</p>
+                <p className="text-[12.5px] text-stone-400">{t('randomWalk.noTags')}</p>
               )}
 
               {canEditTags ? (
@@ -799,7 +808,7 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') handleAddTag();
                     }}
-                    placeholder="输入标签，如 工作/项目A"
+                    placeholder={t('randomWalk.tagPlaceholder')}
                     className="flex-1 bg-stone-50 border border-stone-200 rounded-lg px-3 py-1.5 text-[12.5px] text-stone-700 outline-none focus:border-baimiao-mysteria/40"
                   />
                   <button
@@ -809,16 +818,16 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
                     className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12.5px] font-medium text-white bg-baimiao-mysteria hover:brightness-110 transition-all disabled:opacity-40"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    添加
+                    {t('randomWalk.addTag')}
                   </button>
                 </div>
               ) : current.type === 'thoughts' ? (
                 <p className="text-[11px] text-stone-400 leading-relaxed">
-                  沉思标签来自正文中的 #标签，编辑正文即可修改。
+                  {t('randomWalk.thoughtsTagHint')}
                 </p>
               ) : (
                 <p className="text-[11px] text-stone-400 leading-relaxed">
-                  该记录类型暂不支持标签管理。
+                  {t('randomWalk.unsupportedTags')}
                 </p>
               )}
             </div>

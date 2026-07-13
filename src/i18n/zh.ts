@@ -26,6 +26,7 @@ export const zh: TranslationDict = {
   'layout.syncManual': '点击手动同步',
   'layout.tagManagement': '标签管理',
   'layout.copilot': '白描 Copilot',
+  'layout.syncError': '同步出错',
 
   // --- 自动生成通知 ---
   'notify.autoDiary': '已自动为您整理 {date} 的日记',
@@ -131,6 +132,7 @@ export const zh: TranslationDict = {
   'review.generating': '生成中...',
   'review.regenerate': '重新生成',
   'review.copy': '复制',
+  'review.copyContent': '复制内容',
   'review.copied': '已复制',
   'review.edit': '编辑',
   'review.save': '保存',
@@ -170,7 +172,7 @@ export const zh: TranslationDict = {
   'review.aiGeneratingStatsReflection': 'AI 正在为您生成统计回顾与反思…',
   'review.aiFollowup': 'AI 追问',
   'review.generateNow': '立即生成回顾',
-  'review.generateNReviews': '生成 {count} 篇回顾',
+  'review.generateNReviews': '生成 {count} 篇',
 
   // --- Thoughts 页 (沉思) ---
   'thoughts.title': '沉思',
@@ -512,4 +514,29 @@ export const zh: TranslationDict = {
   'dataType.tags': '标签定义',
   'dataType.tag_aliases': '标签别名',
   'dataType.attachments': '附件原文件',
+
+  // --- RandomWalk (随机漫步) ---
+  'randomWalk.title': '随机漫步',
+  'randomWalk.settingsTitle': '数据源与冷却期',
+  'randomWalk.dataSources': '数据源',
+  'randomWalk.cooldown': '冷却期',
+  'randomWalk.cooldownUnit': '天（已展示记录在此期内不重复出现）',
+  'randomWalk.loading': '加载中...',
+  'randomWalk.emptyTitle': '暂时没有新的记录了',
+  'randomWalk.emptyDesc': '已浏览完所有可漫步的记录。换一批重新抽取，或重置历史从头再来。',
+  'randomWalk.shuffle': '换一批',
+  'randomWalk.resetHistory': '重置历史',
+  'randomWalk.swipeHint': '左右滑动切换',
+  'randomWalk.read': '已阅',
+  'randomWalk.tags': '标签',
+  'randomWalk.edit': '编辑',
+  'randomWalk.delete': '删除',
+  'randomWalk.next': '下一张',
+  'randomWalk.tagSheetTitle': '标签 · {type}',
+  'randomWalk.noTags': '暂无标签',
+  'randomWalk.tagPlaceholder': '输入标签，如 工作/项目A',
+  'randomWalk.addTag': '添加',
+  'randomWalk.thoughtsTagHint': '沉思标签来自正文中的 #标签，编辑正文即可修改。',
+  'randomWalk.unsupportedTags': '该记录类型暂不支持标签管理。',
+  'randomWalk.confirmDelete': '确认删除这条记录吗？删除后不可恢复。',
 };

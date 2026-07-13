@@ -25,6 +25,7 @@ export const en: TranslationDict = {
   'layout.syncManual': 'Click to sync manually',
   'layout.tagManagement': 'Tag Management',
   'layout.copilot': 'Baimiao Copilot',
+  'layout.syncError': 'Sync error',
 
   // --- Auto-generated notifications ---
   'notify.autoDiary': 'Auto-generated diary for {date}',
@@ -130,6 +131,7 @@ export const en: TranslationDict = {
   'review.generating': 'Generating...',
   'review.regenerate': 'Regenerate',
   'review.copy': 'Copy',
+  'review.copyContent': 'Copy content',
   'review.copied': 'Copied',
   'review.edit': 'Edit',
   'review.save': 'Save',
@@ -169,7 +171,7 @@ export const en: TranslationDict = {
   'review.aiGeneratingStatsReflection': 'AI is generating your statistical review and reflection…',
   'review.aiFollowup': 'Ask AI',
   'review.generateNow': 'Generate review now',
-  'review.generateNReviews': 'Generate {count} reviews',
+  'review.generateNReviews': 'Generate {count}',
 
   // --- Thoughts page (Reflections) ---
   'thoughts.title': 'Reflections',
@@ -511,4 +513,29 @@ export const en: TranslationDict = {
   'dataType.tags': 'Tag definitions',
   'dataType.tag_aliases': 'Tag aliases',
   'dataType.attachments': 'Attachment files',
+
+  // --- RandomWalk ---
+  'randomWalk.title': 'Random Walk',
+  'randomWalk.settingsTitle': 'Data sources & cooldown',
+  'randomWalk.dataSources': 'Data sources',
+  'randomWalk.cooldown': 'Cooldown',
+  'randomWalk.cooldownUnit': 'days (shown records won\'t reappear during this period)',
+  'randomWalk.loading': 'Loading...',
+  'randomWalk.emptyTitle': 'No new records for now',
+  'randomWalk.emptyDesc': "You've walked through all available records. Shuffle for a new batch, or reset history to start over.",
+  'randomWalk.shuffle': 'Shuffle',
+  'randomWalk.resetHistory': 'Reset history',
+  'randomWalk.swipeHint': 'Swipe to switch',
+  'randomWalk.read': 'Read',
+  'randomWalk.tags': 'Tags',
+  'randomWalk.edit': 'Edit',
+  'randomWalk.delete': 'Delete',
+  'randomWalk.next': 'Next',
+  'randomWalk.tagSheetTitle': 'Tags · {type}',
+  'randomWalk.noTags': 'No tags',
+  'randomWalk.tagPlaceholder': 'Enter tag, e.g., Work/ProjectA',
+  'randomWalk.addTag': 'Add',
+  'randomWalk.thoughtsTagHint': 'Reflection tags come from #tags in the body. Edit the body to modify.',
+  'randomWalk.unsupportedTags': 'Tag management is not supported for this record type.',
+  'randomWalk.confirmDelete': 'Delete this record? This cannot be undone.',
 };
