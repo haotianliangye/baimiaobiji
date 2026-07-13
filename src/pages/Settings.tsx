@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning, Download, FileJson, FileText, MessageSquare, Volume2, Menu, Tags, Info, Database } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import TagManagement from './TagManagement';
-import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_MINGWU_PROMPT, DEFAULT_SUMMARY_PROMPT, DEFAULT_DIARY_SUMMARY_PROMPT, DEFAULT_INSIGHT_SUMMARY_PROMPT, DEFAULT_PROMPTS_BY_LANG, DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG, type Language } from '../store/settings.store';
+import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_MINGWU_PROMPT, DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT, DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT, DEFAULT_PROMPTS_BY_LANG, DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG, DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG, type Language } from '../store/settings.store';
 import { db, normalizeLegacyDiary, normalizeLegacyInsight } from '../db/db';
 import { enqueueAllMissingEmbeddings } from '../lib/embedding';
 import { checkStorageStatus, requestStoragePersistence, StorageEstimateInfo } from '../lib/storage';
@@ -49,15 +49,15 @@ export default function Settings() {
     reviewPromptIndex,
     reviewPromptNames,
     reviewSelectedIndices,
-    insightPrompt,
     insightPrompts,
-    insightPromptIndex,
-    mingwuPrompt,
     mingwuPrompts,
-    mingwuPromptIndex,
-    summaryPrompt,
-    diarySummaryPrompt,
-    insightSummaryPrompt,
+    // #008: 合并后的提示词字段
+    mingwuInsightPrompts,
+    mingwuInsightPromptNames,
+    mingwuInsightPromptIndex,
+    mingwuInsightSelectedIndices,
+    diaryReviewSummaryPrompt,
+    mingwuInsightSummaryPrompt,
     embedEnabled,
     embedProvider,
     embedApiKey,
@@ -308,22 +308,27 @@ export default function Settings() {
   });
   const [localReviewIndex, setLocalReviewIndex] = useState<number>(0);
 
-  const [localInsightPrompts, setLocalInsightPrompts] = useState<string[]>(() => {
-    if (insightPrompts && insightPrompts.length === 4) return [...insightPrompts];
-    return [insightPrompt || DEFAULT_INSIGHT_PROMPT, '', '', ''];
+  // #008: 合并后的「明悟和洞察生成 Prompt」（5 槽：明悟/洞察/自定义1/2/3）
+  const [localMingwuInsightPrompts, setLocalMingwuInsightPrompts] = useState<string[]>(() => {
+    if (mingwuInsightPrompts && mingwuInsightPrompts.length === 5) return [...mingwuInsightPrompts];
+    // 兼容迁移前：从旧 mingwuPrompts + insightPrompts 合并
+    const mw = mingwuPrompts && mingwuPrompts.length >= 1 ? mingwuPrompts : [DEFAULT_MINGWU_PROMPT, '', '', ''];
+    const ins = insightPrompts && insightPrompts.length >= 1 ? insightPrompts : [DEFAULT_INSIGHT_PROMPT, '', '', ''];
+    return [mw[0] || DEFAULT_MINGWU_PROMPT, ins[0] || DEFAULT_INSIGHT_PROMPT, mw[1] || ins[1] || '', mw[2] || ins[2] || '', mw[3] || ins[3] || ''];
   });
-  const [localInsightIndex, setLocalInsightIndex] = useState<number>(0);
-
-  // #8 明悟生成 Prompt（4 槽：默认 + 自定义1/2/3）
-  const [localMingwuPrompts, setLocalMingwuPrompts] = useState<string[]>(() => {
-    if (mingwuPrompts && mingwuPrompts.length === 4) return [...mingwuPrompts];
-    return [mingwuPrompt || DEFAULT_MINGWU_PROMPT, '', '', ''];
+  const [localMingwuInsightPromptNames, setLocalMingwuInsightPromptNames] = useState<string[]>(() => {
+    if (mingwuInsightPromptNames && mingwuInsightPromptNames.length === 5) return [...mingwuInsightPromptNames];
+    return [...DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG[language]];
   });
-  const [localMingwuIndex, setLocalMingwuIndex] = useState<number>(0);
+  const [localMingwuInsightSelectedIndices, setLocalMingwuInsightSelectedIndices] = useState<number[]>(() => {
+    if (mingwuInsightSelectedIndices && mingwuInsightSelectedIndices.length > 0) return [...mingwuInsightSelectedIndices];
+    return [0, 1];
+  });
+  const [localMingwuInsightIndex, setLocalMingwuInsightIndex] = useState<number>(0);
 
-  const [localSummaryPrompt, setLocalSummaryPrompt] = useState(summaryPrompt || DEFAULT_SUMMARY_PROMPT);
-  const [localDiarySummaryPrompt, setLocalDiarySummaryPrompt] = useState(diarySummaryPrompt || DEFAULT_DIARY_SUMMARY_PROMPT);
-  const [localInsightSummaryPrompt, setLocalInsightSummaryPrompt] = useState(insightSummaryPrompt || DEFAULT_INSIGHT_SUMMARY_PROMPT);
+  // #008: 合并后的摘要 Prompt
+  const [localDiaryReviewSummaryPrompt, setLocalDiaryReviewSummaryPrompt] = useState(diaryReviewSummaryPrompt || DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT);
+  const [localMingwuInsightSummaryPrompt, setLocalMingwuInsightSummaryPrompt] = useState(mingwuInsightSummaryPrompt || DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT);
 
   // #12: 语言切换后，从 store 重新加载本地 Prompt 状态（store 的 setLanguage 已切换 active 字段）
   useEffect(() => {
@@ -332,11 +337,12 @@ export default function Settings() {
     if (s.reviewPrompts && s.reviewPrompts.length === 5) setLocalReviewPrompts([...s.reviewPrompts]);
     if (s.reviewPromptNames && s.reviewPromptNames.length === 5) setLocalReviewPromptNames([...s.reviewPromptNames]);
     if (s.reviewSelectedIndices) setLocalReviewSelectedIndices([...s.reviewSelectedIndices]);
-    if (s.insightPrompts && s.insightPrompts.length === 4) setLocalInsightPrompts([...s.insightPrompts]);
-    if (s.mingwuPrompts && s.mingwuPrompts.length === 4) setLocalMingwuPrompts([...s.mingwuPrompts]);
-    setLocalSummaryPrompt(s.summaryPrompt || d.summary);
-    setLocalDiarySummaryPrompt(s.diarySummaryPrompt || d.diarySummary);
-    setLocalInsightSummaryPrompt(s.insightSummaryPrompt || d.insightSummary);
+    // #008: 合并后字段
+    if (s.mingwuInsightPrompts && s.mingwuInsightPrompts.length === 5) setLocalMingwuInsightPrompts([...s.mingwuInsightPrompts]);
+    if (s.mingwuInsightPromptNames && s.mingwuInsightPromptNames.length === 5) setLocalMingwuInsightPromptNames([...s.mingwuInsightPromptNames]);
+    if (s.mingwuInsightSelectedIndices) setLocalMingwuInsightSelectedIndices([...s.mingwuInsightSelectedIndices]);
+    setLocalDiaryReviewSummaryPrompt(s.diaryReviewSummaryPrompt || d.diaryReviewSummary);
+    setLocalMingwuInsightSummaryPrompt(s.mingwuInsightSummaryPrompt || d.mingwuInsightSummary);
   }, [language]);
 
   const [chatTestStatus, setChatTestStatus] = useState<'idle' | 'testing' | 'success' | 'fail'>('idle');
@@ -1325,7 +1331,7 @@ export default function Settings() {
                         className="text-[11px] text-stone-400 hover:text-red-500 flex items-center gap-0.5 transition-colors"
                       >
                         <RotateCcw className="w-3 h-3" />
-                        清空当前
+                        {t('settings.clearCurrent')}
                       </button>
                     )}
                   </div>
@@ -1334,7 +1340,7 @@ export default function Settings() {
                 {/* 自定义槽位（2/3/4）可改名 */}
                 {localReviewIndex >= 2 && (
                   <div className="flex items-center gap-2">
-                    <label className="text-[11px] text-stone-500 font-medium shrink-0">槽位名称</label>
+                    <label className="text-[11px] text-stone-500 font-medium shrink-0">{t('settings.slotName')}</label>
                     <input
                       type="text"
                       value={localReviewPromptNames[localReviewIndex]}
@@ -1343,14 +1349,14 @@ export default function Settings() {
                         next[localReviewIndex] = e.target.value;
                         setLocalReviewPromptNames(next);
                       }}
-                      placeholder="如：知识、决策、复盘"
+                      placeholder={t('settings.slotNamePlaceholder')}
                       className="flex-1 bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-2.5 py-1.5 rounded-lg text-[12.5px] text-stone-900 transition-all"
                     />
                   </div>
                 )}
 
                 <textarea
-                  placeholder={localReviewIndex < 2 ? '' : '请输入生成提示词...'}
+                  placeholder={localReviewIndex < 2 ? '' : t('settings.promptPlaceholder')}
                   value={localReviewPrompts[localReviewIndex] || ''}
                   readOnly={localReviewIndex < 2}
                   onChange={e => {
@@ -1369,8 +1375,8 @@ export default function Settings() {
                 {/* #5: 自动生成选中状态 - 每个槽位可勾选 */}
                 <div className="pt-2 border-t border-stone-100">
                   <div className="flex items-center gap-1.5 mb-2">
-                    <span className="text-[11px] font-semibold text-stone-500">自动生成选中</span>
-                    <span className="text-[10px] text-stone-400">（至少保留一项，默认选中日记+回顾）</span>
+                    <span className="text-[11px] font-semibold text-stone-500">{t('settings.autoGenSelected')}</span>
+                    <span className="text-[10px] text-stone-400">{t('settings.autoGenHint')}</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {localReviewPromptNames.map((name, idx) => {
@@ -1407,24 +1413,24 @@ export default function Settings() {
                 </div>
               </section>
 
-              {/* Card: 明悟生成 Prompt（#8） */}
+              {/* #008: 明悟和洞察生成 Prompt（合并原明悟+洞察，5 槽：明悟/洞察/自定义1/2/3） */}
               <section className="baimiao-card-diary p-4 space-y-3 overflow-hidden">
                 <div className="bg-[#f8f6fa] border-b border-stone-100/80 px-4 py-2 flex flex-col gap-2 -mx-4 -mt-4">
                   <div className="flex items-center justify-between">
                     <label className="flex items-center gap-1.5 text-[13px] font-bold text-stone-700 border-l-2 border-baimiao-mysteria pl-2">
                       <Settings2 className="w-4 h-4 text-baimiao-mysteria" />
-                      {t('settings.mingwuPromptTitle')}
+                      {t('settings.mingwuInsightPromptTitle')}
                     </label>
                   </div>
                   <div className="flex items-center justify-between">
-                    <div className="flex gap-0.5 items-center bg-[#f0edf4]/60 p-0.5 rounded-lg border border-stone-200/30">
-                      {[t('settings.promptDefault'), t('settings.promptCustom1'), t('settings.promptCustom2'), t('settings.promptCustom3')].map((label, idx) => (
+                    <div className="flex gap-0.5 items-center bg-[#f0edf4]/60 p-0.5 rounded-lg border border-stone-200/30 flex-wrap">
+                      {localMingwuInsightPromptNames.map((label, idx) => (
                         <button
                           key={idx}
                           type="button"
-                          onClick={() => setLocalMingwuIndex(idx)}
+                          onClick={() => setLocalMingwuInsightIndex(idx)}
                           className={`px-2 py-0.5 text-[10.5px] font-medium rounded transition-all active:scale-[0.93] shrink-0 ${
-                            localMingwuIndex === idx
+                            localMingwuInsightIndex === idx
                               ? 'bg-white text-baimiao-mysteria font-bold shadow-sm border border-stone-200/40'
                               : 'text-[#8a859e] hover:text-stone-600'
                           }`}
@@ -1433,174 +1439,147 @@ export default function Settings() {
                         </button>
                       ))}
                     </div>
-                    {localMingwuIndex !== 0 && (
+                    {localMingwuInsightIndex >= 2 && (
                       <button
                         type="button"
                         onClick={() => {
-                          const next = [...localMingwuPrompts];
-                          next[localMingwuIndex] = '';
-                          setLocalMingwuPrompts(next);
+                          const next = [...localMingwuInsightPrompts];
+                          next[localMingwuInsightIndex] = '';
+                          setLocalMingwuInsightPrompts(next);
                         }}
                         className="text-[11px] text-stone-400 hover:text-red-500 flex items-center gap-0.5 transition-colors"
                       >
                         <RotateCcw className="w-3 h-3" />
-                        清空当前
+                        {t('settings.clearCurrent')}
                       </button>
                     )}
                   </div>
                 </div>
+
+                {/* 自定义槽位（2/3/4）可改名 */}
+                {localMingwuInsightIndex >= 2 && (
+                  <div className="flex items-center gap-2">
+                    <label className="text-[11px] text-stone-500 font-medium shrink-0">{t('settings.slotName')}</label>
+                    <input
+                      type="text"
+                      value={localMingwuInsightPromptNames[localMingwuInsightIndex]}
+                      onChange={e => {
+                        const next = [...localMingwuInsightPromptNames];
+                        next[localMingwuInsightIndex] = e.target.value;
+                        setLocalMingwuInsightPromptNames(next);
+                      }}
+                      placeholder={t('settings.slotNamePlaceholder')}
+                      className="flex-1 bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-2.5 py-1.5 rounded-lg text-[12.5px] text-stone-900 transition-all"
+                    />
+                  </div>
+                )}
+
                 <textarea
-                  placeholder={localMingwuIndex === 0 ? '' : '请输入明悟生成提示词...'}
-                  value={localMingwuPrompts[localMingwuIndex]}
-                  readOnly={localMingwuIndex === 0}
+                  placeholder={localMingwuInsightIndex < 2 ? '' : t('settings.mingwuInsightPromptPlaceholder')}
+                  value={localMingwuInsightPrompts[localMingwuInsightIndex] || ''}
+                  readOnly={localMingwuInsightIndex < 2}
                   onChange={e => {
-                    if (localMingwuIndex === 0) return;
-                    const next = [...localMingwuPrompts];
-                    next[localMingwuIndex] = e.target.value;
-                    setLocalMingwuPrompts(next);
+                    if (localMingwuInsightIndex < 2) return;
+                    const next = [...localMingwuInsightPrompts];
+                    next[localMingwuInsightIndex] = e.target.value;
+                    setLocalMingwuInsightPrompts(next);
                   }}
-                  className={`w-full h-24 resize-none border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] transition-all font-mono leading-relaxed ${
-                    localMingwuIndex === 0
+                  className={`w-full h-28 resize-none border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] transition-all font-mono leading-relaxed ${
+                    localMingwuInsightIndex < 2
                       ? 'bg-stone-50 text-stone-400 border-dashed border-stone-200 cursor-not-allowed'
                       : 'bg-white text-stone-900 focus:bg-white'
                   }`}
                 />
-              </section>
 
-              {/* Card 3: 洞察生成 Prompt */}
-              <section className="baimiao-card-diary p-4 space-y-3 overflow-hidden">
-                <div className="bg-[#f8f6fa] border-b border-stone-100/80 px-4 py-2 flex flex-col gap-2 -mx-4 -mt-4">
-                  <div className="flex items-center justify-between">
-                    <label className="flex items-center gap-1.5 text-[13px] font-bold text-stone-700 border-l-2 border-baimiao-mysteria pl-2">
-                      <Settings2 className="w-4 h-4 text-baimiao-mysteria" />
-                      {t('settings.insightPromptTitle')}
-                    </label>
+                {/* #008: 自动生成选中状态 - 明悟/洞察/自定义槽位可勾选 */}
+                <div className="pt-2 border-t border-stone-100">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <span className="text-[11px] font-semibold text-stone-500">{t('settings.autoGenSelected')}</span>
+                    <span className="text-[10px] text-stone-400">{t('settings.autoGenHintMingwuInsight')}</span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex gap-0.5 items-center bg-[#f0edf4]/60 p-0.5 rounded-lg border border-stone-200/30">
-                      {[t('settings.promptDefault'), t('settings.promptCustom1'), t('settings.promptCustom2'), t('settings.promptCustom3')].map((label, idx) => (
-                        <button
+                  <div className="flex flex-wrap gap-2">
+                    {localMingwuInsightPromptNames.map((name, idx) => {
+                      const isSelected = localMingwuInsightSelectedIndices.includes(idx);
+                      const canToggle = !isSelected || localMingwuInsightSelectedIndices.length > 1;
+                      return (
+                        <label
                           key={idx}
-                          type="button"
-                          onClick={() => setLocalInsightIndex(idx)}
-                          className={`px-2 py-0.5 text-[10.5px] font-medium rounded transition-all active:scale-[0.93] shrink-0 ${
-                            localInsightIndex === idx
-                              ? 'bg-white text-baimiao-mysteria font-bold shadow-sm border border-stone-200/40'
-                              : 'text-[#8a859e] hover:text-stone-600'
-                          }`}
+                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer transition-all select-none ${
+                            isSelected
+                              ? 'bg-baimiao-mysteria/5 border-baimiao-mysteria/20 text-baimiao-mysteria'
+                              : 'bg-stone-50 border-stone-200/60 text-stone-400'
+                          } ${!canToggle ? 'opacity-60 cursor-not-allowed' : ''}`}
                         >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                    {localInsightIndex !== 0 && (
-                      <button 
-                        type="button"
-                        onClick={() => {
-                          const next = [...localInsightPrompts];
-                          next[localInsightIndex] = '';
-                          setLocalInsightPrompts(next);
-                        }}
-                        className="text-[11px] text-stone-400 hover:text-red-500 flex items-center gap-0.5 transition-colors"
-                      >
-                        <RotateCcw className="w-3 h-3" />
-                        清空当前
-                      </button>
-                    )}
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            disabled={!canToggle}
+                            onChange={() => {
+                              if (isSelected) {
+                                if (localMingwuInsightSelectedIndices.length <= 1) return;
+                                setLocalMingwuInsightSelectedIndices(localMingwuInsightSelectedIndices.filter(i => i !== idx));
+                              } else {
+                                setLocalMingwuInsightSelectedIndices([...localMingwuInsightSelectedIndices, idx].sort((a, b) => a - b));
+                              }
+                            }}
+                            className="w-3.5 h-3.5 rounded border-stone-300 text-baimiao-mysteria focus:ring-baimiao-mysteria/20 accent-baimiao-mysteria cursor-pointer"
+                          />
+                          <span className="text-[11.5px] font-medium">{name}</span>
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
-                <textarea
-                  placeholder={localInsightIndex === 0 ? '' : '请输入洞察生成提示词...'}
-                  value={localInsightPrompts[localInsightIndex]}
-                  readOnly={localInsightIndex === 0}
-                  onChange={e => {
-                    if (localInsightIndex === 0) return;
-                    const next = [...localInsightPrompts];
-                    next[localInsightIndex] = e.target.value;
-                    setLocalInsightPrompts(next);
-                  }}
-                  className={`w-full h-24 resize-none border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] transition-all font-mono leading-relaxed ${
-                    localInsightIndex === 0
-                      ? 'bg-stone-50 text-stone-400 border-dashed border-stone-200 cursor-not-allowed'
-                      : 'bg-white text-stone-900 focus:bg-white'
-                  }`}
-                />
               </section>
 
-              {/* Card 4: 日记一句话摘要生成 Prompt */}
+              {/* #008: 日记回顾一句话摘要生成 Prompt（合并原日记摘要+回顾摘要） */}
               <section className="baimiao-card-diary p-4 space-y-3 overflow-hidden">
                 <div className="bg-[#f8f6fa] border-b border-stone-100/80 px-4 py-2.5 -mx-4 -mt-4 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0 border-l-2 border-baimiao-mysteria pl-2">
                     <label className="flex items-center gap-1.5 text-[13px] font-bold text-stone-700">
                       <Settings2 className="w-4 h-4 text-baimiao-mysteria" />
-                      {t('settings.diarySummaryPromptTitle')}
+                      {t('settings.diaryReviewSummaryPromptTitle')}
                     </label>
                   </div>
-                  <button 
+                  <button
                     type="button"
-                    onClick={() => setLocalDiarySummaryPrompt(DEFAULT_DIARY_SUMMARY_PROMPT)}
+                    onClick={() => setLocalDiaryReviewSummaryPrompt(DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT)}
                     className="text-[11px] text-stone-400 hover:text-red-500 flex items-center gap-1 transition-colors"
                   >
                     <RotateCcw className="w-3 h-3" />
-                    恢复默认
+                    {t('settings.restoreDefault')}
                   </button>
                 </div>
                 <textarea
-                  placeholder="请输入日记摘要生成提示词..."
-                  value={localDiarySummaryPrompt}
-                  onChange={e => setLocalDiarySummaryPrompt(e.target.value)}
+                  placeholder={t('settings.diaryReviewSummaryPlaceholder')}
+                  value={localDiaryReviewSummaryPrompt}
+                  onChange={e => setLocalDiaryReviewSummaryPrompt(e.target.value)}
                   className="w-full h-24 resize-none bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] text-stone-900 placeholder:text-stone-400 transition-all font-mono leading-relaxed focus:bg-white"
                 />
               </section>
 
-              {/* Card 5: 回顾一句话摘要生成 Prompt */}
+              {/* #008: 明悟和洞察一句话摘要生成 Prompt（由原洞察摘要扩展，补明悟默认摘要） */}
               <section className="baimiao-card-diary p-4 space-y-3 overflow-hidden">
                 <div className="bg-[#f8f6fa] border-b border-stone-100/80 px-4 py-2.5 -mx-4 -mt-4 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0 border-l-2 border-baimiao-mysteria pl-2">
                     <label className="flex items-center gap-1.5 text-[13px] font-bold text-stone-700">
                       <Settings2 className="w-4 h-4 text-baimiao-mysteria" />
-                      {t('settings.reviewSummaryPromptTitle')}
+                      {t('settings.mingwuInsightSummaryPromptTitle')}
                     </label>
                   </div>
-                  <button 
+                  <button
                     type="button"
-                    onClick={() => setLocalSummaryPrompt(DEFAULT_SUMMARY_PROMPT)}
+                    onClick={() => setLocalMingwuInsightSummaryPrompt(DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT)}
                     className="text-[11px] text-stone-400 hover:text-red-500 flex items-center gap-1 transition-colors"
                   >
                     <RotateCcw className="w-3 h-3" />
-                    恢复默认
+                    {t('settings.restoreDefault')}
                   </button>
                 </div>
                 <textarea
-                  placeholder="请输入摘要生成提示词..."
-                  value={localSummaryPrompt}
-                  onChange={e => setLocalSummaryPrompt(e.target.value)}
-                  className="w-full h-24 resize-none bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] text-stone-900 placeholder:text-stone-400 transition-all font-mono leading-relaxed focus:bg-white"
-                />
-              </section>
-
-              {/* Card 6: 洞察一句话摘要生成 Prompt */}
-              <section className="baimiao-card-diary p-4 space-y-3 overflow-hidden">
-                <div className="bg-[#f8f6fa] border-b border-stone-100/80 px-4 py-2.5 -mx-4 -mt-4 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0 border-l-2 border-baimiao-mysteria pl-2">
-                    <label className="flex items-center gap-1.5 text-[13px] font-bold text-stone-700">
-                      <Settings2 className="w-4 h-4 text-baimiao-mysteria" />
-                      {t('settings.insightSummaryPromptTitle')}
-                    </label>
-                  </div>
-                  <button 
-                    type="button"
-                    onClick={() => setLocalInsightSummaryPrompt(DEFAULT_INSIGHT_SUMMARY_PROMPT)}
-                    className="text-[11px] text-stone-400 hover:text-red-500 flex items-center gap-1 transition-colors"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    恢复默认
-                  </button>
-                </div>
-                <textarea
-                  placeholder="请输入洞察摘要生成提示词..."
-                  value={localInsightSummaryPrompt}
-                  onChange={e => setLocalInsightSummaryPrompt(e.target.value)}
+                  placeholder={t('settings.mingwuInsightSummaryPlaceholder')}
+                  value={localMingwuInsightSummaryPrompt}
+                  onChange={e => setLocalMingwuInsightSummaryPrompt(e.target.value)}
                   className="w-full h-24 resize-none bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] text-stone-900 placeholder:text-stone-400 transition-all font-mono leading-relaxed focus:bg-white"
                 />
               </section>
@@ -2511,16 +2490,14 @@ export default function Settings() {
                 reviewSelectedIndices: localReviewSelectedIndices,
                 reviewPromptIndex: localReviewIndex,
                 reviewPrompt: localReviewPrompts[localReviewIndex],
-                insightPrompts: localInsightPrompts,
-                insightPromptIndex: localInsightIndex,
-                insightPrompt: localInsightPrompts[localInsightIndex],
-                // #8 明悟生成 Prompt
-                mingwuPrompts: localMingwuPrompts,
-                mingwuPromptIndex: localMingwuIndex,
-                mingwuPrompt: localMingwuPrompts[localMingwuIndex],
-                summaryPrompt: localSummaryPrompt,
-                diarySummaryPrompt: localDiarySummaryPrompt,
-                insightSummaryPrompt: localInsightSummaryPrompt,
+                // #008: 合并后字段（store setSettings 会反向同步旧 insightPrompts/mingwuPrompts/summary 等只读兼容字段）
+                mingwuInsightPrompts: localMingwuInsightPrompts,
+                mingwuInsightPromptNames: localMingwuInsightPromptNames,
+                mingwuInsightSelectedIndices: localMingwuInsightSelectedIndices,
+                mingwuInsightPromptIndex: localMingwuInsightIndex,
+                mingwuInsightPrompt: localMingwuInsightPrompts[localMingwuInsightIndex],
+                diaryReviewSummaryPrompt: localDiaryReviewSummaryPrompt,
+                mingwuInsightSummaryPrompt: localMingwuInsightSummaryPrompt,
                 syncEnabled: localSyncEnabled,
                 syncProvider: localSyncProvider,
                 syncEndpoint: localSyncEndpoint,

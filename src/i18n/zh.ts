@@ -324,6 +324,16 @@ export const zh: TranslationDict = {
   'settings.restoreDefault': '恢复默认',
   'settings.autoGenSelected': '自动生成选中',
   'settings.autoGenHint': '（至少保留一项，默认选中日记+回顾）',
+  // #008: 合并后的提示词配置区块
+  'settings.mingwuInsightPromptTitle': '明悟和洞察生成 Prompt',
+  'settings.diaryReviewSummaryPromptTitle': '日记回顾一句话摘要生成 Prompt',
+  'settings.mingwuInsightSummaryPromptTitle': '明悟和洞察一句话摘要生成 Prompt',
+  'settings.promptMingwu': '明悟',
+  'settings.promptInsight': '洞察',
+  'settings.mingwuInsightPromptPlaceholder': '请输入明悟/洞察生成提示词...',
+  'settings.diaryReviewSummaryPlaceholder': '请输入日记回顾摘要生成提示词...',
+  'settings.mingwuInsightSummaryPlaceholder': '请输入明悟/洞察摘要生成提示词...',
+  'settings.autoGenHintMingwuInsight': '（至少保留一项，默认选中明悟+洞察）',
 
   // Settings - Data tab
   'settings.storageProtection': '本地存储保护',

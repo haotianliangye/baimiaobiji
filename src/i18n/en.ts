@@ -323,6 +323,16 @@ export const en: TranslationDict = {
   'settings.restoreDefault': 'Restore default',
   'settings.autoGenSelected': 'Auto-generate selected',
   'settings.autoGenHint': '(keep at least one; defaults to Diary + Review)',
+  // #008: Merged prompt config sections
+  'settings.mingwuInsightPromptTitle': 'Awakening & Insight Generation Prompt',
+  'settings.diaryReviewSummaryPromptTitle': 'Diary & Review Summary Prompt',
+  'settings.mingwuInsightSummaryPromptTitle': 'Awakening & Insight Summary Prompt',
+  'settings.promptMingwu': 'Awakening',
+  'settings.promptInsight': 'Insight',
+  'settings.mingwuInsightPromptPlaceholder': 'Enter awakening/insight generation prompt...',
+  'settings.diaryReviewSummaryPlaceholder': 'Enter diary & review summary prompt...',
+  'settings.mingwuInsightSummaryPlaceholder': 'Enter awakening/insight summary prompt...',
+  'settings.autoGenHintMingwuInsight': '(keep at least one; defaults to Awakening + Insight)',
 
   // Settings - Data tab
   'settings.storageProtection': 'Local storage protection',

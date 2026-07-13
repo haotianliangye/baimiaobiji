@@ -104,6 +104,10 @@ export const DEFAULT_MINGWU_PROMPT = `你是一位兼具东方哲学智慧与现
 export const DEFAULT_SUMMARY_PROMPT = `你是一个用于生成一句话回顾摘要的助手。请根据提供的文本，生成一句简短、优美、富有诗意的中文摘要（不超过30个字）。`;
 export const DEFAULT_DIARY_SUMMARY_PROMPT = `你是一个用于生成一句话日记摘要的助手。请根据提供的日记文本，生成一句简短、优美、富有诗意的中文摘要（不超过30个字）。`;
 export const DEFAULT_INSIGHT_SUMMARY_PROMPT = `你是一个用于生成一句话洞察摘要的助手。请根据提供的洞察报告文本，生成一句简短、优美、富有诗意的中文摘要（不超过30个字）。`;
+// #008: 合并后的「日记回顾一句话摘要」默认 Prompt（合并原日记摘要 + 回顾摘要）
+export const DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT = `你是一个用于生成一句话日记/回顾摘要的助手。请根据提供的日记或回顾文本，生成一句简短、优美、富有诗意的中文摘要（不超过30个字）。`;
+// #008: 合并后的「明悟和洞察一句话摘要」默认 Prompt（由原洞察摘要扩展，补充明悟默认摘要）
+export const DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT = `你是一个用于生成一句话明悟/洞察摘要的助手。请根据提供的明悟或洞察报告文本，生成一句简短、优美、富有诗意的中文摘要（不超过30个字）。`;
 
 // --- #12 English default prompts (for en language) ---
 export const DEFAULT_DIARY_PROMPT_EN = `You are a recording assistant that strictly follows the Lyubishchev time-management method. Please organize all the scattered fragment records I provide for the day into a standard Lyubishchev-style daily diary.
@@ -207,6 +211,10 @@ Output format guidelines:
 export const DEFAULT_SUMMARY_PROMPT_EN = `You are an assistant for generating a one-sentence review summary. Based on the provided text, generate a short, elegant, and poetic summary (no more than 20 words).`;
 export const DEFAULT_DIARY_SUMMARY_PROMPT_EN = `You are an assistant for generating a one-sentence diary summary. Based on the provided diary text, generate a short, elegant, and poetic summary (no more than 20 words).`;
 export const DEFAULT_INSIGHT_SUMMARY_PROMPT_EN = `You are an assistant for generating a one-sentence insight summary. Based on the provided insight report text, generate a short, elegant, and poetic summary (no more than 20 words).`;
+// #008: Merged "Diary & Review Summary" default prompt
+export const DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT_EN = `You are an assistant for generating a one-sentence diary/review summary. Based on the provided diary or review text, generate a short, elegant, and poetic summary (no more than 20 words).`;
+// #008: Merged "Awakening & Insight Summary" default prompt (expanded from insight summary, adds awakening default)
+export const DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT_EN = `You are an assistant for generating a one-sentence awakening/insight summary. Based on the provided awakening or insight report text, generate a short, elegant, and poetic summary (no more than 20 words).`;
 
 // #12 Per-language default prompt maps
 export const DEFAULT_PROMPTS_BY_LANG = {
@@ -219,6 +227,9 @@ export const DEFAULT_PROMPTS_BY_LANG = {
     summary: DEFAULT_SUMMARY_PROMPT,
     diarySummary: DEFAULT_DIARY_SUMMARY_PROMPT,
     insightSummary: DEFAULT_INSIGHT_SUMMARY_PROMPT,
+    // #008: 合并后的摘要默认值
+    diaryReviewSummary: DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT,
+    mingwuInsightSummary: DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT,
   },
   en: {
     diary: DEFAULT_DIARY_PROMPT_EN,
@@ -229,6 +240,9 @@ export const DEFAULT_PROMPTS_BY_LANG = {
     summary: DEFAULT_SUMMARY_PROMPT_EN,
     diarySummary: DEFAULT_DIARY_SUMMARY_PROMPT_EN,
     insightSummary: DEFAULT_INSIGHT_SUMMARY_PROMPT_EN,
+    // #008: 合并后的摘要默认值
+    diaryReviewSummary: DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT_EN,
+    mingwuInsightSummary: DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT_EN,
   },
 } as const;
 
@@ -248,6 +262,12 @@ export const DEFAULT_MINGWU_PROMPT_SLOT_LABELS_BY_LANG: Record<Language, string[
 export const DEFAULT_INSIGHT_PROMPT_SLOT_LABELS_BY_LANG: Record<Language, string[]> = {
   zh: ['默认', '自定义 1', '自定义 2', '自定义 3'],
   en: ['Default', 'Custom 1', 'Custom 2', 'Custom 3'],
+};
+
+// #008: 合并后的「明悟和洞察生成 Prompt」5 槽标签（明悟/洞察/自定义1/2/3）
+export const DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG: Record<Language, string[]> = {
+  zh: ['明悟', '洞察', '自定义 1', '自定义 2', '自定义 3'],
+  en: ['Awakening', 'Insight', 'Custom 1', 'Custom 2', 'Custom 3'],
 };
 
 const DEFAULT_PROVIDER_CONFIGS: Record<string, { apiKey: string; baseUrl: string; model: string }> = {
@@ -312,7 +332,18 @@ interface SettingsState {
   summaryPrompt: string;
   diarySummaryPrompt: string;
   insightSummaryPrompt: string;
-  
+  // #008: 合并后的「明悟和洞察生成 Prompt」（5 槽：明悟/洞察/自定义1/2/3）
+  // 旧 mingwuPrompt/mingwuPrompts 与 insightPrompt/insightPrompts 保留只读兼容，
+  // 由本字段派生同步（slot 0=明悟, slot 1=洞察, slot 2-4=共享自定义）。
+  mingwuInsightPrompts: string[];
+  mingwuInsightPromptNames: string[];
+  mingwuInsightPromptIndex: number;
+  mingwuInsightSelectedIndices: number[];
+  mingwuInsightPrompt: string;
+  // #008: 合并后的摘要 Prompt（旧 summaryPrompt/diarySummaryPrompt/insightSummaryPrompt 保留只读兼容）
+  diaryReviewSummaryPrompt: string;
+  mingwuInsightSummaryPrompt: string;
+
   // 云同步配置
   syncEnabled: boolean;
   syncProvider: 'webdav' | 'onedrive' | 'gdrive' | 'dropbox';
@@ -362,6 +393,11 @@ interface SettingsState {
   summaryPromptByLang: Record<Language, string>;
   diarySummaryPromptByLang: Record<Language, string>;
   insightSummaryPromptByLang: Record<Language, string>;
+  // #008: 合并后字段的 per-language 存储
+  mingwuInsightPromptsByLang: Record<Language, string[]>;
+  mingwuInsightPromptNamesByLang: Record<Language, string[]>;
+  diaryReviewSummaryPromptByLang: Record<Language, string>;
+  mingwuInsightSummaryPromptByLang: Record<Language, string>;
 
   setSettings: (settings: Partial<SettingsState>) => void;
   setLanguage: (lang: Language) => void;
@@ -394,6 +430,15 @@ export const useSettingsStore = create<SettingsState>()(
       summaryPrompt: DEFAULT_SUMMARY_PROMPT,
       diarySummaryPrompt: DEFAULT_DIARY_SUMMARY_PROMPT,
       insightSummaryPrompt: DEFAULT_INSIGHT_SUMMARY_PROMPT,
+      // #008: 合并后的「明悟和洞察生成 Prompt」（5 槽：明悟/洞察/自定义1/2/3）
+      mingwuInsightPrompts: [DEFAULT_MINGWU_PROMPT, DEFAULT_INSIGHT_PROMPT, '', '', ''],
+      mingwuInsightPromptNames: [...DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG.zh],
+      mingwuInsightPromptIndex: 0,
+      mingwuInsightSelectedIndices: [0, 1],
+      mingwuInsightPrompt: DEFAULT_MINGWU_PROMPT,
+      // #008: 合并后的摘要 Prompt
+      diaryReviewSummaryPrompt: DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT,
+      mingwuInsightSummaryPrompt: DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT,
 
       // 云同步配置默认值
       syncEnabled: false,
@@ -464,6 +509,23 @@ export const useSettingsStore = create<SettingsState>()(
         zh: DEFAULT_INSIGHT_SUMMARY_PROMPT,
         en: DEFAULT_INSIGHT_SUMMARY_PROMPT_EN,
       },
+      // #008: 合并后字段的 per-language 默认值
+      mingwuInsightPromptsByLang: {
+        zh: [DEFAULT_MINGWU_PROMPT, DEFAULT_INSIGHT_PROMPT, '', '', ''],
+        en: [DEFAULT_MINGWU_PROMPT_EN, DEFAULT_INSIGHT_PROMPT_EN, '', '', ''],
+      },
+      mingwuInsightPromptNamesByLang: {
+        zh: [...DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG.zh],
+        en: [...DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG.en],
+      },
+      diaryReviewSummaryPromptByLang: {
+        zh: DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT,
+        en: DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT_EN,
+      },
+      mingwuInsightSummaryPromptByLang: {
+        zh: DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT,
+        en: DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT_EN,
+      },
 
       setLanguage: (lang) => set((state) => {
         if (lang === state.language) return state;
@@ -479,6 +541,11 @@ export const useSettingsStore = create<SettingsState>()(
         const summaryPromptByLang = { ...state.summaryPromptByLang };
         const diarySummaryPromptByLang = { ...state.diarySummaryPromptByLang };
         const insightSummaryPromptByLang = { ...state.insightSummaryPromptByLang };
+        // #008: 合并后字段的 per-language
+        const mingwuInsightPromptsByLang = { ...state.mingwuInsightPromptsByLang };
+        const mingwuInsightPromptNamesByLang = { ...state.mingwuInsightPromptNamesByLang };
+        const diaryReviewSummaryPromptByLang = { ...state.diaryReviewSummaryPromptByLang };
+        const mingwuInsightSummaryPromptByLang = { ...state.mingwuInsightSummaryPromptByLang };
 
         reviewPromptsByLang[oldLang] = [...state.reviewPrompts];
         reviewPromptNamesByLang[oldLang] = [...state.reviewPromptNames];
@@ -487,6 +554,10 @@ export const useSettingsStore = create<SettingsState>()(
         summaryPromptByLang[oldLang] = state.summaryPrompt;
         diarySummaryPromptByLang[oldLang] = state.diarySummaryPrompt;
         insightSummaryPromptByLang[oldLang] = state.insightSummaryPrompt;
+        mingwuInsightPromptsByLang[oldLang] = [...state.mingwuInsightPrompts];
+        mingwuInsightPromptNamesByLang[oldLang] = [...state.mingwuInsightPromptNames];
+        diaryReviewSummaryPromptByLang[oldLang] = state.diaryReviewSummaryPrompt;
+        mingwuInsightSummaryPromptByLang[oldLang] = state.mingwuInsightSummaryPrompt;
 
         // Load *ByLang[lang] into active fields (initialize if missing)
         const newReviewPrompts = reviewPromptsByLang[lang] || [dNew.diary, dNew.review, '', '', ''];
@@ -496,6 +567,11 @@ export const useSettingsStore = create<SettingsState>()(
         const newSummaryPrompt = summaryPromptByLang[lang] || dNew.summary;
         const newDiarySummaryPrompt = diarySummaryPromptByLang[lang] || dNew.diarySummary;
         const newInsightSummaryPrompt = insightSummaryPromptByLang[lang] || dNew.insightSummary;
+        // #008: 合并后字段加载
+        const newMingwuInsightPrompts = mingwuInsightPromptsByLang[lang] || [dNew.mingwu, dNew.insight, '', '', ''];
+        const newMingwuInsightPromptNames = mingwuInsightPromptNamesByLang[lang] || [...DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG[lang]];
+        const newDiaryReviewSummaryPrompt = diaryReviewSummaryPromptByLang[lang] || dNew.diaryReviewSummary;
+        const newMingwuInsightSummaryPrompt = mingwuInsightSummaryPromptByLang[lang] || dNew.mingwuInsightSummary;
 
         // Ensure default slots are always the correct language default
         newReviewPrompts[0] = dNew.diary;
@@ -504,6 +580,11 @@ export const useSettingsStore = create<SettingsState>()(
         newReviewPromptNames[1] = DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG[lang][1];
         newMingwuPrompts[0] = dNew.mingwu;
         newInsightPrompts[0] = dNew.insight;
+        // #008: 明悟/洞察默认槽位固定为对应语言默认 Prompt
+        newMingwuInsightPrompts[0] = dNew.mingwu;
+        newMingwuInsightPrompts[1] = dNew.insight;
+        newMingwuInsightPromptNames[0] = DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG[lang][0];
+        newMingwuInsightPromptNames[1] = DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG[lang][1];
 
         // Sync active fields
         reviewPromptsByLang[lang] = newReviewPrompts;
@@ -513,6 +594,10 @@ export const useSettingsStore = create<SettingsState>()(
         summaryPromptByLang[lang] = newSummaryPrompt;
         diarySummaryPromptByLang[lang] = newDiarySummaryPrompt;
         insightSummaryPromptByLang[lang] = newInsightSummaryPrompt;
+        mingwuInsightPromptsByLang[lang] = newMingwuInsightPrompts;
+        mingwuInsightPromptNamesByLang[lang] = newMingwuInsightPromptNames;
+        diaryReviewSummaryPromptByLang[lang] = newDiaryReviewSummaryPrompt;
+        mingwuInsightSummaryPromptByLang[lang] = newMingwuInsightSummaryPrompt;
 
         return {
           ...state,
@@ -527,6 +612,12 @@ export const useSettingsStore = create<SettingsState>()(
           summaryPrompt: newSummaryPrompt,
           diarySummaryPrompt: newDiarySummaryPrompt,
           insightSummaryPrompt: newInsightSummaryPrompt,
+          // #008: 合并后字段切换语言
+          mingwuInsightPrompts: newMingwuInsightPrompts,
+          mingwuInsightPromptNames: newMingwuInsightPromptNames,
+          mingwuInsightPrompt: newMingwuInsightPrompts[state.mingwuInsightPromptIndex] || newMingwuInsightPrompts[0],
+          diaryReviewSummaryPrompt: newDiaryReviewSummaryPrompt,
+          mingwuInsightSummaryPrompt: newMingwuInsightSummaryPrompt,
           // diaryPrompts (legacy Copilot)：slot 0 随语言切换为默认日记槽；
           // slot 1-3 保留用户自定义内容（可能为旧语言）——该字段是 Copilot 旧逻辑遗留，
           // 未纳入 per-language 管理，以避免覆盖用户自定义。如需完全切换语言，
@@ -540,6 +631,10 @@ export const useSettingsStore = create<SettingsState>()(
           summaryPromptByLang,
           diarySummaryPromptByLang,
           insightSummaryPromptByLang,
+          mingwuInsightPromptsByLang,
+          mingwuInsightPromptNamesByLang,
+          diaryReviewSummaryPromptByLang,
+          mingwuInsightSummaryPromptByLang,
         };
       }),
 
@@ -639,6 +734,11 @@ export const useSettingsStore = create<SettingsState>()(
          const summaryPromptByLang = { ...nextState.summaryPromptByLang };
          const diarySummaryPromptByLang = { ...nextState.diarySummaryPromptByLang };
          const insightSummaryPromptByLang = { ...nextState.insightSummaryPromptByLang };
+         // #008: 合并后字段的 per-language
+         const mingwuInsightPromptsByLang = { ...nextState.mingwuInsightPromptsByLang };
+         const mingwuInsightPromptNamesByLang = { ...nextState.mingwuInsightPromptNamesByLang };
+         const diaryReviewSummaryPromptByLang = { ...nextState.diaryReviewSummaryPromptByLang };
+         const mingwuInsightSummaryPromptByLang = { ...nextState.mingwuInsightSummaryPromptByLang };
          reviewPromptsByLang[curLang] = [...nextState.reviewPrompts];
          reviewPromptNamesByLang[curLang] = [...nextState.reviewPromptNames];
          mingwuPromptsByLang[curLang] = [...nextState.mingwuPrompts];
@@ -646,6 +746,10 @@ export const useSettingsStore = create<SettingsState>()(
          summaryPromptByLang[curLang] = nextState.summaryPrompt;
          diarySummaryPromptByLang[curLang] = nextState.diarySummaryPrompt;
          insightSummaryPromptByLang[curLang] = nextState.insightSummaryPrompt;
+         mingwuInsightPromptsByLang[curLang] = [...nextState.mingwuInsightPrompts];
+         mingwuInsightPromptNamesByLang[curLang] = [...nextState.mingwuInsightPromptNames];
+         diaryReviewSummaryPromptByLang[curLang] = nextState.diaryReviewSummaryPrompt;
+         mingwuInsightSummaryPromptByLang[curLang] = nextState.mingwuInsightSummaryPrompt;
          nextState.reviewPromptsByLang = reviewPromptsByLang;
          nextState.reviewPromptNamesByLang = reviewPromptNamesByLang;
          nextState.mingwuPromptsByLang = mingwuPromptsByLang;
@@ -653,13 +757,42 @@ export const useSettingsStore = create<SettingsState>()(
          nextState.summaryPromptByLang = summaryPromptByLang;
          nextState.diarySummaryPromptByLang = diarySummaryPromptByLang;
          nextState.insightSummaryPromptByLang = insightSummaryPromptByLang;
+         nextState.mingwuInsightPromptsByLang = mingwuInsightPromptsByLang;
+         nextState.mingwuInsightPromptNamesByLang = mingwuInsightPromptNamesByLang;
+         nextState.diaryReviewSummaryPromptByLang = diaryReviewSummaryPromptByLang;
+         nextState.mingwuInsightSummaryPromptByLang = mingwuInsightSummaryPromptByLang;
+
+         // #008: 从合并后字段反向同步旧字段（保留旧字段只读兼容，供生成调度读取）
+         // mingwuInsightPrompts: slot 0=明悟, slot 1=洞察, slot 2-4=共享自定义
+         if (nextState.mingwuInsightPrompts && nextState.mingwuInsightPrompts.length >= 2) {
+           const mi = [...nextState.mingwuInsightPrompts];
+           while (mi.length < 5) mi.push('');
+           nextState.mingwuPrompt = mi[0];
+           nextState.insightPrompt = mi[1];
+           // 旧 4 槽 mingwuPrompts = [明悟, custom1, custom2, custom3]
+           nextState.mingwuPrompts = [mi[0], mi[2] || '', mi[3] || '', mi[4] || ''];
+           // 旧 4 槽 insightPrompts = [洞察, custom1, custom2, custom3]
+           nextState.insightPrompts = [mi[1], mi[2] || '', mi[3] || '', mi[4] || ''];
+           nextState.mingwuPromptIndex = 0;
+           nextState.insightPromptIndex = 0;
+           nextState.mingwuInsightPrompt = mi[nextState.mingwuInsightPromptIndex] || mi[0];
+         }
+         // 摘要合并：diaryReviewSummaryPrompt -> diarySummaryPrompt + summaryPrompt
+         if (nextState.diaryReviewSummaryPrompt !== undefined) {
+           nextState.diarySummaryPrompt = nextState.diaryReviewSummaryPrompt;
+           nextState.summaryPrompt = nextState.diaryReviewSummaryPrompt;
+         }
+         // mingwuInsightSummaryPrompt -> insightSummaryPrompt（服务端用此字段生成明悟+洞察摘要）
+         if (nextState.mingwuInsightSummaryPrompt !== undefined) {
+           nextState.insightSummaryPrompt = nextState.mingwuInsightSummaryPrompt;
+         }
 
          return nextState;
       }),
     }),
     {
         name: 'whitewash-settings',
-        version: 11,
+        version: 12,
         partialize: (state) => {
           const { syncPassword, syncPasswordE2EE, ...rest } = state;
           if (state.syncRememberCredentials) {
@@ -815,6 +948,88 @@ export const useSettingsStore = create<SettingsState>()(
               en: DEFAULT_INSIGHT_SUMMARY_PROMPT_EN,
             };
           }
+
+          // --- #008: 合并后字段防污染与初始化 ---
+          // mingwuInsightPrompts: 5 槽（明悟/洞察/自定义1/2/3），slot 0/1 固定默认
+          if (!merged.mingwuInsightPrompts || merged.mingwuInsightPrompts.length < 5) {
+            const padded = merged.mingwuInsightPrompts ? [...merged.mingwuInsightPrompts] : [];
+            while (padded.length < 5) padded.push('');
+            merged.mingwuInsightPrompts = padded;
+          }
+          merged.mingwuInsightPrompts[0] = dMerge.mingwu;
+          merged.mingwuInsightPrompts[1] = dMerge.insight;
+          // mingwuInsightPromptNames: 5 槽名称，slot 0/1 固定
+          if (!merged.mingwuInsightPromptNames || merged.mingwuInsightPromptNames.length < 5) {
+            merged.mingwuInsightPromptNames = [...DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG[mergeLang]];
+          } else {
+            merged.mingwuInsightPromptNames[0] = DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG[mergeLang][0];
+            merged.mingwuInsightPromptNames[1] = DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG[mergeLang][1];
+          }
+          // mingwuInsightSelectedIndices 默认选中「明悟+洞察」
+          if (!merged.mingwuInsightSelectedIndices || merged.mingwuInsightSelectedIndices.length === 0) {
+            merged.mingwuInsightSelectedIndices = [0, 1];
+          }
+          if (merged.mingwuInsightPromptIndex === undefined) {
+            merged.mingwuInsightPromptIndex = 0;
+          }
+          // 摘要合并字段默认值
+          if (!merged.diaryReviewSummaryPrompt) {
+            merged.diaryReviewSummaryPrompt = dMerge.diaryReviewSummary;
+          }
+          if (!merged.mingwuInsightSummaryPrompt) {
+            merged.mingwuInsightSummaryPrompt = dMerge.mingwuInsightSummary;
+          }
+          merged.mingwuInsightPrompt = merged.mingwuInsightPrompts[merged.mingwuInsightPromptIndex] || merged.mingwuInsightPrompts[0];
+
+          // 初始化合并后字段的 *ByLang（如果缺失）
+          if (!merged.mingwuInsightPromptsByLang) {
+            merged.mingwuInsightPromptsByLang = {
+              zh: [...(merged.mingwuInsightPrompts || [DEFAULT_MINGWU_PROMPT, DEFAULT_INSIGHT_PROMPT, '', '', ''])],
+              en: [DEFAULT_MINGWU_PROMPT_EN, DEFAULT_INSIGHT_PROMPT_EN, '', '', ''],
+            };
+          }
+          if (!merged.mingwuInsightPromptNamesByLang) {
+            merged.mingwuInsightPromptNamesByLang = {
+              zh: [...DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG.zh],
+              en: [...DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG.en],
+            };
+          }
+          if (!merged.diaryReviewSummaryPromptByLang) {
+            merged.diaryReviewSummaryPromptByLang = {
+              zh: merged.diaryReviewSummaryPrompt || DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT,
+              en: DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT_EN,
+            };
+          }
+          if (!merged.mingwuInsightSummaryPromptByLang) {
+            merged.mingwuInsightSummaryPromptByLang = {
+              zh: merged.mingwuInsightSummaryPrompt || DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT,
+              en: DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT_EN,
+            };
+          }
+          // 按当前语言覆盖合并后字段的 per-lang 默认槽位
+          if (merged.mingwuInsightPromptsByLang[mergeLang]) {
+            const miLang = [...merged.mingwuInsightPromptsByLang[mergeLang]];
+            while (miLang.length < 5) miLang.push('');
+            miLang[0] = dMerge.mingwu;
+            miLang[1] = dMerge.insight;
+            merged.mingwuInsightPromptsByLang[mergeLang] = miLang;
+          }
+          if (merged.mingwuInsightPromptNamesByLang[mergeLang] && merged.mingwuInsightPromptNamesByLang[mergeLang].length >= 2) {
+            merged.mingwuInsightPromptNamesByLang[mergeLang][0] = DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG[mergeLang][0];
+            merged.mingwuInsightPromptNamesByLang[mergeLang][1] = DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG[mergeLang][1];
+          }
+
+          // #008: 从合并后字段反向同步旧字段（单一数据源 = 合并后字段）
+          // 确保生成调度读取的旧字段始终与新结构一致。
+          merged.mingwuPrompt = merged.mingwuInsightPrompts[0];
+          merged.insightPrompt = merged.mingwuInsightPrompts[1];
+          merged.mingwuPrompts = [merged.mingwuInsightPrompts[0], merged.mingwuInsightPrompts[2] || '', merged.mingwuInsightPrompts[3] || '', merged.mingwuInsightPrompts[4] || ''];
+          merged.insightPrompts = [merged.mingwuInsightPrompts[1], merged.mingwuInsightPrompts[2] || '', merged.mingwuInsightPrompts[3] || '', merged.mingwuInsightPrompts[4] || ''];
+          merged.mingwuPromptIndex = 0;
+          merged.insightPromptIndex = 0;
+          merged.diarySummaryPrompt = merged.diaryReviewSummaryPrompt;
+          merged.summaryPrompt = merged.diaryReviewSummaryPrompt;
+          merged.insightSummaryPrompt = merged.mingwuInsightSummaryPrompt;
 
           return merged;
         },
@@ -1123,6 +1338,94 @@ export const useSettingsStore = create<SettingsState>()(
               persistedState.insightSummaryPromptByLang = {
                 zh: persistedState.insightSummaryPrompt || DEFAULT_INSIGHT_SUMMARY_PROMPT,
                 en: DEFAULT_INSIGHT_SUMMARY_PROMPT_EN,
+              };
+            }
+          }
+
+          // #008: 提示词配置合并与数据迁移 v11 -> v12
+          // 1) mingwuPrompt + insightPrompt 合并到 mingwuInsightPrompts（5 槽：明悟/洞察/自定义1/2/3）
+          // 2) diarySummaryPrompt + summaryPrompt(回顾摘要) 合并到 diaryReviewSummaryPrompt
+          // 3) insightSummaryPrompt 改名 mingwuInsightSummaryPrompt 并补明悟默认摘要
+          // 旧字段保留只读兼容（merge 阶段会从合并后字段反向同步）。
+          if (version < 12) {
+            const migLang: Language = persistedState.language || 'zh';
+            const dMig = DEFAULT_PROMPTS_BY_LANG[migLang];
+
+            // --- 1) 明悟+洞察 生成 Prompt 合并 ---
+            const oldMingwuPrompts: string[] = (persistedState.mingwuPrompts && persistedState.mingwuPrompts.length >= 1)
+              ? [...persistedState.mingwuPrompts]
+              : [dMig.mingwu, '', '', ''];
+            while (oldMingwuPrompts.length < 4) oldMingwuPrompts.push('');
+            const oldInsightPrompts: string[] = (persistedState.insightPrompts && persistedState.insightPrompts.length >= 1)
+              ? [...persistedState.insightPrompts]
+              : [dMig.insight, '', '', ''];
+            while (oldInsightPrompts.length < 4) oldInsightPrompts.push('');
+
+            // 新 5 槽：[明悟, 洞察, 自定义1, 自定义2, 自定义3]
+            // 明悟槽 = 旧 mingwuPrompts[0]；洞察槽 = 旧 insightPrompts[0]
+            // 自定义槽优先保留明悟侧自定义，其次洞察侧
+            persistedState.mingwuInsightPrompts = [
+              oldMingwuPrompts[0] || dMig.mingwu,
+              oldInsightPrompts[0] || dMig.insight,
+              oldMingwuPrompts[1] || oldInsightPrompts[1] || '',
+              oldMingwuPrompts[2] || oldInsightPrompts[2] || '',
+              oldMingwuPrompts[3] || oldInsightPrompts[3] || '',
+            ];
+            persistedState.mingwuInsightPromptNames = [...DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG[migLang]];
+            persistedState.mingwuInsightSelectedIndices = [0, 1];
+            persistedState.mingwuInsightPromptIndex = 0;
+            persistedState.mingwuInsightPrompt = persistedState.mingwuInsightPrompts[0];
+
+            // --- 2) 日记回顾一句话摘要合并 ---
+            // 优先保留用户的日记摘要（更具体），其次回顾摘要，最后默认值
+            persistedState.diaryReviewSummaryPrompt =
+              persistedState.diarySummaryPrompt ||
+              persistedState.summaryPrompt ||
+              dMig.diaryReviewSummary;
+
+            // --- 3) 明悟和洞察一句话摘要（由原洞察摘要扩展） ---
+            persistedState.mingwuInsightSummaryPrompt =
+              persistedState.insightSummaryPrompt ||
+              dMig.mingwuInsightSummary;
+
+            // --- per-language 同步合并 ---
+            // mingwuInsightPromptsByLang
+            if (!persistedState.mingwuInsightPromptsByLang) {
+              const buildMiLang = (lang: Language): string[] => {
+                const dL = DEFAULT_PROMPTS_BY_LANG[lang];
+                const mw = persistedState.mingwuPromptsByLang?.[lang] || [dL.mingwu, '', '', ''];
+                const ins = persistedState.insightPromptsByLang?.[lang] || [dL.insight, '', '', ''];
+                while (mw.length < 4) mw.push('');
+                while (ins.length < 4) ins.push('');
+                return [
+                  mw[0] || dL.mingwu,
+                  ins[0] || dL.insight,
+                  mw[1] || ins[1] || '',
+                  mw[2] || ins[2] || '',
+                  mw[3] || ins[3] || '',
+                ];
+              };
+              persistedState.mingwuInsightPromptsByLang = {
+                zh: buildMiLang('zh'),
+                en: buildMiLang('en'),
+              };
+            }
+            if (!persistedState.mingwuInsightPromptNamesByLang) {
+              persistedState.mingwuInsightPromptNamesByLang = {
+                zh: [...DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG.zh],
+                en: [...DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG.en],
+              };
+            }
+            if (!persistedState.diaryReviewSummaryPromptByLang) {
+              persistedState.diaryReviewSummaryPromptByLang = {
+                zh: persistedState.diarySummaryPromptByLang?.zh || persistedState.summaryPromptByLang?.zh || DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT,
+                en: persistedState.diarySummaryPromptByLang?.en || persistedState.summaryPromptByLang?.en || DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT_EN,
+              };
+            }
+            if (!persistedState.mingwuInsightSummaryPromptByLang) {
+              persistedState.mingwuInsightSummaryPromptByLang = {
+                zh: persistedState.insightSummaryPromptByLang?.zh || DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT,
+                en: persistedState.insightSummaryPromptByLang?.en || DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT_EN,
               };
             }
           }
