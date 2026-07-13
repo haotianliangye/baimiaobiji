@@ -12,7 +12,7 @@ import { buildTagTree, normalizeTagPath, type TreeNode } from '../lib/tags';
 import { cn } from '../lib/utils';
 import { useTranslation } from '../lib/i18n';
 
-export default function TagManagement() {
+export default function TagManagement({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const allTags = useLiveQuery(() => db.tags.toArray(), []);
@@ -95,7 +95,8 @@ export default function TagManagement() {
 
   return (
     <div className="flex flex-col h-full bg-transparent">
-      {/* Header */}
+      {/* Header -- 嵌入 Settings 时隐藏（Seam 2） */}
+      {!embedded && (
       <div className="flex h-[52px] items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 z-20 shrink-0 w-full justify-between">
         <div className="flex items-center gap-2">
           <button
@@ -114,6 +115,7 @@ export default function TagManagement() {
           {t('tags.count', { count: tagCount })}
         </span>
       </div>
+      )}
 
       {/* 新建标签 */}
       <div className="px-4 py-3 border-b border-baimiao-border/30 shrink-0 bg-white/50">

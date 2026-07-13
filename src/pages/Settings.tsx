@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning, Download, FileJson, FileText, MessageSquare, Volume2 } from 'lucide-react';
+import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning, Download, FileJson, FileText, MessageSquare, Volume2, Menu, Tags, Info, Database } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import TagManagement from './TagManagement';
 import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_MINGWU_PROMPT, DEFAULT_SUMMARY_PROMPT, DEFAULT_DIARY_SUMMARY_PROMPT, DEFAULT_INSIGHT_SUMMARY_PROMPT, DEFAULT_PROMPTS_BY_LANG, DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG, type Language } from '../store/settings.store';
 import { db, normalizeLegacyDiary, normalizeLegacyInsight } from '../db/db';
 import { enqueueAllMissingEmbeddings } from '../lib/embedding';
@@ -86,9 +88,11 @@ export default function Settings() {
     updateVectorsCount
   } = useAppStore();
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState<'model' | 'embedding' | 'data' | 'prompt'>(
+  const [activeTab, setActiveTab] = useState<'model' | 'tts' | 'embedding' | 'data' | 'prompt' | 'tags' | 'about'>(
     (location.state as any)?.tab || 'model'
   );
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [showEmbedApiKey, setShowEmbedApiKey] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -663,19 +667,115 @@ export default function Settings() {
     }
   };
 
+  // Seam 2: 关于面板 -- 检查更新并重载（从 Layout About Modal 迁移）
+  const handleForceUpdate = async () => {
+    setIsUpdating(true);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    try {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (let registration of registrations) {
+          await registration.update();
+        }
+      }
+      await new Promise(resolve => setTimeout(resolve, 500));
+      window.location.reload();
+    } catch (err) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      window.location.reload();
+    }
+  };
+
+  // Seam 2: 左侧菜单项定义
+  const menuItems: { id: typeof activeTab; label: string; icon: React.ReactNode }[] = [
+    { id: 'model', label: t('settings.tabModel'), icon: <MessageSquare className="w-4 h-4" /> },
+    { id: 'tts', label: t('settings.tabTts'), icon: <Volume2 className="w-4 h-4" /> },
+    { id: 'embedding', label: t('settings.tabEmbedding'), icon: <Server className="w-4 h-4" /> },
+    { id: 'data', label: t('settings.tabData'), icon: <Database className="w-4 h-4" /> },
+    { id: 'prompt', label: t('settings.tabPrompt'), icon: <Settings2 className="w-4 h-4" /> },
+    { id: 'tags', label: t('settings.tabTags'), icon: <Tags className="w-4 h-4" /> },
+    { id: 'about', label: t('settings.tabAbout'), icon: <Info className="w-4 h-4" /> },
+  ];
+
+  const handleMenuSelect = (tab: typeof activeTab) => {
+    setActiveTab(tab);
+    setMenuOpen(false);
+  };
+
+  // Seam 2: 左侧菜单 JSX（桌面常驻 + 移动抽屉共用）
+  const sidebarNav = (
+    <nav className="flex flex-col gap-0.5 p-2">
+      {menuItems.map(item => (
+        <button
+          key={item.id}
+          onClick={() => handleMenuSelect(item.id)}
+          className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all ${
+            activeTab === item.id
+              ? 'bg-baimiao-mysteria/8 text-baimiao-mysteria font-semibold'
+              : 'text-stone-500 hover:text-stone-800 hover:bg-stone-100/60'
+          }`}
+        >
+          {item.icon}
+          {item.label}
+        </button>
+      ))}
+    </nav>
+  );
+
   return (
     <div className="flex flex-col h-full bg-stone-100 font-sans text-stone-900 overflow-hidden items-center justify-center">
-      <div className="flex flex-col h-full overflow-hidden bg-white relative z-50 mx-auto max-w-md w-full shadow-sm ring-1 ring-black/5">
+      <div className="flex flex-col h-full overflow-hidden bg-white relative z-50 mx-auto w-full md:max-w-3xl shadow-sm ring-1 ring-black/5">
+        {/* Header */}
         <div className="flex h-14 items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 shrink-0">
+          <button
+            onClick={() => setMenuOpen(true)}
+            className="md:hidden p-2 -ml-2 text-baimiao-mysteria/70 hover:text-baimiao-mysteria hover:bg-baimiao-mysteria/5 transition-all rounded-full active:scale-90"
+            aria-label={t('settings.menuToggle')}
+          >
+            <Menu className="w-5 h-5" />
+          </button>
           <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-baimiao-mysteria/70 hover:text-baimiao-mysteria hover:bg-baimiao-mysteria/5 transition-all rounded-full active:scale-90">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h2 className="text-[15.5px] font-bold ml-2 text-baimiao-mysteria font-serif baimiao-editorial-title">{t('settings.title')}</h2>
         </div>
 
-        <div className="flex-1 overflow-y-auto thin-scrollbar w-full p-3 space-y-4 pb-16">
+        {/* Body: sidebar + content */}
+        <div className="flex flex-1 overflow-hidden relative">
+          {/* Desktop sidebar - always visible */}
+          <aside className="hidden md:flex md:w-52 lg:w-56 flex-col border-r border-baimiao-border/30 bg-[#faf9fc]/40 shrink-0 overflow-y-auto thin-scrollbar">
+            {sidebarNav}
+          </aside>
 
-        {/* #12 Language Switcher */}
+          {/* Mobile drawer (push 抽屉, 0.3s) */}
+          <AnimatePresence>
+            {menuOpen && (
+              <>
+                <motion.div
+                  className="md:hidden absolute inset-0 bg-black/30 backdrop-blur-sm z-40"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  onClick={() => setMenuOpen(false)}
+                />
+                <motion.aside
+                  className="md:hidden absolute top-0 left-0 bottom-0 w-64 bg-[#faf9fc] z-50 flex flex-col border-r border-baimiao-border/30 shadow-xl overflow-y-auto thin-scrollbar"
+                  initial={{ x: '-100%' }}
+                  animate={{ x: 0 }}
+                  exit={{ x: '-100%' }}
+                  transition={{ duration: 0.3, ease: 'easeInOut' }}
+                >
+                  {sidebarNav}
+                </motion.aside>
+              </>
+            )}
+          </AnimatePresence>
+
+          {/* Content area */}
+          <div className="flex-1 overflow-y-auto thin-scrollbar w-full p-3 space-y-3 pb-20">
+
+        {/* #12 Language Switcher -- 横向并排胶囊按钮，统一宽高，当前高亮 */}
         <section className="baimiao-card-diary p-3 flex items-center justify-between" data-testid="language-section">
           <div className="flex flex-col">
             <span className="text-[13px] font-semibold text-stone-700">{t('settings.language')}</span>
@@ -685,7 +785,7 @@ export default function Settings() {
             <button
               data-testid="language-zh"
               onClick={() => setLanguage('zh')}
-              className={`px-4 py-1.5 rounded-full text-[12.5px] font-medium transition-all ${
+              className={`flex-1 w-16 py-1.5 rounded-full text-[12.5px] font-medium transition-all text-center ${
                 language === 'zh'
                   ? 'bg-white text-baimiao-mysteria shadow-sm font-bold'
                   : 'text-stone-500 hover:text-stone-700'
@@ -696,7 +796,7 @@ export default function Settings() {
             <button
               data-testid="language-en"
               onClick={() => setLanguage('en')}
-              className={`px-4 py-1.5 rounded-full text-[12.5px] font-medium transition-all ${
+              className={`flex-1 w-16 py-1.5 rounded-full text-[12.5px] font-medium transition-all text-center ${
                 language === 'en'
                   ? 'bg-white text-baimiao-mysteria shadow-sm font-bold'
                   : 'text-stone-500 hover:text-stone-700'
@@ -706,42 +806,6 @@ export default function Settings() {
             </button>
           </div>
         </section>
-
-        {/* Navigation Tabs */}
-        <div className="flex bg-[#f0edf4]/60 p-1 rounded-xl border border-baimiao-border/20 gap-0.5">
-          <button
-            onClick={() => setActiveTab('model')}
-            className={`flex-1 flex justify-center py-2 text-[12px] font-medium rounded-lg transition-colors ${
-              activeTab === 'model' ? 'bg-white shadow-md shadow-baimiao-mysteria/5 text-baimiao-mysteria font-bold' : 'text-[#8a859e] hover:text-stone-700'
-            }`}
-          >
-            {t('settings.tabModel')}
-          </button>
-          <button
-            onClick={() => setActiveTab('embedding')}
-            className={`flex-1 flex justify-center py-2 text-[12px] font-medium rounded-lg transition-colors ${
-              activeTab === 'embedding' ? 'bg-white shadow-md shadow-baimiao-mysteria/5 text-baimiao-mysteria font-bold' : 'text-[#8a859e] hover:text-stone-700'
-            }`}
-          >
-            {t('settings.tabEmbedding')}
-          </button>
-          <button
-            onClick={() => setActiveTab('data')}
-            className={`flex-1 flex justify-center py-2 text-[12px] font-medium rounded-lg transition-colors ${
-              activeTab === 'data' ? 'bg-white shadow-md shadow-baimiao-mysteria/5 text-baimiao-mysteria font-bold' : 'text-[#8a859e] hover:text-stone-700'
-            }`}
-          >
-            {t('settings.tabData')}
-          </button>
-          <button
-            onClick={() => setActiveTab('prompt')}
-            className={`flex-1 flex justify-center py-2 text-[12px] font-medium rounded-lg transition-colors ${
-              activeTab === 'prompt' ? 'bg-white shadow-md shadow-baimiao-mysteria/5 text-baimiao-mysteria font-bold' : 'text-[#8a859e] hover:text-stone-700'
-            }`}
-          >
-            {t('settings.tabPrompt')}
-          </button>
-        </div>
 
         <div className="space-y-3">
           {activeTab === 'model' && (
@@ -938,14 +1002,17 @@ export default function Settings() {
                 </div>
               </section>
 
-              {/* #10 TTS 语音朗读配置 */}
-              <section className="baimiao-card-diary p-4 space-y-3" data-testid="tts-config-section">
+            </>
+          )}
+
+          {activeTab === 'tts' && (
+            <section className="baimiao-card-diary p-4 space-y-3" data-testid="tts-config-section">
                 <div className="flex items-center gap-2 border-b border-stone-100 pb-2 mb-1">
                   <Volume2 className="w-4 h-4 text-baimiao-mysteria" />
                   <h3 className="text-[13px] font-semibold text-stone-700">{t('settings.tts')}</h3>
                 </div>
                 <p className="text-[11.5px] text-stone-400 leading-relaxed">
-                  为回顾、明悟、洞察的 AI 产出与 AI 对话回复提供朗读功能。碎屑与沉思不支持朗读。
+                  {t('settings.ttsDesc')}
                 </p>
 
                 {/* 朗读服务选择 */}
@@ -962,7 +1029,7 @@ export default function Settings() {
                           : 'text-stone-500 hover:bg-white/50 hover:text-baimiao-mysteria'
                       }`}
                     >
-                      浏览器内置 (Web Speech)
+                      {t('settings.ttsWebspeech')}
                     </button>
                     <button
                       type="button"
@@ -974,12 +1041,12 @@ export default function Settings() {
                           : 'text-stone-500 hover:bg-white/50 hover:text-baimiao-mysteria'
                       }`}
                     >
-                      外部 TTS API
+                      {t('settings.ttsExternal')}
                     </button>
                   </div>
                   {ttsService === 'external' && (
                     <p className="text-[10.5px] text-stone-400 leading-relaxed mt-1">
-                      外部 TTS 需后端提供 /api/tts 端点，接收 {"{ text, lang }"} 并返回音频 blob。
+                      {t('settings.ttsExternalHint')}
                     </p>
                   )}
                 </div>
@@ -1016,8 +1083,7 @@ export default function Settings() {
                     className="w-full accent-baimiao-mysteria cursor-pointer"
                   />
                 </div>
-              </section>
-            </>
+            </section>
           )}
 
           {activeTab === 'embedding' && (
@@ -2374,9 +2440,64 @@ export default function Settings() {
               </section>
             </div>
           )}
+
+          {activeTab === 'tags' && (
+            <TagManagement embedded />
+          )}
+
+          {activeTab === 'about' && (
+            <section className="baimiao-card-diary p-6 flex flex-col items-center text-center select-none">
+              <div className="w-14 h-14 bg-gradient-to-br from-baimiao-mysteria to-[#2c2957] text-white rounded-2xl flex items-center justify-center font-bold text-xl mb-4 shadow-md">
+                {t('app.logo')}
+              </div>
+              <h3 className="text-[17px] font-semibold text-stone-900 mb-1">{t('app.title')}</h3>
+              <p className="text-[11px] text-stone-400 font-mono mb-5">{t('app.version')}</p>
+
+              <div className="space-y-2 mb-6 text-center w-full text-stone-600 text-[13px] border-t border-b border-stone-200/40 py-4 flex flex-col items-center justify-center">
+                <span className="text-stone-400 text-[11px] uppercase tracking-wider">{t('app.authorLabel')}</span>
+                <span className="font-semibold text-stone-900 text-[14px]">{t('app.author')}</span>
+                <p className="text-[12px] text-stone-500 leading-relaxed mt-2.5 pt-2.5 border-t border-stone-200/20 w-full text-center">
+                  {t('app.tagline')}
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-2 w-full">
+                <button
+                  onClick={handleForceUpdate}
+                  disabled={isUpdating}
+                  className={`w-full py-2.5 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white hover:brightness-110 transition-all rounded-xl text-[13px] font-medium tracking-wide shadow-sm flex items-center justify-center gap-1.5 ${
+                    isUpdating ? 'opacity-80 cursor-wait' : ''
+                  }`}
+                >
+                  {isUpdating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      {t('about.checking')}
+                    </>
+                  ) : (
+                    t('about.checkUpdate')
+                  )}
+                </button>
+                <a
+                  href="https://github.com/haotianliangye/baimiaobiji/issues"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => isUpdating && e.preventDefault()}
+                  className={`w-full py-2 bg-stone-200/30 hover:bg-stone-200/60 text-stone-600 transition-colors rounded-xl text-[13px] font-medium flex items-center justify-center ${
+                    isUpdating ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''
+                  }`}
+                >
+                  {t('about.feedback')}
+                </a>
+              </div>
+            </section>
+          )}
         </div>
 
-        <div className="pt-8 pb-4 mt-auto">
+        </div>
+        </div>
+
+        <div className="shrink-0 px-3 py-3 border-t border-baimiao-border/30 bg-white">
           <button
             onClick={() => {
               setSettings({
@@ -2421,7 +2542,6 @@ export default function Settings() {
         </div>
 
       </div>
-    </div>
     </div>
   );
 }
