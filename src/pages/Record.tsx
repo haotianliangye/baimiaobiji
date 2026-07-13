@@ -33,6 +33,7 @@ import {
   Play,
   Video,
   Link as LinkIcon,
+  FileUp,
 } from "lucide-react";
 import { ChatCircleDots } from "@phosphor-icons/react";
 import { useSearchParams, useNavigate } from "react-router-dom";
@@ -45,7 +46,6 @@ import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { parseTagsFromText, resolveAlias } from "../lib/tags";
 import { useTagsStore } from "../store/tags.store";
 import CalendarHeatmap from "../components/CalendarHeatmap";
-import ActionSheet from "../components/ActionSheet";
 import { saveAttachmentBlob, blobToBase64, generateAttachmentSummary, requestMultimediaSummary } from "../lib/multimedia";
 import type { AttachmentMeta } from "../db/db";
 import { useTranslation } from "../lib/i18n";
@@ -53,7 +53,7 @@ import { useTranslation } from "../lib/i18n";
 /** 待提交的附件（含原始 File，提交时转为 AttachmentMeta + Blob 存 IDB）。 */
 interface PendingAttachment {
   id: string;
-  kind: 'image' | 'audio' | 'video' | 'link';
+  kind: 'image' | 'audio' | 'video' | 'link' | 'file';
   file?: File;
   url?: string;
   name?: string;
@@ -493,7 +493,6 @@ export default function Record() {
 
   // Action sheet & edit states
   const [activeLog, setActiveLog] = useState<any>(null);
-  const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
   const [isEditingModalOpen, setIsEditingModalOpen] = useState(false);
   const [editContent, setEditContent] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
@@ -835,14 +834,15 @@ export default function Record() {
 
   // #6 多媒体附件处理
   /** 根据文件 MIME 类型判断附件种类。 */
-  const getFileKind = (file: File): 'image' | 'audio' | 'video' => {
+  const getFileKind = (file: File): 'image' | 'audio' | 'video' | 'file' => {
     if (file.type.startsWith('image/')) return 'image';
     if (file.type.startsWith('audio/')) return 'audio';
-    return 'video';
+    if (file.type.startsWith('video/')) return 'video';
+    return 'file';
   };
 
   /** 选择附件类型后，打开文件选择器或链接输入。 */
-  const handleSelectAttachmentKind = (kind: 'image' | 'audio' | 'video' | 'link') => {
+  const handleSelectAttachmentKind = (kind: 'image' | 'audio' | 'video' | 'link' | 'file') => {
     if (kind === 'link') {
       setLinkInput('');
       setShowLinkInput(true);
@@ -852,6 +852,7 @@ export default function Record() {
       image: 'image/*',
       audio: 'audio/*',
       video: 'video/*',
+      file: '*/*',
     };
     setFileAccept(acceptMap[kind]);
     // 延迟点击，确保 accept 已更新
@@ -942,10 +943,11 @@ export default function Record() {
               console.error('[Multimedia] Audio transcription failed:', err);
               content = content ? `${content}\n${t('record.audioTranscribeFailed')}` : t('record.audioTranscribeFailed');
             }
-          } else {
+          } else if (pending.kind === 'image' || pending.kind === 'video') {
             // image / video：标记需要生成多模态摘要
             hasMediaForSummary = true;
           }
+          // 'file' kind：仅存储，不触发 STT 或摘要
         }
       }
 
@@ -1453,6 +1455,7 @@ export default function Record() {
                     {att.kind === 'audio' && <Music className="w-4 h-4 text-stone-500" />}
                     {att.kind === 'video' && <Video className="w-4 h-4 text-stone-500" />}
                     {att.kind === 'link' && <LinkIcon className="w-4 h-4 text-stone-500" />}
+                    {att.kind === 'file' && <FileUp className="w-4 h-4 text-stone-500" />}
                     <span className="text-[8px] text-stone-500 leading-tight line-clamp-2 text-center break-all">
                       {att.kind === 'link' ? t('record.link') : att.name || att.kind}
                     </span>
@@ -1581,17 +1584,84 @@ export default function Record() {
         />
       )}
 
-      {/* #6 附件类型选择 ActionSheet */}
-      <ActionSheet
-        isOpen={showAttachmentSheet}
-        onClose={() => setShowAttachmentSheet(false)}
-        actions={[
-          { label: t('record.image'), icon: <ImageIcon className="w-5 h-5 text-stone-400" />, onClick: () => handleSelectAttachmentKind('image') },
-          { label: t('record.audio'), icon: <Music className="w-5 h-5 text-stone-400" />, onClick: () => handleSelectAttachmentKind('audio') },
-          { label: t('record.video'), icon: <Video className="w-5 h-5 text-stone-400" />, onClick: () => handleSelectAttachmentKind('video') },
-          { label: t('record.link'), icon: <LinkIcon className="w-5 h-5 text-stone-400" />, onClick: () => handleSelectAttachmentKind('link') },
-        ]}
-      />
+      {/* #007 附件类型选择面板（网格布局，底部上滑） */}
+      {showAttachmentSheet && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/40 z-[100] transition-opacity"
+            onClick={() => setShowAttachmentSheet(false)}
+          />
+          <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-[101] max-w-md mx-auto transform transition-transform animate-in slide-in-from-bottom-full duration-300 pb-safe">
+            <div className="p-4">
+              <div className="w-10 h-1.5 bg-stone-200 rounded-full mx-auto mb-5" />
+              <div className="grid grid-cols-3 gap-3">
+                {/* 第一行：相册 / 音频 / 视频 */}
+                <button
+                  type="button"
+                  onClick={() => { handleSelectAttachmentKind('image'); setShowAttachmentSheet(false); }}
+                  className="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-stone-100 active:bg-stone-200 transition-colors"
+                >
+                  <span className="w-11 h-11 flex items-center justify-center rounded-full bg-stone-100 text-stone-600">
+                    <ImageIcon className="w-5 h-5" />
+                  </span>
+                  <span className="text-[12px] font-medium text-stone-600">{t('record.image')}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { handleSelectAttachmentKind('audio'); setShowAttachmentSheet(false); }}
+                  className="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-stone-100 active:bg-stone-200 transition-colors"
+                >
+                  <span className="w-11 h-11 flex items-center justify-center rounded-full bg-stone-100 text-stone-600">
+                    <Music className="w-5 h-5" />
+                  </span>
+                  <span className="text-[12px] font-medium text-stone-600">{t('record.audio')}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { handleSelectAttachmentKind('video'); setShowAttachmentSheet(false); }}
+                  className="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-stone-100 active:bg-stone-200 transition-colors"
+                >
+                  <span className="w-11 h-11 flex items-center justify-center rounded-full bg-stone-100 text-stone-600">
+                    <Video className="w-5 h-5" />
+                  </span>
+                  <span className="text-[12px] font-medium text-stone-600">{t('record.video')}</span>
+                </button>
+                {/* 第二行：链接 / 文件 / 取消 */}
+                <button
+                  type="button"
+                  onClick={() => { handleSelectAttachmentKind('link'); setShowAttachmentSheet(false); }}
+                  className="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-stone-100 active:bg-stone-200 transition-colors"
+                >
+                  <span className="w-11 h-11 flex items-center justify-center rounded-full bg-stone-100 text-stone-600">
+                    <LinkIcon className="w-5 h-5" />
+                  </span>
+                  <span className="text-[12px] font-medium text-stone-600">{t('record.link')}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { handleSelectAttachmentKind('file'); setShowAttachmentSheet(false); }}
+                  className="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-stone-100 active:bg-stone-200 transition-colors"
+                >
+                  <span className="w-11 h-11 flex items-center justify-center rounded-full bg-stone-100 text-stone-600">
+                    <FileUp className="w-5 h-5" />
+                  </span>
+                  <span className="text-[12px] font-medium text-stone-600">{t('record.file')}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAttachmentSheet(false)}
+                  className="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-stone-100 active:bg-stone-200 transition-colors"
+                >
+                  <span className="w-11 h-11 flex items-center justify-center rounded-full bg-stone-100 text-stone-400">
+                    <X className="w-5 h-5" />
+                  </span>
+                  <span className="text-[12px] font-medium text-stone-400">{t('record.cancel')}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* #6 链接输入弹窗 */}
       {showLinkInput && (

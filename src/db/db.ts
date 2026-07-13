@@ -114,10 +114,10 @@ export interface Thought {
   embedding_version?: string;
 }
 
-// 多媒体附件元数据。image/audio/video 的 ref 指向 attachments store 的 id；
+// 多媒体附件元数据。image/audio/video/file 的 ref 指向 attachments store 的 id；
 // link 的 ref 直接存外链 URL。原始 Blob 不压缩存 attachments store。
 export interface AttachmentMeta {
-  kind: 'image' | 'audio' | 'video' | 'link';
+  kind: 'image' | 'audio' | 'video' | 'link' | 'file';
   name?: string;
   ref?: string;               // IndexedDB attachments store id 或外链 URL
   summary?: string;           // AI 生成的文本摘要（用于 embedding）
@@ -127,7 +127,7 @@ export interface AttachmentMeta {
 export interface AttachmentBlob {
   id: string;                 // uuid，与 AttachmentMeta.ref 对应
   blob: Blob;                 // 原始文件
-  type: 'image' | 'audio' | 'video';
+  type: 'image' | 'audio' | 'video' | 'file';
   created_at: number;
 }
 

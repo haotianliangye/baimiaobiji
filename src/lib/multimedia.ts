@@ -52,7 +52,7 @@ export async function requestMultimediaSummary(
  */
 export async function saveAttachmentBlob(
   file: File | Blob,
-  kind: 'image' | 'audio' | 'video'
+  kind: 'image' | 'audio' | 'video' | 'file'
 ): Promise<AttachmentMeta> {
   const id = generateUUID();
   await db.attachments.add({
@@ -106,6 +106,10 @@ export async function generateAttachmentSummary(
       }
       if (att.kind === 'audio') {
         // 音频走 STT，不在此处理
+        return att;
+      }
+      if (att.kind === 'file') {
+        // 通用文件不做多模态摘要
         return att;
       }
       // image / video：生成多模态摘要
