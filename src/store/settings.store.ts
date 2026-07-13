@@ -293,6 +293,14 @@ export const DEFAULT_EMBED_PROVIDER_CONFIGS: Record<string, { apiKey: string; ba
   custom: { apiKey: '', baseUrl: 'http://127.0.0.1:11434/v1', model: 'nomic-embed-text' }
 };
 
+// #009: TTS 外部 API 提供商默认配置（Provider -> apiKey/baseUrl/model）
+// NOTE: 与后端 server.ts / api/index.ts 的 /api/tts 端点约定保持一致。
+// 新增 Provider 需同步更新此处与后端调用逻辑。
+export const DEFAULT_TTS_PROVIDER_CONFIGS: Record<string, { apiKey: string; baseUrl: string; model: string }> = {
+  gemini: { apiKey: '', baseUrl: 'https://generativelanguage.googleapis.com', model: 'gemini-2.5-flash-preview-tts' },
+  volcengine: { apiKey: '', baseUrl: 'https://openspeech.bytedance.com', model: 'BV001_streaming' },
+};
+
 // NOTE: base64 *encoding*, NOT encryption. localStorage is readable by any
 // script running in this origin (incl. XSS / browser extensions); there is no
 // way to truly encrypt secrets in a pure client-side app without a server-held
@@ -382,6 +390,13 @@ interface SettingsState {
   ttsLang: 'auto' | 'zh' | 'en';
   ttsRate: number;
   ttsVoice: string;
+  // #009: TTS 外部 API 配置（ttsService === 'external' 时生效）
+  // ttsService 为浏览器/外部总开关；ttsProvider 为外部子服务商（Gemini/火山引擎）。
+  ttsProvider: 'gemini' | 'volcengine';
+  ttsApiKey: string;
+  ttsBaseUrl: string;
+  ttsModel: string;
+  ttsConfigs: Record<string, { apiKey: string; baseUrl: string; model: string }>;
 
   // #12 多语言 UI
   language: Language;
@@ -478,6 +493,12 @@ export const useSettingsStore = create<SettingsState>()(
       ttsLang: 'auto',
       ttsRate: 1,
       ttsVoice: '',
+      // #009: TTS 外部 API 配置默认值（沿用 Gemini 默认）
+      ttsProvider: 'gemini',
+      ttsApiKey: DEFAULT_TTS_PROVIDER_CONFIGS['gemini'].apiKey,
+      ttsBaseUrl: DEFAULT_TTS_PROVIDER_CONFIGS['gemini'].baseUrl,
+      ttsModel: DEFAULT_TTS_PROVIDER_CONFIGS['gemini'].model,
+      ttsConfigs: {},
 
       // #12 多语言 UI 默认值
       language: 'zh',
@@ -666,22 +687,32 @@ export const useSettingsStore = create<SettingsState>()(
          // --- Embed provider config caching ---
          const nextEmbedConfigs = { ...state.embedConfigs };
          const embedProviderToUpdate = state.embedProvider;
-         
+
          nextEmbedConfigs[embedProviderToUpdate] = {
            apiKey: state.embedApiKey,
            baseUrl: state.embedBaseUrl,
            model: state.embedModel
          };
 
+         // --- TTS provider config caching (#009) ---
+         const nextTtsConfigs = { ...state.ttsConfigs };
+         const ttsProviderToUpdate = state.ttsProvider;
+
+         nextTtsConfigs[ttsProviderToUpdate] = {
+           apiKey: state.ttsApiKey,
+           baseUrl: state.ttsBaseUrl,
+           model: state.ttsModel
+         };
+
          // Handle Chat provider switch
          if (newSettings.provider && newSettings.provider !== state.provider) {
            const nextProvider = newSettings.provider;
-           const targetConfig = nextConfigs[nextProvider] || DEFAULT_PROVIDER_CONFIGS[nextProvider] || { 
-             apiKey: '', 
-             baseUrl: '', 
-             model: '' 
+           const targetConfig = nextConfigs[nextProvider] || DEFAULT_PROVIDER_CONFIGS[nextProvider] || {
+             apiKey: '',
+             baseUrl: '',
+             model: ''
            };
-           
+
            return {
              ...state,
              ...newSettings,
@@ -689,7 +720,8 @@ export const useSettingsStore = create<SettingsState>()(
              baseUrl: newSettings.baseUrl !== undefined ? newSettings.baseUrl : targetConfig.baseUrl,
              model: newSettings.model !== undefined ? newSettings.model : targetConfig.model,
              configs: nextConfigs,
-             embedConfigs: nextEmbedConfigs
+             embedConfigs: nextEmbedConfigs,
+             ttsConfigs: nextTtsConfigs
            };
          }
 
@@ -709,11 +741,33 @@ export const useSettingsStore = create<SettingsState>()(
              embedBaseUrl: newSettings.embedBaseUrl !== undefined ? newSettings.embedBaseUrl : targetEmbedConfig.baseUrl,
              embedModel: newSettings.embedModel !== undefined ? newSettings.embedModel : targetEmbedConfig.model,
              configs: nextConfigs,
-             embedConfigs: nextEmbedConfigs
+             embedConfigs: nextEmbedConfigs,
+             ttsConfigs: nextTtsConfigs
            };
          }
-         
-         const nextState = { ...state, ...newSettings, configs: nextConfigs, embedConfigs: nextEmbedConfigs };
+
+         // Handle TTS provider switch (#009)
+         if (newSettings.ttsProvider && newSettings.ttsProvider !== state.ttsProvider) {
+           const nextTtsProvider = newSettings.ttsProvider;
+           const targetTtsConfig = nextTtsConfigs[nextTtsProvider] || DEFAULT_TTS_PROVIDER_CONFIGS[nextTtsProvider] || {
+             apiKey: '',
+             baseUrl: '',
+             model: ''
+           };
+
+           return {
+             ...state,
+             ...newSettings,
+             ttsApiKey: targetTtsConfig.apiKey,
+             ttsBaseUrl: newSettings.ttsBaseUrl !== undefined ? newSettings.ttsBaseUrl : targetTtsConfig.baseUrl,
+             ttsModel: newSettings.ttsModel !== undefined ? newSettings.ttsModel : targetTtsConfig.model,
+             configs: nextConfigs,
+             embedConfigs: nextEmbedConfigs,
+             ttsConfigs: nextTtsConfigs
+           };
+         }
+
+         const nextState = { ...state, ...newSettings, configs: nextConfigs, embedConfigs: nextEmbedConfigs, ttsConfigs: nextTtsConfigs };
          nextConfigs[providerToUpdate] = {
            apiKey: nextState.apiKey,
            baseUrl: nextState.baseUrl,
@@ -723,6 +777,11 @@ export const useSettingsStore = create<SettingsState>()(
            apiKey: nextState.embedApiKey,
            baseUrl: nextState.embedBaseUrl,
            model: nextState.embedModel
+         };
+         nextTtsConfigs[ttsProviderToUpdate] = {
+           apiKey: nextState.ttsApiKey,
+           baseUrl: nextState.ttsBaseUrl,
+           model: nextState.ttsModel
          };
 
          // #12 Sync prompt changes to *ByLang[currentLanguage]
@@ -817,6 +876,24 @@ export const useSettingsStore = create<SettingsState>()(
           }
           
           const merged = { ...currentState, ...persistedState };
+
+          // --- #009: TTS 外部 API 配置补默认值（老用户 v12 未保存这些字段时回填）---
+          // 不升 version（已在 12），靠 merge 的 currentState spread + 显式兜底补默认。
+          if (!merged.ttsProvider) {
+            merged.ttsProvider = 'gemini';
+          }
+          if (merged.ttsApiKey === undefined) {
+            merged.ttsApiKey = DEFAULT_TTS_PROVIDER_CONFIGS[merged.ttsProvider]?.apiKey ?? '';
+          }
+          if (merged.ttsBaseUrl === undefined) {
+            merged.ttsBaseUrl = DEFAULT_TTS_PROVIDER_CONFIGS[merged.ttsProvider]?.baseUrl ?? '';
+          }
+          if (merged.ttsModel === undefined) {
+            merged.ttsModel = DEFAULT_TTS_PROVIDER_CONFIGS[merged.ttsProvider]?.model ?? '';
+          }
+          if (!merged.ttsConfigs || typeof merged.ttsConfigs !== 'object') {
+            merged.ttsConfigs = {};
+          }
 
           // --- #5: 5 槽统一 reviewPrompts 防污染 ---
           // 强制 slot 0 = DEFAULT_DIARY_PROMPT，slot 1 = DEFAULT_REVIEW_PROMPT

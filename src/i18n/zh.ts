@@ -285,6 +285,16 @@ export const zh: TranslationDict = {
   'settings.ttsLangZh': '中文',
   'settings.ttsLangEn': '英文',
   'settings.ttsRate': '朗读语速',
+  // #009: TTS 外部 API 配置
+  'settings.ttsExternalConfig': '外部 TTS API 配置',
+  'settings.ttsProvider': '服务商',
+  'settings.ttsApiKey': 'API Key',
+  'settings.ttsApiKeyHint': '火山引擎请填写「appid:access_token」格式',
+  'settings.ttsBaseUrlLabel': 'API 地址 (Base URL)',
+  'settings.ttsModelLabel': '模型 (Model)',
+  'settings.ttsModelHint': 'Gemini 填模型名；火山引擎填发音人 ID',
+  'settings.ttsVoiceLabel': '语音 (Voice)',
+  'settings.ttsVoiceHint': 'Gemini 预置音色（如 Kore、Puck）；火山引擎留空',
 
   // Settings - Embedding tab
   'settings.embeddingTitle': '本地向量与语义搜索',

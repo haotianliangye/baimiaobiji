@@ -284,6 +284,16 @@ export const en: TranslationDict = {
   'settings.ttsLangZh': 'Chinese',
   'settings.ttsLangEn': 'English',
   'settings.ttsRate': 'Narration speed',
+  // #009: TTS external API configuration
+  'settings.ttsExternalConfig': 'External TTS API configuration',
+  'settings.ttsProvider': 'Provider',
+  'settings.ttsApiKey': 'API Key',
+  'settings.ttsApiKeyHint': 'For Volcengine, use the "appid:access_token" format',
+  'settings.ttsBaseUrlLabel': 'API URL (Base URL)',
+  'settings.ttsModelLabel': 'Model',
+  'settings.ttsModelHint': 'Gemini: model name; Volcengine: voice type ID',
+  'settings.ttsVoiceLabel': 'Voice',
+  'settings.ttsVoiceHint': 'Gemini prebuilt voice (e.g., Kore, Puck); leave empty for Volcengine',
 
   // Settings - Embedding tab
   'settings.embeddingTitle': 'Local vectors & semantic search',

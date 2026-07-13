@@ -21,6 +21,11 @@ export interface TTSSpeakOptions {
   lang?: TTSLang;
   rate?: number;
   voice?: string;
+  // #009: 外部 TTS API 参数（service === 'external' 时随请求发送给后端 /api/tts）
+  ttsProvider?: 'gemini' | 'volcengine';
+  ttsApiKey?: string;
+  ttsBaseUrl?: string;
+  ttsModel?: string;
 }
 
 /**
@@ -143,7 +148,14 @@ export const useTTSStore = create<TTSStore>((set, get) => ({
     if (service === 'webspeech') {
       speakWebSpeech(cleanText, resolvedLang, rate, voiceName, onEnd);
     } else {
-      speakExternal(cleanText, resolvedLang, onEnd);
+      speakExternal(cleanText, resolvedLang, onEnd, {
+        rate,
+        voice: voiceName,
+        ttsProvider: opts.ttsProvider,
+        ttsApiKey: opts.ttsApiKey,
+        ttsBaseUrl: opts.ttsBaseUrl,
+        ttsModel: opts.ttsModel,
+      });
     }
   },
 
@@ -202,18 +214,37 @@ function speakWebSpeech(
 
 /**
  * 调用外部 TTS API（/api/tts 端点）朗读。
- * 后端返回音频 blob，前端用 HTMLAudioElement 播放。
+ * 后端根据 settings.provider 调用 Gemini / 火山引擎，返回音频 blob，前端用 HTMLAudioElement 播放。
  */
 async function speakExternal(
   text: string,
   lang: 'zh' | 'en',
-  onEnd: () => void
+  onEnd: () => void,
+  opts: {
+    rate?: number;
+    voice?: string;
+    ttsProvider?: 'gemini' | 'volcengine';
+    ttsApiKey?: string;
+    ttsBaseUrl?: string;
+    ttsModel?: string;
+  }
 ) {
   try {
     const res = await fetch('/api/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, lang }),
+      body: JSON.stringify({
+        text,
+        lang,
+        settings: {
+          provider: opts.ttsProvider || 'gemini',
+          apiKey: opts.ttsApiKey || '',
+          baseUrl: opts.ttsBaseUrl || '',
+          model: opts.ttsModel || '',
+          voice: opts.voice || '',
+          rate: opts.rate ?? 1,
+        },
+      }),
     });
     if (!res.ok) {
       throw new Error(`TTS 请求失败: HTTP ${res.status}`);
@@ -258,6 +289,10 @@ export function useTTS() {
   const ttsLang = useSettingsStore((s) => s.ttsLang);
   const ttsRate = useSettingsStore((s) => s.ttsRate);
   const ttsVoice = useSettingsStore((s) => s.ttsVoice);
+  const ttsProvider = useSettingsStore((s) => s.ttsProvider);
+  const ttsApiKey = useSettingsStore((s) => s.ttsApiKey);
+  const ttsBaseUrl = useSettingsStore((s) => s.ttsBaseUrl);
+  const ttsModel = useSettingsStore((s) => s.ttsModel);
 
   const play = useCallback(
     (text: string) => {
@@ -266,9 +301,13 @@ export function useTTS() {
         lang: ttsLang,
         rate: ttsRate,
         voice: ttsVoice,
+        ttsProvider,
+        ttsApiKey,
+        ttsBaseUrl,
+        ttsModel,
       });
     },
-    [speak, ttsService, ttsLang, ttsRate, ttsVoice]
+    [speak, ttsService, ttsLang, ttsRate, ttsVoice, ttsProvider, ttsApiKey, ttsBaseUrl, ttsModel]
   );
 
   const isPlaying = useCallback(

@@ -68,6 +68,10 @@ export default function Settings() {
     ttsLang,
     ttsRate,
     ttsVoice,
+    ttsProvider,
+    ttsApiKey,
+    ttsBaseUrl,
+    ttsModel,
     language,
     setLanguage,
     setSettings
@@ -95,6 +99,7 @@ export default function Settings() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [showEmbedApiKey, setShowEmbedApiKey] = useState(false);
+  const [showTtsApiKey, setShowTtsApiKey] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [storageInfo, setStorageInfo] = useState<StorageEstimateInfo | null>(null);
@@ -1056,6 +1061,110 @@ export default function Settings() {
                     </p>
                   )}
                 </div>
+
+                {/* #009: 外部 TTS API 配置（仅 ttsService === 'external' 时展开） */}
+                {ttsService === 'external' && (
+                  <div className="space-y-3 pt-1.5 border-t border-stone-100 animate-in fade-in duration-200" data-testid="tts-external-config">
+                    <h4 className="text-[12px] font-semibold text-stone-500">{t('settings.ttsExternalConfig')}</h4>
+
+                    {/* Provider 选择 */}
+                    <div className="space-y-1.5">
+                      <label className="text-[12px] font-medium text-stone-500">{t('settings.ttsProvider')}</label>
+                      <div className="grid grid-cols-2 gap-1 p-1 bg-black/5 rounded-lg">
+                        {[
+                          { id: 'gemini', label: 'Gemini' },
+                          { id: 'volcengine', label: t('provider.volcengine') }
+                        ].map(p => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            data-testid={`tts-provider-${p.id}`}
+                            onClick={() => setSettings({ ttsProvider: p.id as 'gemini' | 'volcengine' })}
+                            className={`flex items-center justify-center py-1.5 text-[11.5px] font-medium rounded-md transition-all ${
+                              ttsProvider === p.id
+                                ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-sm'
+                                : 'text-stone-500 hover:bg-white/50 hover:text-baimiao-mysteria'
+                            }`}
+                          >
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* API Key */}
+                    <div className="space-y-1.5">
+                      <label className="flex items-center gap-2 text-[12px] font-medium text-stone-700">
+                        <KeyRound className="w-3.5 h-3.5 text-stone-400" />
+                        {t('settings.ttsApiKey')}
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showTtsApiKey ? 'text' : 'password'}
+                          value={ttsApiKey}
+                          onChange={e => setSettings({ ttsApiKey: e.target.value })}
+                          data-testid="tts-api-key"
+                          className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 pr-10 rounded-lg text-[13px] text-stone-900 transition-all font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowTtsApiKey(!showTtsApiKey)}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-stone-400 hover:text-stone-600 focus:outline-none"
+                        >
+                          {showTtsApiKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
+                      <p className="text-[10.5px] text-stone-400 leading-tight">{t('settings.ttsApiKeyHint')}</p>
+                    </div>
+
+                    {/* Base URL */}
+                    <div className="space-y-1.5 pt-1.5 border-t border-stone-100">
+                      <label className="flex items-center gap-2 text-[12px] font-medium text-stone-700">
+                        <Server className="w-3.5 h-3.5 text-stone-400" />
+                        {t('settings.ttsBaseUrlLabel')}
+                      </label>
+                      <input
+                        type="text"
+                        value={ttsBaseUrl}
+                        onChange={e => setSettings({ ttsBaseUrl: e.target.value })}
+                        data-testid="tts-base-url"
+                        className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-900 transition-all font-mono"
+                      />
+                    </div>
+
+                    {/* Model */}
+                    <div className="space-y-1.5 pt-1.5 border-t border-stone-100">
+                      <label className="flex items-center gap-2 text-[12px] font-medium text-stone-700">
+                        <Cpu className="w-3.5 h-3.5 text-stone-400" />
+                        {t('settings.ttsModelLabel')}
+                      </label>
+                      <input
+                        type="text"
+                        value={ttsModel}
+                        onChange={e => setSettings({ ttsModel: e.target.value })}
+                        data-testid="tts-model"
+                        className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-900 transition-all font-mono"
+                      />
+                      <p className="text-[10.5px] text-stone-400 leading-tight">{t('settings.ttsModelHint')}</p>
+                    </div>
+
+                    {/* Voice */}
+                    <div className="space-y-1.5 pt-1.5 border-t border-stone-100">
+                      <label className="flex items-center gap-2 text-[12px] font-medium text-stone-700">
+                        <Volume2 className="w-3.5 h-3.5 text-stone-400" />
+                        {t('settings.ttsVoiceLabel')}
+                      </label>
+                      <input
+                        type="text"
+                        value={ttsVoice}
+                        onChange={e => setSettings({ ttsVoice: e.target.value })}
+                        data-testid="tts-voice"
+                        className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-900 transition-all font-mono"
+                      />
+                      <p className="text-[10.5px] text-stone-400 leading-tight">{t('settings.ttsVoiceHint')}</p>
+                    </div>
+                  </div>
+                )}
 
                 {/* 默认朗读语言 */}
                 <div className="space-y-1.5 pt-1.5 border-t border-stone-100">

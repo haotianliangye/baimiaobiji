@@ -974,6 +974,114 @@ ${contextContent || '（本次未检索到相关片段）'}
     }
   });
 
+  // #009 TTS 外部 API：接收 { text, lang, settings }，按 settings.provider 调 Gemini / 火山引擎，
+  // 返回音频 blob（Gemini 返回 audio/wav，火山引擎返回 audio/mp3）。Web Speech 仍由前端直出，不走此端点。
+  function pcmToWav(pcm: Buffer, sampleRate: number, channels: number, bitsPerSample: number): Buffer {
+    const byteRate = sampleRate * channels * bitsPerSample / 8;
+    const blockAlign = channels * bitsPerSample / 8;
+    const dataSize = pcm.length;
+    const header = Buffer.alloc(44);
+    header.write('RIFF', 0);
+    header.writeUInt32LE(36 + dataSize, 4);
+    header.write('WAVE', 8);
+    header.write('fmt ', 12);
+    header.writeUInt32LE(16, 16);
+    header.writeUInt16LE(1, 20); // PCM format
+    header.writeUInt16LE(channels, 22);
+    header.writeUInt32LE(sampleRate, 24);
+    header.writeUInt32LE(byteRate, 28);
+    header.writeUInt16LE(blockAlign, 32);
+    header.writeUInt16LE(bitsPerSample, 34);
+    header.write('data', 36);
+    header.writeUInt32LE(dataSize, 40);
+    return Buffer.concat([header, pcm]);
+  }
+
+  app.post('/api/tts', async (req, res) => {
+    try {
+      const { text, settings } = req.body;
+      const { provider = 'gemini', apiKey, baseUrl, model, voice, rate } = settings || {};
+
+      if (!text || !text.trim()) {
+        return res.status(400).json({ error: 'text is required and must not be empty' });
+      }
+      if (!apiKey) {
+        return res.status(400).json({ error: 'API Key 不能为空' });
+      }
+
+      if (provider === 'gemini') {
+        const ai = buildGeminiClient(apiKey, baseUrl);
+        const finalModel = model || 'gemini-2.5-flash-preview-tts';
+        const genConfig: any = { responseModalities: ['AUDIO'] };
+        if (voice) {
+          genConfig.speechConfig = {
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } }
+          };
+        }
+        const response = await ai.models.generateContent({
+          model: finalModel,
+          contents: [{ parts: [{ text }] }],
+          config: genConfig,
+        });
+        const parts = response.candidates?.[0]?.content?.parts || [];
+        const audioPart: any = parts.find((p: any) => p.inlineData);
+        if (!audioPart?.inlineData?.data) {
+          throw new Error('Gemini TTS 未返回音频数据');
+        }
+        // Gemini TTS 返回 PCM L16（24kHz / 16-bit / mono），包装为 WAV 供浏览器播放。
+        const pcmBuffer = Buffer.from(audioPart.inlineData.data, 'base64');
+        const wavBuffer = pcmToWav(pcmBuffer, 24000, 1, 16);
+        res.set('Content-Type', 'audio/wav');
+        return res.send(wavBuffer);
+      }
+
+      if (provider === 'volcengine') {
+        // 火山引擎语音合成 HTTP API（openspeech）。
+        // apiKey 约定为 "appid:access_token"；model = voice_type（如 BV001_streaming）；rate 映射为 speed_ratio。
+        const sep = apiKey.indexOf(':');
+        const appid = sep > 0 ? apiKey.slice(0, sep) : '';
+        const accessToken = sep > 0 ? apiKey.slice(sep + 1) : apiKey;
+        if (!appid) {
+          return res.status(400).json({ error: '火山引擎 TTS 的 API Key 需为 "appid:access_token" 格式' });
+        }
+        const apiBase = (baseUrl || 'https://openspeech.bytedance.com').replace(/\/$/, '');
+        const apiUrl = `${apiBase}/api/v1/tts`;
+        const voiceType = model || 'BV001_streaming';
+        const speedRatio = typeof rate === 'number' && rate > 0 ? rate : 1;
+        const reqid = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        const fetchRes = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer;${accessToken}`,
+          },
+          body: JSON.stringify({
+            app: { appid, token: accessToken, cluster: 'volcano_tts' },
+            user: { uid: 'baimiao' },
+            audio: { voice_type: voiceType, encoding: 'mp3', speed_ratio: speedRatio },
+            request: { reqid, text, operation: 'query' },
+          }),
+        });
+        if (!fetchRes.ok) {
+          const errText = await fetchRes.text();
+          throw new Error(`火山引擎 TTS 错误: ${fetchRes.status} ${errText}`);
+        }
+        const data = await fetchRes.json();
+        if (data.code !== 3000 || !data.data) {
+          throw new Error(`火山引擎 TTS 失败: ${data.code} ${data.message || ''}`);
+        }
+        const mp3Buffer = Buffer.from(data.data, 'base64');
+        res.set('Content-Type', 'audio/mp3');
+        return res.send(mp3Buffer);
+      }
+
+      return res.status(400).json({ error: `不支持的 TTS Provider: ${provider}` });
+    } catch (err: any) {
+      console.error('TTS error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.post('/api/webdav-proxy', async (req, res) => {
     try {
       const { endpoint, method, path: filePath, auth, body, headers } = req.body;
