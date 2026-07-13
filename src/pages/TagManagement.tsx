@@ -10,8 +10,10 @@ import { db } from '../db/db';
 import { useTagsStore } from '../store/tags.store';
 import { buildTagTree, normalizeTagPath, type TreeNode } from '../lib/tags';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../lib/i18n';
 
 export default function TagManagement() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const allTags = useLiveQuery(() => db.tags.toArray(), []);
   const { aliases, refreshAliases, renameTag, mergeTags, deleteTag, createTag } = useTagsStore();
@@ -99,17 +101,17 @@ export default function TagManagement() {
           <button
             onClick={() => navigate(-1)}
             className="p-1 -ml-1 hover:bg-stone-200/50 rounded-full transition-colors text-stone-500 hover:text-stone-800"
-            aria-label="返回"
+            aria-label={t('settings.back')}
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           <h2 className="text-[13.5px] font-bold tracking-wide text-baimiao-mysteria flex items-center gap-1.5 font-serif baimiao-editorial-title">
             <TagsIcon className="w-4 h-4 text-baimiao-mysteria/70 shrink-0" />
-            标签管理
+            {t('tags.title')}
           </h2>
         </div>
         <span className="text-[11px] font-medium text-stone-500 bg-stone-100/80 px-2 py-1 rounded-full">
-          {tagCount} 个标签
+          {t('tags.count', { count: tagCount })}
         </span>
       </div>
 
@@ -123,7 +125,7 @@ export default function TagManagement() {
               value={newTagPath}
               onChange={e => setNewTagPath(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleCreate(); }}
-              placeholder="新建标签，如 工作/项目A"
+              placeholder={t('tags.newTagPlaceholder')}
               className="flex-1 bg-transparent text-[13px] outline-none placeholder:text-stone-400 min-w-0"
             />
           </div>
@@ -142,8 +144,8 @@ export default function TagManagement() {
         {tagCount === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-stone-400 select-none">
             <TagsIcon className="w-8 h-8 mb-3 text-stone-300" />
-            <p className="text-[13px] font-medium">还没有标签</p>
-            <p className="text-[11px] mt-1 text-stone-400">在碎屑中输入 #标签 即可自动创建</p>
+            <p className="text-[13px] font-medium">{t('tags.noTagsTitle')}</p>
+            <p className="text-[11px] mt-1 text-stone-400">{t('tags.emptyHint')}</p>
           </div>
         ) : (
           <div className="flex flex-col gap-0.5">
@@ -165,9 +167,9 @@ export default function TagManagement() {
 
       {/* 重命名弹窗 */}
       {renamingPath && (
-        <ModalOverlay onClose={() => setRenamingPath(null)} title="重命名标签">
+        <ModalOverlay onClose={() => setRenamingPath(null)} title={t('tags.renameTitle')}>
           <p className="text-[12px] text-stone-500 mb-3">
-            重命名将级联更新所有关联记录（含子标签）。输入完整路径以同时移动层级。
+            {t('tags.renameDesc')}
           </p>
           <input
             type="text"
@@ -180,7 +182,7 @@ export default function TagManagement() {
           <ModalActions
             onCancel={() => setRenamingPath(null)}
             onConfirm={handleRename}
-            confirmText="重命名"
+            confirmText={t('tags.rename')}
             disabled={!renameValue.trim() || renameValue.trim() === renamingPath}
           />
         </ModalOverlay>
@@ -188,24 +190,23 @@ export default function TagManagement() {
 
       {/* 合并弹窗 */}
       {mergingPath && (
-        <ModalOverlay onClose={() => setMergingPath(null)} title={`合并标签「${mergingPath}」`}>
+        <ModalOverlay onClose={() => setMergingPath(null)} title={t('tags.mergeTitleWith', { path: mergingPath })}>
           <p className="text-[12px] text-stone-500 mb-3">
-            合并后，所有标记了「{mergingPath}」的记录将改为目标标签，
-            并建立别名映射，未来输入「{mergingPath}」时自动纠正。
+            {t('tags.mergeDesc', { path: mergingPath })}
           </p>
           <input
             type="text"
             value={mergeTarget}
             onChange={e => setMergeTarget(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleMerge(); }}
-            placeholder="目标标签路径，如 工作/项目B"
+            placeholder={t('tags.mergePlaceholder')}
             className="w-full bg-white rounded-xl border border-stone-200 px-3 py-2.5 text-[14px] outline-none focus:border-baimiao-mysteria/40 transition-colors mb-4"
             autoFocus
           />
           <ModalActions
             onCancel={() => setMergingPath(null)}
             onConfirm={handleMerge}
-            confirmText="合并"
+            confirmText={t('tags.merge')}
             disabled={!mergeTarget.trim() || mergeTarget.trim() === mergingPath}
           />
         </ModalOverlay>
@@ -213,16 +214,16 @@ export default function TagManagement() {
 
       {/* 删除确认弹窗 */}
       {deletingPath && (
-        <ModalOverlay onClose={() => setDeletingPath(null)} title="删除标签">
+        <ModalOverlay onClose={() => setDeletingPath(null)} title={t('tags.delete')}>
           <p className="text-[13px] text-stone-600 leading-relaxed mb-4">
-            确认删除标签「{deletingPath}」及其子标签？
+            {t('tags.deleteDesc', { path: deletingPath })}
             <br />
-            <span className="text-[12px] text-stone-400">所有关联记录中的该标签将被移除（记录本身不删除）。</span>
+            <span className="text-[12px] text-stone-400">{t('tags.deleteNote')}</span>
           </p>
           <ModalActions
             onCancel={() => setDeletingPath(null)}
             onConfirm={handleDelete}
-            confirmText="确认删除"
+            confirmText={t('tags.confirmDeleteBtn')}
             danger
           />
         </ModalOverlay>
@@ -249,6 +250,7 @@ function TagNode({
   onMerge: (path: string) => void;
   onDelete: (path: string) => void;
 }) {
+  const { t } = useTranslation();
   const hasChildren = node.children.length > 0;
   const isExpanded = expandedPaths.has(node.path);
 
@@ -282,7 +284,7 @@ function TagNode({
             data-testid="tag-rename-btn"
             onClick={() => onRename(node.path)}
             className="p-1.5 rounded-md text-stone-400 hover:text-stone-700 hover:bg-stone-200/50 transition-colors"
-            title="重命名"
+            title={t('tags.rename')}
           >
             <Edit2 className="w-3.5 h-3.5" />
           </button>
@@ -290,7 +292,7 @@ function TagNode({
             data-testid="tag-merge-btn"
             onClick={() => onMerge(node.path)}
             className="p-1.5 rounded-md text-stone-400 hover:text-stone-700 hover:bg-stone-200/50 transition-colors"
-            title="合并到其他标签"
+            title={t('tags.mergeToOther')}
           >
             <GitMerge className="w-3.5 h-3.5" />
           </button>
@@ -298,7 +300,7 @@ function TagNode({
             data-testid="tag-delete-btn"
             onClick={() => onDelete(node.path)}
             className="p-1.5 rounded-md text-stone-400 hover:text-rose-500 hover:bg-rose-50 transition-colors"
-            title="删除"
+            title={t('tags.delete')}
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -361,13 +363,14 @@ function ModalActions({
   disabled?: boolean;
   danger?: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex gap-2 justify-end">
       <button
         onClick={onCancel}
         className="px-4 py-2 rounded-xl text-[13px] font-medium text-stone-600 bg-stone-100 hover:bg-stone-200 transition-colors"
       >
-        取消
+        {t('review.cancel')}
       </button>
       <button
         data-testid="modal-confirm-btn"

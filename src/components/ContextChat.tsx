@@ -7,6 +7,7 @@ import { useAppStore } from '../store/app.store';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useTTS } from '../lib/tts';
 import { washCitations } from '../lib/citationWash';
+import { useTranslation } from '../lib/i18n';
 
 interface ContextChatProps {
   chatHistory: InsightMessage[];
@@ -23,6 +24,7 @@ interface ContextChatProps {
 }
 
 export default function ContextChat({ chatHistory, contextContent, apiEndpoint, onUpdateHistory, getDynamicContext, onCitationClick, inputPlaceholder }: ContextChatProps) {
+  const { t } = useTranslation();
   const [messages, setMessages] = useState<InsightMessage[]>(chatHistory || []);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -100,7 +102,7 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
       const data = await res.json();
       const aiMsg: InsightMessage = {
         role: 'assistant',
-        content: data.reply || "请求失败，未返回内容",
+        content: data.reply || t('chat.requestFailed'),
         timestamp: Date.now()
       };
 
@@ -110,7 +112,7 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
       console.error(err);
       const errorMsg: InsightMessage = {
         role: 'assistant',
-        content: `**发生错误**：${err.message}`,
+        content: t('chat.errorOccurred', { msg: err.message }),
         timestamp: Date.now()
       };
       await updateAndSave([...newMessages, errorMsg]);
@@ -163,7 +165,7 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
       const data = await res.json();
       const aiMsg: InsightMessage = {
         role: 'assistant',
-        content: data.reply || "请求失败，未返回内容",
+        content: data.reply || t('chat.requestFailed'),
         timestamp: Date.now()
       };
 
@@ -173,7 +175,7 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
       console.error(err);
       const errorMsg: InsightMessage = {
         role: 'assistant',
-        content: `**发生错误**：${err.message}`,
+        content: t('chat.errorOccurred', { msg: err.message }),
         timestamp: Date.now()
       };
       await updateAndSave([...newMessages, errorMsg]);
@@ -230,7 +232,7 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
                         className="flex items-center gap-1 hover:text-rose-500 transition-colors active:scale-95"
                       >
                         <Trash2 className="w-3 h-3" />
-                        删除
+                        {t('chat.delete')}
                       </button>
                       <CopyButton text={msg.content} />
                       <TTSButton text={msg.content} />
@@ -239,7 +241,7 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
                         className="flex items-center gap-1 hover:text-stone-700 transition-colors active:scale-95"
                       >
                         <RefreshCw className="w-3 h-3" />
-                        重新生成
+                        {t('chat.regenerate')}
                       </button>
                     </div>
                   </div>
@@ -253,7 +255,7 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
             <div className="flex justify-start">
               <div className="bg-white border border-stone-100 text-stone-500 rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-2 shadow-sm">
                  <Loader2 className="w-4 h-4 animate-spin text-stone-400" />
-                 <span className="text-[13px] font-medium tracking-wide">思考中...</span>
+                 <span className="text-[13px] font-medium tracking-wide">{t('copilot.thinking')}</span>
               </div>
             </div>
           )}
@@ -267,7 +269,7 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
               type="button"
               onClick={() => setIsFullScreen(true)}
               className="absolute left-3 top-3 z-10 w-5.5 h-5.5 flex items-center justify-center bg-white/90 border border-stone-200/60 text-stone-400 hover:text-stone-650 hover:bg-white rounded-lg shadow-sm hover:scale-105 active:scale-95 transition-all select-none"
-              title="展开为长文本输入"
+              title={t('chat.expandInput')}
             >
               <Maximize2 className="w-3 h-3" />
             </button>
@@ -278,7 +280,7 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
               showExpandBtn ? 'pl-11 pr-4' : 'px-4'
             }`}
             rows={1}
-            placeholder={inputPlaceholder || "向 AI 追问更多细节..."}
+            placeholder={inputPlaceholder || t('chat.defaultPlaceholder')}
             value={inputValue}
             onChange={(e) => {
                setInputValue(e.target.value);
@@ -313,12 +315,12 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
               type="button"
               onClick={() => setIsFullScreen(false)}
               className="p-1.5 hover:opacity-70 transition-opacity active:scale-95 shrink-0"
-              title="收起"
+              title={t('chat.collapse')}
             >
               <ChevronDown className="w-6 h-6 text-white" />
             </button>
             <span className="text-[14px] font-normal flex-1 font-serif baimiao-editorial-title translate-y-[2px] tracking-wide select-none">
-              长文本输入
+              {t('chat.longInput')}
             </span>
           </div>
 
@@ -326,7 +328,7 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
           <div className="flex-1 bg-white p-6 overflow-y-auto">
             <textarea
               className="w-full h-full focus:outline-none resize-none text-[15.5px] leading-relaxed text-stone-850 placeholder-stone-400 thin-scrollbar"
-              placeholder={inputPlaceholder || "在这里写下长内容，向 AI 追问更多细节..."}
+              placeholder={inputPlaceholder || t('chat.longPlaceholder')}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               autoFocus
@@ -343,7 +345,7 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
               disabled={!inputValue.trim() || isTyping}
               className="px-6 py-2.5 rounded-xl text-[14px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] border border-white/10 hover:brightness-110 active:scale-95 transition-all shadow-sm select-none disabled:opacity-40 disabled:hover:brightness-100"
             >
-              发送
+              {t('chat.send')}
             </button>
           </div>
         </div>
@@ -354,6 +356,7 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
 
 function CopyButton({ text }: { text: string }) {
   const { copied, copy } = useCopyToClipboard();
+  const { t } = useTranslation();
 
   return (
     <button
@@ -363,13 +366,14 @@ function CopyButton({ text }: { text: string }) {
       }`}
     >
       {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-      {copied ? '已复制' : '复制'}
+      {copied ? t('copilot.copied') : t('copilot.copy')}
     </button>
   );
 }
 
 function TTSButton({ text }: { text: string }) {
   const { play, isPlaying } = useTTS();
+  const { t } = useTranslation();
   const playing = isPlaying(text);
 
   return (
@@ -381,7 +385,7 @@ function TTSButton({ text }: { text: string }) {
       }`}
     >
       {playing ? <Square className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
-      {playing ? '停止' : '朗读'}
+      {playing ? t('review.stopReading') : t('review.readAloud')}
     </button>
   );
 }

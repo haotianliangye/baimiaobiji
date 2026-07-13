@@ -10,19 +10,30 @@ import { generateUUID } from '../lib/utils';
 import ContextChat from '../components/ContextChat';
 import MiniCalendar from '../components/MiniCalendar';
 import { retrieveCopilotContext, type CopilotRetrievalFilters, type CopilotCitation } from '../lib/copilotRetrieval';
+import { useTranslation } from '../lib/i18n';
 
 const DATE_PRESETS = ['全部', '本周', '本月', '本季度'] as const;
-const MODULE_LABELS: Record<'record' | 'diary' | 'review' | 'insight', string> = {
-  record: '记录',
-  diary: '日记',
-  review: '回顾',
-  insight: '洞察',
+// #12: dateRange 内部仍用中文串作标识符（过滤逻辑依赖），显示时映射到 i18n key
+const DATE_PRESET_KEY: Record<string, string> = {
+  '全部': 'search.allDates',
+  '本周': 'search.thisWeek',
+  '本月': 'search.thisMonth',
+  '本季度': 'search.thisQuarter',
+  '自定义': 'search.custom',
+};
+// #12: MODULE_LABELS 改为 key 映射，显示时用 t()
+const MODULE_LABEL_KEY: Record<string, string> = {
+  record: 'copilot.moduleRecord',
+  diary: 'copilot.moduleDiary',
+  review: 'copilot.moduleReview',
+  insight: 'copilot.moduleInsight',
 };
 // Mirrors the diary generation menu so users can identify which prompt is
 // selected without opening Settings. The index aligns with diaryPrompts[].
-const DIARY_PROMPT_LABELS = ['默认', '自定义 1', '自定义 2', '自定义 3'];
+const DIARY_PROMPT_LABEL_KEYS = ['copilot.promptDefault', 'copilot.promptCustom1', 'copilot.promptCustom2', 'copilot.promptCustom3'];
 
 export default function Copilot() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const setCopilotMode = useAppStore(s => s.setCopilotMode);
   const { embedEnabled, embedProvider, embedApiKey, apiKey, diaryPrompts } = useSettingsStore();
@@ -128,9 +139,9 @@ export default function Copilot() {
 
   // #9: 导出单条会话为 Markdown 文件。
   const handleExportConversation = (conv: CopilotConversation) => {
-    const lines: string[] = [`# ${conv.title || '对话记录'}`, ''];
+    const lines: string[] = [`# ${conv.title || t('copilot.conversationRecord')}`, ''];
     for (const msg of conv.messages) {
-      const roleLabel = msg.role === 'user' ? '用户' : 'AI';
+      const roleLabel = msg.role === 'user' ? t('copilot.userRole') : 'AI';
       const time = format(new Date(msg.timestamp), 'yyyy-MM-dd HH:mm');
       lines.push(`## ${roleLabel}（${time}）`);
       lines.push('');
@@ -142,7 +153,7 @@ export default function Copilot() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const safeName = (conv.title || '对话记录').replace(/[\\/:*?"<>|]/g, '_');
+    const safeName = (conv.title || t('copilot.conversationRecord')).replace(/[\\/:*?"<>|]/g, '_');
     a.download = `${safeName}.md`;
     a.click();
     URL.revokeObjectURL(url);
@@ -194,7 +205,7 @@ export default function Copilot() {
         setCurrentId(null);
       } else {
         const patch: Partial<CopilotConversation> = { messages: newHistory, updated_at: now };
-        if (!existing.title || existing.title === '新对话') {
+        if (!existing.title || existing.title === '新对话' || existing.title === 'New chat') {
           const firstUser = newHistory.find(m => m.role === 'user');
           if (firstUser) {
             patch.title = firstUser.content.slice(0, 20) + (firstUser.content.length > 20 ? '…' : '');
@@ -210,7 +221,7 @@ export default function Copilot() {
     const firstUser = newHistory.find(m => m.role === 'user');
     const title = firstUser
       ? firstUser.content.slice(0, 20) + (firstUser.content.length > 20 ? '…' : '')
-      : '新对话';
+      : t('copilot.newConversation');
     await db.copilot_conversations.add({
       id: newId,
       title,
@@ -236,12 +247,12 @@ export default function Copilot() {
       };
       return `${formatShort(customStartDate)}~${formatShort(customEndDate)}`;
     }
-    return dateRange === '全部' ? '全部日期' : dateRange;
-  }, [dateRange, customStartDate, customEndDate]);
+    return t(DATE_PRESET_KEY[dateRange] || 'search.allDates');
+  }, [dateRange, customStartDate, customEndDate, t]);
 
   const templateLabel = diaryPromptIndex === undefined
-    ? '全部模板'
-    : DIARY_PROMPT_LABELS[diaryPromptIndex] || `模板 ${diaryPromptIndex}`;
+    ? t('copilot.allTemplates')
+    : t(DIARY_PROMPT_LABEL_KEYS[diaryPromptIndex]) || t('copilot.templateN', { n: diaryPromptIndex });
 
   return (
     <div className="absolute inset-0 bg-[#f0eef5] flex flex-col overflow-hidden animate-in fade-in duration-200">
@@ -249,12 +260,12 @@ export default function Copilot() {
       <div className="flex h-[54px] shrink-0 items-center px-4 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white gap-2 select-none border-b border-white/5">
         <MessageSquare className="w-4.5 h-4.5 text-white/90 shrink-0 translate-y-[2px]" />
         <span className="text-[14px] font-normal flex-1 font-serif baimiao-editorial-title translate-y-[2px] tracking-wide select-none">
-          白描 Copilot
+          {t('copilot.title')}
         </span>
-        <button onClick={handleNewConversation} title="新对话" className="p-1.5 hover:opacity-70 transition-opacity active:scale-95 shrink-0">
+        <button onClick={handleNewConversation} title={t('copilot.newChat')} className="p-1.5 hover:opacity-70 transition-opacity active:scale-95 shrink-0">
           <Plus className="w-[18px] h-[18px]" />
         </button>
-        <button onClick={() => setCopilotMode(false)} title="关闭" className="p-1.5 hover:opacity-70 transition-opacity active:scale-95 shrink-0">
+        <button onClick={() => setCopilotMode(false)} title={t('about.close')} className="p-1.5 hover:opacity-70 transition-opacity active:scale-95 shrink-0">
           <X className="w-[18px] h-[18px]" />
         </button>
       </div>
@@ -269,7 +280,7 @@ export default function Copilot() {
               : 'bg-stone-50 text-stone-600 hover:bg-stone-100 border border-stone-200/60'
           }`}
         >
-          当前对话
+          {t('copilot.chat')}
         </button>
         <button
           onClick={() => setActiveTab('history')}
@@ -279,7 +290,7 @@ export default function Copilot() {
               : 'bg-stone-50 text-stone-600 hover:bg-stone-100 border border-stone-200/60'
           }`}
         >
-          历史会话
+          {t('copilot.history')}
         </button>
       </div>
 
@@ -299,13 +310,13 @@ export default function Copilot() {
                 >
                   <div className="flex-1 min-w-0 pr-2">
                     <div className="flex items-center gap-2 mb-1">
-                      <div className="text-[13.5px] font-semibold text-stone-800 truncate">{c.title || '新对话'}</div>
+                      <div className="text-[13.5px] font-semibold text-stone-800 truncate">{c.title || t('copilot.newConversation')}</div>
                       <span className={`shrink-0 px-1.5 py-0.5 rounded-md text-[9.5px] font-semibold tracking-wide ${
                         (c.mode || 'rag') === 'chat'
                           ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/50'
                           : 'bg-violet-50 text-violet-600 border border-violet-200/50'
                       }`}>
-                        {(c.mode || 'rag') === 'chat' ? '对话' : '问答'}
+                        {(c.mode || 'rag') === 'chat' ? t('copilot.chatMode') : t('copilot.ragMode')}
                       </span>
                     </div>
                     <div className="text-[11px] text-stone-400 font-medium font-mono">{format(new Date(c.updated_at), 'yyyy-MM-dd HH:mm')}</div>
@@ -314,14 +325,14 @@ export default function Copilot() {
                     <button
                       onClick={(e) => { e.stopPropagation(); handleExportConversation(c); }}
                       className="text-[#8a859e] hover:text-stone-700 p-2 transition-colors shrink-0 rounded-lg hover:bg-stone-100 active:scale-95"
-                      title="导出 Markdown"
+                      title={t('copilot.exportMd')}
                     >
                       <Download className="w-4 h-4" />
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDeleteConversation(c.id); }}
                       className="text-[#8a859e] hover:text-rose-500 p-2 transition-colors shrink-0 rounded-lg hover:bg-rose-50 active:scale-95"
-                      title="删除会话"
+                      title={t('copilot.deleteSession')}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -333,13 +344,13 @@ export default function Copilot() {
                 <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mb-4">
                   <Sparkles className="w-7 h-7 text-stone-300 stroke-[1.5px]" />
                 </div>
-                <h3 className="text-[14px] text-stone-800 font-semibold mb-1">暂无历史对话</h3>
-                <p className="text-[12px] text-stone-500 mb-4 max-w-[200px]">开启一次新对话，Copilot 会根据您的提问自动生成会话记录。</p>
+                <h3 className="text-[14px] text-stone-800 font-semibold mb-1">{t('copilot.noHistoryTitle')}</h3>
+                <p className="text-[12px] text-stone-500 mb-4 max-w-[200px]">{t('copilot.noHistoryDesc')}</p>
                 <button
                   onClick={handleNewConversation}
                   className="bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white px-4 py-2 rounded-full text-[12.5px] font-medium shadow-sm hover:brightness-110 active:scale-95 transition-all"
                 >
-                  新建对话
+                  {t('copilot.newChat')}
                 </button>
               </div>
             )}
@@ -357,7 +368,7 @@ export default function Copilot() {
                   : 'bg-stone-50 text-stone-500 border border-stone-200/40 hover:bg-stone-100'
               }`}
             >
-              RAG 问答
+              {t('copilot.ragMode')}
             </button>
             <button
               onClick={() => handleSwitchMode('chat')}
@@ -367,7 +378,7 @@ export default function Copilot() {
                   : 'bg-stone-50 text-stone-500 border border-stone-200/40 hover:bg-stone-100'
               }`}
             >
-              通用 Chat
+              {t('copilot.chatMode')}
             </button>
           </div>
           {/* Filter row — single horizontal line, scrolls instead of wrapping.
@@ -396,7 +407,7 @@ export default function Copilot() {
                         : 'bg-[#f0edf4]/50 text-[#8a859e] border-stone-200/20 hover:bg-[#f0edf4]'
                     }`}
                   >
-                    {MODULE_LABELS[mod]}
+                    {t(MODULE_LABEL_KEY[mod])}
                   </button>
                 );
               })}
@@ -434,15 +445,15 @@ export default function Copilot() {
                 <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mb-4">
                   <Sparkles className="w-7 h-7 text-stone-300 stroke-[1.5px]" />
                 </div>
-                <h3 className="text-[15px] text-stone-800 font-semibold mb-2">语义检索未开启</h3>
+                <h3 className="text-[15px] text-stone-800 font-semibold mb-2">{t('copilot.semanticOff')}</h3>
                 <p className="text-[12.5px] text-stone-500 leading-relaxed mb-6 max-w-[260px]">
-                  Copilot 依赖本地向量检索你的碎屑、日记与回顾。请先在设置中配置并开启向量模型。
+                  {t('copilot.semanticOffDesc')}
                 </p>
                 <button
                   onClick={() => { setCopilotMode(false); navigate('/settings'); }}
                   className="bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white px-5 py-2 rounded-full text-[13px] font-medium shadow-sm hover:brightness-110 transition-all active:scale-95"
                 >
-                  前往设置
+                  {t('copilot.goSettings')}
                 </button>
               </div>
             ) : (
@@ -454,7 +465,7 @@ export default function Copilot() {
                   getDynamicContext={chatMode === 'rag' ? getDynamicContext : undefined}
                   onCitationClick={chatMode === 'rag' ? onCitationClick : undefined}
                   onUpdateHistory={onUpdateHistory}
-                  inputPlaceholder={chatMode === 'rag' ? '问 Copilot 任何关于你记录的问题…' : '和 AI 聊聊任何话题…'}
+                  inputPlaceholder={chatMode === 'rag' ? t('copilot.ragPlaceholder') : t('copilot.chatPlaceholder')}
                 />
               </div>
             )}
@@ -484,40 +495,40 @@ export default function Copilot() {
                         : 'text-stone-600 hover:text-stone-800 hover:bg-stone-100'
                     }`}
                   >
-                    {range === '全部' ? '全部日期' : range}
+                    {t(DATE_PRESET_KEY[range] || 'search.allDates')}
                   </button>
                 ))}
                 <div className="border-t border-stone-100 my-1" />
                 <div className="px-3 py-1.5 flex flex-col gap-2">
-                  <span className="text-[10.5px] font-semibold text-stone-400 uppercase tracking-wider">自定义时间</span>
+                  <span className="text-[10.5px] font-semibold text-stone-400 uppercase tracking-wider">{t('search.customTime')}</span>
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11.5px] text-stone-500 shrink-0">开始</span>
+                      <span className="text-[11.5px] text-stone-500 shrink-0">{t('search.startDate')}</span>
                       <button
                         onClick={() => setCalendarTarget('start')}
                         className="bg-stone-50 border border-stone-200 text-stone-700 rounded-lg px-2 py-1 text-[11px] font-mono text-left w-32 outline-none hover:border-baimiao-mysteria/40 active:bg-stone-100 transition-colors"
                       >
-                        {customStartDate || '选择日期'}
+                        {customStartDate || t('copilot.selectDate')}
                       </button>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11.5px] text-stone-500 shrink-0">结束</span>
+                      <span className="text-[11.5px] text-stone-500 shrink-0">{t('search.endDate')}</span>
                       <button
                         onClick={() => setCalendarTarget('end')}
                         className="bg-stone-50 border border-stone-200 text-stone-700 rounded-lg px-2 py-1 text-[11px] font-mono text-left w-32 outline-none hover:border-baimiao-mysteria/40 active:bg-stone-100 transition-colors"
                       >
-                        {customEndDate || '选择日期'}
+                        {customEndDate || t('copilot.selectDate')}
                       </button>
                     </div>
                   </div>
                   <button
                     onClick={() => {
                       if (!customStartDate || !customEndDate) {
-                        alert('请选择完整的开始和结束日期');
+                        alert(t('search.alertSelectDates'));
                         return;
                       }
                       if (customStartDate > customEndDate) {
-                        alert('开始日期不能晚于结束日期');
+                        alert(t('search.alertStartAfterEnd'));
                         return;
                       }
                       setDateRange('自定义');
@@ -528,7 +539,7 @@ export default function Copilot() {
                     className="w-full mt-1.5 py-1.5 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white rounded-xl text-[11.5px] font-semibold flex items-center justify-center gap-1 active:scale-[0.98] disabled:opacity-40"
                   >
                     <CalendarIcon className="w-3 h-3" />
-                    确定
+                    {t('search.confirm')}
                   </button>
                 </div>
               </>
@@ -542,7 +553,7 @@ export default function Copilot() {
                     setCalendarTarget('none');
                   }}
                   onBack={() => setCalendarTarget('none')}
-                  title={calendarTarget === 'start' ? '选择开始日期' : '选择结束日期'}
+                  title={calendarTarget === 'start' ? t('search.selectStart') : t('search.selectEnd')}
                 />
               </div>
             )}
@@ -562,7 +573,7 @@ export default function Copilot() {
                   : 'text-stone-600 hover:text-stone-800 hover:bg-stone-100'
               }`}
             >
-              全部模板
+              {t('copilot.allTemplates')}
             </button>
             {diaryPrompts.map((p: string, i: number) => p.trim() && (
               <button
@@ -574,7 +585,7 @@ export default function Copilot() {
                     : 'text-stone-600 hover:text-stone-800 hover:bg-stone-100'
                 }`}
               >
-                <div className="font-semibold text-[12px]">{DIARY_PROMPT_LABELS[i] || `模板 ${i}`}</div>
+                <div className="font-semibold text-[12px]">{t(DIARY_PROMPT_LABEL_KEYS[i]) || t('copilot.templateN', { n: i })}</div>
                 <div className="text-[10px] text-stone-400 truncate mt-0.5">{p.trim().slice(0, 18)}…</div>
               </button>
             ))}

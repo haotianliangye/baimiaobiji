@@ -39,6 +39,7 @@ import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { countChars } from '../lib/wordCount';
 import RichEditor from '../components/RichEditor';
 import RandomWalk from '../components/RandomWalk';
+import { useTranslation, getCurrentLanguage } from '../lib/i18n';
 
 type ViewMode = 'masonry' | 'timeline';
 
@@ -74,14 +75,15 @@ function buildTimelineGroups(thoughts: Thought[]): TimelineGroup[] {
     .sort((a, b) => (a[0] < b[0] ? 1 : -1))
     .map(([date, items]) => {
       let label: string;
-      if (date === today) label = '今天';
-      else if (date === yesterday) label = '昨天';
-      else label = format(new Date(date), 'M月d日');
+      if (date === today) label = getCurrentLanguage() === 'zh' ? '今天' : 'Today';
+      else if (date === yesterday) label = getCurrentLanguage() === 'zh' ? '昨天' : 'Yesterday';
+      else label = format(new Date(date), getCurrentLanguage() === 'zh' ? 'M月d日' : 'MMM d');
       return { date, label, thoughts: items };
     });
 }
 
 export default function Thoughts() {
+  const { t } = useTranslation();
   const { createThought, updateThought, deleteThought } = useThoughtsStore();
   const { copied, copy } = useCopyToClipboard();
   const refreshAliases = useTagsStore((s) => s.refreshAliases);
@@ -154,7 +156,7 @@ export default function Thoughts() {
   };
   const handleDeleteEdit = async () => {
     if (!editingId) return;
-    if (!confirm('确认删除这条沉思笔记吗？')) return;
+    if (!confirm(t('thoughts.confirmDelete'))) return;
     await deleteThought(editingId);
     closeEdit();
   };
@@ -172,9 +174,9 @@ export default function Thoughts() {
       <div className="flex h-[52px] items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 z-20 shrink-0 w-full justify-between">
         <h2 className="text-[13.5px] font-bold tracking-wide text-baimiao-mysteria flex items-center gap-1.5 font-serif baimiao-editorial-title">
           <Notepad weight="regular" className="w-4 h-4 text-baimiao-mysteria/70 translate-y-[-0.8px] shrink-0" />
-          沉思
+          {t('thoughts.title')}
           {thoughts.length > 0 && (
-            <span className="text-[11px] font-medium text-stone-400 ml-1">{thoughts.length} 条 · {totalChars} 字</span>
+            <span className="text-[11px] font-medium text-stone-400 ml-1">{t('thoughts.countChars', { count: thoughts.length, chars: totalChars })}</span>
           )}
         </h2>
         {/* 视图切换 + 随机漫步入口 */}
@@ -183,7 +185,7 @@ export default function Thoughts() {
             data-testid="walk-open"
             onClick={() => setShowRandomWalk(true)}
             className="p-2 rounded-full text-amber-400 hover:bg-amber-50 transition-colors"
-            title="随机漫步"
+            title={t('thoughts.randomWalk')}
           >
             <Lightbulb className="w-4 h-4" />
           </button>
@@ -198,7 +200,7 @@ export default function Thoughts() {
             }`}
           >
             <LayoutGrid className="w-3.5 h-3.5" />
-            瀑布流
+            {t('thoughts.masonry')}
           </button>
           <button
             data-testid="view-timeline"
@@ -210,7 +212,7 @@ export default function Thoughts() {
             }`}
           >
             <ListIcon className="w-3.5 h-3.5" />
-            时间线
+            {t('thoughts.timeline')}
           </button>
           </div>
         </div>
@@ -247,7 +249,7 @@ export default function Thoughts() {
                     {g.label}
                   </span>
                   <span className="text-[10.5px] text-stone-400 font-mono">{g.date}</span>
-                  <span className="text-[10.5px] text-stone-400">{g.thoughts.length} 条</span>
+                  <span className="text-[10.5px] text-stone-400">{t('thoughts.itemCount', { count: g.thoughts.length })}</span>
                 </div>
                 {g.thoughts.map((t) => (
                   <ThoughtCard
@@ -280,13 +282,13 @@ export default function Thoughts() {
               textareaTestId="thought-create-textarea"
             />
             <div className="flex items-center justify-between">
-              <span className="text-[11px] text-stone-400 pl-1">{countChars(createContent)} 字</span>
+              <span className="text-[11px] text-stone-400 pl-1">{t('thoughts.charCount', { count: countChars(createContent) })}</span>
               <div className="flex gap-2">
                 <button
                   onClick={handleCloseCreate}
                   className="px-3.5 py-1.5 rounded-full text-[12.5px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors"
                 >
-                  取消
+                  {t('thoughts.cancel')}
                 </button>
                 <button
                   data-testid="thought-create-save"
@@ -295,7 +297,7 @@ export default function Thoughts() {
                   className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[12.5px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Save className="w-3.5 h-3.5" />
-                  保存
+                  {t('thoughts.save')}
                 </button>
               </div>
             </div>
@@ -307,7 +309,7 @@ export default function Thoughts() {
             className="w-full flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-stone-200/70 text-stone-400 hover:border-baimiao-mysteria/30 hover:text-stone-600 transition-colors text-[13px]"
           >
             <Plus className="w-4 h-4 text-baimiao-mysteria/60" />
-            记录一条沉思...
+            {t('thoughts.quickInput')}
           </button>
         )}
       </div>
@@ -325,7 +327,7 @@ export default function Thoughts() {
             {/* 弹窗头 */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-stone-100 shrink-0">
               <span className="text-[13.5px] font-semibold text-baimiao-mysteria font-serif baimiao-editorial-title">
-                编辑沉思
+                {t('thoughts.editTitle')}
               </span>
               <button
                 onClick={closeEdit}
@@ -349,7 +351,7 @@ export default function Thoughts() {
               {/* created_at 修改：original_created_at 保留用于溯源 */}
               <div className="flex items-center gap-2 px-1">
                 <Clock className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                <label className="text-[11.5px] text-stone-500 shrink-0">展示时间</label>
+                <label className="text-[11.5px] text-stone-500 shrink-0">{t('thoughts.displayTime')}</label>
                 <input
                   type="datetime-local"
                   data-testid="thought-edit-created-at"
@@ -359,7 +361,7 @@ export default function Thoughts() {
                 />
               </div>
               <p className="text-[10.5px] text-stone-400 px-1 -mt-1">
-                修改展示时间不影响创建溯源时间（original_created_at 保留首次值）。
+                {t('thoughts.displayTimeHint')}
               </p>
             </div>
 
@@ -371,14 +373,14 @@ export default function Thoughts() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12.5px] font-medium text-rose-500 hover:bg-rose-50 transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                删除
+                {t('thoughts.delete')}
               </button>
               <div className="flex gap-2">
                 <button
                   onClick={closeEdit}
                   className="px-3.5 py-1.5 rounded-full text-[12.5px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors"
                 >
-                  取消
+                  {t('thoughts.cancel')}
                 </button>
                 <button
                   data-testid="thought-edit-save"
@@ -387,7 +389,7 @@ export default function Thoughts() {
                   className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[12.5px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Save className="w-3.5 h-3.5" />
-                  保存
+                  {t('thoughts.save')}
                 </button>
               </div>
             </div>
@@ -405,18 +407,19 @@ export default function Thoughts() {
 
 /** 空状态 */
 function EmptyState() {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center justify-center py-10 text-center select-none">
       <div className="text-baimiao-mysteria mb-4 bg-white p-3 rounded-xl shadow-[0_2px_10px_rgba(27,25,56,0.05)] border border-baimiao-mysteria/5">
         <Sparkles className="w-6 h-6 stroke-[1.5px] text-baimiao-mysteria/70" />
       </div>
       <p className="text-[15px] text-stone-900 font-medium tracking-tight mb-2 font-serif baimiao-editorial-title">
-        沉思板块
+        {t('thoughts.emptyTitle')}
       </p>
       <p className="text-[12.5px] text-stone-500 leading-relaxed max-w-[260px]">
-        这里是你慢思考的沉淀空间——支持 Markdown、标签与附件的笔记系统。
+        {t('thoughts.emptyDesc')}
       </p>
-      <p className="text-[11px] text-stone-400 mt-3">点击下方输入框，记录第一条沉思</p>
+      <p className="text-[11px] text-stone-400 mt-3">{t('thoughts.emptyHint')}</p>
     </div>
   );
 }
@@ -430,6 +433,7 @@ interface ThoughtCardProps {
 }
 
 function ThoughtCard({ thought, copied, onCopy, onEdit }: ThoughtCardProps) {
+  const { t } = useTranslation();
   const tags = thought.tags || [];
   const attachments = thought.attachments || [];
   return (
@@ -438,7 +442,7 @@ function ThoughtCard({ thought, copied, onCopy, onEdit }: ThoughtCardProps) {
       data-thought-id={thought.id}
       onDoubleClick={onEdit}
       className="baimiao-card-bubble p-3.5 cursor-pointer group select-none"
-      title="双击编辑"
+      title={t('thoughts.doubleClickEdit')}
     >
       {/* 正文 Markdown */}
       {thought.content.trim() && (
@@ -455,7 +459,7 @@ function ThoughtCard({ thought, copied, onCopy, onEdit }: ThoughtCardProps) {
               <img
                 key={idx}
                 src={att.ref}
-                alt={att.name || '附件'}
+                alt={att.name || t('record.addAttachment')}
                 className="w-16 h-16 object-cover rounded-lg border border-stone-200"
               />
             ) : null
@@ -497,7 +501,7 @@ function ThoughtCard({ thought, copied, onCopy, onEdit }: ThoughtCardProps) {
           }`}
         >
           {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-          {copied ? '已复制' : '复制'}
+          {copied ? t('thoughts.copied') : t('thoughts.copy')}
         </button>
       </div>
     </div>

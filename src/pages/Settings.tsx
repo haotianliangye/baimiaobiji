@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning, Download, FileJson, FileText, MessageSquare, Volume2 } from 'lucide-react';
-import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_MINGWU_PROMPT, DEFAULT_SUMMARY_PROMPT, DEFAULT_DIARY_SUMMARY_PROMPT, DEFAULT_INSIGHT_SUMMARY_PROMPT } from '../store/settings.store';
+import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_MINGWU_PROMPT, DEFAULT_SUMMARY_PROMPT, DEFAULT_DIARY_SUMMARY_PROMPT, DEFAULT_INSIGHT_SUMMARY_PROMPT, DEFAULT_PROMPTS_BY_LANG, DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG, type Language } from '../store/settings.store';
 import { db, normalizeLegacyDiary, normalizeLegacyInsight } from '../db/db';
 import { enqueueAllMissingEmbeddings } from '../lib/embedding';
 import { checkStorageStatus, requestStoragePersistence, StorageEstimateInfo } from '../lib/storage';
@@ -13,21 +13,23 @@ import type { DataType, ExportOptions } from '../lib/dataExport';
 import { importData, importConversations } from '../lib/dataImport';
 import type { ImportStrategy, ImportResult } from '../lib/dataImport';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../lib/i18n';
 
 const SYNC_START_DELAY_MS = 500;
 const OAUTH_CHECK_INTERVAL_MS = 50;
 
-// #13 统一数据管理 -- 可导出的数据类型选项
-const DATA_TYPE_OPTIONS: { id: DataType; label: string }[] = [
-  { id: 'raw_logs', label: '碎屑' },
-  { id: 'daily_reviews', label: '回顾' },
-  { id: 'thoughts', label: '沉思' },
-  { id: 'mingwu', label: '明悟' },
-  { id: 'copilot_conversations', label: '聊天记录' },
+// #13 统一数据管理 -- 可导出的数据类型选项（labelKey 用于 i18n）
+const DATA_TYPE_OPTIONS: { id: DataType; labelKey: string }[] = [
+  { id: 'raw_logs', labelKey: 'dataType.raw_logs' },
+  { id: 'daily_reviews', labelKey: 'dataType.daily_reviews' },
+  { id: 'thoughts', labelKey: 'dataType.thoughts' },
+  { id: 'mingwu', labelKey: 'dataType.mingwu' },
+  { id: 'copilot_conversations', labelKey: 'dataType.copilot_conversations' },
 ];
 
 export default function Settings() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const settingsStore = useSettingsStore();
   const {
     provider,
@@ -61,6 +63,8 @@ export default function Settings() {
     ttsLang,
     ttsRate,
     ttsVoice,
+    language,
+    setLanguage,
     setSettings
   } = settingsStore;
 
@@ -170,7 +174,7 @@ export default function Settings() {
 
         // Clean up hash from URL
         window.history.replaceState(null, '', window.location.pathname + window.location.search);
-        alert(`已成功连接到 ${state === 'gdrive' ? 'Google Drive' : state === 'onedrive' ? 'OneDrive' : 'Dropbox'} 网盘！`);
+        alert(t('settings.oauthConnectedAlert', { provider: state === 'gdrive' ? 'Google Drive' : state === 'onedrive' ? 'OneDrive' : 'Dropbox' }));
         
         // Delay syncNow to give React state time to flush to Zustand
         setTimeout(() => {
@@ -187,9 +191,9 @@ export default function Settings() {
     setStorageInfo(info);
     setIsPersisting(false);
     if (success) {
-      alert("成功激活永久存储保护！");
+      alert(t('settings.storageActivatingSuccess'));
     } else {
-      alert("永久存储申请被浏览器暂时拒绝。\n\n💡 提示：\n1. Chrome/Edge 等浏览器不会弹窗询问，而是根据您的「网站使用频率」自动静默批准。\n2. 最快的方法：点击浏览器地址栏右侧的「安装应用 / 安装为 PWA」图标，安装后浏览器会自动为您开放永久存储权限。\n3. 在此之前，只要您设备的 C盘/系统盘 空间充足，数据也不会被随意清理，请放心使用。");
+      alert(t('settings.persistRejected'));
     }
   };
 
@@ -235,7 +239,7 @@ export default function Settings() {
     } else if (provider === 'dropbox') {
       settingsStore.setSettings({ syncDropboxToken: '' });
     }
-    alert(`已断开与 ${provider.toUpperCase()} 网盘的连接。`);
+    alert(t('settings.oauthDisconnectedAlert', { provider: provider.toUpperCase() }));
   };
 
   const formatBytes = (bytes: number) => {
@@ -289,7 +293,7 @@ export default function Settings() {
   });
   const [localReviewPromptNames, setLocalReviewPromptNames] = useState<string[]>(() => {
     if (reviewPromptNames && reviewPromptNames.length === 5) return [...reviewPromptNames];
-    return ['日记', '回顾', '自定义 1', '自定义 2', '自定义 3'];
+    return [...DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG[language]];
   });
   const [localReviewSelectedIndices, setLocalReviewSelectedIndices] = useState<number[]>(() => {
     if (reviewSelectedIndices && reviewSelectedIndices.length > 0) return [...reviewSelectedIndices];
@@ -313,6 +317,20 @@ export default function Settings() {
   const [localSummaryPrompt, setLocalSummaryPrompt] = useState(summaryPrompt || DEFAULT_SUMMARY_PROMPT);
   const [localDiarySummaryPrompt, setLocalDiarySummaryPrompt] = useState(diarySummaryPrompt || DEFAULT_DIARY_SUMMARY_PROMPT);
   const [localInsightSummaryPrompt, setLocalInsightSummaryPrompt] = useState(insightSummaryPrompt || DEFAULT_INSIGHT_SUMMARY_PROMPT);
+
+  // #12: 语言切换后，从 store 重新加载本地 Prompt 状态（store 的 setLanguage 已切换 active 字段）
+  useEffect(() => {
+    const s = useSettingsStore.getState();
+    const d = DEFAULT_PROMPTS_BY_LANG[s.language];
+    if (s.reviewPrompts && s.reviewPrompts.length === 5) setLocalReviewPrompts([...s.reviewPrompts]);
+    if (s.reviewPromptNames && s.reviewPromptNames.length === 5) setLocalReviewPromptNames([...s.reviewPromptNames]);
+    if (s.reviewSelectedIndices) setLocalReviewSelectedIndices([...s.reviewSelectedIndices]);
+    if (s.insightPrompts && s.insightPrompts.length === 4) setLocalInsightPrompts([...s.insightPrompts]);
+    if (s.mingwuPrompts && s.mingwuPrompts.length === 4) setLocalMingwuPrompts([...s.mingwuPrompts]);
+    setLocalSummaryPrompt(s.summaryPrompt || d.summary);
+    setLocalDiarySummaryPrompt(s.diarySummaryPrompt || d.diarySummary);
+    setLocalInsightSummaryPrompt(s.insightSummaryPrompt || d.insightSummary);
+  }, [language]);
 
   const [chatTestStatus, setChatTestStatus] = useState<'idle' | 'testing' | 'success' | 'fail'>('idle');
   const [chatTestError, setChatTestError] = useState('');
@@ -344,7 +362,7 @@ export default function Settings() {
       setChatTestStatus('success');
     } catch (err: any) {
       setChatTestStatus('fail');
-      setChatTestError(err.message || '测试失败');
+      setChatTestError(err.message || t('settings.connectionFailed'));
     } finally {
       setTimeout(() => setChatTestStatus('idle'), 4000);
     }
@@ -376,7 +394,7 @@ export default function Settings() {
       setEmbedTestStatus('success');
     } catch (err: any) {
       setEmbedTestStatus('fail');
-      setEmbedTestError(err.message || '测试失败');
+      setEmbedTestError(err.message || t('settings.connectionFailed'));
     } finally {
       setTimeout(() => setEmbedTestStatus('idle'), 4000);
     }
@@ -474,7 +492,7 @@ export default function Settings() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (e) {
-      alert("导出失败");
+      alert(t('settings.exportFailed'));
     }
   };
 
@@ -518,11 +536,11 @@ export default function Settings() {
           importedCount += insightsToPut.length;
         }
 
-        alert(`成功导入了 ${importedCount} 条历史数据片段！`);
+        alert(t('settings.importSuccess', { count: importedCount }));
         if (fileInputRef.current) fileInputRef.current.value = '';
       } catch (err) {
         console.error(err);
-        alert('导入失败，请检查文件格式。');
+        alert(t('settings.importFailed'));
       }
     };
     reader.readAsText(file);
@@ -532,7 +550,7 @@ export default function Settings() {
     try {
       const backup = await db.migration_backups.get('v8');
       if (!backup) {
-        alert('暂无迁移备份记录（可能是全新安装，未发生过 V2 schema 迁移）。');
+        alert(t('settings.noBackup'));
         return;
       }
       const blob = new Blob([backup.payload], { type: 'application/json' });
@@ -545,7 +563,7 @@ export default function Settings() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (e) {
-      alert('下载迁移备份失败');
+      alert(t('settings.downloadBackupFailed'));
     }
   };
 
@@ -594,7 +612,7 @@ export default function Settings() {
       setUnifiedImportResult(result);
       (window as any).__testImportResult = result;
     } catch (e: any) {
-      const errResult: ImportResult = { imported: 0, skipped: 0, errors: [e?.message || '导入失败'] };
+      const errResult: ImportResult = { imported: 0, skipped: 0, errors: [e?.message || t('settings.importFailed')] };
       setUnifiedImportResult(errResult);
       (window as any).__testImportResult = errResult;
     } finally {
@@ -611,7 +629,7 @@ export default function Settings() {
       const mimeType = format === 'json' ? 'application/json' : 'text/markdown';
       downloadContent(content, filename, mimeType);
     } catch (e) {
-      alert('导出聊天记录失败');
+      alert(t('settings.exportConvFailed'));
     }
   };
 
@@ -634,7 +652,7 @@ export default function Settings() {
       setConvImportResult(result);
       (window as any).__testImportResult = result;
     } catch (e: any) {
-      const errResult: ImportResult = { imported: 0, skipped: 0, errors: [e?.message || '导入失败'] };
+      const errResult: ImportResult = { imported: 0, skipped: 0, errors: [e?.message || t('settings.importFailed')] };
       setConvImportResult(errResult);
       (window as any).__testImportResult = errResult;
     } finally {
@@ -649,11 +667,43 @@ export default function Settings() {
           <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-baimiao-mysteria/70 hover:text-baimiao-mysteria hover:bg-baimiao-mysteria/5 transition-all rounded-full active:scale-90">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h2 className="text-[15.5px] font-bold ml-2 text-baimiao-mysteria font-serif baimiao-editorial-title">系统设置</h2>
+          <h2 className="text-[15.5px] font-bold ml-2 text-baimiao-mysteria font-serif baimiao-editorial-title">{t('settings.title')}</h2>
         </div>
 
         <div className="flex-1 overflow-y-auto thin-scrollbar w-full p-3 space-y-4 pb-16">
-        
+
+        {/* #12 Language Switcher */}
+        <section className="baimiao-card-diary p-3 flex items-center justify-between" data-testid="language-section">
+          <div className="flex flex-col">
+            <span className="text-[13px] font-semibold text-stone-700">{t('settings.language')}</span>
+            <span className="text-[11px] text-stone-400 mt-0.5">{t('settings.languageHint')}</span>
+          </div>
+          <div className="flex items-center bg-stone-100/80 rounded-full p-0.5" data-testid="language-switcher">
+            <button
+              data-testid="language-zh"
+              onClick={() => setLanguage('zh')}
+              className={`px-4 py-1.5 rounded-full text-[12.5px] font-medium transition-all ${
+                language === 'zh'
+                  ? 'bg-white text-baimiao-mysteria shadow-sm font-bold'
+                  : 'text-stone-500 hover:text-stone-700'
+              }`}
+            >
+              {t('settings.languageZh')}
+            </button>
+            <button
+              data-testid="language-en"
+              onClick={() => setLanguage('en')}
+              className={`px-4 py-1.5 rounded-full text-[12.5px] font-medium transition-all ${
+                language === 'en'
+                  ? 'bg-white text-baimiao-mysteria shadow-sm font-bold'
+                  : 'text-stone-500 hover:text-stone-700'
+              }`}
+            >
+              {t('settings.languageEn')}
+            </button>
+          </div>
+        </section>
+
         {/* Navigation Tabs */}
         <div className="flex bg-[#f0edf4]/60 p-1 rounded-xl border border-baimiao-border/20 gap-0.5">
           <button
@@ -662,7 +712,7 @@ export default function Settings() {
               activeTab === 'model' ? 'bg-white shadow-md shadow-baimiao-mysteria/5 text-baimiao-mysteria font-bold' : 'text-[#8a859e] hover:text-stone-700'
             }`}
           >
-            对话模型
+            {t('settings.tabModel')}
           </button>
           <button
             onClick={() => setActiveTab('embedding')}
@@ -670,7 +720,7 @@ export default function Settings() {
               activeTab === 'embedding' ? 'bg-white shadow-md shadow-baimiao-mysteria/5 text-baimiao-mysteria font-bold' : 'text-[#8a859e] hover:text-stone-700'
             }`}
           >
-            向量与语义
+            {t('settings.tabEmbedding')}
           </button>
           <button
             onClick={() => setActiveTab('data')}
@@ -678,7 +728,7 @@ export default function Settings() {
               activeTab === 'data' ? 'bg-white shadow-md shadow-baimiao-mysteria/5 text-baimiao-mysteria font-bold' : 'text-[#8a859e] hover:text-stone-700'
             }`}
           >
-            数据管理
+            {t('settings.tabData')}
           </button>
           <button
             onClick={() => setActiveTab('prompt')}
@@ -686,7 +736,7 @@ export default function Settings() {
               activeTab === 'prompt' ? 'bg-white shadow-md shadow-baimiao-mysteria/5 text-baimiao-mysteria font-bold' : 'text-[#8a859e] hover:text-stone-700'
             }`}
           >
-            提示词配置
+            {t('settings.tabPrompt')}
           </button>
         </div>
 
@@ -699,15 +749,15 @@ export default function Settings() {
                     {[
                       { id: 'gemini', label: 'Gemini', defaultBase: 'https://generativelanguage.googleapis.com/v1beta', defaultModel: 'gemini-3.1-flash-lite', link: 'https://aistudio.google.com/app/apikey' },
                       { id: 'openai', label: 'OpenAI', defaultBase: 'https://api.openai.com/v1', defaultModel: 'gpt-4o-mini', link: 'https://platform.openai.com/api-keys' },
-                      { id: 'volcengine', label: '火山引擎', defaultBase: 'https://ark.cn-beijing.volces.com/api/v3', defaultModel: 'ep-xxx', link: 'https://console.volcengine.com/ark/region:ark+cn-beijing/endpoint' },
+                      { id: 'volcengine', label: t('provider.volcengine'), defaultBase: 'https://ark.cn-beijing.volces.com/api/v3', defaultModel: 'ep-xxx', link: 'https://console.volcengine.com/ark/region:ark+cn-beijing/endpoint' },
                       { id: 'kimi', label: 'Kimi', defaultBase: 'https://api.moonshot.cn/v1', defaultModel: 'moonshot-v1-8k', link: 'https://platform.moonshot.cn/console/api-keys' },
-                      { id: 'zhipu', label: '智谱', defaultBase: 'https://open.bigmodel.cn/api/paas/v4', defaultModel: 'glm-4-flash', link: 'https://bigmodel.cn/usercenter/apikeys' },
+                      { id: 'zhipu', label: t('provider.zhipu'), defaultBase: 'https://open.bigmodel.cn/api/paas/v4', defaultModel: 'glm-4-flash', link: 'https://bigmodel.cn/usercenter/apikeys' },
                       { id: 'minimax', label: 'MiniMax', defaultBase: 'https://api.minimax.chat/v1', defaultModel: 'abab6.5s-chat', link: 'https://platform.minimaxi.com/user-center/basic-information' },
                       { id: 'mimo', label: 'MIMO', defaultBase: 'https://ai.xiaomi.com/v1', defaultModel: 'mimo-chat', link: 'https://open.xiaomi.com/' },
                       { id: 'anthropic', label: 'Anthropic', defaultBase: 'https://api.anthropic.com/v1', defaultModel: 'claude-3-5-sonnet-latest', link: 'https://console.anthropic.com/' },
                       { id: 'deepseek', label: 'DeepSeek', defaultBase: 'https://api.deepseek.com/v1', defaultModel: 'deepseek-chat', link: 'https://platform.deepseek.com/' },
-                      { id: 'siliconflow', label: '硅基流动', defaultBase: 'https://api.siliconflow.cn/v1', defaultModel: 'Qwen/Qwen2.5-7B-Instruct', link: 'https://cloud.siliconflow.cn/account/ak' },
-                      { id: 'custom', label: '自定义', defaultBase: 'http://127.0.0.1:11434/v1', defaultModel: 'llama3', link: '' }
+                      { id: 'siliconflow', label: t('provider.siliconflow'), defaultBase: 'https://api.siliconflow.cn/v1', defaultModel: 'Qwen/Qwen2.5-7B-Instruct', link: 'https://cloud.siliconflow.cn/account/ak' },
+                      { id: 'custom', label: t('provider.custom'), defaultBase: 'http://127.0.0.1:11434/v1', defaultModel: 'llama3', link: '' }
                     ].map(p => (
                        <button
                          key={p.id}
@@ -729,7 +779,7 @@ export default function Settings() {
               {/* Dynamic Fields */}
               <section className="space-y-3">
                 <div className="baimiao-card-diary p-4 space-y-3">
-                  <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase mb-1">配置详情</h3>
+                  <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase mb-1">{t('settings.configDetails')}</h3>
                   
                   {/* API Key */}
                   <div className="space-y-1.5">
@@ -754,7 +804,7 @@ export default function Settings() {
                           ].find(x => x.id === provider)?.link;
                           
                           return linkInfo ? (
-                            <a href={linkInfo} target="_blank" rel="noreferrer" className="text-[11.5px] text-[#8a859e] hover:text-baimiao-mysteria transition-colors hover:underline font-normal select-none leading-none">申请密钥</a>
+                            <a href={linkInfo} target="_blank" rel="noreferrer" className="text-[11.5px] text-[#8a859e] hover:text-baimiao-mysteria transition-colors hover:underline font-normal select-none leading-none">{t('settings.applyKey')}</a>
                           ) : null;
                         })()}
                         {chatTestStatus === 'testing' ? (
@@ -787,7 +837,7 @@ export default function Settings() {
                     <div className="relative">
                       <input
                         type={showApiKey ? "text" : "password"}
-                        placeholder={'输入你的 API 凭证'}
+                        placeholder={t('settings.apiKeyPlaceholder')}
                         value={apiKey}
                         onChange={e => setSettings({ apiKey: e.target.value })}
                         className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 pr-10 rounded-lg text-[14px] text-stone-900 placeholder:text-stone-400 transition-all font-mono"
@@ -804,7 +854,7 @@ export default function Settings() {
                         )}
                       </button>
                     </div>
-                    <p className="text-[11px] text-stone-400 leading-tight">安全说明：密钥直接存储于浏览器本地，不会上传至任何中转服务器。</p>
+                    <p className="text-[11px] text-stone-400 leading-tight">{t('settings.apiKeySafety')}</p>
                   </div>
  
                   {/* Base URL */}
@@ -867,7 +917,7 @@ export default function Settings() {
               <section className="baimiao-card-diary p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 pr-3">
-                    <h3 className="text-[13px] font-semibold text-stone-700 mb-1">多媒体摘要提交</h3>
+                    <h3 className="text-[13px] font-semibold text-stone-700 mb-1">{t('settings.multimediaSummary')}</h3>
                     <p className="text-[11.5px] text-stone-400 leading-relaxed">
                       生成回顾/明悟时，是否将图片/视频附件的 AI 摘要一并提交给模型。关闭后仅提交文本内容。
                     </p>
@@ -889,7 +939,7 @@ export default function Settings() {
               <section className="baimiao-card-diary p-4 space-y-3" data-testid="tts-config-section">
                 <div className="flex items-center gap-2 border-b border-stone-100 pb-2 mb-1">
                   <Volume2 className="w-4 h-4 text-baimiao-mysteria" />
-                  <h3 className="text-[13px] font-semibold text-stone-700">语音朗读 (TTS)</h3>
+                  <h3 className="text-[13px] font-semibold text-stone-700">{t('settings.tts')}</h3>
                 </div>
                 <p className="text-[11.5px] text-stone-400 leading-relaxed">
                   为回顾、明悟、洞察的 AI 产出与 AI 对话回复提供朗读功能。碎屑与沉思不支持朗读。
@@ -897,7 +947,7 @@ export default function Settings() {
 
                 {/* 朗读服务选择 */}
                 <div className="space-y-1.5">
-                  <label className="text-[12px] font-medium text-stone-500">朗读服务</label>
+                  <label className="text-[12px] font-medium text-stone-500">{t('settings.ttsService')}</label>
                   <div className="flex gap-1 p-1 bg-black/5 rounded-lg">
                     <button
                       type="button"
@@ -933,23 +983,23 @@ export default function Settings() {
 
                 {/* 默认朗读语言 */}
                 <div className="space-y-1.5 pt-1.5 border-t border-stone-100">
-                  <label className="text-[12px] font-medium text-stone-500">默认朗读语言</label>
+                  <label className="text-[12px] font-medium text-stone-500">{t('settings.ttsLang')}</label>
                   <select
                     value={ttsLang}
                     onChange={e => setSettings({ ttsLang: e.target.value as 'auto' | 'zh' | 'en' })}
                     data-testid="tts-lang-select"
                     className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-lg text-[13px] text-stone-900 cursor-pointer font-mono"
                   >
-                    <option value="auto">自动检测（中英文启发式）</option>
-                    <option value="zh">中文</option>
-                    <option value="en">英文</option>
+                    <option value="auto">{t('settings.ttsLangAuto')}</option>
+                    <option value="zh">{t('settings.ttsLangZh')}</option>
+                    <option value="en">{t('settings.ttsLangEn')}</option>
                   </select>
                 </div>
 
                 {/* 语速 */}
                 <div className="space-y-1.5 pt-1.5 border-t border-stone-100">
                   <label className="text-[12px] font-medium text-stone-500 flex items-center justify-between">
-                    <span>朗读语速</span>
+                    <span>{t('settings.ttsRate')}</span>
                     <span className="font-mono text-stone-400 text-[11px]">{ttsRate.toFixed(1)}x</span>
                   </label>
                   <input
@@ -1029,7 +1079,7 @@ export default function Settings() {
                               ].find(x => x.id === embedProvider)?.link;
                               
                               return linkInfo ? (
-                                <a href={linkInfo} target="_blank" rel="noreferrer" className="text-[11.5px] text-[#8a859e] hover:text-baimiao-mysteria transition-colors hover:underline font-normal select-none leading-none">申请密钥</a>
+                                <a href={linkInfo} target="_blank" rel="noreferrer" className="text-[11.5px] text-[#8a859e] hover:text-baimiao-mysteria transition-colors hover:underline font-normal select-none leading-none">{t('settings.applyKey')}</a>
                               ) : null;
                             })()}
                             {embedTestStatus === 'testing' ? (
@@ -1175,7 +1225,7 @@ export default function Settings() {
                   <div className="flex items-center justify-between">
                     <label className="flex items-center gap-1.5 text-[13px] font-bold text-stone-700 border-l-2 border-baimiao-mysteria pl-2">
                       <Settings2 className="w-4 h-4 text-baimiao-mysteria" />
-                      日记回顾生成 Prompt
+                      {t('settings.reviewPromptTitle')}
                     </label>
                   </div>
                   <div className="flex items-center justify-between">
@@ -1294,12 +1344,12 @@ export default function Settings() {
                   <div className="flex items-center justify-between">
                     <label className="flex items-center gap-1.5 text-[13px] font-bold text-stone-700 border-l-2 border-baimiao-mysteria pl-2">
                       <Settings2 className="w-4 h-4 text-baimiao-mysteria" />
-                      明悟生成 Prompt
+                      {t('settings.mingwuPromptTitle')}
                     </label>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex gap-0.5 items-center bg-[#f0edf4]/60 p-0.5 rounded-lg border border-stone-200/30">
-                      {['默认', '自定义 1', '自定义 2', '自定义 3'].map((label, idx) => (
+                      {[t('settings.promptDefault'), t('settings.promptCustom1'), t('settings.promptCustom2'), t('settings.promptCustom3')].map((label, idx) => (
                         <button
                           key={idx}
                           type="button"
@@ -1354,12 +1404,12 @@ export default function Settings() {
                   <div className="flex items-center justify-between">
                     <label className="flex items-center gap-1.5 text-[13px] font-bold text-stone-700 border-l-2 border-baimiao-mysteria pl-2">
                       <Settings2 className="w-4 h-4 text-baimiao-mysteria" />
-                      洞察生成 Prompt
+                      {t('settings.insightPromptTitle')}
                     </label>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex gap-0.5 items-center bg-[#f0edf4]/60 p-0.5 rounded-lg border border-stone-200/30">
-                      {['默认', '自定义 1', '自定义 2', '自定义 3'].map((label, idx) => (
+                      {[t('settings.promptDefault'), t('settings.promptCustom1'), t('settings.promptCustom2'), t('settings.promptCustom3')].map((label, idx) => (
                         <button
                           key={idx}
                           type="button"
@@ -1414,7 +1464,7 @@ export default function Settings() {
                   <div className="flex items-center gap-2 min-w-0 border-l-2 border-baimiao-mysteria pl-2">
                     <label className="flex items-center gap-1.5 text-[13px] font-bold text-stone-700">
                       <Settings2 className="w-4 h-4 text-baimiao-mysteria" />
-                      日记一句话摘要生成 Prompt
+                      {t('settings.diarySummaryPromptTitle')}
                     </label>
                   </div>
                   <button 
@@ -1440,7 +1490,7 @@ export default function Settings() {
                   <div className="flex items-center gap-2 min-w-0 border-l-2 border-baimiao-mysteria pl-2">
                     <label className="flex items-center gap-1.5 text-[13px] font-bold text-stone-700">
                       <Settings2 className="w-4 h-4 text-baimiao-mysteria" />
-                      回顾一句话摘要生成 Prompt
+                      {t('settings.reviewSummaryPromptTitle')}
                     </label>
                   </div>
                   <button 
@@ -1466,7 +1516,7 @@ export default function Settings() {
                   <div className="flex items-center gap-2 min-w-0 border-l-2 border-baimiao-mysteria pl-2">
                     <label className="flex items-center gap-1.5 text-[13px] font-bold text-stone-700">
                       <Settings2 className="w-4 h-4 text-baimiao-mysteria" />
-                      洞察一句话摘要生成 Prompt
+                      {t('settings.insightSummaryPromptTitle')}
                     </label>
                   </div>
                   <button 
@@ -2074,7 +2124,7 @@ export default function Settings() {
                                 : 'bg-stone-50 border-stone-200/60 text-stone-400 hover:text-stone-600'
                             )}
                           >
-                            {opt.label}
+                            {t(opt.labelKey)}
                           </button>
                         );
                       })}
@@ -2363,7 +2413,7 @@ export default function Settings() {
             }}
             className="w-full py-3.5 rounded-xl text-[14px] font-medium tracking-wide text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 active:scale-[0.98] shadow-md shadow-baimiao-mysteria/10 transition-all"
           >
-             保存并返回
+             {t('settings.saveAndBack')}
           </button>
         </div>
 

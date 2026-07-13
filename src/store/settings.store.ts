@@ -105,6 +105,151 @@ export const DEFAULT_SUMMARY_PROMPT = `你是一个用于生成一句话回顾�
 export const DEFAULT_DIARY_SUMMARY_PROMPT = `你是一个用于生成一句话日记摘要的助手。请根据提供的日记文本，生成一句简短、优美、富有诗意的中文摘要（不超过30个字）。`;
 export const DEFAULT_INSIGHT_SUMMARY_PROMPT = `你是一个用于生成一句话洞察摘要的助手。请根据提供的洞察报告文本，生成一句简短、优美、富有诗意的中文摘要（不超过30个字）。`;
 
+// --- #12 English default prompts (for en language) ---
+export const DEFAULT_DIARY_PROMPT_EN = `You are a recording assistant that strictly follows the Lyubishchev time-management method. Please organize all the scattered fragment records I provide for the day into a standard Lyubishchev-style daily diary.
+
+### Core Processing Rules
+1. Time first: strictly arrange all events in chronological order from morning to night
+2. Unified format: all events use [HH:MM-HH:MM Category: Activity (Result/Note)] format, one per line
+3. Objective: keep only objective facts, remove all subjective feelings, emotions, and colloquial expressions
+4. Precise calculation: automatically calculate the exact duration of each event, merge consecutive identical activities in the same time period
+5. Complete retention: do not omit any details mentioned by the user, and do not add anything not mentioned
+6. Blank annotation: if there are time gaps, clearly mark [Unrecorded], never fabricate content
+7. Auto-categorization: classify all events into one of 7 categories: Core Work, Study & Research, Social Communication, Daily Affairs, Rest & Entertainment, Transportation, Other
+
+### Output Structure
+# YYYY-MM-DD Lyubishchev Time Log
+## Daily Time Flow
+- HH:MM-HH:MM Category: Activity (Result/Note)
+...
+
+## Daily Time Statistics
+- Total recorded: XXh XXm
+- Unrecorded: XXh XXm
+- Core Work: XXh XXm (XX%)
+- Study & Research: XXh XXm (XX%)
+- Social Communication: XXh XXm (XX%)
+- Daily Affairs: XXh XXm (XX%)
+- Rest & Entertainment: XXh XXm (XX%)
+- Transportation: XXh XXm (XX%)
+- Other: XXh XXm (XX%)
+
+## Daily Key Outcomes
+[List only explicitly mentioned outputs, completed tasks, information obtained, each under 20 characters]
+
+## Daily Time Gaps
+[List only consecutive unrecorded periods exceeding 30 minutes]
+
+### Prohibitions
+- No encouraging, evaluative, or suggestive statements
+- Do not merge events of different categories into one
+- Do not force vague time records into specific time slots
+- No emojis or flowery language`;
+
+export const DEFAULT_WARM_DIARY_PROMPT_EN = `You are a caring diary assistant. Your task is to receive a series of scattered record fragments and weave them into a coherent, well-categorized, and logically clear daily diary.
+
+Rules:
+1. Write a fluent diary in the language of the input (usually 2-5 paragraphs), summarizing the day in the note author's own narrative style, connecting all provided fragments into a meaningful narrative.
+2. Do not output a timeline or JSON array; only output plain Markdown text.
+3. Start with a concise and focused heading (using Heading 2) that captures the tone or main theme of the day (without including the date).
+4. Core requirement: whenever you mention an event or detail originating from a specific record fragment, you must add a Markdown link pointing to that fragment's ID. The format must be exactly: [your text](#log_id_<ID>), where <ID> is the exact ID provided in the list above. Example: [I woke up early today](#log_id_12345-abcde).
+5. End with a brief and plain closing sentence.`;
+
+export const DEFAULT_REVIEW_PROMPT_EN = `You are a scientific reflection assistant combining Life Coach methodology, Cognitive Behavioral Therapy (CBT), and Positive Psychology (PERMA). Your task is to deeply review the user's scattered fragment records over a period of time, and write a structured, objective, and inspiring in-depth reflection regarding emotional fluctuations, daily behaviors, and key events.
+
+Please follow this psychological and cognitive science reflection framework:
+1. Cognitive & Emotion Decryption:
+   - Use the CBT framework: identify irrational beliefs or cognitive distortions in the records (e.g., all-or-nothing thinking, overgeneralization, catastrophizing).
+   - Analyze the user's emotional load and energy levels, and explore the core beliefs behind emotions.
+2. PERMA Alignment:
+   - Inventory the user's distribution and highlights across Positive emotion (P), Engagement (E), Relationships (R), Meaning (M), and Accomplishment (A).
+3. Attribution & GROW:
+   - Apply Attribution Theory to guide the user toward healthy attribution (attributing success to internal controllable factors, setbacks to external or improvable local factors).
+   - Use the GROW coaching model (Goal, Reality, Options, Will) to provide question-based inspiration rather than direct preaching.
+
+Output format guidelines:
+- Maintain a warm, objective, rigorous, and guiding coaching tone. Reject empty platitudes and excessive defensiveness; use fact-based analysis.
+- Use clear, readable Markdown headings and lists for a well-organized report.`;
+
+export const DEFAULT_INSIGHT_PROMPT_EN = `You are a scientific life insight consultant combining cognitive psychology, Systems Thinking, and Habit Loop theory. Your task is to analyze the habits, daily routines, and energy distribution revealed in the user's multi-day records, producing a scientific, in-depth, and highly actionable life insight report.
+
+Please follow this scientific observation and diagnostic framework:
+1. Habit Loop Diagnostics:
+   - Based on Charles Duhigg's habit loop, analyze the "Cue - Routine - Reward" in the user's explicit or implicit habits, identify the underlying triggers of bad habits, and propose scientific alternatives.
+2. System 1/2 Energy Allocation:
+   - Analyze the user's energy and focus management. Point out when the user over-consumes "System 2" (responsible for complex decisions and inhibitory control, leading to decision fatigue or procrastination) and when in "System 1" autopilot mode.
+   - Combined with cognitive load theory, assess the user's current information/stress load and provide rest recommendations that promote neuroplasticity and cognitive recovery.
+3. Micro-habits & PERMA:
+   - Based on James Clear's Atomic Habits theory, propose "micro-habit intervention strategies" (extremely low-resistance, 2-minute micro-habits to rebuild a sense of control).
+
+Output format guidelines:
+- Maintain a professional, rigorous, logically precise, and insightful tone. Use scientific psychological concepts but explain them in accessible language.
+- Provide immediately actionable "Actionable Experiments" rather than vague advice.`;
+
+export const DEFAULT_MINGWU_PROMPT_EN = `You are an "Awakening" mentor combining Eastern philosophical wisdom with modern psychological literacy. Your task is to examine the user's fragment records and reflection notes over a period of time, transcending surface-level behaviors and emotions to reach the deep veins of life, producing a clear, restrained, and enlightening "Awakening" report.
+
+Please follow this awakening framework:
+1. Life Pattern Decryption:
+   - Identify the deep life themes running through the records (e.g., desire for freedom, fear of connection, pursuit of meaning) rather than停留在 single events.
+   - Reveal how these themes manifest, repeat, and mutually construct in daily details, forming the user's unique life schema.
+2. Dialectical Observation:
+   - Use dialectical thinking to see how seemingly opposing forces in the records (e.g., striving and retreating, noise and solitude, gain and loss) depend on and transform into each other.
+   - Point out the "attachments" the user may be trapped in -- over-identifying with one side while splitting the other -- and guide them to see the whole.
+3. Insight & Release:
+   - At the end of the analysis, offer a core "word of awakening" -- not advice, not preaching, but a sentence that makes the user "suddenly see" upon reading.
+   - If possible, point out an attachment or self-judgment that can be "let go" to unburden the mind.
+
+Output format guidelines:
+- The tone should be calm, clear, and non-judgmental, like a wise person who has seen it all speaking gently. Reject platitudes and preaching, reject empty praise.
+- Use clear, restrained Markdown headings and paragraphs, with whitespace for reflection.
+- Mark emerging key life themes with #hashtags (e.g., #solitude #freedom #meaning) for future retrieval and retrospection.`;
+
+export const DEFAULT_SUMMARY_PROMPT_EN = `You are an assistant for generating a one-sentence review summary. Based on the provided text, generate a short, elegant, and poetic summary (no more than 20 words).`;
+export const DEFAULT_DIARY_SUMMARY_PROMPT_EN = `You are an assistant for generating a one-sentence diary summary. Based on the provided diary text, generate a short, elegant, and poetic summary (no more than 20 words).`;
+export const DEFAULT_INSIGHT_SUMMARY_PROMPT_EN = `You are an assistant for generating a one-sentence insight summary. Based on the provided insight report text, generate a short, elegant, and poetic summary (no more than 20 words).`;
+
+// #12 Per-language default prompt maps
+export const DEFAULT_PROMPTS_BY_LANG = {
+  zh: {
+    diary: DEFAULT_DIARY_PROMPT,
+    warmDiary: DEFAULT_WARM_DIARY_PROMPT,
+    review: DEFAULT_REVIEW_PROMPT,
+    insight: DEFAULT_INSIGHT_PROMPT,
+    mingwu: DEFAULT_MINGWU_PROMPT,
+    summary: DEFAULT_SUMMARY_PROMPT,
+    diarySummary: DEFAULT_DIARY_SUMMARY_PROMPT,
+    insightSummary: DEFAULT_INSIGHT_SUMMARY_PROMPT,
+  },
+  en: {
+    diary: DEFAULT_DIARY_PROMPT_EN,
+    warmDiary: DEFAULT_WARM_DIARY_PROMPT_EN,
+    review: DEFAULT_REVIEW_PROMPT_EN,
+    insight: DEFAULT_INSIGHT_PROMPT_EN,
+    mingwu: DEFAULT_MINGWU_PROMPT_EN,
+    summary: DEFAULT_SUMMARY_PROMPT_EN,
+    diarySummary: DEFAULT_DIARY_SUMMARY_PROMPT_EN,
+    insightSummary: DEFAULT_INSIGHT_SUMMARY_PROMPT_EN,
+  },
+} as const;
+
+export type Language = 'zh' | 'en';
+
+// #12 Default prompt slot names per language
+export const DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG: Record<Language, string[]> = {
+  zh: ['日记', '回顾', '自定义 1', '自定义 2', '自定义 3'],
+  en: ['Diary', 'Review', 'Custom 1', 'Custom 2', 'Custom 3'],
+};
+
+export const DEFAULT_MINGWU_PROMPT_SLOT_LABELS_BY_LANG: Record<Language, string[]> = {
+  zh: ['默认', '自定义 1', '自定义 2', '自定义 3'],
+  en: ['Default', 'Custom 1', 'Custom 2', 'Custom 3'],
+};
+
+export const DEFAULT_INSIGHT_PROMPT_SLOT_LABELS_BY_LANG: Record<Language, string[]> = {
+  zh: ['默认', '自定义 1', '自定义 2', '自定义 3'],
+  en: ['Default', 'Custom 1', 'Custom 2', 'Custom 3'],
+};
+
 const DEFAULT_PROVIDER_CONFIGS: Record<string, { apiKey: string; baseUrl: string; model: string }> = {
   gemini: { apiKey: '', baseUrl: 'https://generativelanguage.googleapis.com', model: 'gemini-3.1-flash-lite' },
   openai: { apiKey: '', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
@@ -207,7 +352,19 @@ interface SettingsState {
   ttsRate: number;
   ttsVoice: string;
 
+  // #12 多语言 UI
+  language: Language;
+  // 每种语言独立的 Prompt 存储（active 字段 reviewPrompts 等仍保留，与 *ByLang[language] 同步）
+  reviewPromptsByLang: Record<Language, string[]>;
+  reviewPromptNamesByLang: Record<Language, string[]>;
+  mingwuPromptsByLang: Record<Language, string[]>;
+  insightPromptsByLang: Record<Language, string[]>;
+  summaryPromptByLang: Record<Language, string>;
+  diarySummaryPromptByLang: Record<Language, string>;
+  insightSummaryPromptByLang: Record<Language, string>;
+
   setSettings: (settings: Partial<SettingsState>) => void;
+  setLanguage: (lang: Language) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -276,6 +433,112 @@ export const useSettingsStore = create<SettingsState>()(
       ttsLang: 'auto',
       ttsRate: 1,
       ttsVoice: '',
+
+      // #12 多语言 UI 默认值
+      language: 'zh',
+      reviewPromptsByLang: {
+        zh: [DEFAULT_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, '', '', ''],
+        en: [DEFAULT_DIARY_PROMPT_EN, DEFAULT_REVIEW_PROMPT_EN, '', '', ''],
+      },
+      reviewPromptNamesByLang: {
+        zh: [...DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG.zh],
+        en: [...DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG.en],
+      },
+      mingwuPromptsByLang: {
+        zh: [DEFAULT_MINGWU_PROMPT, '', '', ''],
+        en: [DEFAULT_MINGWU_PROMPT_EN, '', '', ''],
+      },
+      insightPromptsByLang: {
+        zh: [DEFAULT_INSIGHT_PROMPT, '', '', ''],
+        en: [DEFAULT_INSIGHT_PROMPT_EN, '', '', ''],
+      },
+      summaryPromptByLang: {
+        zh: DEFAULT_SUMMARY_PROMPT,
+        en: DEFAULT_SUMMARY_PROMPT_EN,
+      },
+      diarySummaryPromptByLang: {
+        zh: DEFAULT_DIARY_SUMMARY_PROMPT,
+        en: DEFAULT_DIARY_SUMMARY_PROMPT_EN,
+      },
+      insightSummaryPromptByLang: {
+        zh: DEFAULT_INSIGHT_SUMMARY_PROMPT,
+        en: DEFAULT_INSIGHT_SUMMARY_PROMPT_EN,
+      },
+
+      setLanguage: (lang) => set((state) => {
+        if (lang === state.language) return state;
+        const oldLang = state.language;
+        const dOld = DEFAULT_PROMPTS_BY_LANG[oldLang];
+        const dNew = DEFAULT_PROMPTS_BY_LANG[lang];
+
+        // Save current active prompts to *ByLang[oldLang]
+        const reviewPromptsByLang = { ...state.reviewPromptsByLang };
+        const reviewPromptNamesByLang = { ...state.reviewPromptNamesByLang };
+        const mingwuPromptsByLang = { ...state.mingwuPromptsByLang };
+        const insightPromptsByLang = { ...state.insightPromptsByLang };
+        const summaryPromptByLang = { ...state.summaryPromptByLang };
+        const diarySummaryPromptByLang = { ...state.diarySummaryPromptByLang };
+        const insightSummaryPromptByLang = { ...state.insightSummaryPromptByLang };
+
+        reviewPromptsByLang[oldLang] = [...state.reviewPrompts];
+        reviewPromptNamesByLang[oldLang] = [...state.reviewPromptNames];
+        mingwuPromptsByLang[oldLang] = [...state.mingwuPrompts];
+        insightPromptsByLang[oldLang] = [...state.insightPrompts];
+        summaryPromptByLang[oldLang] = state.summaryPrompt;
+        diarySummaryPromptByLang[oldLang] = state.diarySummaryPrompt;
+        insightSummaryPromptByLang[oldLang] = state.insightSummaryPrompt;
+
+        // Load *ByLang[lang] into active fields (initialize if missing)
+        const newReviewPrompts = reviewPromptsByLang[lang] || [dNew.diary, dNew.review, '', '', ''];
+        const newReviewPromptNames = reviewPromptNamesByLang[lang] || [...DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG[lang]];
+        const newMingwuPrompts = mingwuPromptsByLang[lang] || [dNew.mingwu, '', '', ''];
+        const newInsightPrompts = insightPromptsByLang[lang] || [dNew.insight, '', '', ''];
+        const newSummaryPrompt = summaryPromptByLang[lang] || dNew.summary;
+        const newDiarySummaryPrompt = diarySummaryPromptByLang[lang] || dNew.diarySummary;
+        const newInsightSummaryPrompt = insightSummaryPromptByLang[lang] || dNew.insightSummary;
+
+        // Ensure default slots are always the correct language default
+        newReviewPrompts[0] = dNew.diary;
+        newReviewPrompts[1] = dNew.review;
+        newReviewPromptNames[0] = DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG[lang][0];
+        newReviewPromptNames[1] = DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG[lang][1];
+        newMingwuPrompts[0] = dNew.mingwu;
+        newInsightPrompts[0] = dNew.insight;
+
+        // Sync active fields
+        reviewPromptsByLang[lang] = newReviewPrompts;
+        reviewPromptNamesByLang[lang] = newReviewPromptNames;
+        mingwuPromptsByLang[lang] = newMingwuPrompts;
+        insightPromptsByLang[lang] = newInsightPrompts;
+        summaryPromptByLang[lang] = newSummaryPrompt;
+        diarySummaryPromptByLang[lang] = newDiarySummaryPrompt;
+        insightSummaryPromptByLang[lang] = newInsightSummaryPrompt;
+
+        return {
+          ...state,
+          language: lang,
+          reviewPrompts: newReviewPrompts,
+          reviewPromptNames: newReviewPromptNames,
+          reviewPrompt: newReviewPrompts[state.reviewPromptIndex] || newReviewPrompts[0],
+          mingwuPrompts: newMingwuPrompts,
+          mingwuPrompt: newMingwuPrompts[state.mingwuPromptIndex] || newMingwuPrompts[0],
+          insightPrompts: newInsightPrompts,
+          insightPrompt: newInsightPrompts[state.insightPromptIndex] || newInsightPrompts[0],
+          summaryPrompt: newSummaryPrompt,
+          diarySummaryPrompt: newDiarySummaryPrompt,
+          insightSummaryPrompt: newInsightSummaryPrompt,
+          // Keep diaryPrompts (legacy Copilot) in sync with slot 0
+          diaryPrompts: [newReviewPrompts[0], state.diaryPrompts[1] || '', state.diaryPrompts[2] || '', state.diaryPrompts[3] || ''],
+          diaryPrompt: state.diaryPromptIndex === 0 ? newReviewPrompts[0] : state.diaryPrompt,
+          reviewPromptsByLang,
+          reviewPromptNamesByLang,
+          mingwuPromptsByLang,
+          insightPromptsByLang,
+          summaryPromptByLang,
+          diarySummaryPromptByLang,
+          insightSummaryPromptByLang,
+        };
+      }),
 
       setSettings: (newSettings) => set((state) => {
          const nextRemember = newSettings.syncRememberCredentials !== undefined ? newSettings.syncRememberCredentials : state.syncRememberCredentials;
@@ -353,23 +616,47 @@ export const useSettingsStore = create<SettingsState>()(
          }
          
          const nextState = { ...state, ...newSettings, configs: nextConfigs, embedConfigs: nextEmbedConfigs };
-         nextConfigs[providerToUpdate] = { 
-           apiKey: nextState.apiKey, 
-           baseUrl: nextState.baseUrl, 
-           model: nextState.model 
+         nextConfigs[providerToUpdate] = {
+           apiKey: nextState.apiKey,
+           baseUrl: nextState.baseUrl,
+           model: nextState.model
          };
          nextEmbedConfigs[embedProviderToUpdate] = {
            apiKey: nextState.embedApiKey,
            baseUrl: nextState.embedBaseUrl,
            model: nextState.embedModel
          };
-         
+
+         // #12 Sync prompt changes to *ByLang[currentLanguage]
+         const curLang = nextState.language;
+         const reviewPromptsByLang = { ...nextState.reviewPromptsByLang };
+         const reviewPromptNamesByLang = { ...nextState.reviewPromptNamesByLang };
+         const mingwuPromptsByLang = { ...nextState.mingwuPromptsByLang };
+         const insightPromptsByLang = { ...nextState.insightPromptsByLang };
+         const summaryPromptByLang = { ...nextState.summaryPromptByLang };
+         const diarySummaryPromptByLang = { ...nextState.diarySummaryPromptByLang };
+         const insightSummaryPromptByLang = { ...nextState.insightSummaryPromptByLang };
+         reviewPromptsByLang[curLang] = [...nextState.reviewPrompts];
+         reviewPromptNamesByLang[curLang] = [...nextState.reviewPromptNames];
+         mingwuPromptsByLang[curLang] = [...nextState.mingwuPrompts];
+         insightPromptsByLang[curLang] = [...nextState.insightPrompts];
+         summaryPromptByLang[curLang] = nextState.summaryPrompt;
+         diarySummaryPromptByLang[curLang] = nextState.diarySummaryPrompt;
+         insightSummaryPromptByLang[curLang] = nextState.insightSummaryPrompt;
+         nextState.reviewPromptsByLang = reviewPromptsByLang;
+         nextState.reviewPromptNamesByLang = reviewPromptNamesByLang;
+         nextState.mingwuPromptsByLang = mingwuPromptsByLang;
+         nextState.insightPromptsByLang = insightPromptsByLang;
+         nextState.summaryPromptByLang = summaryPromptByLang;
+         nextState.diarySummaryPromptByLang = diarySummaryPromptByLang;
+         nextState.insightSummaryPromptByLang = insightSummaryPromptByLang;
+
          return nextState;
       }),
     }),
     {
         name: 'whitewash-settings',
-        version: 10,
+        version: 11,
         partialize: (state) => {
           const { syncPassword, syncPasswordE2EE, ...rest } = state;
           if (state.syncRememberCredentials) {
@@ -457,6 +744,73 @@ export const useSettingsStore = create<SettingsState>()(
           if (merged.mingwuPromptIndex === 0 || merged.mingwuPromptIndex === undefined) {
             merged.mingwuPromptIndex = 0;
             merged.mingwuPrompt = DEFAULT_MINGWU_PROMPT;
+          }
+
+          // --- #12: 多语言 i18n 合并 ---
+          // 确定语言（默认 zh）
+          const mergeLang: Language = merged.language || 'zh';
+          merged.language = mergeLang;
+          const dMerge = DEFAULT_PROMPTS_BY_LANG[mergeLang];
+
+          // 根据当前语言覆盖默认槽位（slot 0/1 固定为对应语言的默认 Prompt）
+          if (merged.reviewPrompts && merged.reviewPrompts.length >= 2) {
+            merged.reviewPrompts[0] = dMerge.diary;
+            merged.reviewPrompts[1] = dMerge.review;
+          }
+          // 覆盖 slot 0/1 名称为当前语言
+          if (merged.reviewPromptNames && merged.reviewPromptNames.length >= 2) {
+            merged.reviewPromptNames[0] = DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG[mergeLang][0];
+            merged.reviewPromptNames[1] = DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG[mergeLang][1];
+          }
+          if (merged.mingwuPrompts && merged.mingwuPrompts.length >= 1) {
+            merged.mingwuPrompts[0] = dMerge.mingwu;
+          }
+          if (merged.insightPrompts && merged.insightPrompts.length >= 1) {
+            merged.insightPrompts[0] = dMerge.insight;
+          }
+
+          // 初始化 *ByLang 字段（如果缺失，从当前 active 字段拷贝到 zh，en 用默认值）
+          if (!merged.reviewPromptsByLang) {
+            merged.reviewPromptsByLang = {
+              zh: [...(merged.reviewPrompts || [DEFAULT_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, '', '', ''])],
+              en: [DEFAULT_DIARY_PROMPT_EN, DEFAULT_REVIEW_PROMPT_EN, '', '', ''],
+            };
+          }
+          if (!merged.reviewPromptNamesByLang) {
+            merged.reviewPromptNamesByLang = {
+              zh: [...DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG.zh],
+              en: [...DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG.en],
+            };
+          }
+          if (!merged.mingwuPromptsByLang) {
+            merged.mingwuPromptsByLang = {
+              zh: [...(merged.mingwuPrompts || [DEFAULT_MINGWU_PROMPT, '', '', ''])],
+              en: [DEFAULT_MINGWU_PROMPT_EN, '', '', ''],
+            };
+          }
+          if (!merged.insightPromptsByLang) {
+            merged.insightPromptsByLang = {
+              zh: [...(merged.insightPrompts || [DEFAULT_INSIGHT_PROMPT, '', '', ''])],
+              en: [DEFAULT_INSIGHT_PROMPT_EN, '', '', ''],
+            };
+          }
+          if (!merged.summaryPromptByLang) {
+            merged.summaryPromptByLang = {
+              zh: merged.summaryPrompt || DEFAULT_SUMMARY_PROMPT,
+              en: DEFAULT_SUMMARY_PROMPT_EN,
+            };
+          }
+          if (!merged.diarySummaryPromptByLang) {
+            merged.diarySummaryPromptByLang = {
+              zh: merged.diarySummaryPrompt || DEFAULT_DIARY_SUMMARY_PROMPT,
+              en: DEFAULT_DIARY_SUMMARY_PROMPT_EN,
+            };
+          }
+          if (!merged.insightSummaryPromptByLang) {
+            merged.insightSummaryPromptByLang = {
+              zh: merged.insightSummaryPrompt || DEFAULT_INSIGHT_SUMMARY_PROMPT,
+              en: DEFAULT_INSIGHT_SUMMARY_PROMPT_EN,
+            };
           }
 
           return merged;
@@ -710,6 +1064,76 @@ export const useSettingsStore = create<SettingsState>()(
             }
           }
 
+          // #12: 多语言 i18n 迁移
+          // 从单语言结构迁移到 per-language 结构。
+          // language 默认 'zh'；*ByLang.zh 从现有 active 字段拷贝，*ByLang.en 用英文默认值。
+          if (version < 11) {
+            if (!persistedState.language) {
+              persistedState.language = 'zh';
+            }
+            // reviewPromptsByLang
+            if (!persistedState.reviewPromptsByLang) {
+              const zhReview = persistedState.reviewPrompts && persistedState.reviewPrompts.length === 5
+                ? [...persistedState.reviewPrompts]
+                : [DEFAULT_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, '', '', ''];
+              persistedState.reviewPromptsByLang = {
+                zh: zhReview,
+                en: [DEFAULT_DIARY_PROMPT_EN, DEFAULT_REVIEW_PROMPT_EN, '', '', ''],
+              };
+            }
+            // reviewPromptNamesByLang
+            if (!persistedState.reviewPromptNamesByLang) {
+              const zhNames = persistedState.reviewPromptNames && persistedState.reviewPromptNames.length === 5
+                ? [...persistedState.reviewPromptNames]
+                : [...DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG.zh];
+              persistedState.reviewPromptNamesByLang = {
+                zh: zhNames,
+                en: [...DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG.en],
+              };
+            }
+            // mingwuPromptsByLang
+            if (!persistedState.mingwuPromptsByLang) {
+              const zhMingwu = persistedState.mingwuPrompts && persistedState.mingwuPrompts.length === 4
+                ? [...persistedState.mingwuPrompts]
+                : [DEFAULT_MINGWU_PROMPT, '', '', ''];
+              persistedState.mingwuPromptsByLang = {
+                zh: zhMingwu,
+                en: [DEFAULT_MINGWU_PROMPT_EN, '', '', ''],
+              };
+            }
+            // insightPromptsByLang
+            if (!persistedState.insightPromptsByLang) {
+              const zhInsight = persistedState.insightPrompts && persistedState.insightPrompts.length === 4
+                ? [...persistedState.insightPrompts]
+                : [DEFAULT_INSIGHT_PROMPT, '', '', ''];
+              persistedState.insightPromptsByLang = {
+                zh: zhInsight,
+                en: [DEFAULT_INSIGHT_PROMPT_EN, '', '', ''],
+              };
+            }
+            // summaryPromptByLang
+            if (!persistedState.summaryPromptByLang) {
+              persistedState.summaryPromptByLang = {
+                zh: persistedState.summaryPrompt || DEFAULT_SUMMARY_PROMPT,
+                en: DEFAULT_SUMMARY_PROMPT_EN,
+              };
+            }
+            // diarySummaryPromptByLang
+            if (!persistedState.diarySummaryPromptByLang) {
+              persistedState.diarySummaryPromptByLang = {
+                zh: persistedState.diarySummaryPrompt || DEFAULT_DIARY_SUMMARY_PROMPT,
+                en: DEFAULT_DIARY_SUMMARY_PROMPT_EN,
+              };
+            }
+            // insightSummaryPromptByLang
+            if (!persistedState.insightSummaryPromptByLang) {
+              persistedState.insightSummaryPromptByLang = {
+                zh: persistedState.insightSummaryPrompt || DEFAULT_INSIGHT_SUMMARY_PROMPT,
+                en: DEFAULT_INSIGHT_SUMMARY_PROMPT_EN,
+              };
+            }
+          }
+
          return persistedState;
        }
     }
@@ -725,8 +1149,9 @@ export function getActivePromptIndices(prompts: string[]): number[] {
 
 /**
  * #5: 默认 5 槽 Prompt 名称（slot 0/1 不可改名）
+ * #12: 已改为 per-language，保留此导出向后兼容（返回 zh 版本）
  */
-export const DEFAULT_REVIEW_PROMPT_NAMES = ['日记', '回顾', '自定义 1', '自定义 2', '自定义 3'];
+export const DEFAULT_REVIEW_PROMPT_NAMES = DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG.zh;
 
 /**
  * #5: 判断某槽位是否为「日记」类型（使用 /api/generate-timeline，entry_type='diary'）。

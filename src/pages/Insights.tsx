@@ -13,9 +13,21 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { formatDiaryMarkdown } from '../lib/utils';
 import { washCitations } from '../lib/citationWash';
 import DatePickerPopover from '../components/DatePickerPopover';
+import { useTranslation } from '../lib/i18n';
 
 const MENU_HALF_WIDTH = 140;
 const MENU_SAFE_MARGIN = 296;
+
+// #12: range_type 值 -> i18n key 映射（range_type 存英文值作标识符）
+const RANGE_TYPE_KEY: Record<string, string> = {
+  'day': 'mingwu.rangeDay',
+  'week': 'mingwu.rangeWeek',
+  'month': 'mingwu.rangeMonth',
+  'quarter': 'mingwu.rangeQuarter',
+  'half-year': 'mingwu.rangeHalfYear',
+  'year': 'mingwu.rangeYear',
+  'custom': 'mingwu.rangeCustom',
+};
 
 
 interface MingwuCardProps {
@@ -28,6 +40,7 @@ interface MingwuCardProps {
 }
 
 const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onRegenerate }: MingwuCardProps) => {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [contextMenuState, setContextMenuState] = useState<{
@@ -48,7 +61,8 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isMingwuType = mingwu.mingwu_type === 'mingwu';
-  const typeLabel = isMingwuType ? '明悟' : '洞察';
+  const typeLabel = isMingwuType ? t('mingwu.mingwu') : t('mingwu.insight');
+  const rangeTypeLabel = (range: string) => t(RANGE_TYPE_KEY[range] || 'mingwu.rangeCustom');
 
   useEffect(() => {
      setEditText(mingwu.content || '');
@@ -68,7 +82,7 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
       await db.mingwu.update(mingwu.id, { content: editText });
       onEndEdit();
     } catch (err: any) {
-      alert('保存失败：' + (err?.message || '请重试'));
+      alert(t('mingwu.saveFailed', { msg: err?.message || '' }));
     } finally {
       setIsSaving(false);
     }
@@ -80,7 +94,7 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
     }
   }, [expanded]);
 
-  const summary = mingwu.ai_summary || '暂无内容概要';
+  const summary = mingwu.ai_summary || t('mingwu.noSummary');
   const title = mingwu.range_label;
   const headerDate = format(new Date(mingwu.created_at), 'MM-dd HH:mm');
 
@@ -147,7 +161,7 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
             value={editText}
             onChange={e => setEditText(e.target.value)}
             className="w-full bg-white p-4 rounded-xl border border-stone-200 shadow-sm focus:outline-none focus:border-stone-300 focus:ring-2 focus:ring-stone-100 resize-none font-sans text-[15px] leading-relaxed text-stone-900 overflow-hidden min-h-[200px]"
-            placeholder={`开始编辑${typeLabel}...`}
+            placeholder={t('mingwu.editPlaceholder', { type: typeLabel })}
             autoFocus
             onClick={(e) => e.stopPropagation()}
           />
@@ -164,7 +178,7 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
               className="flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] border border-white/10 hover:brightness-110 transition-all shadow-sm select-none disabled:opacity-60"
             >
               {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-              {isSaving ? '保存中' : '保存'}
+              {isSaving ? t('mingwu.saving') : t('mingwu.save')}
             </button>
           </div>
         </div>
@@ -173,7 +187,7 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
         {/* Prompt/range meta sub-header - mirrors Diary/Review's sub-header. */}
         <div className="px-4 py-1.5 border-t border-black/[0.03] bg-stone-50/60 text-[11px] text-stone-400 font-mono flex items-center justify-between select-none">
           <span>{typeLabel} · {headerDate}</span>
-          <span>{mingwu.range_type === 'custom' ? '自定义' : mingwu.range_type}</span>
+          <span>{rangeTypeLabel(mingwu.range_type)}</span>
         </div>
         {expanded && (
           <div
@@ -197,14 +211,14 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
             <button
                onClick={(e) => {
                   e.stopPropagation();
-                  if (confirm(`确认删除这篇${typeLabel}吗？`) && mingwu.id) {
+                  if (confirm(t('mingwu.confirmDelete')) && mingwu.id) {
                      onDelete(mingwu.id);
                   }
                }}
                className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-rose-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
             >
                <Trash2 className="w-4 h-4" />
-               删除
+               {t('mingwu.delete')}
             </button>
             <button
                onClick={(e) => {
@@ -220,7 +234,7 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
                }`}
             >
                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-               {copied ? '已复制' : '复制'}
+               {copied ? t('mingwu.copied') : t('mingwu.copy')}
             </button>
             <button
                data-testid="mingwu-tts-btn"
@@ -235,7 +249,7 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
                }`}
             >
                {isPlaying(mingwu.content) ? <Square className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-               {isPlaying(mingwu.content) ? '停止' : '朗读'}
+               {isPlaying(mingwu.content) ? t('mingwu.stopReading') : t('mingwu.readAloud')}
             </button>
             <button
                onClick={(e) => {
@@ -321,7 +335,7 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
               }`}
             >
               {copied ? <Check className="w-3.5 h-3.5 mb-1.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5 mb-1.5 text-white/80" />}
-              <span className="text-[10px] font-medium tracking-wide">{copied ? '已复制' : '复制内容'}</span>
+              <span className="text-[10px] font-medium tracking-wide">{copied ? t('mingwu.copied') : t('mingwu.copy')}</span>
             </button>
             <button
               onClick={() => {
@@ -333,7 +347,7 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
               className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 disabled:opacity-50"
             >
               <Edit2 className="w-3.5 h-3.5 mb-1.5 text-white/80" />
-              <span className="text-[10px] font-medium tracking-wide">编辑内容</span>
+              <span className="text-[10px] font-medium tracking-wide">{t('review.editContent')}</span>
             </button>
             <button
               onClick={() => {
@@ -343,7 +357,7 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
               className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 disabled:opacity-50"
             >
               <RefreshCw className="w-3.5 h-3.5 mb-1.5 text-white/80" />
-              <span className="text-[10px] font-medium tracking-wide">重新生成</span>
+              <span className="text-[10px] font-medium tracking-wide">{t('mingwu.regenerate')}</span>
             </button>
             <button
               onClick={() => {
@@ -353,7 +367,7 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
               className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-rose-400 hover:text-rose-300 transition-colors hover:bg-white/10 rounded-r-lg disabled:opacity-50"
             >
               <Trash2 className="w-3.5 h-3.5 mb-1.5" />
-              <span className="text-[10px] font-medium tracking-wide">删除{typeLabel}</span>
+              <span className="text-[10px] font-medium tracking-wide">{t('mingwu.delete')}{typeLabel}</span>
             </button>
           </div>
         </div>
@@ -363,6 +377,7 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
 };
 
 export default function Insights() {
+  const { t } = useTranslation();
   const [timeRange, setTimeRange] = useState('week');
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
@@ -382,13 +397,13 @@ export default function Insights() {
   }, []);
 
   const rangeOptions = [
-    { value: 'day', label: '今日' },
-    { value: 'week', label: '本周' },
-    { value: 'month', label: '本月' },
-    { value: 'quarter', label: '季度' },
-    { value: 'half-year', label: '半年' },
-    { value: 'year', label: '一年' },
-    { value: 'custom', label: '自选范围' },
+    { value: 'day', label: t('mingwu.rangeDay') },
+    { value: 'week', label: t('mingwu.rangeWeek') },
+    { value: 'month', label: t('mingwu.rangeMonth') },
+    { value: 'quarter', label: t('mingwu.rangeQuarter') },
+    { value: 'half-year', label: t('mingwu.rangeHalfYear') },
+    { value: 'year', label: t('mingwu.rangeYear') },
+    { value: 'custom', label: t('mingwu.rangeCustomRange') },
   ];
 
   const { isGeneratingMingwu, mingwuError } = useAppStore();
@@ -499,7 +514,7 @@ export default function Insights() {
       <div className="flex h-[52px] items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 z-20 shrink-0 w-full justify-between">
          <h2 className="text-[13.5px] font-bold tracking-wide text-baimiao-mysteria flex items-center gap-1.5 font-serif baimiao-editorial-title">
            <HeadCircuit weight="regular" className="w-4 h-4 text-baimiao-mysteria/70 translate-y-[-0.8px] shrink-0" />
-           明悟
+           {t('mingwu.title')}
          </h2>
          <div className="relative" ref={dropdownRef}>
            <button
@@ -539,14 +554,14 @@ export default function Insights() {
           <DatePickerPopover
             value={customStart}
             onChange={setCustomStart}
-            placeholder="开始日期"
+            placeholder={t('settings.startDate')}
             align="left"
           />
-          <span className="text-stone-400 text-[12px] font-medium shrink-0">至</span>
+          <span className="text-stone-400 text-[12px] font-medium shrink-0">{t('mingwu.to')}</span>
           <DatePickerPopover
             value={customEnd}
             onChange={setCustomEnd}
-            placeholder="结束日期"
+            placeholder={t('settings.endDate')}
             align="right"
           />
         </div>
@@ -572,8 +587,8 @@ export default function Insights() {
                <div className="absolute inset-0 bg-stone-100/50 animate-pulse rounded-2xl"></div>
                <Loader2 className="w-8 h-8 text-stone-900 animate-spin relative z-10" />
             </div>
-            <h3 className="text-[15px] text-stone-900 font-medium tracking-tight mb-1">正在明悟中...</h3>
-            <p className="text-[13px] text-stone-500 font-mono">观照碎屑与沉思，浮现生命脉络</p>
+            <h3 className="text-[15px] text-stone-900 font-medium tracking-tight mb-1">{t('mingwu.generatingMingwu')}</h3>
+            <p className="text-[13px] text-stone-500 font-mono">{t('mingwu.generatingMingwuDesc')}</p>
           </div>
         )}
 
@@ -597,9 +612,9 @@ export default function Insights() {
               <div className="w-20 h-20 bg-stone-100 rounded-full flex items-center justify-center mb-6">
                 <Calendar className="w-8 h-8 text-stone-400 stroke-[1.5px]" />
               </div>
-              <h3 className="text-[17px] text-stone-900 font-semibold tracking-tight mb-3">开启明悟之旅</h3>
+              <h3 className="text-[17px] text-stone-900 font-semibold tracking-tight mb-3">{t('mingwu.startTitle')}</h3>
               <p className="text-[14px] text-stone-500 mb-8 leading-relaxed max-w-[260px]">
-                 点击下方按钮，由 AI 观照你在这段时间内的碎屑与沉思，浮现明悟与洞察。
+                 {t('mingwu.startDesc')}
               </p>
             </div>
           )
@@ -619,7 +634,7 @@ export default function Insights() {
           className={`bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-md border border-white/10 text-white px-6 py-2.5 rounded-full text-[13px] font-medium tracking-wide transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:active:scale-100 min-w-[160px] ${(showFloatBtn || isGeneratingMingwu || (!mingwuList || mingwuList.length === 0)) ? 'pointer-events-auto' : 'pointer-events-none'}`}
         >
           {isGeneratingMingwu ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-          {isGeneratingMingwu ? '明悟中...' : '生成明悟'}
+          {isGeneratingMingwu ? t('mingwu.mingwuInProgress') : t('mingwu.generateMingwu')}
         </button>
       </div>
       )}

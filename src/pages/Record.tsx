@@ -47,6 +47,7 @@ import CalendarHeatmap from "../components/CalendarHeatmap";
 import ActionSheet from "../components/ActionSheet";
 import { saveAttachmentBlob, blobToBase64, generateAttachmentSummary } from "../lib/multimedia";
 import type { AttachmentMeta } from "../db/db";
+import { useTranslation } from "../lib/i18n";
 
 /** 待提交的附件（含原始 File，提交时转为 AttachmentMeta + Blob 存 IDB）。 */
 interface PendingAttachment {
@@ -147,6 +148,7 @@ async function fetchTranscriptionWithRetry(body: any, maxRetries = 3) {
 }
 
 export default function Record() {
+  const { t } = useTranslation();
   const [isPersisted, setIsPersisted] = useState<boolean | null>(null);
   const syncStatus = useAppStore(state => state.syncStatus);
   const syncErrorMessage = useAppStore(state => state.syncErrorMessage);
@@ -410,7 +412,7 @@ export default function Record() {
               const base64data = (reader.result as string).split(",")[1];
               const settings = useSettingsStore.getState();
 
-              let transcribedText = "[语音记录]";
+              let transcribedText = t('record.voiceRecord');
               try {
                 const data = await fetchTranscriptionWithRetry({
                   audio_base64: base64data,
@@ -420,7 +422,7 @@ export default function Record() {
                 if (data && data.text) {
                   transcribedText = data.text;
                 } else {
-                  transcribedText = "[未识别到有效语音]";
+                  transcribedText = t('record.voiceUnrecognized');
                 }
               } catch (e: any) {
                 console.error("Transcription API error:", e);
@@ -431,9 +433,9 @@ export default function Record() {
                   msg.includes("JSON.parse: unexpected character") ||
                   msg.includes("SyntaxError:")
                 ) {
-                  transcribedText = `[语音解析失败: 远端接口无响应或返回了网页内容]`;
+                  transcribedText = t('record.voiceParseFailedHtml');
                 } else {
-                  transcribedText = `[语音解析失败: ${msg}]`;
+                  transcribedText = t('record.voiceParseFailed', { msg });
                 }
               }
 
@@ -459,7 +461,7 @@ export default function Record() {
                 // Fallback: save without blob if blob cloning fails
                 await db.raw_logs.add({
                   id: generateUUID(),
-                  content: `${transcribedText} [音频文件保存失败: ${dbErr.message || "不支持此数据"}]`,
+                  content: `${transcribedText} ${t('record.audioSaveFailed', { msg: dbErr.message || '' })}`,
                   created_at: Date.now(),
                   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                   audioDuration: finalDuration > 0 ? finalDuration : undefined,
@@ -505,7 +507,7 @@ export default function Record() {
       isMicInitializingRef.current = false;
     } catch (err) {
       console.error("Error accessing microphone:", err);
-      alert("无法访问麦克风，请检查权限设置。");
+      alert(t('record.micAccessError'));
       isMicInitializingRef.current = false;
     }
   };
@@ -617,7 +619,7 @@ export default function Record() {
               }
             } catch (err) {
               console.error('[Multimedia] Audio transcription failed:', err);
-              content = content ? `${content}\n[音频转写失败]` : '[音频转写失败]';
+              content = content ? `${content}\n${t('record.audioTranscribeFailed')}` : t('record.audioTranscribeFailed');
             }
           } else {
             // image / video：标记需要生成多模态摘要
@@ -628,7 +630,7 @@ export default function Record() {
 
       await db.raw_logs.add({
         id: logId,
-        content: content || '[多媒体记录]',
+        content: content || t('record.multimediaRecord'),
         created_at: Date.now(),
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         tags,
@@ -692,16 +694,16 @@ export default function Record() {
               mime_type: mimeType,
               settings,
             });
-            transcribedText = data.text || "[未识别到有效语音]";
+            transcribedText = data.text || t('record.voiceUnrecognized');
           } catch(e: any) {
             const msg = String(e.message || "");
-            transcribedText = `[语音解析失败: ${msg.includes("JSON") ? "远端接口无响应或返回了网页内容" : msg}]`;
+            transcribedText = msg.includes("JSON") ? t('record.voiceParseFailedHtml') : t('record.voiceParseFailed', { msg });
           }
 
           await db.raw_logs.update(log.id, { content: transcribedText });
         } catch (err: any) {
            const msg = String(err.message || "");
-           await db.raw_logs.update(log.id, { content: `[语音解析失败: ${msg.includes("JSON") ? "远端接口无响应或返回了网页内容" : msg}]` });
+           await db.raw_logs.update(log.id, { content: msg.includes("JSON") ? t('record.voiceParseFailedHtml') : t('record.voiceParseFailed', { msg }) });
         } finally {
           setRetryingLogId(null);
         }
@@ -786,7 +788,7 @@ export default function Record() {
       });
       setIsEditingModalOpen(false);
     } catch (err: any) {
-      alert('保存失败：' + (err?.message || '请重试'));
+      alert(t('record.saveFailed', { msg: err?.message || '' }));
     } finally {
       setIsSavingEdit(false);
     }
@@ -797,11 +799,11 @@ export default function Record() {
       <div className="flex h-[52px] items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 z-20 shrink-0 w-full justify-between">
         <h2 className="text-[13.5px] font-bold tracking-wide text-baimiao-mysteria flex items-center gap-1.5 font-serif baimiao-editorial-title">
           <ChatCircleDots weight="regular" className="w-4 h-4 text-baimiao-mysteria/70 translate-y-[-0.8px] shrink-0" />
-          时间碎屑
+          {t('record.title')}
         </h2>
         <div className="flex items-center gap-3">
           <span className="inline-flex text-[11px] font-medium text-stone-500 bg-stone-100/80 px-2 py-1 rounded-full">
-            今日 {dailyChars} 字
+            {t('record.todayChars', { count: dailyChars })}
           </span>
           <button
             onClick={() => navigateToDate(-1)}
@@ -829,21 +831,21 @@ export default function Record() {
         <div className="bg-[#fcf8fa]/95 backdrop-blur border-b border-rose-100/30 px-4 py-2 flex items-center justify-between text-[11px] text-rose-900 animate-in slide-in-from-top duration-200 z-10 relative">
           <span className="flex items-center gap-1.5 font-medium leading-none">
             <ShieldAlert className="w-3.5 h-3.5 text-rose-500 stroke-[2.2px] shrink-0" />
-            安全提示：未激活永久存储保护，数据可能被系统自动清理。
+            {t('record.storageWarning')}
           </span>
           <div className="flex items-center gap-1.5 shrink-0 pl-2">
             <button
-              onClick={() => navigate('/settings', { state: { tab: 'data' } })} 
+              onClick={() => navigate('/settings', { state: { tab: 'data' } })}
               className="text-rose-950 font-bold hover:underline px-1 py-0.5"
             >
-              设置
+              {t('record.settings')}
             </button>
-            <button 
+            <button
               onClick={() => {
                 setHideStorageWarning(true);
               }}
               className="p-1 hover:bg-rose-100/50 rounded-md text-rose-700/60 hover:text-rose-900 transition-colors"
-              title="不再提示"
+              title={t('record.dontRemind')}
             >
               <X className="w-3 h-3" />
             </button>
@@ -854,13 +856,13 @@ export default function Record() {
       {syncStatus === 'credentials_missing' && (
         <div className="bg-red-50 border-b border-red-100/60 px-4 py-2 flex items-center justify-between text-[11px] text-red-800 animate-in slide-in-from-top duration-200 shadow-sm relative z-10">
           <span className="flex items-center gap-1.5 font-medium line-clamp-1">
-            🔒 {syncErrorMessage || '为保障安全，后台同步暂时挂起：请补充密码'}
+            🔒 {syncErrorMessage || t('record.credentialsMissing')}
           </span>
           <button
             onClick={() => navigate('/settings')} 
             className="text-red-950 font-bold hover:underline shrink-0 pl-3"
           >
-            立即补充 →
+            {t('record.supplementNow')}
           </button>
         </div>
       )}
@@ -876,10 +878,10 @@ export default function Record() {
               <Sparkles className="w-4 h-4 text-baimiao-mysteria/50 stroke-[1.8px]" />
             </div>
             <p className="text-[14.5px] text-stone-700 font-medium mb-1.5 tracking-wide">
-              随便说两句
+              {t('record.emptyTitle')}
             </p>
             <p className="text-[12px] text-stone-400 max-w-[220px] text-center leading-relaxed">
-              想到什么就记什么，不用斟字酌句；或者当成树洞随便聊聊。
+              {t('record.emptyDesc')}
             </p>
           </div>
         ) : (
@@ -943,7 +945,7 @@ export default function Record() {
                         <AudioPlayer blob={log.audioBlob} />
                         {log.audioDuration !== undefined && (
                           <div className="text-[10px] font-mono text-stone-400 mt-1 pl-1">
-                            时长: {formatRecordTime(log.audioDuration)}
+                            {t('record.duration', { duration: formatRecordTime(log.audioDuration) })}
                           </div>
                         )}
                       </div>
@@ -951,14 +953,14 @@ export default function Record() {
                     {log.attachments && log.attachments.length > 0 && (
                       <div className="mt-2 flex items-center gap-1 text-[10.5px] text-stone-400">
                         <Paperclip className="w-3 h-3" />
-                        <span>{log.attachments.length} 个附件</span>
+                        <span>{t('record.attachmentCount', { count: log.attachments.length })}</span>
                         {log.attachment_summary && (
-                          <span className="text-stone-300">· 含多媒体摘要</span>
+                          <span className="text-stone-300">{t('record.hasMultimediaSummary')}</span>
                         )}
                       </div>
                     )}
                   </div>
-                  {typeof log.content === "string" && log.content.includes("解析失败") && log.audioBlob && (
+                  {typeof log.content === "string" && (log.content.includes("解析失败") || log.content.includes("parsing failed")) && log.audioBlob && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -968,7 +970,7 @@ export default function Record() {
                       disabled={retryingLogId === log.id}
                     >
                       {retryingLogId === log.id ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <RefreshCw className="w-3.5 h-3.5"/>}
-                      重新识别该录音
+                      {t('record.retryTranscription')}
                     </button>
                   )}
                 </div>
@@ -983,8 +985,8 @@ export default function Record() {
       <div className="p-4 bg-white/95 backdrop-blur-lg border-t border-baimiao-border/30 shrink-0 z-20 relative">
         {isMultiSelectMode ? (
           <div className="flex items-center justify-between -mx-2 h-[56px] animate-in slide-in-from-bottom-2 duration-200">
-             <button onClick={() => { setIsMultiSelectMode(false); setSelectedLogIds(new Set()); }} className="px-5 py-2 text-stone-500 hover:text-stone-700 font-medium text-[14px] transition-colors">取消</button>
-             <span className="text-[13px] font-medium text-stone-700 tracking-wide">已选 <span className="text-black font-semibold">{selectedLogIds.size}</span> 项</span>
+             <button onClick={() => { setIsMultiSelectMode(false); setSelectedLogIds(new Set()); }} className="px-5 py-2 text-stone-500 hover:text-stone-700 font-medium text-[14px] transition-colors">{t('record.cancel')}</button>
+             <span className="text-[13px] font-medium text-stone-700 tracking-wide">{t('record.selectedCount', { count: selectedLogIds.size })}</span>
              <button 
                 disabled={selectedLogIds.size === 0}
                 onClick={async () => {
@@ -997,7 +999,7 @@ export default function Record() {
                 className="px-5 py-2 text-red-500 hover:text-red-600 font-medium text-[14px] disabled:opacity-30 disabled:hover:text-red-500 transition-colors"
              >
                 <div className="flex items-center gap-1">
-                  <Trash2 className="w-4 h-4" /> 删除
+                  <Trash2 className="w-4 h-4" /> {t('record.delete')}
                 </div>
              </button>
           </div>
@@ -1014,7 +1016,7 @@ export default function Record() {
                 {att.kind === 'image' && att.previewUrl ? (
                   <img
                     src={att.previewUrl}
-                    alt={att.name || '附件'}
+                    alt={att.name || t('record.addAttachment')}
                     data-testid={`attachment-thumb-${att.id}`}
                     className="w-14 h-14 object-cover"
                   />
@@ -1024,7 +1026,7 @@ export default function Record() {
                     {att.kind === 'video' && <Video className="w-4 h-4 text-stone-500" />}
                     {att.kind === 'link' && <LinkIcon className="w-4 h-4 text-stone-500" />}
                     <span className="text-[8px] text-stone-500 leading-tight line-clamp-2 text-center break-all">
-                      {att.kind === 'link' ? '链接' : att.name || att.kind}
+                      {att.kind === 'link' ? t('record.link') : att.name || att.kind}
                     </span>
                   </div>
                 )}
@@ -1058,7 +1060,7 @@ export default function Record() {
               >
                 <div className="w-2 h-2 rounded-sm bg-red-500 animate-pulse" />
                 <span className="font-mono">{formatRecordTime(recordingDuration)}</span>
-                <span className="ml-[2px] opacity-90 font-normal">点击结束并发送</span>
+                <span className="ml-[2px] opacity-90 font-normal">{t('record.clickToEnd')}</span>
               </button>
             ) : (
               <textarea
@@ -1066,7 +1068,7 @@ export default function Record() {
                 rows={1}
                 data-testid="tag-input"
                 className="w-full bg-transparent px-2 py-[7.5px] text-[15px] leading-[21px] outline-none placeholder:text-stone-400 min-w-0 resize-none overflow-y-auto no-scrollbar"
-                placeholder={isSubmitting ? "正在解析..." : "输入你想记录的碎片..."}
+                placeholder={isSubmitting ? t('record.parsing') : t('record.inputPlaceholder')}
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -1084,7 +1086,7 @@ export default function Record() {
               disabled={isSubmitting}
               data-testid="attachment-button"
               className="w-[36px] h-[36px] flex items-center justify-center rounded-xl text-stone-400 hover:text-stone-900 hover:bg-stone-100/50 disabled:opacity-30 transition-colors shrink-0"
-              title="添加附件"
+              title={t('record.addAttachment')}
             >
               <Paperclip className="w-[19px] h-[19px]" />
             </button>
@@ -1109,7 +1111,7 @@ export default function Record() {
                  type="button"
                  onClick={handleToggleListen}
                  className="w-[36px] h-[36px] flex items-center justify-center rounded-xl text-stone-400 hover:text-stone-900 hover:bg-stone-100/50 transition-colors shrink-0"
-                 title="点击开始录音"
+                 title={t('record.voiceRecord')}
               >
                  <Mic className="w-[22px] h-[22px]" />
               </button>
@@ -1123,7 +1125,7 @@ export default function Record() {
                  handleToggleListen();
                }}
                className="w-[36px] h-[36px] flex items-center justify-center rounded-xl text-stone-400 hover:text-stone-900 hover:bg-stone-100/50 disabled:opacity-30 transition-colors shrink-0"
-               title="取消录音"
+               title={t('record.cancel')}
             >
                <Keyboard className="w-[22px] h-[22px]" />
             </button>
@@ -1156,10 +1158,10 @@ export default function Record() {
         isOpen={showAttachmentSheet}
         onClose={() => setShowAttachmentSheet(false)}
         actions={[
-          { label: '图片', icon: <ImageIcon className="w-5 h-5 text-stone-400" />, onClick: () => handleSelectAttachmentKind('image') },
-          { label: '音频', icon: <Music className="w-5 h-5 text-stone-400" />, onClick: () => handleSelectAttachmentKind('audio') },
-          { label: '视频', icon: <Video className="w-5 h-5 text-stone-400" />, onClick: () => handleSelectAttachmentKind('video') },
-          { label: '链接', icon: <LinkIcon className="w-5 h-5 text-stone-400" />, onClick: () => handleSelectAttachmentKind('link') },
+          { label: t('record.image'), icon: <ImageIcon className="w-5 h-5 text-stone-400" />, onClick: () => handleSelectAttachmentKind('image') },
+          { label: t('record.audio'), icon: <Music className="w-5 h-5 text-stone-400" />, onClick: () => handleSelectAttachmentKind('audio') },
+          { label: t('record.video'), icon: <Video className="w-5 h-5 text-stone-400" />, onClick: () => handleSelectAttachmentKind('video') },
+          { label: t('record.link'), icon: <LinkIcon className="w-5 h-5 text-stone-400" />, onClick: () => handleSelectAttachmentKind('link') },
         ]}
       />
 
@@ -1173,7 +1175,7 @@ export default function Record() {
             className="bg-white rounded-2xl w-full max-w-sm p-4 space-y-3 shadow-2xl animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-[14px] font-semibold text-stone-700">添加链接</h3>
+            <h3 className="text-[14px] font-semibold text-stone-700">{t('record.addLink')}</h3>
             <input
               type="url"
               data-testid="link-input"
@@ -1189,7 +1191,7 @@ export default function Record() {
                 onClick={() => setShowLinkInput(false)}
                 className="px-3.5 py-1.5 rounded-full text-[13px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors"
               >
-                取消
+                {t('record.cancel')}
               </button>
               <button
                 data-testid="link-add-confirm"
@@ -1197,7 +1199,7 @@ export default function Record() {
                 disabled={!linkInput.trim()}
                 className="px-4 py-1.5 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 transition-all disabled:opacity-40"
               >
-                添加
+                {t('record.add')}
               </button>
             </div>
           </div>
@@ -1232,7 +1234,7 @@ export default function Record() {
               }`}
             >
               {copied ? <Check className="w-3.5 h-3.5 mb-1.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5 mb-1.5 text-white/80" />}
-              <span className="text-[10px] font-medium tracking-wide">{copied ? '已复制' : '复制内容'}</span>
+              <span className="text-[10px] font-medium tracking-wide">{copied ? t('record.copied') : t('record.copyContent')}</span>
             </button>
             <button
               onClick={() => {
@@ -1244,7 +1246,7 @@ export default function Record() {
               className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 disabled:opacity-50"
             >
               <Edit2 className="w-3.5 h-3.5 mb-1.5 text-white/80" />
-              <span className="text-[10px] font-medium tracking-wide">编辑记录</span>
+              <span className="text-[10px] font-medium tracking-wide">{t('record.editRecord')}</span>
             </button>
             <button
               onClick={() => {
@@ -1255,7 +1257,7 @@ export default function Record() {
               className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 disabled:opacity-50"
             >
               <ListChecks className="w-3.5 h-3.5 mb-1.5 text-white/80" />
-              <span className="text-[10px] font-medium tracking-wide">多选</span>
+              <span className="text-[10px] font-medium tracking-wide">{t('record.multiSelect')}</span>
             </button>
             <button
               onClick={async () => {
@@ -1265,7 +1267,7 @@ export default function Record() {
               className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-rose-400 hover:text-rose-300 transition-colors hover:bg-white/10 rounded-r-lg disabled:opacity-50"
             >
               <Trash2 className="w-3.5 h-3.5 mb-1.5" />
-              <span className="text-[10px] font-medium tracking-wide">删除记录</span>
+              <span className="text-[10px] font-medium tracking-wide">{t('record.deleteRecord')}</span>
             </button>
           </div>
         </div>
@@ -1279,17 +1281,17 @@ export default function Record() {
             <button
               onClick={() => setIsEditingModalOpen(false)}
               className="p-2 -ml-2 text-stone-500 hover:text-stone-900 transition-colors"
-              aria-label="关闭"
+              aria-label={t('about.close')}
             >
               <X className="w-5 h-5" />
             </button>
-            <span className="text-[15.5px] font-bold font-serif baimiao-editorial-title text-stone-900">编辑碎屑</span>
+            <span className="text-[15.5px] font-bold font-serif baimiao-editorial-title text-stone-900">{t('record.editTitle')}</span>
             <button
               onClick={handleSaveEdit}
               disabled={!editContent.trim() || isSavingEdit}
               className="text-[13.5px] font-medium text-stone-500 hover:text-stone-900 disabled:opacity-40 transition-colors"
             >
-              {isSavingEdit ? '保存中…' : '保存'}
+              {isSavingEdit ? t('record.saving') : t('record.save')}
             </button>
           </div>
 
@@ -1299,7 +1301,7 @@ export default function Record() {
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
               className="w-full h-full resize-none outline-none text-[16px] leading-relaxed text-stone-900 placeholder:text-stone-400 bg-transparent"
-              placeholder="内容..."
+              placeholder={t('record.contentPlaceholder')}
               autoFocus
             />
           </div>
@@ -1307,21 +1309,21 @@ export default function Record() {
           {/* Footer */}
           <div className="flex items-center justify-between px-5 py-3 border-t border-stone-100 bg-[#faf9fc] shrink-0">
             <span className="text-[12px] text-stone-500">
-              共 {countChars(editContent)} 字
+              {t('record.totalChars', { count: countChars(editContent) })}
             </span>
             <div className="flex gap-2">
               <button
                 onClick={() => setIsEditingModalOpen(false)}
                 className="px-4 py-2 rounded-full text-[13px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors"
               >
-                取消
+                {t('record.cancel')}
               </button>
               <button
                 onClick={handleSaveEdit}
                 disabled={!editContent.trim() || isSavingEdit}
                 className="px-4 py-2 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 active:scale-[0.98] shadow-md shadow-baimiao-mysteria/10 transition-all disabled:opacity-30 disabled:scale-100 disabled:shadow-none"
               >
-                {isSavingEdit ? '保存中…' : '保存'}
+                {isSavingEdit ? t('record.saving') : t('record.save')}
               </button>
             </div>
           </div>

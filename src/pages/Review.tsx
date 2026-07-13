@@ -18,6 +18,7 @@ import { useTTS } from '../lib/tts';
 import { useSettingsStore, isDiarySlot } from '../store/settings.store';
 import { normalizeTagPath, resolveAlias } from '../lib/tags';
 import { useTagsStore } from '../store/tags.store';
+import { useTranslation } from '../lib/i18n';
 
 const generateUUID = () => {
   return self.crypto?.randomUUID?.() || Math.random().toString(36).substring(2);
@@ -50,6 +51,7 @@ function calcPopoverTop(anchorRect: DOMRect): number {
 }
 
 export default function Review() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { isProcessingReviewMap, isProcessingDiary, generateReview, generateDiaryTimeline, diaryErrorMap, batchProgress, generateSelected } = useAppStore();
   const { copied, copy } = useCopyToClipboard();
@@ -80,7 +82,7 @@ export default function Review() {
        }
        setEditingReviewId(null);
      } catch (err: any) {
-       alert('保存失败：' + (err?.message || '请重试'));
+       alert(t('review.saveFailed', { msg: err?.message || '' }));
      } finally {
        setIsSavingEdit(false);
      }
@@ -174,7 +176,7 @@ export default function Review() {
         log => format(new Date(log.created_at), 'yyyy-MM-dd') === existingReview.review_date
       ) || [];
       if (logsForDate.length === 0) {
-        alert('该天没有任何记录碎屑，无法重新生成回顾。');
+        alert(t('review.noFragmentsRegen'));
         return;
       }
       if (existingReview.entry_type === 'diary') {
@@ -196,7 +198,7 @@ export default function Review() {
       log => format(new Date(log.created_at), 'yyyy-MM-dd') === targetDateStr
     ) || [];
     if (logsForDate.length === 0) {
-      alert('该天没有任何记录碎屑，无法生成回顾。');
+      alert(t('review.noFragmentsGen'));
       return;
     }
     // #5: 新生成走 handleGenerateSelected，不走此路径
@@ -235,7 +237,7 @@ export default function Review() {
       log => format(new Date(log.created_at), 'yyyy-MM-dd') === targetDateStr
     ) || [];
     if (logsForDate.length === 0) {
-      alert('该天没有任何记录碎屑，无法生成回顾。');
+      alert(t('review.noFragmentsGen'));
       return;
     }
     await generateSelected(targetDateStr, logsForDate, reviewSelectedIndices || [0, 1]);
@@ -247,7 +249,7 @@ export default function Review() {
       log => format(new Date(log.created_at), 'yyyy-MM-dd') === review.review_date
     ) || [];
     if (logsForDate.length === 0) {
-      alert('该天没有任何记录碎屑，无法重新生成回顾。');
+      alert(t('review.noFragmentsRegen'));
       return;
     }
     const promptIndex = review.prompt_index ?? (review.entry_type === 'diary' ? 0 : 1);
@@ -363,11 +365,11 @@ export default function Review() {
       <div className="flex h-[52px] items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 z-20 shrink-0 w-full justify-between">
          <h2 className="text-[13.5px] font-bold tracking-wide text-baimiao-mysteria flex items-center gap-1.5 font-serif baimiao-editorial-title">
            <Clock weight="regular" className="w-4 h-4 text-baimiao-mysteria/70 translate-y-[-0.8px] shrink-0" />
-           回顾
+           {t('review.title')}
          </h2>
          <div className="flex items-center gap-3">
            <span className="inline-flex text-[11px] font-medium text-stone-500 bg-stone-100/80 px-2 py-1 rounded-full">
-             今日 {dailyChars} 字
+             {t('record.todayChars', { count: dailyChars })}
            </span>
            <button onClick={() => navigateToDate(-1)} className="p-1 hover:bg-stone-200/50 rounded-full transition-colors text-stone-400 hover:text-stone-700">
              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
@@ -399,7 +401,7 @@ export default function Review() {
              <div className="flex items-center gap-3 bg-gradient-to-r from-[#f6f3f9] to-[#ece7f4] border border-purple-200/30 rounded-xl px-4 py-3 shadow-sm">
                <div className="animate-spin rounded-full h-4 w-4 border-2 border-baimiao-mysteria border-t-transparent shrink-0" />
                <div className="flex-1 min-w-0">
-                 <p className="text-[13px] font-medium text-baimiao-mysteria truncate">正在批量生成 ({batchProgress.current}/{batchProgress.total})...</p>
+                 <p className="text-[13px] font-medium text-baimiao-mysteria truncate">{t('review.batchGenerating', { current: batchProgress.current, total: batchProgress.total })}</p>
                  <div className="mt-1.5 h-1.5 bg-purple-100/60 rounded-full overflow-hidden">
                    <div
                      className="h-full bg-gradient-to-r from-baimiao-mysteria to-[#5d56b0] rounded-full transition-all duration-500"
@@ -414,15 +416,15 @@ export default function Review() {
         <div className="w-full max-w-sm mb-20 flex flex-col gap-3">
           {reviewsForDate.length === 0 && !hasPendingForDate ? (
             <div className="flex flex-col items-center justify-center py-8 w-full select-none">
-              <p className="text-[13px] text-stone-400 mb-5 tracking-wider font-medium font-serif">今天暂无任何回顾内容</p>
+              <p className="text-[13px] text-stone-400 mb-5 tracking-wider font-medium font-serif">{t('review.emptyTodayTitle')}</p>
               <div className="flex flex-col items-center justify-center p-8 bg-gradient-to-br from-baimiao-mysteria/[0.03] to-[#2c2957]/[0.01] rounded-2xl border border-baimiao-mysteria/10 shadow-[0_8px_30px_rgba(27,25,56,0.03)] text-center w-full max-w-[280px]">
                 <div className="text-baimiao-mysteria mb-4 bg-white p-3 rounded-xl shadow-[0_2px_10px_rgba(27,25,56,0.05)] border border-baimiao-mysteria/5">
                   <Sparkles className="w-6 h-6 stroke-[1.5px] text-baimiao-mysteria/70 animate-pulse" />
                 </div>
                 <p className="text-[15px] text-stone-900 font-medium tracking-tight mb-2 font-serif baimiao-editorial-title">
-                  今天你积累了 {logsCountForDate} 条碎屑
+                  {t('review.todayFragmentsCount', { count: logsCountForDate })}
                 </p>
-                <p className="text-[12.5px] text-stone-500 mb-6 leading-relaxed">让 AI 为你总结今天</p>
+                <p className="text-[12.5px] text-stone-500 mb-6 leading-relaxed">{t('review.emptyTodayDesc')}</p>
                 <button
                   disabled={logsCountForDate === 0}
                   onClick={(e) => openPromptMenu(e.currentTarget.getBoundingClientRect(), { dateStr })}
@@ -433,7 +435,7 @@ export default function Review() {
                   }`}
                 >
                   <Sparkles className="w-4 h-4 stroke-[1.5px]" />
-                  AI 智能整理
+                  {t('review.aiOrganize')}
                 </button>
               </div>
             </div>
@@ -443,7 +445,7 @@ export default function Review() {
               {hasPendingForDate && (
                 <div className="bg-white rounded-2xl border border-black/5 shadow-[0_2px_10px_rgb(0_0_0_/_0.02)] p-5 flex flex-col items-center gap-2">
                   <div className="animate-spin rounded-full h-5 w-5 border-2 border-stone-400 border-t-transparent" />
-                  <span className="text-[12px] text-stone-500 font-medium">AI 正在为您生成统计回顾…</span>
+                  <span className="text-[12px] text-stone-500 font-medium">{t('review.aiGeneratingStats')}</span>
                 </div>
               )}
 
@@ -453,7 +455,7 @@ export default function Review() {
                 const isGenerating = isProcessingReviewMap[review.id] || (review.entry_type === 'diary' && isProcessingDiary);
                 const errorMsg = diaryErrorMap[dateStr];
                 const isEditing = editingReviewId === review.id;
-                const entryLabel = review.entry_type === 'diary' ? '日记' : '回顾';
+                const entryLabel = review.entry_type === 'diary' ? t('review.diary') : t('review.review');
                 const entryContent = review.ai_editorial || review.ai_review;
 
                 return (
@@ -500,14 +502,14 @@ export default function Review() {
                         )}
                       </div>
                       <span className="text-[13px] text-stone-500 line-clamp-2 leading-relaxed pr-6 select-none">
-                        {review.ai_summary || '暂无内容概要'}
+                        {review.ai_summary || t('review.noSummary')}
                       </span>
                     </button>
 
                     {/* Prompt label sub-header */}
                     <div className="px-4 py-1.5 border-t border-black/[0.03] bg-stone-50/60">
                       <span className="text-[11px] text-stone-400 font-medium">
-                        {entryLabel} ({review.prompt_name || '默认'}) · {format(new Date(review.updated_at), 'HH:mm')}
+                        {entryLabel} ({review.prompt_name || t('settings.promptDefault')}) · {format(new Date(review.updated_at), 'HH:mm')}
                       </span>
                     </div>
 
@@ -539,7 +541,7 @@ export default function Review() {
                             if (e.key === 'Escape') { setAddingTagToReview(null); setNewTagInput(''); }
                           }}
                           onBlur={() => addTagToReview(review.id)}
-                          placeholder="标签路径"
+                          placeholder={t('review.tagPlaceholder')}
                           className="bg-white border border-stone-200 rounded-full px-2 py-0.5 text-[10.5px] outline-none focus:border-baimiao-mysteria/40 w-24"
                           autoFocus
                         />
@@ -560,7 +562,7 @@ export default function Review() {
                         {isGenerating ? (
                           <div className="flex flex-col items-center justify-center py-6 text-stone-400 text-[12px] gap-2 font-medium">
                             <div className="animate-spin rounded-full h-4 w-4 border-2 border-stone-400 border-t-transparent" />
-                            <span>AI 正在为您生成统计回顾与反思…</span>
+                            <span>{t('review.aiGeneratingStatsReflection')}</span>
                           </div>
                         ) : isEditing ? (
                           <div className="flex flex-col gap-3 relative z-10 w-full animate-in fade-in zoom-in-95 duration-200">
@@ -569,17 +571,17 @@ export default function Review() {
                               value={editText}
                               onChange={e => setEditText(e.target.value)}
                               className="w-full bg-white p-4 rounded-xl border border-stone-200 shadow-sm focus:outline-none focus:border-stone-300 focus:ring-2 focus:ring-stone-100 resize-none font-sans text-[15px] leading-relaxed text-stone-900 overflow-hidden min-h-[200px]"
-                              placeholder="开始编辑回顾..."
+                              placeholder={t('review.editPlaceholder')}
                               autoFocus
                             />
                             <div className="flex items-center justify-between gap-2">
-                              <span className="text-[12px] text-stone-500 pl-1">共 {countChars(editText)} 字</span>
+                              <span className="text-[12px] text-stone-500 pl-1">{t('record.totalChars', { count: countChars(editText) })}</span>
                               <div className="flex gap-2 pr-1">
                                 <button
                                   onClick={() => setEditingReviewId(null)}
                                   className="px-4 py-2 rounded-full text-[13px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors shadow-sm select-none"
                                 >
-                                  取消
+                                  {t('review.cancel')}
                                 </button>
                                 <button
                                   onClick={() => handleSaveEdit(review.id)}
@@ -587,7 +589,7 @@ export default function Review() {
                                   className="flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] border border-white/10 hover:brightness-110 transition-all shadow-sm select-none disabled:opacity-60"
                                 >
                                   {isSavingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                                  {isSavingEdit ? '保存中' : '保存'}
+                                  {isSavingEdit ? t('review.saving') : t('review.save')}
                                 </button>
                               </div>
                             </div>
@@ -641,14 +643,14 @@ export default function Review() {
                                 <button
                                   onClick={async (e) => {
                                     e.stopPropagation();
-                                    if (confirm('确认删除这篇回顾吗？')) {
+                                    if (confirm(t('review.confirmDelete'))) {
                                       await db.daily_reviews.delete(review.id);
                                     }
                                   }}
                                   className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-rose-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                                 >
                                   <Trash2 className="w-4 h-4" />
-                                  删除
+                                  {t('review.delete')}
                                 </button>
                                 <button
                                   onClick={(e) => {
@@ -664,7 +666,7 @@ export default function Review() {
                                   }`}
                                 >
                                   {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                                  {copied ? '已复制' : '复制'}
+                                  {copied ? t('review.copied') : t('review.copy')}
                                 </button>
                                 <button
                                   data-testid="review-tts-btn"
@@ -679,7 +681,7 @@ export default function Review() {
                                   }`}
                                 >
                                   {isPlaying(entryContent) ? <SquareIcon className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                                  {isPlaying(entryContent) ? '停止' : '朗读'}
+                                  {isPlaying(entryContent) ? t('review.stopReading') : t('review.readAloud')}
                                 </button>
                                 <button
                                   onClick={(e) => {
@@ -690,7 +692,7 @@ export default function Review() {
                                   className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
                                 >
                                   <Edit2 className="w-4 h-4" />
-                                  编辑
+                                  {t('review.edit')}
                                 </button>
                                 <button
                                   onClick={(e) => {
@@ -700,7 +702,7 @@ export default function Review() {
                                   className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
                                 >
                                   <RefreshCw className="w-4 h-4" />
-                                  重新生成
+                                  {t('review.regenerate')}
                                 </button>
                                 <button
                                   onClick={(e) => {
@@ -710,7 +712,7 @@ export default function Review() {
                                   className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
                                 >
                                   <ChevronUp className="w-4 h-4" />
-                                  收起
+                                  {t('review.collapse')}
                                 </button>
                               </div>
                               
@@ -722,7 +724,7 @@ export default function Review() {
                                 className={`flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl text-[13px] font-medium transition-colors ${chatReviewId === review.id ? 'bg-stone-800 text-white' : 'bg-stone-100 hover:bg-stone-200 text-stone-700'}`}
                               >
                                 <MessageCircle className="w-4 h-4" />
-                                AI 追问
+                                {t('review.aiFollowup')}
                               </button>
                             </div>
                             
@@ -741,7 +743,7 @@ export default function Review() {
                           </>
                         ) : (
                           <div className="flex flex-col items-center justify-center py-6 px-3 text-center border border-dashed border-stone-200 rounded-lg bg-stone-50/50">
-                            <span className="text-[12px] text-stone-500 mb-3 font-medium">该回顾内容为空</span>
+                            <span className="text-[12px] text-stone-500 mb-3 font-medium">{t('review.contentEmpty')}</span>
                             {errorMsg && (
                               <span className="text-[11px] text-rose-500 mb-2.5 block px-2 leading-relaxed bg-rose-50 border border-rose-100 rounded-md py-1">{errorMsg}</span>
                             )}
@@ -752,7 +754,7 @@ export default function Review() {
                               }}
                               className="px-4 py-1.5 text-[12px] bg-stone-800 text-white hover:bg-stone-900 active:scale-95 transition-all rounded-lg font-medium shadow-sm flex items-center gap-1"
                             >
-                              立即生成回顾
+                              {t('review.generateNow')}
                             </button>
                           </div>
                         )}
@@ -769,7 +771,7 @@ export default function Review() {
                 className="w-full py-3 mt-2 border border-dashed border-stone-350 rounded-2xl bg-white/30 hover:bg-white/60 hover:border-stone-400 text-stone-500 hover:text-stone-700 transition-all flex items-center justify-center gap-1.5 text-[12px] font-medium active:scale-[0.99] disabled:opacity-40"
               >
                 <Sparkles className="w-3.5 h-3.5 stroke-[1.5px]" />
-                + AI 智能整理 (追加)
+                {t('review.aiOrganizeAppend')}
               </button>
             </>
           )}
@@ -804,7 +806,7 @@ export default function Review() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-[11px] font-semibold text-white/40 tracking-wider px-2.5 py-1.5 border-b border-white/5 flex justify-between items-center select-none">
-              <span>选择生成模板（可多选）</span>
+              <span>{t('review.selectTemplate')}</span>
               <button
                 onClick={closePromptMenu}
                 className="hover:bg-white/10 p-0.5 rounded text-white/40 hover:text-white transition-colors"
@@ -820,11 +822,11 @@ export default function Review() {
                 className="w-full py-2 px-2.5 bg-white/10 hover:bg-white/15 rounded-xl text-[12.5px] font-semibold text-purple-200 text-left active:scale-[0.98] transition-all border border-white/5 mb-1 flex items-center justify-center gap-1.5"
               >
                 <Sparkles className="w-3.5 h-3.5 text-purple-300" />
-                生成 {(reviewSelectedIndices || [0, 1]).length} 篇回顾
+                {t('review.generateNReviews', { count: (reviewSelectedIndices || [0, 1]).length })}
               </button>
 
               {/* 5 槽多选列表 */}
-              {(reviewPromptNames || ['日记', '回顾', '自定义 1', '自定义 2', '自定义 3']).map((name, idx) => {
+              {(reviewPromptNames || [t('settings.promptDiary'), t('settings.promptReview'), t('settings.promptCustom1'), t('settings.promptCustom2'), t('settings.promptCustom3')]).map((name, idx) => {
                 const isSelected = (reviewSelectedIndices || [0, 1]).includes(idx);
                 const hasContent = reviewPrompts[idx]?.trim().length > 0;
                 const isFixed = idx < 2; // 日记/回顾 不可改名
@@ -843,9 +845,9 @@ export default function Review() {
                         : <Square className="w-3.5 h-3.5 text-white/30 shrink-0" />
                       }
                       {name}
-                      {isFixed && <span className="text-[9px] text-white/30 font-normal">默认</span>}
+                      {isFixed && <span className="text-[9px] text-white/30 font-normal">{t('settings.promptDefault')}</span>}
                     </span>
-                    {hasContent && <span className="text-purple-300/60 text-[10px] font-normal">已配置</span>}
+                    {hasContent && <span className="text-purple-300/60 text-[10px] font-normal">{t('review.configured')}</span>}
                   </button>
                 );
               })}
@@ -885,7 +887,7 @@ export default function Review() {
               }`}
             >
               {copied ? <Check className="w-3.5 h-3.5 mb-1.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5 mb-1.5 text-white/80" />}
-              <span className="text-[10px] font-medium tracking-wide">{copied ? '已复制' : '复制内容'}</span>
+              <span className="text-[10px] font-medium tracking-wide">{copied ? t('review.copied') : t('review.copyContent')}</span>
             </button>
             <button
               onClick={() => {
@@ -899,7 +901,7 @@ export default function Review() {
               className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 disabled:opacity-50"
             >
               <Edit2 className="w-3.5 h-3.5 mb-1.5 text-white/80" />
-              <span className="text-[10px] font-medium tracking-wide">编辑内容</span>
+              <span className="text-[10px] font-medium tracking-wide">{t('review.editContent')}</span>
             </button>
             <button
               onClick={(e) => {
@@ -912,11 +914,11 @@ export default function Review() {
               className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 disabled:opacity-50"
             >
               <RefreshCw className="w-3.5 h-3.5 mb-1.5 text-white/80" />
-              <span className="text-[10px] font-medium tracking-wide">重新生成</span>
+              <span className="text-[10px] font-medium tracking-wide">{t('review.regenerate')}</span>
             </button>
             <button
               onClick={async () => {
-                if (activeReview && confirm('确认删除这条内容吗？')) {
+                if (activeReview && confirm(t('review.confirmDeleteContent'))) {
                   await db.daily_reviews.delete(activeReview.id);
                 }
                 setContextMenuState({ ...contextMenuState, isOpen: false });
@@ -924,7 +926,7 @@ export default function Review() {
               className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-rose-400 hover:text-rose-300 transition-colors hover:bg-white/10 rounded-r-lg"
             >
               <Trash2 className="w-3.5 h-3.5 mb-1.5" />
-              <span className="text-[10px] font-medium tracking-wide">删除</span>
+              <span className="text-[10px] font-medium tracking-wide">{t('review.delete')}</span>
             </button>
           </div>
         </div>
