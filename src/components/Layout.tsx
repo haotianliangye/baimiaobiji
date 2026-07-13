@@ -1,12 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Loader2, SlidersHorizontal, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning, Sparkles, MessageSquare, Calendar as CalendarIcon, Tags as TagsIcon } from 'lucide-react';
-import { ChatCircleDots, Notepad, HeadCircuit, Clock } from '@phosphor-icons/react';
-import { subDays, startOfDay, endOfDay, format } from 'date-fns';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { NavLink, Outlet, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { Loader2, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning, Sparkles, MessageSquare, Calendar as CalendarIcon, Menu, Lightbulb, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChatCircleDots, HeadCircuit, Clock, SunDim } from '@phosphor-icons/react';
+import { subDays, startOfDay, endOfDay, format, parse, addDays, isSameDay } from 'date-fns';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { useAppStore } from '../store/app.store';
 import { useSettingsStore } from '../store/settings.store';
+import { countChars } from '../lib/wordCount';
 import MiniCalendar from './MiniCalendar';
+import CalendarHeatmap from './CalendarHeatmap';
+import RandomWalk from './RandomWalk';
 import Copilot from '../pages/Copilot';
 import { useTranslation } from '../lib/i18n';
 
@@ -49,6 +53,56 @@ export default function Layout() {
   } = useAppStore();
 
   const { syncEnabled, embedEnabled, diaryPrompts } = useSettingsStore();
+
+  // --- Seam 1：统一顶部标题栏 ---
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentPath = location.pathname;
+  const isMingwu = currentPath === '/mingwu';
+  // 日期导航仅在「碎屑 / 回顾」两个按日期浏览的 Tab 显示
+  const showDateNav = currentPath === '/' || currentPath === '/review';
+
+  // 页面标题映射：碎屑=白描 / 回顾 / 沉思 / 明悟（标题不可点击）
+  const routeTitleKey: Record<string, string> = {
+    '/': 'layout.titleBaimiao',
+    '/review': 'tab.review',
+    '/thoughts': 'tab.thoughts',
+    '/mingwu': 'tab.mingwu',
+  };
+  const headerTitleKey = routeTitleKey[currentPath] || 'layout.titleBaimiao';
+
+  // 副标题「今日 X 字」：取今日 raw_logs 字数（明悟不显示）
+  const todayLogs = useLiveQuery(() => {
+    const now = new Date();
+    return db.raw_logs
+      .where('created_at')
+      .between(startOfDay(now).getTime(), endOfDay(now).getTime())
+      .toArray();
+  }, []);
+  const todayCharCount = useMemo(
+    () => (todayLogs || []).reduce((sum, log) => sum + countChars(log.content), 0),
+    [todayLogs]
+  );
+
+  // 日期导航（与各页面共用 ?date= 查询参数）
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const navToday = new Date();
+  const dateParam = searchParams.get('date');
+  let targetDate = navToday;
+  if (dateParam) {
+    const parsed = parse(dateParam, 'yyyy-MM-dd', new Date());
+    if (!isNaN(parsed.getTime())) targetDate = parsed;
+  }
+  const dateStr = format(targetDate, 'yyyy-MM-dd');
+  const isTodayDate = isSameDay(targetDate, navToday);
+  const navigateToDate = (offset: number) => {
+    const newDate = offset > 0 ? addDays(targetDate, offset) : subDays(targetDate, Math.abs(offset));
+    setSearchParams({ date: format(newDate, 'yyyy-MM-dd') });
+  };
+  const heatmapSection = currentPath === '/review' ? 'review' : 'record';
+
+  // 灯泡入口：随机漫步
+  const [showRandomWalk, setShowRandomWalk] = useState(false);
 
   const [showDateDropdown, setShowDateDropdown] = useState(false);
   const dateDropdownRef = useRef<HTMLDivElement>(null);
@@ -180,26 +234,67 @@ export default function Layout() {
   return (
     <div className="flex flex-col h-full bg-[#f0eef5] font-sans text-stone-900 overflow-hidden items-center justify-center">
       <div className="w-full max-w-md h-full bg-white shadow-sm ring-1 ring-black/5 flex flex-col relative overflow-hidden">
-        {/* Global Nav */}
+        {/* Global Nav —— Seam 1 统一顶部栏：左 [≡]标题·副标题 / 中 <日期> / 右 搜索->RAG+CHAT->灯泡 */}
         {!isCopilotMode && (
-          <header className="flex h-[54px] shrink-0 items-center justify-between px-4 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white/95 border-b border-white/5">
-            <div className="flex items-center gap-2">
-              <h1 
-                onClick={() => setShowAboutModal(true)} 
-                className="text-[18px] font-normal font-serif tracking-widest cursor-pointer hover:opacity-80 transition-opacity active:scale-[0.98] select-none translate-y-[2px]"
+          <header className="relative flex h-[54px] shrink-0 items-center justify-between px-3 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white/95 border-b border-white/5">
+            {/* 左：[≡] 页面标题 · 副标题（标题不可点击，≡ 进设置） */}
+            <div className="flex items-center gap-2 min-w-0 flex-1 z-10">
+              <button
+                onClick={() => navigate('/settings')}
+                title={t('settings.title')}
+                aria-label={t('settings.title')}
+                className="p-1.5 hover:opacity-70 transition-opacity active:scale-95 shrink-0"
               >
-                {t('app.title')}
+                <Menu className="w-[18px] h-[18px]" />
+              </button>
+              <h1 className="text-[16px] font-normal font-serif tracking-widest select-none truncate translate-y-[2px]">
+                {t(headerTitleKey)}
               </h1>
-              {autoGenTasks.length > 0 && (isProcessingQueue || isQueuePaused) && (
-                <span className={`flex items-center gap-1 bg-white/10 text-white/90 border border-white/10 text-[10px] px-2 py-0.5 rounded-full font-medium select-none tracking-wide ${isQueuePaused ? 'opacity-65' : 'animate-pulse'}`}>
+              {autoGenTasks.length > 0 && (isProcessingQueue || isQueuePaused) ? (
+                <span className={`flex items-center gap-1 bg-white/10 text-white/90 border border-white/10 text-[10px] px-2 py-0.5 rounded-full font-medium select-none tracking-wide ${isQueuePaused ? 'opacity-65' : 'animate-pulse'} shrink-0`}>
                   <Loader2 className={`w-2.5 h-2.5 text-white/60 ${isQueuePaused ? '' : 'animate-spin'}`} />
                   {isQueuePaused ? `${t('layout.aiPaused')} (${autoGenTasks.length})` : `${t('layout.aiProcessing')} (${autoGenTasks.length})`}
                 </span>
-              )}
+              ) : !isMingwu ? (
+                <span className="text-[10.5px] text-white/55 font-medium select-none shrink-0 truncate">
+                  · {t('record.todayChars', { count: todayCharCount })}
+                </span>
+              ) : null}
             </div>
-            <div className="flex items-center gap-3">
+
+            {/* 中：日期导航（仅碎屑/回顾；点击日期打开日期选择器） */}
+            {showDateNav && (
+              <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => navigateToDate(-1)}
+                  aria-label={t('layout.prevDay')}
+                  title={t('layout.prevDay')}
+                  className="p-1 hover:opacity-70 transition-opacity active:scale-95"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setShowDatePicker(true)}
+                  className="text-[12px] font-mono text-white/90 w-[80px] text-center select-none hover:opacity-80 py-1 rounded-md transition-opacity active:scale-95"
+                >
+                  {dateStr}
+                </button>
+                <button
+                  onClick={() => navigateToDate(1)}
+                  disabled={isTodayDate}
+                  aria-label={t('layout.nextDay')}
+                  title={t('layout.nextDay')}
+                  className="p-1 hover:opacity-70 transition-opacity active:scale-95 disabled:opacity-30 disabled:hover:opacity-30"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* 右：同步状态 -> 搜索 -> RAG+CHAT -> 灯泡（随机漫步） */}
+            <div className="flex items-center gap-2 shrink-0 flex-1 justify-end z-10">
               {syncEnabled && (
-                <button 
+                <button
                   onClick={() => syncNow()}
                   disabled={syncStatus === 'syncing'}
                   title={syncStatus === 'error' ? `${t('layout.syncError')}: ${syncErrorMessage}` : t('layout.syncManual')}
@@ -213,29 +308,26 @@ export default function Layout() {
               )}
               <button
                 onClick={() => setSearchMode(true)}
+                aria-label={t('search.placeholder')}
                 className="p-1.5 hover:opacity-70 transition-opacity active:scale-95"
               >
                 <Search className="w-[18px] h-[18px]" />
               </button>
               <button
-                onClick={() => navigate('/tags')}
-                title={t('layout.tagManagement')}
-                className="p-1.5 hover:opacity-70 transition-opacity active:scale-95"
-              >
-                <TagsIcon className="w-[18px] h-[18px]" />
-              </button>
-              <button
                 onClick={() => setCopilotMode(true)}
                 title={t('layout.copilot')}
+                aria-label={t('layout.copilot')}
                 className="p-1.5 hover:opacity-70 transition-opacity active:scale-95"
               >
                 <MessageSquare className="w-[18px] h-[18px]" />
               </button>
               <button
-                onClick={() => navigate('/settings')}
-                className="p-1.5 hover:opacity-70 transition-opacity -mr-1.5 active:scale-95"
+                onClick={() => setShowRandomWalk(true)}
+                title={t('thoughts.randomWalk')}
+                aria-label={t('thoughts.randomWalk')}
+                className="p-1.5 hover:opacity-70 transition-opacity active:scale-95"
               >
-                <SlidersHorizontal className="w-[18px] h-[18px]" />
+                <Lightbulb className="w-[18px] h-[18px]" />
               </button>
             </div>
           </header>
@@ -304,11 +396,26 @@ export default function Layout() {
           <div className="w-full h-full flex justify-around items-center px-2">
             <TabItem to="/" icon={<ChatCircleDots weight="regular" />} label={t('tab.record')} />
             <TabItem to="/review" icon={<Clock weight="regular" />} label={t('tab.review')} />
-            <TabItem to="/thoughts" icon={<Notepad weight="regular" />} label={t('tab.thoughts')} />
-            <TabItem to="/mingwu" icon={<HeadCircuit weight="regular" />} label={t('tab.mingwu')} />
+            <TabItem to="/thoughts" icon={<HeadCircuit weight="regular" />} label={t('tab.thoughts')} />
+            <TabItem to="/mingwu" icon={<SunDim weight="regular" />} label={t('tab.mingwu')} />
           </div>
         </nav>
       </div>
+
+      {/* 日期选择器（顶部栏中间日期入口） */}
+      {showDatePicker && (
+        <CalendarHeatmap
+          currentDate={targetDate}
+          onSelectDate={(date) => { setSearchParams({ date }); setShowDatePicker(false); }}
+          onClose={() => setShowDatePicker(false)}
+          activeSection={heatmapSection}
+        />
+      )}
+
+      {/* 灯泡入口：随机漫步 */}
+      {showRandomWalk && (
+        <RandomWalk onClose={() => setShowRandomWalk(false)} />
+      )}
 
       {/* About & Feedback Modal */}
       {showAboutModal && (
@@ -696,8 +803,8 @@ export default function Layout() {
             <div className="w-full h-full flex justify-around items-center px-2">
               <TabItem to="/" icon={<ChatCircleDots weight="regular" />} label={t('tab.record')} onNavigate={() => setSearchMode(false)} />
               <TabItem to="/review" icon={<Clock weight="regular" />} label={t('tab.review')} onNavigate={() => setSearchMode(false)} />
-              <TabItem to="/thoughts" icon={<Notepad weight="regular" />} label={t('tab.thoughts')} onNavigate={() => setSearchMode(false)} />
-              <TabItem to="/mingwu" icon={<HeadCircuit weight="regular" />} label={t('tab.mingwu')} onNavigate={() => setSearchMode(false)} />
+              <TabItem to="/thoughts" icon={<HeadCircuit weight="regular" />} label={t('tab.thoughts')} onNavigate={() => setSearchMode(false)} />
+              <TabItem to="/mingwu" icon={<SunDim weight="regular" />} label={t('tab.mingwu')} onNavigate={() => setSearchMode(false)} />
             </div>
           </nav>
         </div>

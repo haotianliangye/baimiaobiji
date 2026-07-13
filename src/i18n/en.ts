@@ -26,6 +26,10 @@ export const en: TranslationDict = {
   'layout.tagManagement': 'Tag Management',
   'layout.copilot': 'Baimiao Copilot',
   'layout.syncError': 'Sync error',
+  // Header page-title mapping: Fragments=Baimiao (others reuse tab.*)
+  'layout.titleBaimiao': 'Baimiao',
+  'layout.prevDay': 'Previous day',
+  'layout.nextDay': 'Next day',
 
   // --- Auto-generated notifications ---
   'notify.autoDiary': 'Auto-generated diary for {date}',

@@ -27,6 +27,10 @@ export const zh: TranslationDict = {
   'layout.tagManagement': '标签管理',
   'layout.copilot': '白描 Copilot',
   'layout.syncError': '同步出错',
+  // 顶部栏页面标题映射：碎屑=白描（其余复用 tab.*）
+  'layout.titleBaimiao': '白描',
+  'layout.prevDay': '前一天',
+  'layout.nextDay': '后一天',
 
   // --- 自动生成通知 ---
   'notify.autoDiary': '已自动为您整理 {date} 的日记',
