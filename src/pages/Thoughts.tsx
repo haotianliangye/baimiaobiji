@@ -30,6 +30,7 @@ import {
   Copy,
   Check,
   Sparkles,
+  Lightbulb,
 } from 'lucide-react';
 import { db, type Thought, type AttachmentMeta } from '../db/db';
 import { useThoughtsStore } from '../store/thoughts.store';
@@ -37,6 +38,7 @@ import { useTagsStore } from '../store/tags.store';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { countChars } from '../lib/wordCount';
 import RichEditor from '../components/RichEditor';
+import RandomWalk from '../components/RandomWalk';
 
 type ViewMode = 'masonry' | 'timeline';
 
@@ -94,6 +96,9 @@ export default function Thoughts() {
   );
 
   const [view, setView] = useState<ViewMode>('masonry');
+
+  // --- 随机漫步入口（#11） ---
+  const [showRandomWalk, setShowRandomWalk] = useState(false);
 
   // --- 底部快速创建编辑器 ---
   const [isCreating, setIsCreating] = useState(false);
@@ -172,8 +177,17 @@ export default function Thoughts() {
             <span className="text-[11px] font-medium text-stone-400 ml-1">{thoughts.length} 条 · {totalChars} 字</span>
           )}
         </h2>
-        {/* 视图切换 */}
-        <div className="flex items-center bg-stone-100/80 rounded-full p-0.5">
+        {/* 视图切换 + 随机漫步入口 */}
+        <div className="flex items-center gap-1.5">
+          <button
+            data-testid="walk-open"
+            onClick={() => setShowRandomWalk(true)}
+            className="p-2 rounded-full text-amber-400 hover:bg-amber-50 transition-colors"
+            title="随机漫步"
+          >
+            <Lightbulb className="w-4 h-4" />
+          </button>
+          <div className="flex items-center bg-stone-100/80 rounded-full p-0.5">
           <button
             data-testid="view-masonry"
             onClick={() => setView('masonry')}
@@ -198,6 +212,7 @@ export default function Thoughts() {
             <ListIcon className="w-3.5 h-3.5" />
             时间线
           </button>
+          </div>
         </div>
       </div>
 
@@ -378,6 +393,11 @@ export default function Thoughts() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 随机漫步覆盖层（#11） */}
+      {showRandomWalk && (
+        <RandomWalk onClose={() => setShowRandomWalk(false)} />
       )}
     </div>
   );
