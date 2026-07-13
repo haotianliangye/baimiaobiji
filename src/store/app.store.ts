@@ -23,6 +23,24 @@ import {
   format,
   subDays
 } from 'date-fns';
+import { parseTagsFromText, resolveAlias, matchesByPrefix, normalizeTagPath } from '../lib/tags';
+import { useTagsStore } from './tags.store';
+
+// #31 AI 生成的回顾/日记自动打全局标签：解析 AI 文本中的 #标签，经别名纠正后落库，返回去重后的标签路径数组。
+async function processTagsForContent(text: string): Promise<string[]> {
+  if (!text) return [];
+  const { refreshAliases, createTag } = useTagsStore.getState();
+  await refreshAliases();
+  const aliases = useTagsStore.getState().aliases;
+  const rawTags = parseTagsFromText(text);
+  if (rawTags.length === 0) return [];
+  const resolved = rawTags.map(t => resolveAlias(t, aliases));
+  const unique = Array.from(new Set(resolved));
+  for (const tag of unique) {
+    await createTag(tag);
+  }
+  return unique;
+}
 
 export interface SearchItem {
   id: string;
@@ -259,6 +277,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       
       // Store the ai_summary inside the timeline_json array for the summary display
       const timelineContent = JSON.stringify([{ summary: data.ai_summary || "暂无内容概要" }]);
+      // #31 AI 生成的日记自动打全局标签
+      const diaryTags = await processTagsForContent(data.ai_editorial || data.ai_review || '');
 
       if (idToOverwrite) {
         await db.daily_reviews.update(idToOverwrite, {
@@ -269,6 +289,7 @@ export const useAppStore = create<AppState>((set, get) => ({
            ai_review: data.ai_review,
            prompt_index: activePromptIndex,
            prompt_name: activePromptName,
+           tags: diaryTags,
            updated_at: Date.now()
         });
       } else {
@@ -283,6 +304,7 @@ export const useAppStore = create<AppState>((set, get) => ({
            ai_review: data.ai_review || '',
            prompt_index: activePromptIndex,
            prompt_name: activePromptName,
+           tags: diaryTags,
            updated_at: Date.now()
         });
       }
@@ -346,6 +368,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       const data = await response.json();
       
       // Always write to the independent daily_reviews table — never touch daily_diaries
+      // #31 AI 生成的回顾自动打全局标签
+      const reviewTags = await processTagsForContent(data.ai_review || '');
       await db.daily_reviews.add({
         id: generateUUID(),
         review_date: dateStr,
@@ -355,6 +379,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         ai_summary: data.ai_summary || '暂无内容概要',
         prompt_index: activePromptIndex,
         prompt_name: activePromptName,
+        tags: reviewTags,
         updated_at: Date.now(),
       });
     } catch (err: any) {
@@ -947,6 +972,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     const filterRange = getFilterRange(dateRange, customStartDate, customEndDate);
     const results: SearchItem[] = [];
     const seenIds = new Set<string>();
+    // #32 标签前缀搜索：query 以 # 开头时按标签路径前缀匹配（搜 #工作 返回 工作/项目A 等子标签内容）
+    const queryTag = query.startsWith('#') ? normalizeTagPath(query.slice(1)) : '';
 
     // --- Semantic search branch ---
     const settings = useSettingsStore.getState();
@@ -969,7 +996,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (modules.includes('record')) {
       const logs = await db.raw_logs.toArray();
       const matchedLogs = logs.filter(log => {
-        const matchesQuery = log.content.toLowerCase().includes(query.toLowerCase());
+        const matchesQuery = log.content.toLowerCase().includes(query.toLowerCase())
+          || (!!queryTag && !!(log.tags && log.tags.some(t => matchesByPrefix(t, queryTag))));
         const matchesDate = isDateInFilter(log.created_at, dateRange, customStartDate, customEndDate);
         return matchesQuery && matchesDate;
       });
@@ -995,7 +1023,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
 
       matchedDiaries.forEach(d => {
-        if (d.ai_editorial && d.ai_editorial.toLowerCase().includes(query.toLowerCase())) {
+        if ((d.ai_editorial && d.ai_editorial.toLowerCase().includes(query.toLowerCase()))
+          || (!!queryTag && !!(d.tags && d.tags.some(t => matchesByPrefix(t, queryTag))))) {
           results.push({
             id: d.id,
             type: 'diary' as const,
@@ -1013,8 +1042,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       const reviews = await db.daily_reviews.filter(r => r.entry_type === 'review').toArray();
       const matchedReviews = reviews.filter(r => {
         const reviewDateObj = parseISO(r.review_date);
-        return isDateInFilter(reviewDateObj, dateRange, customStartDate, customEndDate)
-          && r.ai_review && r.ai_review.toLowerCase().includes(query.toLowerCase());
+        const matchesText = !!(r.ai_review && r.ai_review.toLowerCase().includes(query.toLowerCase()));
+        const matchesTag = !!queryTag && !!(r.tags && r.tags.some(t => matchesByPrefix(t, queryTag)));
+        return isDateInFilter(reviewDateObj, dateRange, customStartDate, customEndDate) && (matchesText || matchesTag);
       });
 
       matchedReviews.forEach(r => {
@@ -1033,7 +1063,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (modules.includes('insight')) {
       const insights = await db.mingwu.toArray();
       const matchedInsights = insights.filter(ins => {
-        const matchesQuery = ins.content.toLowerCase().includes(query.toLowerCase());
+        const matchesQuery = ins.content.toLowerCase().includes(query.toLowerCase())
+          || (!!queryTag && !!(ins.tags && ins.tags.some(t => matchesByPrefix(t, queryTag))));
         const matchesDate = isDateInFilter(ins.created_at, dateRange, customStartDate, customEndDate);
         return matchesQuery && matchesDate;
       });
