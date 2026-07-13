@@ -1,4 +1,5 @@
-import { db } from '../db/db';
+import { db, type TextChunk } from '../db/db';
+import { chunkText } from './chunking';
 import { useSettingsStore, DEFAULT_EMBED_PROVIDER_CONFIGS } from '../store/settings.store';
 
 // --- Cosine Similarity ---
@@ -82,21 +83,24 @@ const ENTITY_CONFIG: Record<EntityType, {
   embedField?: string;       // 向量存储字段名（默认 'embedding'）
   versionField?: string;     // 版本标记字段名（默认 'embedding_version'）
   matches?: (obj: any) => boolean;
+  sourceType: string;        // #14 chunks 表的 source_type（源表名）
 }> = {
-  record: { table: db.raw_logs, textField: 'content' },
-  diary: { table: db.daily_reviews, textField: 'ai_editorial', matches: (o) => o.entry_type === 'diary' },
-  review: { table: db.daily_reviews, textField: 'ai_review', matches: (o) => o.entry_type === 'review' },
-  insight: { table: db.mingwu, textField: 'content' },
-  thought: { table: db.thoughts, textField: 'content' },
+  record: { table: db.raw_logs, textField: 'content', sourceType: 'raw_logs' },
+  diary: { table: db.daily_reviews, textField: 'ai_editorial', matches: (o) => o.entry_type === 'diary', sourceType: 'daily_reviews' },
+  review: { table: db.daily_reviews, textField: 'ai_review', matches: (o) => o.entry_type === 'review', sourceType: 'daily_reviews' },
+  insight: { table: db.mingwu, textField: 'content', sourceType: 'mingwu' },
+  thought: { table: db.thoughts, textField: 'content', sourceType: 'thoughts' },
   // #6 多媒体摘要：对 raw_logs 的 attachment_summary 字段做 embedding，写入独立的
   // attachment_embedding 字段（避免与 content 的 embedding 互相覆盖）。
   // matches 过滤只对有摘要的记录入队，避免与 record 的 content 钩子重复处理无摘要记录。
+  // #14 sourceType 仍为 'raw_logs'，靠 field='attachment_summary' 与 content 分块区分。
   multimedia: {
     table: db.raw_logs,
     textField: 'attachment_summary',
     embedField: 'attachment_embedding',
     versionField: 'attachment_embedding_version',
     matches: (o) => !!(o.attachment_summary && String(o.attachment_summary).trim()),
+    sourceType: 'raw_logs',
   },
 };
 
@@ -156,6 +160,54 @@ export function enqueueEmbeddingTask(id: string, type: EntityType, force = false
 // loops that duplicate API calls and clobber each other's queue writes.
 let isProcessing = false;
 
+// --- #14 统一分块 pipeline 辅助函数 ---
+
+/**
+ * 清洗文本：归一换行、折叠连续空白、压缩多余空行。不删减正文内容，
+ * 只做对 embedding 友好的规范化。是 pipeline 的第一步（清洗 -> 分块 -> Embedding -> 存储）。
+ */
+function cleanText(text: string): string {
+  return text
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/[ \t\f\v]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
+ * 从源记录提取分块元数据（created_at + tags）。daily_reviews 没有 created_at 字段，
+ * 用 updated_at 作为分块时间戳；其余表读 created_at，缺失则回退当前时间。
+ */
+function extractChunkMeta(type: EntityType, record: any): { created_at: number; tags: string[] } {
+  const tags: string[] = Array.isArray(record.tags) ? record.tags : [];
+  if (type === 'diary' || type === 'review') {
+    return { created_at: typeof record.updated_at === 'number' ? record.updated_at : Date.now(), tags };
+  }
+  return { created_at: typeof record.created_at === 'number' ? record.created_at : Date.now(), tags };
+}
+
+/**
+ * 删除某源记录某字段的全部分块（重建前清理旧分块）。
+ * 优先用 [source_type+source_id+field] 复合索引；不可用时回退到 source_id 过滤。
+ * record 与 multimedia 共享 source_type='raw_logs' 与同一 source_id，靠 field 区分，
+ * 故删除必须带 field，避免互相清掉对方的分块。
+ */
+async function deleteChunksBySource(sourceType: string, sourceId: string, field: string): Promise<void> {
+  try {
+    await db.chunks
+      .where('[source_type+source_id+field]')
+      .equals([sourceType, sourceId, field])
+      .delete();
+  } catch {
+    await db.chunks
+      .where('source_id')
+      .equals(sourceId)
+      .filter((c) => c.source_type === sourceType && c.field === field)
+      .delete();
+  }
+}
+
 export async function processEmbeddingQueue(
   onProgress?: (remaining: number) => void
 ): Promise<void> {
@@ -174,7 +226,7 @@ export async function processEmbeddingQueue(
 
       const task = currentQueue[0];
       try {
-        const { table, textField, embedField, versionField } = ENTITY_CONFIG[task.type];
+        const { table, textField, embedField, versionField, sourceType } = ENTITY_CONFIG[task.type];
         const eField = embedField || 'embedding';
         const vField = versionField || 'embedding_version';
         const record = await table.get(task.id);
@@ -183,17 +235,51 @@ export async function processEmbeddingQueue(
         if (record[eField] && record[eField].length > 0 && record[vField] === versionTag && !task.force) {
           removeTask(task); continue;
         }
-        const text: string = record[textField] || '';
+        const rawText: string = record[textField] || '';
 
-        if (!text.trim()) {
+        if (!rawText.trim()) {
           removeTask(task);
           continue;
         }
 
-        const embedding = await requestEmbedding(text);
+        // 统一 pipeline：清洗 -> 分块 -> Embedding -> 存储
+        const cleaned = cleanText(rawText);
+        const slices = chunkText(cleaned);
+        if (slices.length === 0) {
+          removeTask(task);
+          continue;
+        }
 
-        // Write back to IndexedDB
-        await table.update(task.id, { [eField]: embedding, [vField]: versionTag });
+        // 逐块生成向量（短文本只有 1 块，行为与重构前一致）
+        const embeddings: number[][] = [];
+        for (const slice of slices) {
+          const emb = await requestEmbedding(slice.text);
+          embeddings.push(emb);
+        }
+
+        // 写入 chunks 表：先删旧分块，再写新分块（确定性 id，bulkPut 覆盖）
+        const meta = extractChunkMeta(task.type, record);
+        await deleteChunksBySource(sourceType, task.id, textField);
+        const chunkRows: TextChunk[] = slices.map((slice, i) => ({
+          id: `${sourceType}:${task.id}:${textField}:${i}`,
+          source_type: sourceType,
+          source_id: task.id,
+          field: textField,
+          chunk_index: i,
+          text: slice.text,
+          embedding: embeddings[i],
+          embedding_version: versionTag,
+          created_at: meta.created_at,
+          tags: meta.tags,
+        }));
+        if (chunkRows.length > 0) {
+          await db.chunks.bulkPut(chunkRows);
+        }
+
+        // 向后兼容：inline embedding 字段写入首块向量。现有检索（copilotRetrieval /
+        // app.store 语义搜索、Settings 向量导出）仍读 .embedding，行为不变。
+        // 短文本首块即全文，等价于重构前；长文本首块是原文第一段，检索仍可命中。
+        await table.update(task.id, { [eField]: embeddings[0], [vField]: versionTag });
 
         // Remove from queue on success (re-read queue to avoid clobbering concurrent enqueues)
         removeTask(task);

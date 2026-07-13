@@ -131,6 +131,23 @@ export interface AttachmentBlob {
   created_at: number;
 }
 
+// #14 统一分块与向量化 pipeline 的分块存储。每条记录是某条源记录的一个文本分块及其向量。
+// source_type + source_id + field 唯一定位一组分块，便于按源记录删除/重建。
+// 既有 inline embedding 字段（raw_logs.embedding 等）继续保留并向后兼容，
+// chunks 表是「全文按原文分块」的补充存储，供未来更精细的分块级语义检索。
+export interface TextChunk {
+  id: string;                 // `${source_type}:${source_id}:${field}:${chunk_index}`，确定性主键
+  source_type: string;        // 源表名：'raw_logs' | 'daily_reviews' | 'thoughts' | 'mingwu'
+  source_id: string;          // 源记录 id
+  field: string;              // 被分块的文本字段：'content' | 'ai_review' | 'ai_editorial' | 'attachment_summary'
+  chunk_index: number;        // 分块序号（0-based）
+  text: string;               // 分块文本（已清洗）
+  embedding: number[];        // 分块向量
+  embedding_version: string;  // "provider:model"
+  created_at: number;         // 取自源记录的时间戳
+  tags: string[];             // 取自源记录的标签
+}
+
 // V2 迁移备份：启动迁移前把旧表数据快照存此，供设置页下载。
 export interface MigrationBackup {
   key: string;                // 如 'v8'
@@ -161,6 +178,7 @@ export class WhitewashDiaryDB extends dexie {
   tags!: Table<TagDef>;
   tag_aliases!: Table<TagAlias>;
   attachments!: Table<AttachmentBlob>;
+  chunks!: Table<TextChunk>;
 
   constructor() {
     super('whitewash_diary');
@@ -344,6 +362,26 @@ export class WhitewashDiaryDB extends dexie {
       tags: 'path, name, created_at',
       tag_aliases: 'alias, target',
       attachments: 'id, type, created_at',
+    });
+    // Version 12: #14 统一分块与向量化 pipeline。
+    // - 新增 chunks 表：存每条源记录的文本分块及其向量与元数据
+    //   （source_type / source_id / field / tags / created_at）。
+    // - [source_type+source_id+field] 复合索引用于按源记录 + 字段高效删除/重建分块；
+    //   source_id 单列索引用于「取某记录全部分块」；*tags 多值索引支持未来按标签过滤。
+    // - 纯新增表，不改动既有表结构；旧数据无 chunks 即按无分块处理，
+    //   现有 inline embedding 字段继续保留，检索仍读 .embedding（向后兼容）。
+    // - upgrade 无需迁旧数据（分块在 embedding pipeline 按需重建）。
+    this.version(12).stores({
+      raw_logs: 'id, created_at, *tags',
+      daily_reviews: 'id, review_date, entry_type, *tags',
+      thoughts: 'id, created_at',
+      mingwu: 'id, range_type, created_at',
+      copilot_conversations: 'id, updated_at',
+      migration_backups: 'key',
+      tags: 'path, name, created_at',
+      tag_aliases: 'alias, target',
+      attachments: 'id, type, created_at',
+      chunks: 'id, source_id, [source_type+source_id+field], *tags',
     });
   }
 }
