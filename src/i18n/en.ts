@@ -123,6 +123,11 @@ export const en: TranslationDict = {
   'record.audioSaveFailed': '[Audio file save failed: {msg}]',
   'record.audioTranscribeFailed': '[Audio transcription failed]',
   'record.multimediaRecord': '[Multimedia record]',
+  'record.aiSummaryGenerating': 'AI summary generating…',
+  'record.summaryFailed': 'Summary generation failed',
+  'record.regenerateSummary': 'Regenerate',
+  'record.retranscribe': 'Re-transcribe',
+  'record.moreCount': '+{count}',
   'record.saveFailed': 'Save failed: {msg}',
 
   // --- Review page ---

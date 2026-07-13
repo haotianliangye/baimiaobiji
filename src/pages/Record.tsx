@@ -30,6 +30,7 @@ import {
   Paperclip,
   Image as ImageIcon,
   Music,
+  Play,
   Video,
   Link as LinkIcon,
 } from "lucide-react";
@@ -45,7 +46,7 @@ import { parseTagsFromText, resolveAlias } from "../lib/tags";
 import { useTagsStore } from "../store/tags.store";
 import CalendarHeatmap from "../components/CalendarHeatmap";
 import ActionSheet from "../components/ActionSheet";
-import { saveAttachmentBlob, blobToBase64, generateAttachmentSummary } from "../lib/multimedia";
+import { saveAttachmentBlob, blobToBase64, generateAttachmentSummary, requestMultimediaSummary } from "../lib/multimedia";
 import type { AttachmentMeta } from "../db/db";
 import { useTranslation } from "../lib/i18n";
 
@@ -147,6 +148,322 @@ async function fetchTranscriptionWithRetry(body: any, maxRetries = 3) {
   }
 }
 
+/**
+ * #005 加载附件 Blob 并返回 object URL，用于卡片中渲染图片/视频/音频。
+ * 组件卸载或 ref 变化时自动 revoke 上一个 URL。
+ */
+function useAttachmentUrl(ref?: string): string | undefined {
+  const [url, setUrl] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    if (!ref) {
+      setUrl(undefined);
+      return;
+    }
+    let objectUrl: string | undefined;
+    let cancelled = false;
+    db.attachments.get(ref).then((record) => {
+      if (cancelled || !record) return;
+      objectUrl = URL.createObjectURL(record.blob);
+      setUrl(objectUrl);
+    }).catch(() => {
+      // 附件 Blob 读取失败（可能已被清理），静默处理
+    });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [ref]);
+  return url;
+}
+
+/**
+ * #005 单个图片/视频缩略图。
+ * - 图片：object-fit cover，点击打开灯箱。
+ * - 视频：preload metadata 显示首帧，叠加播放图标，点击播放。
+ * - 无 AI 摘要时右下角显示单附件重试按钮。
+ */
+function MediaThumb({
+  att,
+  originalIndex,
+  logId,
+  isRetrying,
+  onRetry,
+  onOpenLightbox,
+}: {
+  att: AttachmentMeta;
+  originalIndex: number;
+  logId: string;
+  isRetrying: boolean;
+  onRetry: (logId: string, originalIndex: number) => void;
+  onOpenLightbox: (url: string) => void;
+}) {
+  const { t } = useTranslation();
+  const url = useAttachmentUrl(att.ref);
+  const [playing, setPlaying] = useState(false);
+
+  if (!url) {
+    return <div className="aspect-video w-full bg-stone-100 rounded-lg animate-pulse" />;
+  }
+
+  return (
+    <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-stone-100">
+      {att.kind === 'image' ? (
+        <img
+          src={url}
+          alt={att.name || t('record.image')}
+          onClick={() => onOpenLightbox(url)}
+          className="w-full h-full object-cover cursor-pointer"
+        />
+      ) : playing ? (
+        <video
+          controls
+          autoPlay
+          src={url}
+          className="w-full h-full object-cover bg-stone-900"
+        />
+      ) : (
+        <>
+          <video
+            src={url}
+            preload="metadata"
+            className="w-full h-full object-cover pointer-events-none"
+          />
+          <button
+            type="button"
+            onClick={() => setPlaying(true)}
+            className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 transition-colors"
+            aria-label={t('record.video')}
+          >
+            <span className="w-7 h-7 rounded-full bg-white/90 flex items-center justify-center shadow-md">
+              <Play className="w-3.5 h-3.5 text-stone-900 ml-0.5" fill="currentColor" />
+            </span>
+          </button>
+        </>
+      )}
+      {/* 单附件重试按钮：无 summary 且非播放状态时显示在右下角 */}
+      {!att.summary && !playing && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRetry(logId, originalIndex);
+          }}
+          disabled={isRetrying}
+          className="absolute bottom-1 right-1 flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-black/55 text-white text-[9px] font-medium backdrop-blur-sm hover:bg-black/70 transition-colors disabled:opacity-50"
+        >
+          {isRetrying ? (
+            <Loader2 className="w-2.5 h-2.5 animate-spin" />
+          ) : (
+            <RefreshCw className="w-2.5 h-2.5" />
+          )}
+          {t('record.regenerateSummary')}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * #005 单个音频附件播放器 + 重试按钮。
+ * 转写失败时播放器右侧显示"重新转写"按钮。
+ */
+function AudioAttachmentItem({
+  att,
+  originalIndex,
+  logId,
+  isRetrying,
+  onRetry,
+}: {
+  att: AttachmentMeta;
+  originalIndex: number;
+  logId: string;
+  isRetrying: boolean;
+  onRetry: (logId: string, originalIndex: number) => void;
+}) {
+  const { t } = useTranslation();
+  const url = useAttachmentUrl(att.ref);
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex-1 min-w-0">
+        {url ? (
+          <audio
+            controls
+            controlsList="nodownload noplaybackrate"
+            src={url}
+            className="h-8 w-full opacity-60 grayscale hover:opacity-100 transition-opacity"
+          />
+        ) : (
+          <div className="h-8 w-full bg-stone-100 rounded animate-pulse" />
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={() => onRetry(logId, originalIndex)}
+        disabled={isRetrying}
+        className="shrink-0 flex items-center gap-0.5 px-1.5 py-1 rounded-md text-stone-400 hover:text-indigo-500 hover:bg-stone-100 text-[10px] font-medium transition-colors disabled:opacity-50"
+      >
+        {isRetrying ? (
+          <Loader2 className="w-3 h-3 animate-spin" />
+        ) : (
+          <RefreshCw className="w-3 h-3" />
+        )}
+        {t('record.retranscribe')}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * #005 碎屑卡片多媒体渲染区。
+ * - 图片/视频：2×2 网格(16:9, cover, 最多4张, 超出 +N)，单张 16:9 撑满。
+ * - 音频：纵向列表播放器控件。
+ * - 摘要区：媒体下方，次要文本色，最多3行截断。
+ *   生成中 "AI 摘要生成中…"，失败 "摘要生成失败·重新生成"。
+ */
+function MultimediaAttachments({
+  log,
+  isGenerating,
+  retryingIds,
+  onRetryAttachment,
+  onRetryAudio,
+  onOpenLightbox,
+}: {
+  log: any;
+  isGenerating: boolean;
+  retryingIds: Set<string>;
+  onRetryAttachment: (logId: string, originalIndex: number) => void;
+  onRetryAudio: (logId: string, originalIndex: number) => void;
+  onOpenLightbox: (url: string) => void;
+}) {
+  const { t } = useTranslation();
+  const attachments: AttachmentMeta[] = log.attachments || [];
+
+  // 按类型分组，保留原始索引
+  const mediaItems = attachments
+    .map((att, idx) => ({ att, originalIndex: idx }))
+    .filter(({ att }) => att.kind === 'image' || att.kind === 'video');
+  const audioItems = attachments
+    .map((att, idx) => ({ att, originalIndex: idx }))
+    .filter(({ att }) => att.kind === 'audio');
+  const linkItems = attachments.filter((a) => a.kind === 'link');
+
+  // 摘要状态：none(无媒体) / generating / failed / ready
+  const hasMedia = mediaItems.length > 0;
+  const summaryState: 'none' | 'generating' | 'failed' | 'ready' = !hasMedia
+    ? 'none'
+    : log.attachment_summary
+      ? 'ready'
+      : isGenerating
+        ? 'generating'
+        : 'failed';
+
+  const handleRetryAll = () => {
+    mediaItems.forEach(({ originalIndex }) => {
+      if (!attachments[originalIndex].summary) {
+        onRetryAttachment(log.id, originalIndex);
+      }
+    });
+  };
+
+  const visibleMedia = mediaItems.slice(0, 4);
+  const overflowCount = mediaItems.length - 4;
+  const isSingle = visibleMedia.length === 1;
+  const hasAudio = audioItems.length > 0;
+  const hasLink = linkItems.length > 0;
+  const showSummary = summaryState !== 'none';
+
+  return (
+    <div className="mt-2 w-full">
+      {/* 图片/视频网格 */}
+      {visibleMedia.length > 0 && (
+        <div className={isSingle ? 'w-full' : 'grid grid-cols-2 gap-1'}>
+          {visibleMedia.map(({ att, originalIndex }, i) => {
+            const showOverflow = i === 3 && overflowCount > 0;
+            return (
+              <div key={originalIndex} className="relative">
+                <MediaThumb
+                  att={att}
+                  originalIndex={originalIndex}
+                  logId={log.id}
+                  isRetrying={retryingIds.has(`${log.id}-${originalIndex}`)}
+                  onRetry={onRetryAttachment}
+                  onOpenLightbox={onOpenLightbox}
+                />
+                {showOverflow && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-semibold text-[15px] rounded-lg pointer-events-none">
+                    {t('record.moreCount', { count: overflowCount })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 音频列表 */}
+      {hasAudio && (
+        <div className={`flex flex-col gap-2 ${visibleMedia.length > 0 ? 'mt-2' : ''}`}>
+          {audioItems.map(({ att, originalIndex }) => (
+            <AudioAttachmentItem
+              key={originalIndex}
+              att={att}
+              originalIndex={originalIndex}
+              logId={log.id}
+              isRetrying={retryingIds.has(`${log.id}-${originalIndex}`)}
+              onRetry={onRetryAudio}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* 链接附件 */}
+      {hasLink && (
+        <div className={`flex flex-col gap-1 ${visibleMedia.length > 0 || hasAudio ? 'mt-2' : ''}`}>
+          {linkItems.map((att, i) => (
+            <a
+              key={i}
+              href={att.ref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-[11px] text-indigo-500 hover:text-indigo-600 truncate"
+            >
+              <LinkIcon className="w-3 h-3 shrink-0" />
+              <span className="truncate">{att.name || att.ref}</span>
+            </a>
+          ))}
+        </div>
+      )}
+
+      {/* AI 摘要区 */}
+      {showSummary && summaryState === 'ready' && log.attachment_summary && (
+        <p className="mt-2 text-[12px] leading-relaxed text-stone-500 line-clamp-3 break-words">
+          {log.attachment_summary}
+        </p>
+      )}
+      {showSummary && summaryState === 'generating' && (
+        <div className="mt-2 flex items-center gap-1.5 text-[12px] text-stone-400">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          <span>{t('record.aiSummaryGenerating')}</span>
+        </div>
+      )}
+      {showSummary && summaryState === 'failed' && (
+        <div className="mt-2 flex items-center gap-1.5 text-[12px]">
+          <span className="text-stone-400">{t('record.summaryFailed')}</span>
+          <span className="text-stone-300">·</span>
+          <button
+            type="button"
+            onClick={handleRetryAll}
+            className="text-indigo-500 hover:text-indigo-600 font-medium transition-colors"
+          >
+            {t('record.regenerateSummary')}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Record() {
   const { t } = useTranslation();
   const [isPersisted, setIsPersisted] = useState<boolean | null>(null);
@@ -211,6 +528,10 @@ export default function Record() {
   const [showAttachmentSheet, setShowAttachmentSheet] = useState(false);
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [linkInput, setLinkInput] = useState("");
+  // #005 多媒体卡片渲染状态
+  const [generatingSummaryIds, setGeneratingSummaryIds] = useState<Set<string>>(new Set());
+  const [retryingAttachmentIds, setRetryingAttachmentIds] = useState<Set<string>>(new Set());
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileAccept, setFileAccept] = useState("");
 
@@ -649,16 +970,28 @@ export default function Record() {
 
       // 异步：对图片/视频附件生成多模态摘要，写入 attachment_summary
       if (hasMediaForSummary) {
+        const genLogId = logId;
+        setGeneratingSummaryIds((prev) => new Set(prev).add(genLogId));
         generateAttachmentSummary(finalAttachments)
           .then(async ({ attachments: updated, summary }) => {
+            setGeneratingSummaryIds((prev) => {
+              const n = new Set(prev);
+              n.delete(genLogId);
+              return n;
+            });
             if (summary) {
-              await db.raw_logs.update(logId, {
+              await db.raw_logs.update(genLogId, {
                 attachments: updated,
                 attachment_summary: summary,
               });
             }
           })
           .catch((err) => {
+            setGeneratingSummaryIds((prev) => {
+              const n = new Set(prev);
+              n.delete(genLogId);
+              return n;
+            });
             console.error('[Multimedia] Summary generation failed:', err);
           });
       }
@@ -712,6 +1045,100 @@ export default function Record() {
       setRetryingLogId(null);
     }
   };
+
+  // #005 单附件重试：重新生成图片/视频的 AI 摘要
+  const handleRetryAttachmentSummary = useCallback(async (logId: string, attachmentIndex: number) => {
+    const log = await db.raw_logs.get(logId);
+    if (!log?.attachments?.[attachmentIndex]) return;
+    const attachment = log.attachments[attachmentIndex];
+    if (!attachment.ref || (attachment.kind !== 'image' && attachment.kind !== 'video')) return;
+
+    const retryKey = `${logId}-${attachmentIndex}`;
+    setRetryingAttachmentIds((prev) => new Set(prev).add(retryKey));
+
+    try {
+      const blobRecord = await db.attachments.get(attachment.ref);
+      if (!blobRecord) throw new Error('Attachment blob not found');
+      const base64 = await blobToBase64(blobRecord.blob);
+      const mimeType = blobRecord.blob.type || (attachment.kind === 'image' ? 'image/jpeg' : 'video/mp4');
+      const summary = await requestMultimediaSummary(base64, mimeType, attachment.kind);
+
+      // 更新单个附件的 summary，并重算合并摘要
+      const latestLog = await db.raw_logs.get(logId);
+      if (!latestLog?.attachments) return;
+      const updatedAttachments = [...latestLog.attachments];
+      updatedAttachments[attachmentIndex] = { ...attachment, summary: summary.trim() || undefined };
+      const summaryParts = updatedAttachments
+        .filter((a) => a.summary)
+        .map((a) => a.summary as string);
+      const combinedSummary = summaryParts.join('\n');
+      await db.raw_logs.update(logId, {
+        attachments: updatedAttachments,
+        attachment_summary: combinedSummary || undefined,
+      });
+    } catch (err) {
+      console.error('[Multimedia] Single attachment retry failed:', err);
+    } finally {
+      setRetryingAttachmentIds((prev) => {
+        const n = new Set(prev);
+        n.delete(retryKey);
+        return n;
+      });
+    }
+  }, []);
+
+  // #005 单附件重试：重新转写音频附件的 STT
+  const handleRetryAudioAttachment = useCallback(async (logId: string, attachmentIndex: number) => {
+    const log = await db.raw_logs.get(logId);
+    if (!log?.attachments?.[attachmentIndex]) return;
+    const attachment = log.attachments[attachmentIndex];
+    if (!attachment.ref || attachment.kind !== 'audio') return;
+
+    const retryKey = `${logId}-${attachmentIndex}`;
+    setRetryingAttachmentIds((prev) => new Set(prev).add(retryKey));
+
+    try {
+      const blobRecord = await db.attachments.get(attachment.ref);
+      if (!blobRecord) throw new Error('Audio blob not found');
+      const base64 = await blobToBase64(blobRecord.blob);
+      const settings = useSettingsStore.getState();
+      const mimeType = blobRecord.blob.type || 'audio/webm';
+
+      let transcribedText = '';
+      try {
+        const data = await fetchTranscriptionWithRetry({
+          audio_base64: base64,
+          mime_type: mimeType,
+          settings,
+        });
+        transcribedText = data?.text || t('record.voiceUnrecognized');
+      } catch (e: any) {
+        const msg = String(e.message || '');
+        transcribedText = msg.includes('JSON')
+          ? t('record.voiceParseFailedHtml')
+          : t('record.voiceParseFailed', { msg });
+      }
+
+      // 更新 content：替换失败标记或追加新转写文本
+      const currentContent = log.content || '';
+      const failureMarker = t('record.audioTranscribeFailed');
+      let newContent: string;
+      if (currentContent.includes(failureMarker)) {
+        newContent = currentContent.replace(failureMarker, transcribedText);
+      } else {
+        newContent = currentContent ? `${currentContent}\n${transcribedText}` : transcribedText;
+      }
+      await db.raw_logs.update(logId, { content: newContent });
+    } catch (err) {
+      console.error('[Multimedia] Audio re-transcribe failed:', err);
+    } finally {
+      setRetryingAttachmentIds((prev) => {
+        const n = new Set(prev);
+        n.delete(retryKey);
+        return n;
+      });
+    }
+  }, [t]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const isMobile = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth < 768);
@@ -951,13 +1378,14 @@ export default function Record() {
                       </div>
                     )}
                     {log.attachments && log.attachments.length > 0 && (
-                      <div className="mt-2 flex items-center gap-1 text-[10.5px] text-stone-400">
-                        <Paperclip className="w-3 h-3" />
-                        <span>{t('record.attachmentCount', { count: log.attachments.length })}</span>
-                        {log.attachment_summary && (
-                          <span className="text-stone-300">{t('record.hasMultimediaSummary')}</span>
-                        )}
-                      </div>
+                      <MultimediaAttachments
+                        log={log}
+                        isGenerating={generatingSummaryIds.has(log.id)}
+                        retryingIds={retryingAttachmentIds}
+                        onRetryAttachment={handleRetryAttachmentSummary}
+                        onRetryAudio={handleRetryAudioAttachment}
+                        onOpenLightbox={(url: string) => setLightboxUrl(url)}
+                      />
                     )}
                   </div>
                   {typeof log.content === "string" && (log.content.includes("解析失败") || log.content.includes("parsing failed")) && log.audioBlob && (
@@ -1327,6 +1755,28 @@ export default function Record() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* #005 图片灯箱 */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-[120] bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <img
+            src={lightboxUrl}
+            alt=""
+            className="max-w-full max-h-full object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+            aria-label={t('about.close')}
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
       )}
     </div>

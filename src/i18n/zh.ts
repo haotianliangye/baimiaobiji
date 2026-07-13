@@ -124,6 +124,11 @@ export const zh: TranslationDict = {
   'record.audioSaveFailed': '[音频文件保存失败: {msg}]',
   'record.audioTranscribeFailed': '[音频转写失败]',
   'record.multimediaRecord': '[多媒体记录]',
+  'record.aiSummaryGenerating': 'AI 摘要生成中…',
+  'record.summaryFailed': '摘要生成失败',
+  'record.regenerateSummary': '重新生成',
+  'record.retranscribe': '重新转写',
+  'record.moreCount': '+{count}',
   'record.saveFailed': '保存失败：{msg}',
 
   // --- Review 页 (回顾) ---
