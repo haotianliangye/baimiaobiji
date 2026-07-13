@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning, Download, FileJson, FileText, MessageSquare } from 'lucide-react';
+import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning, Download, FileJson, FileText, MessageSquare, Volume2 } from 'lucide-react';
 import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_MINGWU_PROMPT, DEFAULT_SUMMARY_PROMPT, DEFAULT_DIARY_SUMMARY_PROMPT, DEFAULT_INSIGHT_SUMMARY_PROMPT } from '../store/settings.store';
 import { db, normalizeLegacyDiary, normalizeLegacyInsight } from '../db/db';
 import { enqueueAllMissingEmbeddings } from '../lib/embedding';
@@ -57,6 +57,10 @@ export default function Settings() {
     embedBaseUrl,
     embedModel,
     submitMultimedia,
+    ttsService,
+    ttsLang,
+    ttsRate,
+    ttsVoice,
     setSettings
   } = settingsStore;
 
@@ -878,6 +882,86 @@ export default function Settings() {
                     />
                     <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-baimiao-mysteria"></div>
                   </label>
+                </div>
+              </section>
+
+              {/* #10 TTS 语音朗读配置 */}
+              <section className="baimiao-card-diary p-4 space-y-3" data-testid="tts-config-section">
+                <div className="flex items-center gap-2 border-b border-stone-100 pb-2 mb-1">
+                  <Volume2 className="w-4 h-4 text-baimiao-mysteria" />
+                  <h3 className="text-[13px] font-semibold text-stone-700">语音朗读 (TTS)</h3>
+                </div>
+                <p className="text-[11.5px] text-stone-400 leading-relaxed">
+                  为回顾、明悟、洞察的 AI 产出与 AI 对话回复提供朗读功能。碎屑与沉思不支持朗读。
+                </p>
+
+                {/* 朗读服务选择 */}
+                <div className="space-y-1.5">
+                  <label className="text-[12px] font-medium text-stone-500">朗读服务</label>
+                  <div className="flex gap-1 p-1 bg-black/5 rounded-lg">
+                    <button
+                      type="button"
+                      data-testid="tts-service-webspeech"
+                      onClick={() => setSettings({ ttsService: 'webspeech' })}
+                      className={`flex-1 flex justify-center py-1.5 text-[11.5px] font-medium rounded-md transition-all ${
+                        ttsService === 'webspeech'
+                          ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-sm'
+                          : 'text-stone-500 hover:bg-white/50 hover:text-baimiao-mysteria'
+                      }`}
+                    >
+                      浏览器内置 (Web Speech)
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="tts-service-external"
+                      onClick={() => setSettings({ ttsService: 'external' })}
+                      className={`flex-1 flex justify-center py-1.5 text-[11.5px] font-medium rounded-md transition-all ${
+                        ttsService === 'external'
+                          ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-sm'
+                          : 'text-stone-500 hover:bg-white/50 hover:text-baimiao-mysteria'
+                      }`}
+                    >
+                      外部 TTS API
+                    </button>
+                  </div>
+                  {ttsService === 'external' && (
+                    <p className="text-[10.5px] text-stone-400 leading-relaxed mt-1">
+                      外部 TTS 需后端提供 /api/tts 端点，接收 {"{ text, lang }"} 并返回音频 blob。
+                    </p>
+                  )}
+                </div>
+
+                {/* 默认朗读语言 */}
+                <div className="space-y-1.5 pt-1.5 border-t border-stone-100">
+                  <label className="text-[12px] font-medium text-stone-500">默认朗读语言</label>
+                  <select
+                    value={ttsLang}
+                    onChange={e => setSettings({ ttsLang: e.target.value as 'auto' | 'zh' | 'en' })}
+                    data-testid="tts-lang-select"
+                    className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-lg text-[13px] text-stone-900 cursor-pointer font-mono"
+                  >
+                    <option value="auto">自动检测（中英文启发式）</option>
+                    <option value="zh">中文</option>
+                    <option value="en">英文</option>
+                  </select>
+                </div>
+
+                {/* 语速 */}
+                <div className="space-y-1.5 pt-1.5 border-t border-stone-100">
+                  <label className="text-[12px] font-medium text-stone-500 flex items-center justify-between">
+                    <span>朗读语速</span>
+                    <span className="font-mono text-stone-400 text-[11px]">{ttsRate.toFixed(1)}x</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="2"
+                    step="0.1"
+                    value={ttsRate}
+                    onChange={e => setSettings({ ttsRate: parseFloat(e.target.value) })}
+                    data-testid="tts-rate-slider"
+                    className="w-full accent-baimiao-mysteria cursor-pointer"
+                  />
                 </div>
               </section>
             </>

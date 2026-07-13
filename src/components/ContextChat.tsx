@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, RefreshCw, Copy, Check, Trash2, Maximize2, ChevronDown } from 'lucide-react';
+import { Send, Loader2, RefreshCw, Copy, Check, Trash2, Maximize2, ChevronDown, Volume2, Square } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { InsightMessage } from '../db/db';
 import { useSettingsStore } from '../store/settings.store';
 import { useAppStore } from '../store/app.store';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
+import { useTTS } from '../lib/tts';
 import { washCitations } from '../lib/citationWash';
 
 interface ContextChatProps {
@@ -224,16 +225,17 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
                       </ReactMarkdown>
                     </div>
                     <div className="flex justify-between w-full mt-3 pt-2.5 border-t border-stone-100/80 text-[11px] text-stone-400 font-medium select-none">
-                      <button 
-                        onClick={() => handleDelete(idx)} 
+                      <button
+                        onClick={() => handleDelete(idx)}
                         className="flex items-center gap-1 hover:text-rose-500 transition-colors active:scale-95"
                       >
                         <Trash2 className="w-3 h-3" />
                         删除
                       </button>
                       <CopyButton text={msg.content} />
-                      <button 
-                        onClick={() => handleRegenerate(idx)} 
+                      <TTSButton text={msg.content} />
+                      <button
+                        onClick={() => handleRegenerate(idx)}
                         className="flex items-center gap-1 hover:text-stone-700 transition-colors active:scale-95"
                       >
                         <RefreshCw className="w-3 h-3" />
@@ -362,6 +364,24 @@ function CopyButton({ text }: { text: string }) {
     >
       {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
       {copied ? '已复制' : '复制'}
+    </button>
+  );
+}
+
+function TTSButton({ text }: { text: string }) {
+  const { play, isPlaying } = useTTS();
+  const playing = isPlaying(text);
+
+  return (
+    <button
+      data-testid="chat-tts-btn"
+      onClick={() => play(text)}
+      className={`flex items-center gap-1 transition-colors active:scale-95 ${
+        playing ? 'text-baimiao-mysteria' : 'hover:text-stone-700'
+      }`}
+    >
+      {playing ? <Square className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
+      {playing ? '停止' : '朗读'}
     </button>
   );
 }

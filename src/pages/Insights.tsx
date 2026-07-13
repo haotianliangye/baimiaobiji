@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Loader2, Sparkles, Calendar, AlertCircle, ChevronDown, ChevronUp, Trash2, Copy, Check, RefreshCw, MessageCircle, Save, Edit2 } from 'lucide-react';
+import { Loader2, Sparkles, Calendar, AlertCircle, ChevronDown, ChevronUp, Trash2, Copy, Check, RefreshCw, MessageCircle, Save, Edit2, Volume2, Square } from 'lucide-react';
 import { HeadCircuit } from '@phosphor-icons/react';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
+import { useTTS } from '../lib/tts';
 import ReactMarkdown from 'react-markdown';
 import ContextChat from '../components/ContextChat';
 import { db, Mingwu } from '../db/db';
@@ -40,6 +41,7 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
   });
   const holdTimeoutRef = useRef<any>(null);
   const { copied, copy } = useCopyToClipboard();
+  const { play, isPlaying } = useTTS();
 
   const [editText, setEditText] = useState(mingwu.content || '');
   const [isSaving, setIsSaving] = useState(false);
@@ -219,6 +221,21 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
             >
                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                {copied ? '已复制' : '复制'}
+            </button>
+            <button
+               data-testid="mingwu-tts-btn"
+               onClick={(e) => {
+                  e.stopPropagation();
+                  play(mingwu.content);
+               }}
+               className={`flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
+                  isPlaying(mingwu.content)
+                    ? 'text-baimiao-mysteria bg-baimiao-mysteria/5'
+                    : 'text-stone-500 hover:text-stone-800 hover:bg-stone-100'
+               }`}
+            >
+               {isPlaying(mingwu.content) ? <Square className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+               {isPlaying(mingwu.content) ? '停止' : '朗读'}
             </button>
             <button
                onClick={(e) => {

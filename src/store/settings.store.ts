@@ -201,6 +201,12 @@ interface SettingsState {
   // #6 多媒体：生成回顾/明悟时是否向模型提交多媒体摘要
   submitMultimedia: boolean;
 
+  // #10 TTS 朗读配置
+  ttsService: 'webspeech' | 'external';
+  ttsLang: 'auto' | 'zh' | 'en';
+  ttsRate: number;
+  ttsVoice: string;
+
   setSettings: (settings: Partial<SettingsState>) => void;
 }
 
@@ -264,6 +270,12 @@ export const useSettingsStore = create<SettingsState>()(
 
       // #6 多媒体：默认在生成回顾/明悟时提交多媒体摘要
       submitMultimedia: true,
+
+      // #10 TTS 朗读配置默认值
+      ttsService: 'webspeech',
+      ttsLang: 'auto',
+      ttsRate: 1,
+      ttsVoice: '',
 
       setSettings: (newSettings) => set((state) => {
          const nextRemember = newSettings.syncRememberCredentials !== undefined ? newSettings.syncRememberCredentials : state.syncRememberCredentials;
@@ -357,7 +369,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
         name: 'whitewash-settings',
-        version: 9,
+        version: 10,
         partialize: (state) => {
           const { syncPassword, syncPasswordE2EE, ...rest } = state;
           if (state.syncRememberCredentials) {
@@ -680,6 +692,22 @@ export const useSettingsStore = create<SettingsState>()(
               persistedState.mingwuPromptIndex = 0;
             }
             persistedState.mingwuPrompt = persistedState.mingwuPrompts[persistedState.mingwuPromptIndex] || DEFAULT_MINGWU_PROMPT;
+          }
+
+          // #10: TTS 朗读配置迁移
+          if (version < 10) {
+            if (!persistedState.ttsService) {
+              persistedState.ttsService = 'webspeech';
+            }
+            if (!persistedState.ttsLang) {
+              persistedState.ttsLang = 'auto';
+            }
+            if (persistedState.ttsRate === undefined || persistedState.ttsRate === null) {
+              persistedState.ttsRate = 1;
+            }
+            if (!persistedState.ttsVoice) {
+              persistedState.ttsVoice = '';
+            }
           }
 
          return persistedState;

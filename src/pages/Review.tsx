@@ -10,10 +10,11 @@ import { formatDiaryMarkdown } from '../lib/utils';
 import { washCitations } from '../lib/citationWash';
 import ActionSheet from '../components/ActionSheet';
 import ContextChat from '../components/ContextChat';
-import { Trash2, ChevronDown, ChevronUp, RefreshCw, X, Sparkles, MessageCircle, Copy, Check, Activity, Save, Edit2, Loader2, CheckSquare, Square, Hash, Plus } from 'lucide-react';
+import { Trash2, ChevronDown, ChevronUp, RefreshCw, X, Sparkles, MessageCircle, Copy, Check, Activity, Save, Edit2, Loader2, CheckSquare, Square, Hash, Plus, Volume2, Square as SquareIcon } from 'lucide-react';
 import { Clock } from '@phosphor-icons/react';
 import { useAppStore } from '../store/app.store';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
+import { useTTS } from '../lib/tts';
 import { useSettingsStore, isDiarySlot } from '../store/settings.store';
 import { normalizeTagPath, resolveAlias } from '../lib/tags';
 import { useTagsStore } from '../store/tags.store';
@@ -52,6 +53,7 @@ export default function Review() {
   const navigate = useNavigate();
   const { isProcessingReviewMap, isProcessingDiary, generateReview, generateDiaryTimeline, diaryErrorMap, batchProgress, generateSelected } = useAppStore();
   const { copied, copy } = useCopyToClipboard();
+  const { play, isPlaying } = useTTS();
   const { reviewPrompts, reviewPromptNames, reviewSelectedIndices, setSettings } = useSettingsStore();
   const WEEKS_TO_SHOW = 15;
   const today = new Date();
@@ -663,6 +665,21 @@ export default function Review() {
                                 >
                                   {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                                   {copied ? '已复制' : '复制'}
+                                </button>
+                                <button
+                                  data-testid="review-tts-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    play(entryContent);
+                                  }}
+                                  className={`flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
+                                    isPlaying(entryContent)
+                                      ? 'text-baimiao-mysteria bg-baimiao-mysteria/5'
+                                      : 'text-stone-500 hover:text-stone-800 hover:bg-stone-100'
+                                  }`}
+                                >
+                                  {isPlaying(entryContent) ? <SquareIcon className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                                  {isPlaying(entryContent) ? '停止' : '朗读'}
                                 </button>
                                 <button
                                   onClick={(e) => {
