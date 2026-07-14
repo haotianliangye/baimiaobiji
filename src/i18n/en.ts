@@ -349,6 +349,8 @@ export const en: TranslationDict = {
   'settings.embeddingReady': 'Ready vectors:',
   'settings.embeddingQueue': 'Pending tasks:',
   'settings.embeddingQueueReady': '0 (all ready)',
+  'settings.embeddingReadyCount': '{count}',
+  'settings.embeddingQueueCount': '{count}',
   'settings.embeddingScan': 'Scan and backfill historical vectors',
   'settings.embeddingScanResult': 'Scan complete! {count} records without vectors have been queued.',
   'settings.embeddingAutoReuse': 'Auto-reuse Gemini key above',

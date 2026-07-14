@@ -1206,7 +1206,7 @@ export default function Settings() {
               <section className="space-y-3">
                 <div className="baimiao-card-diary p-4 space-y-3">
                   <div className="flex items-center justify-between border-b border-stone-100 pb-2 mb-1">
-                    <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase">本地向量与语义搜索</h3>
+                    <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase">{t('settings.embeddingTitle')}</h3>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input 
                         type="checkbox" 
@@ -1225,9 +1225,9 @@ export default function Settings() {
                         {[
                           { id: 'gemini', label: 'Gemini' },
                           { id: 'openai', label: 'OpenAI' },
-                          { id: 'siliconflow', label: '硅基' },
-                          { id: 'zhipu', label: '智谱' },
-                          { id: 'custom', label: '自定义' }
+                          { id: 'siliconflow', label: t('provider.siliconflowShort') },
+                          { id: 'zhipu', label: t('provider.zhipu') },
+                          { id: 'custom', label: t('provider.custom') }
                         ].map(p => (
                           <button
                             key={p.id}
@@ -1251,7 +1251,7 @@ export default function Settings() {
                         <div className="flex items-center justify-between">
                           <label className="flex items-center gap-2 text-[12px] font-medium text-stone-700">
                             <KeyRound className="w-3.5 h-3.5 text-stone-400" />
-                            向量接口 API Key
+                            {t('settings.embeddingApiKey')}
                           </label>
                           <div className="flex items-center gap-6">
                             {(() => {
@@ -1269,18 +1269,18 @@ export default function Settings() {
                             {embedTestStatus === 'testing' ? (
                               <span className="text-[11.5px] text-stone-400 flex items-center gap-1 select-none font-medium leading-none">
                                 <Loader2 className="w-3 h-3 animate-spin text-baimiao-mysteria" />
-                                测试中...
+                                {t('settings.testing')}
                               </span>
                             ) : embedTestStatus === 'success' ? (
                               <span className="text-[11.5px] text-green-600 font-semibold flex items-center gap-0.5 animate-in fade-in select-none leading-none">
-                                已连通 ✅
+                                {t('settings.connected')}
                               </span>
                             ) : embedTestStatus === 'fail' ? (
-                              <span 
+                              <span
                                 className="text-[11.5px] text-rose-500 font-semibold flex items-center gap-0.5 animate-in fade-in cursor-help select-none leading-none"
                                 title={embedTestError}
                               >
-                                连接失败 ❌
+                                {t('settings.connectionFailed')}
                               </span>
                             ) : (
                               <button
@@ -1288,7 +1288,7 @@ export default function Settings() {
                                 onClick={handleTestEmbedConnection}
                                 className="text-[11.5px] text-[#8a859e] hover:text-baimiao-mysteria font-medium hover:underline select-none active:scale-95 transition-all leading-none"
                               >
-                                测试连接
+                                {t('settings.testConnection')}
                               </button>
                             )}
                           </div>
@@ -1296,7 +1296,7 @@ export default function Settings() {
                         <div className="relative">
                           <input
                             type={showEmbedApiKey ? "text" : "password"}
-                            placeholder={embedProvider === 'gemini' && !embedApiKey && apiKey ? '自动复用上方 Gemini Key' : '输入你的 API 凭证'}
+                            placeholder={embedProvider === 'gemini' && !embedApiKey && apiKey ? t('settings.embeddingAutoReuse') : t('settings.apiKeyPlaceholder')}
                             value={embedApiKey}
                             onChange={e => setSettings({ embedApiKey: e.target.value })}
                             className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 pr-10 rounded-lg text-[13px] text-stone-900 placeholder:text-stone-400 transition-all font-mono"
@@ -1319,7 +1319,7 @@ export default function Settings() {
                       <div className="space-y-1.5 pt-1.5 border-t border-stone-100">
                         <label className="flex items-center gap-2 text-[12px] font-medium text-stone-700">
                           <Server className="w-3.5 h-3.5 text-stone-400" />
-                          向量代理地址 (Base URL)
+                          {t('settings.embeddingBaseUrl')}
                         </label>
                         <input
                           type="text"
@@ -1340,7 +1340,7 @@ export default function Settings() {
                       <div className="space-y-1.5 pt-1.5 border-t border-stone-100">
                         <label className="flex items-center gap-2 text-[12px] font-medium text-stone-700">
                           <Cpu className="w-3.5 h-3.5 text-stone-400" />
-                          向量模型名称 (Model)
+                          {t('settings.embeddingModel')}
                         </label>
                         <input
                           type="text"
@@ -1365,18 +1365,18 @@ export default function Settings() {
                 <section className="space-y-3 animate-in fade-in duration-250">
                   <div className="baimiao-card-diary p-4 space-y-3">
                     <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase flex items-center gap-1.5 border-b border-stone-100 pb-2 mb-1">
-                      本地向量同步状态
+                      {t('settings.embeddingStatus')}
                     </h3>
                     <div className="space-y-3">
                       <div className="flex justify-between items-center text-[13px] text-stone-700">
-                        <span>本地已就绪向量数：</span>
-                        <span className="font-mono font-bold text-stone-900">{totalVectorsCount} 条</span>
+                        <span>{t('settings.embeddingReady')}</span>
+                        <span className="font-mono font-bold text-stone-900">{t('settings.embeddingReadyCount', { count: totalVectorsCount })}</span>
                       </div>
 
                       <div className="flex justify-between items-center text-[13px] text-stone-700">
-                        <span>后台待处理任务数：</span>
+                        <span>{t('settings.embeddingQueue')}</span>
                         <span className="font-mono font-bold text-amber-600">
-                          {embeddingQueueSize > 0 ? `${embeddingQueueSize} 条` : '0 (已全部就绪)'}
+                          {embeddingQueueSize > 0 ? t('settings.embeddingQueueCount', { count: embeddingQueueSize }) : t('settings.embeddingQueueReady')}
                         </span>
                       </div>
 
@@ -1386,11 +1386,11 @@ export default function Settings() {
                           onClick={async () => {
                             const count = await enqueueAllMissingEmbeddings();
                             updateVectorsCount();
-                            alert(`扫描完毕！已将 ${count} 条缺少向量的记录推入生成队列。`);
+                            alert(t('settings.embeddingScanResult', { count }));
                           }}
                           className="w-fit px-5 bg-white hover:bg-stone-50 active:scale-[0.97] text-stone-600 border border-stone-200/80 py-2 rounded-xl text-[12.5px] font-medium transition-all text-center shadow-sm"
                         >
-                          扫描并补齐历史向量
+                          {t('settings.embeddingScan')}
                         </button>
                       </div>
                     </div>
@@ -1701,7 +1701,7 @@ export default function Settings() {
               <section className="baimiao-card-diary p-4 space-y-3">
                 <h3 className="text-[12.5px] font-semibold text-stone-400 tracking-wider uppercase flex items-center gap-1.5 mb-1.5">
                   <Shield className="w-4 h-4 text-stone-400" />
-                  本地存储保护
+                  {t('settings.storageProtection')}
                 </h3>
                 {storageInfo ? (
                   <div className="space-y-3">
@@ -1717,14 +1717,14 @@ export default function Settings() {
                       )}
                       <div className="flex flex-col">
                         <span className="text-[13px] font-medium leading-normal">
-                          状态：{storageInfo.persisted ? (
-                            <span className="text-emerald-700 font-semibold">永久存储已启用</span>
+                          {t('settings.storageStatus')}{storageInfo.persisted ? (
+                            <span className="text-emerald-700 font-semibold">{t('settings.storagePersisted')}</span>
                           ) : (
-                            <span className="text-amber-700 font-semibold">临时存储已启用 (系统在空间极低时可能清理数据)</span>
+                            <span className="text-amber-700 font-semibold">{t('settings.storageTemporary')}</span>
                           )}
                         </span>
                         <span className="text-[11px] text-stone-500 mt-1">
-                          已占用：{formatBytes(storageInfo.usedBytes)} / 可用空间约 {formatBytes(storageInfo.quotaBytes)}
+                          {t('settings.storageUsed', { used: formatBytes(storageInfo.usedBytes), quota: formatBytes(storageInfo.quotaBytes) })}
                         </span>
                       </div>
                     </div>
@@ -1737,16 +1737,16 @@ export default function Settings() {
                         {isPersisting ? (
                           <>
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            正在激活存储保护...
+                            {t('settings.activatingStorage')}
                           </>
                         ) : (
-                          '🔒 激活永久存储保护 (防自动清理)'
+                          t('settings.activateStorage')
                         )}
                       </button>
                     )}
                   </div>
                 ) : (
-                  <div className="text-[12px] text-stone-450 py-2">获取存储状态中...</div>
+                  <div className="text-[12px] text-stone-450 py-2">{t('settings.gettingStorage')}</div>
                 )}
               </section>
 
@@ -1755,7 +1755,7 @@ export default function Settings() {
                 <div className="flex items-center justify-between">
                   <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase flex items-center gap-1.5">
                     <Cloud className="w-4 h-4 text-stone-400" />
-                    加密云同步与多端备份
+                    {t('settings.cloudSync')}
                   </h3>
                   <label className="relative inline-flex items-center cursor-pointer select-none">
                     <input
@@ -1771,16 +1771,16 @@ export default function Settings() {
                 {localSyncEnabled && (
                   <div className="space-y-3 pt-2 border-t border-stone-100 animate-in fade-in duration-200">
                     <div className="space-y-1">
-                      <label className="text-[12px] font-medium text-stone-500">云存储服务商</label>
-                      <select 
-                        value={localSyncProvider} 
+                      <label className="text-[12px] font-medium text-stone-500">{t('settings.cloudProvider')}</label>
+                      <select
+                        value={localSyncProvider}
                         onChange={(e) => setLocalSyncProvider(e.target.value as any)}
                         className="w-full bg-white border border-black/5 outline-none px-3 py-1.5 rounded-lg text-[13px] text-stone-850 font-mono shadow-sm cursor-pointer focus:border-black focus:ring-1 focus:ring-black"
                       >
-                        <option value="webdav">WebDAV (兼容坚果云、自建 NAS、Nextcloud)</option>
-                        <option value="onedrive">OneDrive (微软云盘)</option>
-                        <option value="gdrive">Google Drive (谷歌云盘)</option>
-                        <option value="dropbox">Dropbox (多端同步)</option>
+                        <option value="webdav">{t('settings.webdavOption')}</option>
+                        <option value="onedrive">{t('settings.onedriveOption')}</option>
+                        <option value="gdrive">{t('settings.gdriveOption')}</option>
+                        <option value="dropbox">{t('settings.dropboxOption')}</option>
                       </select>
                     </div>
 
@@ -1789,15 +1789,15 @@ export default function Settings() {
                         {/* OAuth Status Card */}
                         <div className="bg-stone-50 border border-stone-200/60 p-3 rounded-xl flex flex-col gap-2.5 shadow-inner">
                           <div className="flex items-center justify-between">
-                            <span className="text-[12px] font-medium text-stone-500">网盘授权状态</span>
+                            <span className="text-[12px] font-medium text-stone-500">{t('settings.oauthStatus')}</span>
                             {((localSyncProvider === 'onedrive' && settingsStore.syncOneDriveToken) ||
                               (localSyncProvider === 'gdrive' && settingsStore.syncGDriveToken) ||
                               (localSyncProvider === 'dropbox' && settingsStore.syncDropboxToken)) ? (
                               <span className="text-[11.5px] font-semibold text-emerald-600 flex items-center gap-1">
-                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> 已连接
+                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> {t('settings.oauthConnected')}
                               </span>
                             ) : (
-                              <span className="text-[11.5px] font-medium text-stone-400">未授权</span>
+                              <span className="text-[11.5px] font-medium text-stone-400">{t('settings.oauthNotAuthorized')}</span>
                             )}
                           </div>
 
@@ -1809,7 +1809,7 @@ export default function Settings() {
                               onClick={() => handleOAuthDisconnect(localSyncProvider)}
                               className="w-full bg-stone-100 hover:bg-stone-200 text-stone-700 transition-colors py-2 rounded-lg text-[12px] font-medium active:scale-[0.99]"
                             >
-                              断开网盘连接
+                              {t('settings.oauthDisconnect')}
                             </button>
                           ) : (
                             <button
@@ -1817,7 +1817,7 @@ export default function Settings() {
                               onClick={() => handleOAuthAuthorize(localSyncProvider)}
                               className="w-full bg-stone-900 text-white hover:bg-black transition-colors py-2 rounded-lg text-[12px] font-medium active:scale-[0.99] flex items-center justify-center gap-1"
                             >
-                              🔑 连接并授权网盘
+                              {t('settings.oauthConnect')}
                             </button>
                           )}
                         </div>
@@ -1825,8 +1825,8 @@ export default function Settings() {
                         {/* Client ID Customization */}
                         <div className="space-y-1">
                           <label className="text-[12px] font-medium text-stone-500 flex items-center justify-between">
-                            <span>OAuth 客户端 ID (Client ID)</span>
-                            <span className="text-[10px] text-stone-400 font-normal">(可选/高级设置)</span>
+                            <span>{t('settings.oauthClientId')}</span>
+                            <span className="text-[10px] text-stone-400 font-normal">{t('settings.oauthClientIdOptional')}</span>
                           </label>
                           {localSyncProvider === 'onedrive' && (
                             <input
@@ -1856,7 +1856,7 @@ export default function Settings() {
                             />
                           )}
                           <p className="text-[10px] text-stone-400 leading-normal mt-0.5">
-                            本地开发默认已内置 ID。如果您部署在自己的生产域名，请申请开发者 Client ID 填入。
+                            {t('settings.oauthClientIdHint')}
                           </p>
                         </div>
                       </div>
@@ -1865,7 +1865,7 @@ export default function Settings() {
                     {localSyncProvider === 'webdav' && (
                       <div className="space-y-3 pt-1 animate-in fade-in duration-200">
                         <div className="space-y-1">
-                          <label className="text-[12px] font-medium text-stone-500">服务器连接地址 (Endpoint URL)</label>
+                          <label className="text-[12px] font-medium text-stone-500">{t('settings.serverEndpoint')}</label>
                           <input
                             type="text"
                             placeholder="https://dav.jianguoyun.com/dav/"
@@ -1877,7 +1877,7 @@ export default function Settings() {
 
                         <div className="grid grid-cols-2 gap-2">
                           <div className="space-y-1">
-                            <label className="text-[12px] font-medium text-stone-500">云盘账号</label>
+                            <label className="text-[12px] font-medium text-stone-500">{t('settings.cloudAccount')}</label>
                             <input
                               type="text"
                               placeholder="Your account"
@@ -1887,7 +1887,7 @@ export default function Settings() {
                             />
                           </div>
                           <div className="space-y-1">
-                            <label className="text-[12px] font-medium text-stone-500">应用密码/密钥</label>
+                            <label className="text-[12px] font-medium text-stone-500">{t('settings.appPassword')}</label>
                             <div className="relative">
                               <input
                                 type={showSyncPass ? "text" : "password"}
@@ -1911,7 +1911,7 @@ export default function Settings() {
 
                     {localSyncProvider !== 'gdrive' && (
                       <div className="space-y-1">
-                        <label className="text-[12px] font-medium text-stone-500">云端同步文件夹目录</label>
+                        <label className="text-[12px] font-medium text-stone-500">{t('settings.syncDirectory')}</label>
                         <input
                           type="text"
                           placeholder="/baimiaobiji/"
@@ -1924,12 +1924,12 @@ export default function Settings() {
 
                     <div className="space-y-1 pt-2 border-t border-stone-100">
                       <label className="text-[12px] font-medium text-stone-500 flex items-center gap-1">
-                        🔒 端到端同步密码 (Sync Password)
+                        {t('settings.e2eePassword')}
                       </label>
                       <div className="relative">
                         <input
                           type={showE2eePass ? "text" : "password"}
-                          placeholder="多设备间解密数据使用，防窥探"
+                          placeholder={t('settings.e2eePlaceholder')}
                           value={localSyncPasswordE2EE}
                           onChange={(e) => setLocalSyncPasswordE2EE(e.target.value)}
                           className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 pr-8 rounded-lg text-[13px] text-stone-850 transition-all font-mono"
@@ -1942,7 +1942,7 @@ export default function Settings() {
                           {showE2eePass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                         </button>
                       </div>
-                      <p className="text-[10px] text-stone-400 leading-normal mt-0.5">本地使用此密码以 AES-GCM-256 加密所有文本与音频，密码丢失将无法解密。</p>
+                      <p className="text-[10px] text-stone-400 leading-normal mt-0.5">{t('settings.e2eeHint')}</p>
                       
                       <label className="flex items-start gap-2 cursor-pointer mt-3 bg-stone-50 p-2.5 rounded-lg border border-stone-200/60 transition-colors hover:bg-stone-100/50">
                         <input
@@ -1952,10 +1952,10 @@ export default function Settings() {
                           className="w-4 h-4 mt-0.5 rounded border-stone-300 text-stone-900 focus:ring-black accent-black cursor-pointer shrink-0"
                         />
                         <div className="flex flex-col select-none">
-                          <span className="text-[12px] font-medium text-stone-800 leading-tight">在这台设备上记住密码以支持后台无感同步</span>
+                          <span className="text-[12px] font-medium text-stone-800 leading-tight">{t('settings.rememberCredentials')}</span>
                           <span className="text-[10px] text-stone-500 mt-1 leading-tight tracking-wide">
-                            <span className="text-amber-600 font-medium">警告：</span>
-                            请确保持久化存储仅在您个人的受信任设备上开启，且设备设有屏幕锁。
+                            <span className="text-amber-600 font-medium">{t('settings.rememberWarning')}</span>
+                            {t('settings.rememberWarningDesc')}
                           </span>
                         </div>
                       </label>
@@ -1963,14 +1963,14 @@ export default function Settings() {
 
                     <div className="pt-2 border-t border-stone-100 flex flex-col gap-2">
                       <div className="flex items-center justify-between text-[11px] text-stone-450 font-medium">
-                        <span>同步状态：
-                          {syncStatus === 'syncing' && <span className="text-blue-500 font-semibold animate-pulse">🔄 正在对齐...</span>}
-                          {syncStatus === 'idle' && <span className="text-emerald-500 font-semibold">🟢 已对齐</span>}
-                          {syncStatus === 'error' && <span className="text-red-500 font-semibold flex items-center gap-0.5"><CloudLightning className="w-3.5 h-3.5" />同步出错</span>}
-                          {syncStatus === 'disabled' && <span className="text-stone-400">⚪ 未启用</span>}
+                        <span>{t('settings.syncStatus')}
+                          {syncStatus === 'syncing' && <span className="text-blue-500 font-semibold animate-pulse">{t('settings.syncSyncing')}</span>}
+                          {syncStatus === 'idle' && <span className="text-emerald-500 font-semibold">{t('settings.syncIdle')}</span>}
+                          {syncStatus === 'error' && <span className="text-red-500 font-semibold flex items-center gap-0.5"><CloudLightning className="w-3.5 h-3.5" />{t('settings.syncError')}</span>}
+                          {syncStatus === 'disabled' && <span className="text-stone-400">{t('settings.syncDisabled')}</span>}
                         </span>
                         {settingsStore.syncLastTime && (
-                          <span className="font-mono">上次同步：{new Date(settingsStore.syncLastTime).toLocaleTimeString('zh-CN', { hour12: false })}</span>
+                          <span className="font-mono">{t('settings.lastSync', { time: new Date(settingsStore.syncLastTime).toLocaleTimeString('zh-CN', { hour12: false }) })}</span>
                         )}
                       </div>
                       {syncStatus === 'error' && syncErrorMessage && (
@@ -2020,10 +2020,10 @@ export default function Settings() {
                         {syncStatus === 'syncing' ? (
                           <>
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            同步进行中...
+                            {t('settings.syncInProgress')}
                           </>
                         ) : (
-                          '🔄 立即执行手动同步'
+                          t('settings.manualSync')
                         )}
                       </button>
                     </div>
@@ -2078,7 +2078,7 @@ export default function Settings() {
               {/* Data Export / Import section */}
               <section className="baimiao-card-diary p-4 space-y-4">
                  <div>
-                   <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase mb-3">数据导出</h3>
+                   <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase mb-3">{t('settings.dataExport')}</h3>
                  
                  <div className="space-y-4">
                     {/* Data type selection */}
@@ -2091,8 +2091,8 @@ export default function Settings() {
                            className="w-4 h-4 mt-0.5 rounded border-stone-300 text-stone-900 focus:ring-black accent-black cursor-pointer" 
                          />
                          <div className="flex flex-col cursor-pointer select-none">
-                            <span className="text-[14px] text-stone-800 font-medium leading-none">原始碎屑记录</span>
-                            <span className="text-[12px] text-stone-400 mt-1">导出所有时间线上的打点记录，包含语音数据。</span>
+                            <span className="text-[14px] text-stone-800 font-medium leading-none">{t('settings.exportLogs')}</span>
+                            <span className="text-[12px] text-stone-400 mt-1">{t('settings.exportLogsDesc')}</span>
                          </div>
                       </label>
                       <label className="flex items-start gap-3 pt-2.5 border-t border-stone-50">
@@ -2103,8 +2103,8 @@ export default function Settings() {
                            className="w-4 h-4 mt-0.5 rounded border-stone-300 text-stone-900 focus:ring-black accent-black cursor-pointer" 
                          />
                          <div className="flex flex-col cursor-pointer select-none">
-                            <span className="text-[14px] text-stone-800 font-medium leading-none">生成的日记与回顾</span>
-                            <span className="text-[12px] text-stone-400 mt-1">导出由 AI 汇总的日记文本及对应的日期戳。</span>
+                            <span className="text-[14px] text-stone-800 font-medium leading-none">{t('settings.exportDiaries')}</span>
+                            <span className="text-[12px] text-stone-400 mt-1">{t('settings.exportDiariesDesc')}</span>
                          </div>
                       </label>
                       <label className="flex items-start gap-3 pt-2.5 border-t border-stone-50">
@@ -2115,8 +2115,8 @@ export default function Settings() {
                            className="w-4 h-4 mt-0.5 rounded border-stone-300 text-stone-900 focus:ring-black accent-black cursor-pointer" 
                          />
                          <div className="flex flex-col cursor-pointer select-none">
-                            <span className="text-[14px] text-stone-800 font-medium leading-none">深度洞察</span>
-                            <span className="text-[12px] text-stone-400 mt-1">导出生成的近期时间分布汇总及建议。</span>
+                            <span className="text-[14px] text-stone-800 font-medium leading-none">{t('settings.exportInsights')}</span>
+                            <span className="text-[12px] text-stone-400 mt-1">{t('settings.exportInsightsDesc')}</span>
                          </div>
                       </label>
                        <label className="flex items-start gap-3 pt-2.5 border-t border-stone-50">
@@ -2127,27 +2127,27 @@ export default function Settings() {
                             className="w-4 h-4 mt-0.5 rounded border-stone-300 text-stone-900 focus:ring-black accent-black cursor-pointer" 
                           />
                           <div className="flex flex-col cursor-pointer select-none">
-                             <span className="text-[14px] text-stone-800 font-medium leading-none">向量索引数据</span>
-                             <span className="text-[12px] text-stone-400 mt-1">导出本地语义搜索所用的向量数据，迁移设备时可免重建索引。默认不勾选（体积较大）。</span>
+                             <span className="text-[14px] text-stone-800 font-medium leading-none">{t('settings.exportEmbeddings')}</span>
+                             <span className="text-[12px] text-stone-400 mt-1">{t('settings.exportEmbeddingsDesc')}</span>
                           </div>
                        </label>
                     </div>
 
                     {/* Date range selection */}
                     <div className="pt-3 border-t border-stone-100">
-                      <h4 className="text-[12px] font-medium text-stone-500 mb-2">选择时间范围</h4>
+                      <h4 className="text-[12px] font-medium text-stone-500 mb-2">{t('settings.exportDateRange')}</h4>
                       <div className="flex gap-2">
                         <button 
                            onClick={() => setExportDateRange('all')}
                            className={`flex-1 py-1.5 text-[13px] rounded-lg border transition-all ${exportDateRange === 'all' ? 'bg-stone-100 border-stone-200 text-black font-medium shadow-[inset_0_1px_3px_rgb(0_0_0_/_0.02)]' : 'bg-white border-stone-100/50 text-stone-500 hover:bg-stone-50'}`}
                         >
-                          全量导出
+                          {t('settings.exportAll')}
                         </button>
-                        <button 
+                        <button
                            onClick={() => setExportDateRange('custom')}
                            className={`flex-1 py-1.5 text-[13px] rounded-lg border transition-all ${exportDateRange === 'custom' ? 'bg-stone-100 border-stone-200 text-black font-medium shadow-[inset_0_1px_3px_rgb(0_0_0_/_0.02)]' : 'bg-white border-stone-100/50 text-stone-500 hover:bg-stone-50'}`}
                         >
-                          指定日期范围
+                          {t('settings.exportCustom')}
                         </button>
                       </div>
                       
@@ -2156,14 +2156,14 @@ export default function Settings() {
                           <DatePickerPopover
                             value={exportStartDate}
                             onChange={setExportStartDate}
-                            placeholder="开始日期"
+                            placeholder={t('settings.startDate')}
                             align="left"
                           />
                           <span className="text-stone-400 text-[12px] font-mono shrink-0">-</span>
                           <DatePickerPopover
                             value={exportEndDate}
                             onChange={setExportEndDate}
-                            placeholder="结束日期"
+                            placeholder={t('settings.endDate')}
                             align="right"
                           />
                         </div>
@@ -2177,16 +2177,16 @@ export default function Settings() {
                    className="w-full mt-4 flex items-center justify-center gap-2 bg-stone-100 text-stone-800 py-3 rounded-xl text-[13px] font-medium hover:bg-stone-200 transition-colors disabled:opacity-30 disabled:hover:bg-stone-100 active:scale-[0.98]"
                  >
                    <FileDown className="w-4 h-4" />
-                   导出数据 (JSON)
+                   {t('settings.exportJson')}
                  </button>
                </div>
 
                <div className="pt-4 border-t border-stone-100">
                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase">数据导入</h3>
+                    <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase">{t('settings.dataImport')}</h3>
                  </div>
                  <p className="text-[12px] text-stone-500 mb-4 leading-relaxed">
-                   迁移设备时，导入旧设备生成的 JSON 备份文件。
+                   {t('settings.importDesc')}
                  </p>
                  <input 
                    type="file" 
@@ -2201,24 +2201,24 @@ export default function Settings() {
                    className="w-full flex items-center justify-center gap-2 bg-white border border-stone-200 text-stone-700 py-3 rounded-xl text-[13px] font-medium hover:bg-stone-50 hover:border-stone-300 cursor-pointer transition-all shadow-[0_1px_2px_rgb(0_0_0_/_0.02)] active:scale-[0.98]"
                  >
                    <Upload className="w-4 h-4" />
-                   选择文件并合并导入
+                   {t('settings.selectFileImport')}
                  </label>
                </div>
 
                {/* V2 迁移备份下载 */}
                <div className="pt-4 border-t border-stone-100">
                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase">V2 迁移备份</h3>
+                    <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase">{t('settings.v2Backup')}</h3>
                  </div>
                  <p className="text-[12px] text-stone-500 mb-4 leading-relaxed">
-                   升级到 V2 信息架构时，应用会自动备份旧的日记与洞察数据。可在此下载该备份文件留存。
+                   {t('settings.v2BackupDesc')}
                  </p>
                  <button
                    onClick={handleDownloadMigrationBackup}
                    className="w-full flex items-center justify-center gap-2 bg-stone-100 text-stone-800 py-3 rounded-xl text-[13px] font-medium hover:bg-stone-200 transition-colors active:scale-[0.98]"
                  >
                    <FileDown className="w-4 h-4" />
-                   下载 V2 迁移备份 (JSON)
+                   {t('settings.downloadV2Backup')}
                  </button>
                </div>
               </section>
@@ -2227,16 +2227,16 @@ export default function Settings() {
               <section className="baimiao-card-diary p-4 space-y-4">
                 <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase flex items-center gap-1.5">
                   <FileJson className="w-4 h-4 text-stone-400" />
-                  统一数据管理
+                  {t('settings.unifiedDataManagement')}
                 </h3>
 
                 {/* 导出面板 */}
                 <div className="space-y-3">
-                  <h4 className="text-[13px] font-medium text-stone-700">导出数据</h4>
+                  <h4 className="text-[13px] font-medium text-stone-700">{t('settings.exportData')}</h4>
 
                   {/* 时间范围 */}
                   <div className="space-y-1.5">
-                    <label className="text-[12px] text-stone-500">时间范围（可留空 = 全部）</label>
+                    <label className="text-[12px] text-stone-500">{t('settings.timeRange')}</label>
                     <div className="flex gap-2 items-center">
                       <input
                         type="date"
@@ -2258,7 +2258,7 @@ export default function Settings() {
 
                   {/* 数据类型多选 chip */}
                   <div className="space-y-1.5">
-                    <label className="text-[12px] text-stone-500">数据类型</label>
+                    <label className="text-[12px] text-stone-500">{t('settings.dataTypes')}</label>
                     <div className="flex flex-wrap gap-2">
                       {DATA_TYPE_OPTIONS.map((opt) => {
                         const selected = unifiedExportTypes.has(opt.id);
@@ -2290,7 +2290,7 @@ export default function Settings() {
 
                   {/* 格式单选 */}
                   <div className="space-y-1.5">
-                    <label className="text-[12px] text-stone-500">导出格式</label>
+                    <label className="text-[12px] text-stone-500">{t('settings.exportFormat')}</label>
                     <div className="flex gap-2">
                       <button
                         data-testid="export-format-json"
@@ -2332,13 +2332,13 @@ export default function Settings() {
                     ) : (
                       <Download className="w-4 h-4" />
                     )}
-                    导出数据 ({unifiedExportFormat === 'json' ? 'JSON' : 'Markdown'})
+                    {t('settings.exportDataFormat', { format: unifiedExportFormat === 'json' ? 'JSON' : 'Markdown' })}
                   </button>
                 </div>
 
                 {/* 导入面板 */}
                 <div className="space-y-3 pt-4 border-t border-stone-100">
-                  <h4 className="text-[13px] font-medium text-stone-700">导入数据</h4>
+                  <h4 className="text-[13px] font-medium text-stone-700">{t('settings.importData')}</h4>
 
                   {/* 文件选择 */}
                   <div className="space-y-1.5">
@@ -2355,13 +2355,13 @@ export default function Settings() {
                       className="w-full flex items-center justify-center gap-2 bg-white border border-stone-200 text-stone-700 py-2.5 rounded-xl text-[13px] font-medium hover:bg-stone-50 hover:border-stone-300 cursor-pointer transition-all shadow-sm active:scale-[0.98]"
                     >
                       <Upload className="w-4 h-4" />
-                      {unifiedImportFile ? unifiedImportFile.name : '选择 JSON 文件'}
+                      {unifiedImportFile ? unifiedImportFile.name : t('settings.selectJsonFile')}
                     </button>
                   </div>
 
                   {/* 冲突策略 */}
                   <div className="space-y-1.5">
-                    <label className="text-[12px] text-stone-500">冲突处理策略</label>
+                    <label className="text-[12px] text-stone-500">{t('settings.conflictStrategy')}</label>
                     <div className="flex gap-2">
                       <button
                         data-testid="import-strategy-overwrite"
@@ -2373,7 +2373,7 @@ export default function Settings() {
                             : 'bg-white border-stone-100/50 text-stone-500 hover:bg-stone-50'
                         )}
                       >
-                        以导入为准
+                        {t('strategy.overwrite')}
                       </button>
                       <button
                         data-testid="import-strategy-skip"
@@ -2385,7 +2385,7 @@ export default function Settings() {
                             : 'bg-white border-stone-100/50 text-stone-500 hover:bg-stone-50'
                         )}
                       >
-                        跳过已存在
+                        {t('strategy.skip')}
                       </button>
                     </div>
                   </div>
@@ -2401,14 +2401,14 @@ export default function Settings() {
                     ) : (
                       <Upload className="w-4 h-4" />
                     )}
-                    导入数据
+                    {t('settings.importBtn')}
                   </button>
 
                   {unifiedImportResult && (
                     <div data-testid="import-result" className="space-y-1.5 p-3 rounded-xl bg-stone-50 border border-stone-100">
                       <div className="flex justify-between text-[12px]">
-                        <span className="text-emerald-600 font-medium">导入 {unifiedImportResult.imported} 条</span>
-                        <span className="text-stone-500">跳过 {unifiedImportResult.skipped} 条</span>
+                        <span className="text-emerald-600 font-medium">{t('settings.imported', { count: unifiedImportResult.imported })}</span>
+                        <span className="text-stone-500">{t('settings.skipped', { count: unifiedImportResult.skipped })}</span>
                       </div>
                       {unifiedImportResult.errors.length > 0 && (
                         <div className="text-[11px] text-rose-500 leading-relaxed">
@@ -2416,7 +2416,7 @@ export default function Settings() {
                             <div key={i}>{err}</div>
                           ))}
                           {unifiedImportResult.errors.length > 5 && (
-                            <div>...等 {unifiedImportResult.errors.length} 条错误</div>
+                            <div>{t('settings.errorsCount', { count: unifiedImportResult.errors.length })}</div>
                           )}
                         </div>
                       )}
@@ -2428,7 +2428,7 @@ export default function Settings() {
                 <div className="space-y-3 pt-4 border-t border-stone-100">
                   <h4 className="text-[13px] font-medium text-stone-700 flex items-center gap-1.5">
                     <MessageSquare className="w-4 h-4 text-stone-400" />
-                    聊天记录
+                    {t('settings.chatRecords')}
                   </h4>
 
                   <div className="flex gap-2">
@@ -2438,7 +2438,7 @@ export default function Settings() {
                       className="flex-1 flex items-center justify-center gap-1.5 bg-stone-100 text-stone-800 py-2 rounded-lg text-[12px] font-medium hover:bg-stone-200 transition-colors active:scale-[0.98]"
                     >
                       <FileJson className="w-3.5 h-3.5" />
-                      导出 JSON
+                      {t('settings.exportJsonBtn')}
                     </button>
                     <button
                       data-testid="conversation-export-md"
@@ -2446,7 +2446,7 @@ export default function Settings() {
                       className="flex-1 flex items-center justify-center gap-1.5 bg-stone-100 text-stone-800 py-2 rounded-lg text-[12px] font-medium hover:bg-stone-200 transition-colors active:scale-[0.98]"
                     >
                       <FileText className="w-3.5 h-3.5" />
-                      导出 Markdown
+                      {t('settings.exportMdBtn')}
                     </button>
                   </div>
 
@@ -2464,7 +2464,7 @@ export default function Settings() {
                       className="w-full flex items-center justify-center gap-2 bg-white border border-stone-200 text-stone-700 py-2 rounded-lg text-[12px] font-medium hover:bg-stone-50 hover:border-stone-300 cursor-pointer transition-all shadow-sm active:scale-[0.98]"
                     >
                       <Upload className="w-3.5 h-3.5" />
-                      {convImportFile ? convImportFile.name : '选择聊天记录 JSON 文件'}
+                      {convImportFile ? convImportFile.name : t('settings.selectConvFile')}
                     </button>
                   </div>
 
@@ -2479,7 +2479,7 @@ export default function Settings() {
                           : 'bg-white border-stone-100/50 text-stone-500'
                       )}
                     >
-                      以导入为准
+                      {t('strategy.overwrite')}
                     </button>
                     <button
                       data-testid="conversation-strategy-skip"
@@ -2491,7 +2491,7 @@ export default function Settings() {
                           : 'bg-white border-stone-100/50 text-stone-500'
                       )}
                     >
-                      跳过已存在
+                      {t('strategy.skip')}
                     </button>
                   </div>
 
@@ -2506,14 +2506,14 @@ export default function Settings() {
                     ) : (
                       <Upload className="w-3.5 h-3.5" />
                     )}
-                    导入聊天记录
+                    {t('settings.importConvBtn')}
                   </button>
 
                   {convImportResult && (
                     <div data-testid="conversation-import-result" className="space-y-1 p-2.5 rounded-xl bg-stone-50 border border-stone-100">
                       <div className="flex justify-between text-[11px]">
-                        <span className="text-emerald-600 font-medium">导入 {convImportResult.imported} 条</span>
-                        <span className="text-stone-500">跳过 {convImportResult.skipped} 条</span>
+                        <span className="text-emerald-600 font-medium">{t('settings.imported', { count: convImportResult.imported })}</span>
+                        <span className="text-stone-500">{t('settings.skipped', { count: convImportResult.skipped })}</span>
                       </div>
                       {convImportResult.errors.length > 0 && (
                         <div className="text-[10px] text-rose-500 leading-relaxed">

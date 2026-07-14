@@ -350,6 +350,8 @@ export const zh: TranslationDict = {
   'settings.embeddingReady': '本地已就绪向量数：',
   'settings.embeddingQueue': '后台待处理任务数：',
   'settings.embeddingQueueReady': '0 (已全部就绪)',
+  'settings.embeddingReadyCount': '{count} 条',
+  'settings.embeddingQueueCount': '{count} 条',
   'settings.embeddingScan': '扫描并补齐历史向量',
   'settings.embeddingScanResult': '扫描完毕！已将 {count} 条缺少向量的记录推入生成队列。',
   'settings.embeddingAutoReuse': '自动复用上方 Gemini Key',
