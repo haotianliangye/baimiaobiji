@@ -87,7 +87,6 @@ export const zh: TranslationDict = {
 
   // --- Record 页 (碎屑) ---
   'record.title': '时间碎屑',
-  'record.todayChars': '今日 {count} 字',
   'record.storageWarning': '安全提示：未激活永久存储保护，数据可能被系统自动清理。',
   'record.settings': '设置',
   'record.dontRemind': '不再提示',

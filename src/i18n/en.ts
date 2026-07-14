@@ -86,7 +86,6 @@ export const en: TranslationDict = {
 
   // --- Record page (Fragments) ---
   'record.title': 'Time Fragments',
-  'record.todayChars': 'Today {count} chars',
   'record.storageWarning': 'Security notice: permanent storage protection is not enabled. Data may be cleared by the system.',
   'record.settings': 'Settings',
   'record.dontRemind': "Don't remind again",
