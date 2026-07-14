@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning, Download, FileJson, FileText, MessageSquare, Volume2, Menu, Tags, Info, Database } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import TagManagement from './TagManagement';
 import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_MINGWU_PROMPT, DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT, DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT, DEFAULT_PROMPTS_BY_LANG, DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG, DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG, type Language } from '../store/settings.store';
 import { db, normalizeLegacyDiary, normalizeLegacyInsight } from '../db/db';
@@ -19,6 +19,16 @@ import { useTranslation } from '../lib/i18n';
 
 const SYNC_START_DELAY_MS = 500;
 const OAUTH_CHECK_INTERVAL_MS = 50;
+
+// Seam 8: 火山引擎 TTS API Key 即时格式校验（约定 "appid:access_token"，两部分均非空）。
+// 留空视为合法（尚未填写不报错），与后端 /api/tts 的 400 校验保持一致但前置到客户端。
+const isVolcengineTtsKeyValid = (key: string): boolean => {
+  if (!key) return true;
+  const sep = key.indexOf(':');
+  if (sep <= 0) return false;
+  return key.slice(0, sep).length > 0 && key.slice(sep + 1).length > 0;
+};
+const MOBILE_DRAWER_WIDTH_REM = '16rem'; // w-64 = 256px，移动端抽屉宽度，主内容右移量
 
 // #13 统一数据管理 -- 可导出的数据类型选项（labelKey 用于 i18n）
 const DATA_TYPE_OPTIONS: { id: DataType; labelKey: string }[] = [
@@ -128,6 +138,15 @@ export default function Settings() {
       setStorageInfo(info);
     }
     loadStorageInfo();
+  }, []);
+
+  // Seam 2: 视口切到桌面(md, >=768px)时收起移动端 push 抽屉，避免主内容残留位移
+  useEffect(() => {
+    const onResize = () => {
+      if (window.innerWidth >= 768) setMenuOpen(false);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, []);
 
   // OAuth Callback Hash Parser
@@ -713,6 +732,9 @@ export default function Settings() {
     setMenuOpen(false);
   };
 
+  // Seam 8: 火山引擎 TTS API Key 客户端即时校验（仅 external + volcengine 时生效）
+  const ttsApiKeyInvalid = ttsService === 'external' && ttsProvider === 'volcengine' && !isVolcengineTtsKeyValid(ttsApiKey);
+
   // Seam 2: 左侧菜单 JSX（桌面常驻 + 移动抽屉共用）
   const sidebarNav = (
     <nav className="flex flex-col gap-0.5 p-2">
@@ -734,12 +756,26 @@ export default function Settings() {
   );
 
   return (
-    <div className="flex flex-col h-full bg-stone-100 font-sans text-stone-900 overflow-hidden items-center justify-center">
-      <div className="flex flex-col h-full overflow-hidden bg-white relative z-50 mx-auto w-full md:max-w-3xl shadow-sm ring-1 ring-black/5">
+    <div className="relative flex flex-col h-full bg-stone-100 font-sans text-stone-900 overflow-hidden items-center justify-center">
+        {/* Seam 2: 移动端真 push 抽屉 -- 绝对定位滑入；主内容(下方 motion.div)做位移变换，非 overlay 遮罩 */}
+        <motion.aside
+          className="md:hidden absolute top-0 left-0 bottom-0 w-64 bg-[#faf9fc] z-30 flex flex-col border-r border-baimiao-border/30 shadow-xl overflow-y-auto thin-scrollbar"
+          initial={false}
+          animate={{ x: menuOpen ? 0 : '-100%' }}
+          transition={{ duration: 0.3, ease: 'easeInOut' }}
+        >
+          {sidebarNav}
+        </motion.aside>
+      <motion.div
+        className="flex flex-col h-full overflow-hidden bg-white relative z-50 mx-auto w-full md:max-w-3xl shadow-sm ring-1 ring-black/5"
+        initial={false}
+        animate={{ x: menuOpen ? MOBILE_DRAWER_WIDTH_REM : 0 }}
+        transition={{ duration: 0.3, ease: 'easeInOut' }}
+      >
         {/* Header */}
         <div className="flex h-14 items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 shrink-0">
           <button
-            onClick={() => setMenuOpen(true)}
+            onClick={() => setMenuOpen(!menuOpen)}
             className="md:hidden p-2 -ml-2 text-baimiao-mysteria/70 hover:text-baimiao-mysteria hover:bg-baimiao-mysteria/5 transition-all rounded-full active:scale-90"
             aria-label={t('settings.menuToggle')}
           >
@@ -758,30 +794,7 @@ export default function Settings() {
             {sidebarNav}
           </aside>
 
-          {/* Mobile drawer (push 抽屉, 0.3s) */}
-          <AnimatePresence>
-            {menuOpen && (
-              <>
-                <motion.div
-                  className="md:hidden absolute inset-0 bg-black/30 backdrop-blur-sm z-40"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                  onClick={() => setMenuOpen(false)}
-                />
-                <motion.aside
-                  className="md:hidden absolute top-0 left-0 bottom-0 w-64 bg-[#faf9fc] z-50 flex flex-col border-r border-baimiao-border/30 shadow-xl overflow-y-auto thin-scrollbar"
-                  initial={{ x: '-100%' }}
-                  animate={{ x: 0 }}
-                  exit={{ x: '-100%' }}
-                  transition={{ duration: 0.3, ease: 'easeInOut' }}
-                >
-                  {sidebarNav}
-                </motion.aside>
-              </>
-            )}
-          </AnimatePresence>
+          {/* Seam 2: 移动端抽屉已上移为 push 模式（见根容器），主内容右移让位，此处不再用 overlay 遮罩 */}
 
           {/* Content area */}
           <div className="flex-1 overflow-y-auto thin-scrollbar w-full p-3 space-y-3 pb-20">
@@ -1114,7 +1127,13 @@ export default function Settings() {
                           {showTtsApiKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                         </button>
                       </div>
-                      <p className="text-[10.5px] text-stone-400 leading-tight">{t('settings.ttsApiKeyHint')}</p>
+                      {ttsApiKeyInvalid ? (
+                        <p className="text-[10.5px] text-rose-500 leading-tight">{t('settings.ttsApiKeyInvalidVolcengine')}</p>
+                      ) : (
+                        <p className="text-[10.5px] text-stone-400 leading-tight">
+                          {ttsProvider === 'volcengine' ? t('settings.ttsApiKeyHintVolcengine') : t('settings.ttsApiKeyHintGemini')}
+                        </p>
+                      )}
                     </div>
 
                     {/* Base URL */}
@@ -1145,7 +1164,9 @@ export default function Settings() {
                         data-testid="tts-model"
                         className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-900 transition-all font-mono"
                       />
-                      <p className="text-[10.5px] text-stone-400 leading-tight">{t('settings.ttsModelHint')}</p>
+                      <p className="text-[10.5px] text-stone-400 leading-tight">
+                        {ttsProvider === 'volcengine' ? t('settings.ttsModelHintVolcengine') : t('settings.ttsModelHintGemini')}
+                      </p>
                     </div>
 
                     {/* Voice */}
@@ -1161,7 +1182,9 @@ export default function Settings() {
                         data-testid="tts-voice"
                         className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-900 transition-all font-mono"
                       />
-                      <p className="text-[10.5px] text-stone-400 leading-tight">{t('settings.ttsVoiceHint')}</p>
+                      <p className="text-[10.5px] text-stone-400 leading-tight">
+                        {ttsProvider === 'volcengine' ? t('settings.ttsVoiceHintVolcengine') : t('settings.ttsVoiceHintGemini')}
+                      </p>
                     </div>
                   </div>
                 )}
@@ -2627,7 +2650,7 @@ export default function Settings() {
           </button>
         </div>
 
-      </div>
+      </motion.div>
     </div>
   );
 }
