@@ -1768,7 +1768,7 @@ export default function Record() {
                   type="button"
                   data-testid="attachment-option-image"
                   onClick={() => { handleSelectAttachmentKind('image'); setShowAttachmentSheet(false); }}
-                  className="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-stone-100 active:bg-stone-200 transition-colors"
+                  className="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-stone-100 active:bg-stone-200 focus-visible:bg-stone-100 focus-visible:ring-2 focus-visible:ring-stone-300 transition-colors"
                 >
                   <span className="w-11 h-11 flex items-center justify-center rounded-full bg-stone-100 text-stone-600">
                     <ImageIcon className="w-5 h-5" />
@@ -1779,7 +1779,7 @@ export default function Record() {
                   type="button"
                   data-testid="attachment-option-audio"
                   onClick={() => { handleSelectAttachmentKind('audio'); setShowAttachmentSheet(false); }}
-                  className="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-stone-100 active:bg-stone-200 transition-colors"
+                  className="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-stone-100 active:bg-stone-200 focus-visible:bg-stone-100 focus-visible:ring-2 focus-visible:ring-stone-300 transition-colors"
                 >
                   <span className="w-11 h-11 flex items-center justify-center rounded-full bg-stone-100 text-stone-600">
                     <Music className="w-5 h-5" />
@@ -1790,7 +1790,7 @@ export default function Record() {
                   type="button"
                   data-testid="attachment-option-video"
                   onClick={() => { handleSelectAttachmentKind('video'); setShowAttachmentSheet(false); }}
-                  className="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-stone-100 active:bg-stone-200 transition-colors"
+                  className="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-stone-100 active:bg-stone-200 focus-visible:bg-stone-100 focus-visible:ring-2 focus-visible:ring-stone-300 transition-colors"
                 >
                   <span className="w-11 h-11 flex items-center justify-center rounded-full bg-stone-100 text-stone-600">
                     <Video className="w-5 h-5" />
@@ -1802,7 +1802,7 @@ export default function Record() {
                   type="button"
                   data-testid="attachment-option-link"
                   onClick={() => { handleSelectAttachmentKind('link'); setShowAttachmentSheet(false); }}
-                  className="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-stone-100 active:bg-stone-200 transition-colors"
+                  className="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-stone-100 active:bg-stone-200 focus-visible:bg-stone-100 focus-visible:ring-2 focus-visible:ring-stone-300 transition-colors"
                 >
                   <span className="w-11 h-11 flex items-center justify-center rounded-full bg-stone-100 text-stone-600">
                     <LinkIcon className="w-5 h-5" />
@@ -1813,7 +1813,7 @@ export default function Record() {
                   type="button"
                   data-testid="attachment-option-file"
                   onClick={() => { handleSelectAttachmentKind('file'); setShowAttachmentSheet(false); }}
-                  className="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-stone-100 active:bg-stone-200 transition-colors"
+                  className="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-stone-100 active:bg-stone-200 focus-visible:bg-stone-100 focus-visible:ring-2 focus-visible:ring-stone-300 transition-colors"
                 >
                   <span className="w-11 h-11 flex items-center justify-center rounded-full bg-stone-100 text-stone-600">
                     <FileUp className="w-5 h-5" />
@@ -1824,7 +1824,7 @@ export default function Record() {
                   type="button"
                   data-testid="attachment-option-cancel"
                   onClick={() => setShowAttachmentSheet(false)}
-                  className="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-stone-100 active:bg-stone-200 transition-colors"
+                  className="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-stone-100 active:bg-stone-200 focus-visible:bg-stone-100 focus-visible:ring-2 focus-visible:ring-stone-300 transition-colors"
                 >
                   <span className="w-11 h-11 flex items-center justify-center rounded-full bg-stone-100 text-stone-400">
                     <X className="w-5 h-5" />
