@@ -113,6 +113,7 @@ export const zh: TranslationDict = {
   'record.multiSelect': '多选',
   'record.deleteRecord': '删除记录',
   'record.editTitle': '编辑碎屑',
+  'record.confirmDelete': '确认删除这条碎屑吗？删除后不可恢复。',
   'record.save': '保存',
   'record.saving': '保存中…',
   'record.contentPlaceholder': '内容...',

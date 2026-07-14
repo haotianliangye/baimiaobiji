@@ -112,6 +112,7 @@ export const en: TranslationDict = {
   'record.multiSelect': 'Multi-select',
   'record.deleteRecord': 'Delete',
   'record.editTitle': 'Edit Fragment',
+  'record.confirmDelete': 'Delete this fragment? This cannot be undone.',
   'record.save': 'Save',
   'record.saving': 'Saving…',
   'record.contentPlaceholder': 'Content...',

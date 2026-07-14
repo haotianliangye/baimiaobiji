@@ -47,6 +47,7 @@ import { parseTagsFromText, resolveAlias } from "../lib/tags";
 import { useTagsStore } from "../store/tags.store";
 import CalendarHeatmap from "../components/CalendarHeatmap";
 import TodayStats from "../components/TodayStats";
+import RichEditor from "../components/RichEditor";
 import { saveAttachmentBlob, blobToBase64, generateAttachmentSummary, requestMultimediaSummary } from "../lib/multimedia";
 import type { AttachmentMeta } from "../db/db";
 import { useTranslation } from "../lib/i18n";
@@ -147,6 +148,19 @@ async function fetchTranscriptionWithRetry(body: any, maxRetries = 3) {
       throw err;
     }
   }
+}
+
+/** 将 data URL 转为 Blob，用于编辑弹窗中新附件（RichEditor 以 data URL 形式暂存）落库。 */
+function dataUrlToBlob(dataUrl: string): Blob {
+  const commaIdx = dataUrl.indexOf(',');
+  const meta = commaIdx >= 0 ? dataUrl.slice(0, commaIdx) : '';
+  const base64 = commaIdx >= 0 ? dataUrl.slice(commaIdx + 1) : dataUrl;
+  const mimeMatch = meta.match(/:(.*?);/);
+  const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+  const binary = atob(base64);
+  const arr = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
+  return new Blob([arr], { type: mime });
 }
 
 /**
@@ -509,6 +523,7 @@ export default function Record() {
   const [activeLog, setActiveLog] = useState<any>(null);
   const [isEditingModalOpen, setIsEditingModalOpen] = useState(false);
   const [editContent, setEditContent] = useState("");
+  const [editAttachments, setEditAttachments] = useState<AttachmentMeta[]>([]);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
 
@@ -1222,20 +1237,138 @@ export default function Record() {
   };
 
   const handleSaveEdit = async () => {
-    if (!activeLog || !editContent.trim() || isSavingEdit) return;
+    if (!activeLog || isSavingEdit) return;
+    const text = editContent.trim();
+    // 保存条件：content 非空 或 attachments 非空
+    if (!text && editAttachments.length === 0) return;
     setIsSavingEdit(true);
     try {
       const tags = await processTags(editContent);
+      const originalAttachments: AttachmentMeta[] = activeLog.attachments || [];
+      // 旧附件 ref 集合（非 link），用于检测被删除的附件
+      const remainingOldRefs = new Set(
+        originalAttachments.filter((a) => a.ref && a.kind !== 'link').map((a) => a.ref!)
+      );
+
+      const finalAttachments: AttachmentMeta[] = [];
+      const newMediaForSummary: AttachmentMeta[] = [];
+      let content = editContent.trim();
+
+      for (const att of editAttachments) {
+        if (att.kind === 'link') {
+          // 链接：仅元数据，直接保留
+          finalAttachments.push(att);
+          continue;
+        }
+        const isNew = !!att.ref && att.ref.startsWith('data:');
+        if (isNew) {
+          // 新附件：data URL -> Blob -> saveAttachmentBlob
+          const blob = dataUrlToBlob(att.ref!);
+          const meta = await saveAttachmentBlob(blob, att.kind);
+          if (att.name) meta.name = att.name;
+
+          if (att.kind === 'audio') {
+            // 音频走 STT，转写文本拼入 content
+            try {
+              const base64 = att.ref!.split(',')[1];
+              const settings = useSettingsStore.getState();
+              const data = await fetchTranscriptionWithRetry({
+                audio_base64: base64,
+                mime_type: blob.type || 'audio/webm',
+                settings,
+              });
+              if (data?.text) {
+                content = content ? `${content}\n${data.text}` : data.text;
+              }
+            } catch (err) {
+              console.error('[Edit] Audio transcription failed:', err);
+              content = content
+                ? `${content}\n${t('record.audioTranscribeFailed')}`
+                : t('record.audioTranscribeFailed');
+            }
+          } else if (att.kind === 'image' || att.kind === 'video') {
+            // 图片/视频：标记需要生成多模态摘要
+            newMediaForSummary.push(meta);
+          }
+          // file kind：仅存储，不触发 STT 或摘要
+          finalAttachments.push(meta);
+        } else {
+          // 旧附件（store id）：保留，从删除集合移除
+          if (att.ref) remainingOldRefs.delete(att.ref);
+          finalAttachments.push(att);
+        }
+      }
+
+      // 删除被移除的旧附件 Blob
+      for (const ref of remainingOldRefs) {
+        try { await db.attachments.delete(ref); } catch (e) { /* ignore */ }
+      }
+
+      // 清空所有图片/视频附件时 attachment_summary 一并清空
+      const hasMediaAfter = finalAttachments.some((a) => a.kind === 'image' || a.kind === 'video');
+      const summaryUpdate: { attachment_summary?: undefined } = !hasMediaAfter
+        ? { attachment_summary: undefined }
+        : {};
+
       await db.raw_logs.update(activeLog.id, {
-        content: editContent.trim(),
+        content,
         tags,
+        attachments: finalAttachments.length > 0 ? finalAttachments : undefined,
+        ...summaryUpdate,
       });
+
+      // 异步：对新图片/视频附件生成多模态摘要，写入 attachment_summary
+      if (newMediaForSummary.length > 0) {
+        const genLogId = activeLog.id;
+        setGeneratingSummaryIds((prev) => new Set(prev).add(genLogId));
+        const allMediaForSummary = finalAttachments.filter(
+          (a) => a.kind === 'image' || a.kind === 'video'
+        );
+        generateAttachmentSummary(allMediaForSummary)
+          .then(async ({ attachments: updated, summary }) => {
+            setGeneratingSummaryIds((prev) => {
+              const n = new Set(prev);
+              n.delete(genLogId);
+              return n;
+            });
+            if (summary) {
+              await db.raw_logs.update(genLogId, {
+                attachments: updated,
+                attachment_summary: summary,
+              });
+            }
+          })
+          .catch((err) => {
+            setGeneratingSummaryIds((prev) => {
+              const n = new Set(prev);
+              n.delete(genLogId);
+              return n;
+            });
+            console.error('[Edit] Summary generation failed:', err);
+          });
+      }
+
       setIsEditingModalOpen(false);
     } catch (err: any) {
       alert(t('record.saveFailed', { msg: err?.message || '' }));
     } finally {
       setIsSavingEdit(false);
     }
+  };
+
+  /** 删除整条碎屑记录（含 audioBlob 与附件 Blob），确认后执行并关闭弹窗。 */
+  const handleDeleteRecord = async () => {
+    if (!activeLog) return;
+    if (!window.confirm(t('record.confirmDelete'))) return;
+    const attachments: AttachmentMeta[] = activeLog.attachments || [];
+    for (const att of attachments) {
+      if (att.ref && att.kind !== 'link') {
+        try { await db.attachments.delete(att.ref); } catch (e) { /* ignore */ }
+      }
+    }
+    await db.raw_logs.delete(activeLog.id);
+    setIsEditingModalOpen(false);
+    setActiveLog(null);
   };
 
   return (
@@ -1761,6 +1894,7 @@ export default function Record() {
               onClick={() => {
                 setActiveLog(contextMenuState.log);
                 setEditContent(contextMenuState.log.content);
+                setEditAttachments(contextMenuState.log.attachments || []);
                 setIsEditingModalOpen(true);
                 setContextMenuState({ ...contextMenuState, isOpen: false });
               }}
@@ -1794,58 +1928,76 @@ export default function Record() {
         </div>
       )}
 
-      {/* Edit Modal - Inline Content Area */}
+      {/* 编辑弹窗（居中弹窗 + RichEditor，需求 3 多媒体化） */}
       {isEditingModalOpen && (
-        <div className="fixed left-1/2 -translate-x-1/2 top-[106px] bottom-[64px] w-full max-w-md z-[110] bg-white flex flex-col shadow-[0_20px_60px_rgba(27,25,56,0.18)] animate-in slide-in-from-bottom duration-300">
-          {/* Header */}
-          <div className="flex h-[54px] items-center justify-between px-4 bg-[#faf9fc] border-b border-stone-100 text-stone-900 shrink-0">
-            <button
-              onClick={() => setIsEditingModalOpen(false)}
-              className="p-2 -ml-2 text-stone-500 hover:text-stone-900 transition-colors"
-              aria-label={t('about.close')}
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <span className="text-[15.5px] font-bold font-serif baimiao-editorial-title text-stone-900">{t('record.editTitle')}</span>
-            <button
-              onClick={handleSaveEdit}
-              disabled={!editContent.trim() || isSavingEdit}
-              className="text-[13.5px] font-medium text-stone-500 hover:text-stone-900 disabled:opacity-40 transition-colors"
-            >
-              {isSavingEdit ? t('record.saving') : t('record.save')}
-            </button>
-          </div>
-
-          {/* Editor */}
-          <div className="flex-1 overflow-y-auto p-5">
-            <textarea
-              value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
-              className="w-full h-full resize-none outline-none text-[16px] leading-relaxed text-stone-900 placeholder:text-stone-400 bg-transparent"
-              placeholder={t('record.contentPlaceholder')}
-              autoFocus
-            />
-          </div>
-
-          {/* Footer */}
-          <div className="flex items-center justify-between px-5 py-3 border-t border-stone-100 bg-[#faf9fc] shrink-0">
-            <span className="text-[12px] text-stone-500">
-              {t('record.totalChars', { count: countChars(editContent) })}
-            </span>
-            <div className="flex gap-2">
+        <div
+          data-testid="record-edit-modal"
+          className="fixed inset-0 z-[110] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 animate-in fade-in duration-200"
+          onClick={() => setIsEditingModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-md max-h-[88vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 弹窗头 */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-stone-100 shrink-0">
+              <span className="text-[13.5px] font-semibold text-baimiao-mysteria font-serif baimiao-editorial-title">
+                {t('record.editTitle')}
+              </span>
               <button
                 onClick={() => setIsEditingModalOpen(false)}
-                className="px-4 py-2 rounded-full text-[13px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors"
+                className="p-1 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-full transition-colors"
+                aria-label={t('about.close')}
               >
-                {t('record.cancel')}
+                <X className="w-4 h-4" />
               </button>
-              <button
-                onClick={handleSaveEdit}
-                disabled={!editContent.trim() || isSavingEdit}
-                className="px-4 py-2 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 active:scale-[0.98] shadow-md shadow-baimiao-mysteria/10 transition-all disabled:opacity-30 disabled:scale-100 disabled:shadow-none"
-              >
-                {isSavingEdit ? t('record.saving') : t('record.save')}
-              </button>
+            </div>
+
+            {/* 内容区（可滚动，局部 overflow-y-auto 不依赖 body 滚动） */}
+            <div className="flex-1 overflow-y-auto thin-scrollbar p-3 min-h-0">
+              <RichEditor
+                value={editContent}
+                onChange={setEditContent}
+                attachments={editAttachments}
+                onAttachmentsChange={setEditAttachments}
+                minHeightClass="min-h-[160px]"
+                textareaTestId="record-edit-textarea"
+                placeholder={t('record.contentPlaceholder')}
+              />
+            </div>
+
+            {/* 底部操作栏：左 字数+删除 / 右 取消+保存 */}
+            <div className="flex items-center justify-between px-4 py-3 border-t border-stone-100 shrink-0 gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-[12px] text-stone-500 shrink-0">
+                  {t('record.totalChars', { count: countChars(editContent) })}
+                </span>
+                <button
+                  data-testid="record-edit-delete"
+                  onClick={handleDeleteRecord}
+                  disabled={isSavingEdit}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[12px] font-medium text-rose-500 hover:text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-40"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  {t('record.delete')}
+                </button>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => setIsEditingModalOpen(false)}
+                  className="px-3.5 py-1.5 rounded-full text-[12.5px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors"
+                >
+                  {t('record.cancel')}
+                </button>
+                <button
+                  data-testid="record-edit-save"
+                  onClick={handleSaveEdit}
+                  disabled={(!editContent.trim() && editAttachments.length === 0) || isSavingEdit}
+                  className="px-4 py-1.5 rounded-full text-[12.5px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 active:scale-[0.98] shadow-md shadow-baimiao-mysteria/10 transition-all disabled:opacity-30 disabled:scale-100 disabled:shadow-none"
+                >
+                  {isSavingEdit ? t('record.saving') : t('record.save')}
+                </button>
+              </div>
             </div>
           </div>
         </div>

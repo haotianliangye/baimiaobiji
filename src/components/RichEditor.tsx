@@ -99,6 +99,59 @@ async function transcribeAudioBlob(
   return data.text || '';
 }
 
+/** 判断附件 ref 是否可直接作为 URL 渲染（data URL 或 http(s) 链接）。 */
+function isDirectUrl(ref?: string): boolean {
+  return !!ref && (ref.startsWith('data:') || ref.startsWith('http'));
+}
+
+/**
+ * 附件缩略图：支持 data URL（新附件，上传时由 FileReader 读取）与 store id
+ * （已存附件，ref 指向 IndexedDB attachments store 的 id）两种 ref。
+ * 已存附件从 store 加载 Blob 转 object URL 渲染，组件卸载时自动 revoke。
+ */
+function EditorAttachmentThumb({ att }: { att: AttachmentMeta }) {
+  const { t } = useTranslation();
+  const [storeUrl, setStoreUrl] = useState<string | undefined>(undefined);
+  const direct = isDirectUrl(att.ref);
+
+  useEffect(() => {
+    if (!att.ref || direct) {
+      setStoreUrl(undefined);
+      return;
+    }
+    let objectUrl: string | undefined;
+    let cancelled = false;
+    db.attachments.get(att.ref).then((record) => {
+      if (cancelled || !record) return;
+      objectUrl = URL.createObjectURL(record.blob);
+      setStoreUrl(objectUrl);
+    }).catch(() => {
+      // 附件 Blob 读取失败（可能已被清理），静默处理
+    });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [att.ref, direct]);
+
+  const displayUrl = direct ? att.ref : storeUrl;
+
+  if (att.kind === 'image' && displayUrl) {
+    return (
+      <img
+        src={displayUrl}
+        alt={att.name || t('editor.attachment')}
+        className="w-14 h-14 object-cover rounded-lg border border-stone-200"
+      />
+    );
+  }
+  return (
+    <div className="w-14 h-14 flex items-center justify-center rounded-lg border border-stone-200 bg-stone-100 text-stone-400">
+      <ImageIcon className="w-5 h-5" />
+    </div>
+  );
+}
+
 export default function RichEditor({
   value,
   onChange,
@@ -545,22 +598,12 @@ export default function RichEditor({
         />
       )}
 
-      {/* 附件预览（图片缩略图） */}
+      {/* 附件预览（图片缩略图，支持已存附件 store id 与新附件 data URL） */}
       {attachments.length > 0 && (
         <div className="flex flex-wrap gap-2 px-3 py-2 border-t border-stone-100 bg-stone-50/40">
           {attachments.map((att, idx) => (
             <div key={idx} className="relative group">
-              {att.kind === 'image' && att.ref ? (
-                <img
-                  src={att.ref}
-                  alt={att.name || t('editor.attachment')}
-                  className="w-14 h-14 object-cover rounded-lg border border-stone-200"
-                />
-              ) : (
-                <div className="w-14 h-14 flex items-center justify-center rounded-lg border border-stone-200 bg-stone-100 text-stone-400">
-                  <ImageIcon className="w-5 h-5" />
-                </div>
-              )}
+              <EditorAttachmentThumb att={att} />
               <button
                 type="button"
                 onClick={() => removeAttachment(idx)}
