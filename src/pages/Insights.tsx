@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Loader2, Sparkles, Calendar, AlertCircle, ChevronDown, ChevronUp, Trash2, Copy, Check, RefreshCw, MessageCircle, Save, Edit2, Volume2, Square } from 'lucide-react';
-import { HeadCircuit } from '@phosphor-icons/react';
+import { Loader2, Calendar, AlertCircle, ChevronDown, ChevronUp, Trash2, Copy, Check, RefreshCw, MessageCircle, Save, Edit2, Volume2, Square } from 'lucide-react';
+import { Sun } from '@phosphor-icons/react';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useTTS } from '../lib/tts';
 import ReactMarkdown from 'react-markdown';
@@ -131,7 +131,7 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
       >
         <div className="flex justify-between items-center w-full">
           <div className="flex items-center gap-2 min-w-0">
-            <Sparkles className={`w-4 h-4 shrink-0 ${isMingwuType ? 'text-baimiao-mysteria' : 'text-stone-400'}`} />
+            <Sun weight="regular" className={`w-4 h-4 shrink-0 ${isMingwuType ? 'text-baimiao-mysteria' : 'text-stone-400'}`} />
             <span className="text-[15px] font-semibold text-stone-800 truncate">{title}</span>
             <span
               data-testid={`mingwu-type-badge-${mingwu.mingwu_type}`}
@@ -513,7 +513,7 @@ export default function Insights() {
     <div className="flex flex-col h-full bg-transparent relative overflow-hidden">
       <div className="flex h-[52px] items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 z-20 shrink-0 w-full justify-between">
          <h2 className="text-[13.5px] font-bold tracking-wide text-baimiao-mysteria flex items-center gap-1.5 font-serif baimiao-editorial-title">
-           <HeadCircuit weight="regular" className="w-4 h-4 text-baimiao-mysteria/70 translate-y-[-0.8px] shrink-0" />
+           <Sun weight="regular" className="w-4 h-4 text-baimiao-mysteria/70 translate-y-[-0.8px] shrink-0" />
            {t('mingwu.title')}
          </h2>
          <div className="relative" ref={dropdownRef}>
@@ -633,7 +633,7 @@ export default function Insights() {
           disabled={isGeneratingMingwu}
           className={`bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-md border border-white/10 text-white px-6 py-2.5 rounded-full text-[13px] font-medium tracking-wide transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:active:scale-100 min-w-[160px] ${(showFloatBtn || isGeneratingMingwu || (!mingwuList || mingwuList.length === 0)) ? 'pointer-events-auto' : 'pointer-events-none'}`}
         >
-          {isGeneratingMingwu ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+          {isGeneratingMingwu ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sun weight="regular" className="w-4 h-4" />}
           {isGeneratingMingwu ? t('mingwu.mingwuInProgress') : t('mingwu.generateMingwu')}
         </button>
       </div>

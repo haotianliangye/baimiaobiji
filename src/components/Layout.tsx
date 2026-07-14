@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Loader2, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning, Sparkles, MessageSquare, Calendar as CalendarIcon, Menu, Lightbulb, ChevronLeft, ChevronRight } from 'lucide-react';
-import { ChatCircleDots, HeadCircuit, Clock, SunDim } from '@phosphor-icons/react';
+import { ChatCircleDots, HeadCircuit, Clock, Sun } from '@phosphor-icons/react';
 import { subDays, format, parse, addDays, isSameDay } from 'date-fns';
 import { useAppStore } from '../store/app.store';
 import { useSettingsStore } from '../store/settings.store';
@@ -384,7 +384,7 @@ export default function Layout() {
             <TabItem to="/" end icon={<ChatCircleDots weight="regular" />} label={t('tab.record')} />
             <TabItem to="/review" icon={<Clock weight="regular" />} label={t('tab.review')} />
             <TabItem to="/thoughts" icon={<HeadCircuit weight="regular" />} label={t('tab.thoughts')} />
-            <TabItem to="/mingwu" icon={<SunDim weight="regular" />} label={t('tab.mingwu')} />
+            <TabItem to="/mingwu" icon={<Sun weight="regular" />} label={t('tab.mingwu')} />
           </div>
         </nav>
       </div>
@@ -720,7 +720,7 @@ export default function Layout() {
               <TabItem to="/" end icon={<ChatCircleDots weight="regular" />} label={t('tab.record')} onNavigate={() => setSearchMode(false)} />
               <TabItem to="/review" icon={<Clock weight="regular" />} label={t('tab.review')} onNavigate={() => setSearchMode(false)} />
               <TabItem to="/thoughts" icon={<HeadCircuit weight="regular" />} label={t('tab.thoughts')} onNavigate={() => setSearchMode(false)} />
-              <TabItem to="/mingwu" icon={<SunDim weight="regular" />} label={t('tab.mingwu')} onNavigate={() => setSearchMode(false)} />
+              <TabItem to="/mingwu" icon={<Sun weight="regular" />} label={t('tab.mingwu')} onNavigate={() => setSearchMode(false)} />
             </div>
           </nav>
         </div>
