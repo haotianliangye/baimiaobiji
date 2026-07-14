@@ -8,6 +8,8 @@
  *   4. 已阅后不再出现：冷却期设为 0 隔离已阅效果 -> 已阅卡片不再出现。
  *   5. 复制：复制当前卡片正文 -> 剪贴板内容一致。
  *   6. 删除：删除当前卡片 -> IndexedDB 对应记录消失。
+ *   G3. 编辑弹窗（US10）：编辑按钮 -> RichEditor 弹窗 -> 改内容保存 -> DB 更新 + 卡片刷新。
+ *   G4. 容器内非 fixed 渲染 / 灯泡 toggle 退出 / 底部 Tab 退出 / 桌面宽屏占用比例。
  *
  * 运行：先 `npm run build`，再 `npx tsx tests/random-walk.test.ts`。
  * 通过退出码 0/1 反映结果。E2E 由验证代理统一串行执行（避免 vite 端口冲突）。
@@ -333,6 +335,159 @@ async function run() {
   await page.waitForFunction(
     () => !document.querySelector('[data-testid="random-walk-overlay"]'),
     { timeout: 3000 }
+  );
+
+  // ===========================================================================
+  // G3: 编辑弹窗（RichEditor，US10）E2E 断言
+  // issue 102 Testing Decisions「编辑按钮弹 RichEditor 编辑弹窗」测试重点未落实。
+  // 此前 walk-edit -> walk-edit-modal/walk-edit-textarea 零断言。
+  // 当前状态：C1 已阅排除、C2 已删除，剩 1 张可漫步卡片（第三条）。
+  // ===========================================================================
+  await page.click('[data-testid="walk-open"]');
+  await page.waitForSelector('[data-testid="random-walk-overlay"]', { timeout: 5000 });
+  await waitForCardCount(page, 1);
+
+  const beforeEdit = await getActiveCardContent(page);
+  assert('G3a 编辑前捕获激活卡片内容', beforeEdit.length > 0, `before=${beforeEdit.slice(0, 8)}`);
+
+  // 点击编辑按钮 -> 弹出 RichEditor 编辑弹窗
+  await page.click('[data-testid="walk-edit"]');
+  await page.waitForSelector('[data-testid="walk-edit-modal"]', { timeout: 3000 });
+  const editModalVisible = await page.$('[data-testid="walk-edit-modal"]');
+  assert(
+    'G3b 编辑按钮弹出 RichEditor 编辑弹窗',
+    !!editModalVisible,
+    editModalVisible ? '弹窗已展示' : '弹窗未出现'
+  );
+
+  // 弹窗内 textarea 存在（RichEditor 透传 textareaTestId="walk-edit-textarea"）
+  const editTextarea = await page.$('[data-testid="walk-edit-textarea"]');
+  assert('G3c 编辑弹窗含 textarea', !!editTextarea, editTextarea ? 'textarea 存在' : 'textarea 缺失');
+
+  // 等 openEdit 异步读取 DB 回显完成，避免 setEditContent 覆盖下方写入
+  await new Promise((r) => setTimeout(r, 300));
+
+  // 修改内容并保存
+  const EDIT_SUFFIX = '【已编辑G3】';
+  await page.$eval(
+    '[data-testid="walk-edit-textarea"]',
+    (el: any, val: string) => {
+      const ta = el as HTMLTextAreaElement;
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLTextAreaElement.prototype,
+        'value'
+      )?.set;
+      if (setter) setter.call(ta, val);
+      else ta.value = val;
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    },
+    beforeEdit + EDIT_SUFFIX
+  );
+  await page.click('[data-testid="walk-edit-save"]');
+  // 等待弹窗关闭（保存成功）
+  await page.waitForFunction(
+    () => !document.querySelector('[data-testid="walk-edit-modal"]'),
+    { timeout: 3000 }
+  );
+  const modalStillOpen = await page.$('[data-testid="walk-edit-modal"]');
+  assert('G3d 保存后编辑弹窗关闭', !modalStillOpen, !modalStillOpen ? '弹窗已关闭' : '弹窗仍在');
+
+  // 校验 IndexedDB 中记录已写入编辑内容
+  const thoughtsAfterEdit = await readStore(page, 'thoughts');
+  const editedRec = thoughtsAfterEdit
+    ? thoughtsAfterEdit.find((rec) => (rec.content || '').includes(EDIT_SUFFIX))
+    : null;
+  assert(
+    'G3e 保存后 IndexedDB 内容已更新',
+    !!editedRec,
+    editedRec ? '已写入编辑内容' : '未找到编辑内容'
+  );
+
+  // 卡片正文同步刷新为新内容
+  await new Promise((r) => setTimeout(r, 300));
+  const afterEdit = await getActiveCardContent(page);
+  assert(
+    'G3f 编辑后卡片正文同步刷新',
+    afterEdit.includes(EDIT_SUFFIX),
+    `after=${afterEdit.slice(0, 16)}`
+  );
+
+  // 关闭随机漫步，进入 G4
+  await page.click('[data-testid="walk-close"]');
+  await page.waitForFunction(
+    () => !document.querySelector('[data-testid="random-walk-overlay"]'),
+    { timeout: 3000 }
+  );
+
+  // ===========================================================================
+  // G4: 容器内非 fixed / 灯泡 toggle 退出 / 底部 Tab 退出 / 桌面占用比例
+  // issue 102 Testing Decisions「容器内渲染（非 fixed）」「三方式退出」「桌面/手机占用」未落实。
+  // ===========================================================================
+
+  // ---------- G4a: 容器内渲染（非 fixed 全屏覆盖） ----------
+  await page.click('[data-testid="walk-open"]');
+  await page.waitForSelector('[data-testid="random-walk-overlay"]', { timeout: 5000 });
+  await waitForCardCount(page, 1);
+  const overlayPos = await page.$eval('[data-testid="random-walk-overlay"]', (el) =>
+    window.getComputedStyle(el as Element).position
+  );
+  assert(
+    'G4a 随机漫步容器内渲染（非 fixed 定位）',
+    overlayPos !== 'fixed',
+    `position=${overlayPos}`
+  );
+  // 同时确认 overlay 渲染在 <main> 内（非脱离文档流的覆盖层）
+  const inMain = await page.evaluate(() => {
+    const overlay = document.querySelector('[data-testid="random-walk-overlay"]');
+    const main = document.querySelector('main');
+    return !!(overlay && main && main.contains(overlay));
+  });
+  assert('G4a-2 overlay 渲染在 main 容器内', inMain, inMain ? '在 main 内' : '不在 main 内');
+
+  // ---------- G4b: 灯泡 toggle 退出（再次点击灯泡关闭随机漫步） ----------
+  await page.click('[data-testid="walk-toggle"]');
+  await page.waitForFunction(
+    () => !document.querySelector('[data-testid="random-walk-overlay"]'),
+    { timeout: 3000 }
+  );
+  const afterToggleExit = await page.$('[data-testid="random-walk-overlay"]');
+  assert(
+    'G4b 点击灯泡 toggle 退出随机漫步',
+    !afterToggleExit,
+    !afterToggleExit ? '已退出' : '仍打开'
+  );
+
+  // ---------- G4c: 底部 Tab 退出（重新打开后点击 TabBar 任意 Tab） ----------
+  await page.click('[data-testid="walk-open"]');
+  await page.waitForSelector('[data-testid="random-walk-overlay"]', { timeout: 5000 });
+  await waitForCardCount(page, 1);
+  // 点击底部「回顾」Tab（NavLink 渲染为 a[href="/review"]，onClick 重置 isRandomWalkMode）
+  await page.click('nav a[href="/review"]');
+  await page.waitForFunction(
+    () => !document.querySelector('[data-testid="random-walk-overlay"]'),
+    { timeout: 3000 }
+  );
+  const afterTabExit = await page.$('[data-testid="random-walk-overlay"]');
+  assert(
+    'G4c 点击底部 Tab 退出随机漫步',
+    !afterTabExit,
+    !afterTabExit ? '已退出' : '仍打开'
+  );
+
+  // ---------- G4d: 桌面宽屏占用比例（overlay 受 max-w-md 容器约束，不铺满视口） ----------
+  await page.setViewport({ width: 1280, height: 800 });
+  await page.goto(`${BASE_URL}/thoughts`, { waitUntil: 'networkidle2' });
+  await page.waitForSelector('[data-testid="walk-open"]', { timeout: 5000 });
+  await page.click('[data-testid="walk-open"]');
+  await page.waitForSelector('[data-testid="random-walk-overlay"]', { timeout: 5000 });
+  const overlayDims = await page.$eval('[data-testid="random-walk-overlay"]', (el) => {
+    const r = (el as Element).getBoundingClientRect();
+    return { width: r.width, vw: window.innerWidth };
+  });
+  assert(
+    'G4d 桌面宽屏 overlay 受容器约束（宽度 < 视口且 <= 480）',
+    overlayDims.width < overlayDims.vw && overlayDims.width <= 480,
+    `overlayWidth=${overlayDims.width.toFixed(0)}, vw=${overlayDims.vw}`
   );
 
   await page.close();

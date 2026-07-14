@@ -262,14 +262,22 @@ export default function Layout() {
           <header className="relative flex h-[54px] shrink-0 items-center justify-between px-3 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white/95 border-b border-white/5">
             {/* 左：[≡] 页面标题 · 副标题（标题不可点击，≡ 进设置） */}
             <div className="flex items-center gap-2 min-w-0 flex-1 z-10">
-              <button
-                onClick={() => navigate('/settings', { state: { drawer: true } })}
-                title={t('settings.title')}
-                aria-label={t('settings.title')}
-                className="p-1.5 hover:opacity-70 transition-opacity active:scale-95 shrink-0"
-              >
-                <Menu className="w-[18px] h-[18px]" />
-              </button>
+              {/*
+                G2: 随机漫步模式下隐藏 [≡] 设置入口。
+                需求 102 规定退出方式仅 灯泡/×/Tab 三种，[≡] 既非退出入口
+                又会 navigate('/settings') 但不重置 isRandomWalkMode，导致
+                URL 变 /settings 而界面仍渲染 RandomWalk、设置抽屉不可达。
+              */}
+              {!isRandomWalkMode && (
+                <button
+                  onClick={() => navigate('/settings', { state: { drawer: true } })}
+                  title={t('settings.title')}
+                  aria-label={t('settings.title')}
+                  className="p-1.5 hover:opacity-70 transition-opacity active:scale-95 shrink-0"
+                >
+                  <Menu className="w-[18px] h-[18px]" />
+                </button>
+              )}
               <h1 className="text-[16px] font-normal font-serif tracking-widest select-none truncate translate-y-[2px]">
                 {isRandomWalkMode ? t('randomWalk.title') : t(headerTitleKey)}
               </h1>
@@ -398,6 +406,7 @@ export default function Layout() {
               {isRandomWalkMode ? (
                 <>
                   <button
+                    data-testid="walk-toggle"
                     onClick={() => setRandomWalkMode(false)}
                     title={t('thoughts.randomWalk')}
                     aria-label={t('thoughts.randomWalk')}
