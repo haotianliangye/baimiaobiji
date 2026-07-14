@@ -254,6 +254,7 @@ export default function MediaPreview({ items, initialIndex, onClose }: MediaPrev
             src={url}
             autoPlay
             loop
+            playsInline
             controls
             className="max-w-full max-h-full object-contain"
             aria-label={currentItem?.name || t('record.video')}
