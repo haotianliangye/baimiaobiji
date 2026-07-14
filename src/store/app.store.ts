@@ -61,6 +61,11 @@ export interface AutoGenTask {
   retryCount: number;
 }
 
+// NOTE: AutoGenTask 当前为「按日 + 按槽位」的日记/回顾自动队列结构（dateStr + promptIndex）。
+// 明悟/洞察（mingwu）生成是「按时间范围」（rangeType/startTime/endTime/rangeLabel），
+// 与本队列结构不兼容，本次未扩展自动队列。明悟/洞察仍由 useMingwuStore.generateMingwu
+// 手动触发，并已接入 mingwuInsightSelectedIndices 按选中类型过滤落库（US36）。
+
 interface AppState {
   isProcessingDiary: boolean;
   isProcessingReviewMap: Record<string, boolean>;

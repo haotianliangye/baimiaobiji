@@ -147,8 +147,15 @@ export const useMingwuStore = create<MingwuState>(() => ({
       const endDateIso = new Date(endTime).toISOString();
       const now = Date.now();
 
+      // #008 US36: 读取 mingwuInsightSelectedIndices，只落库选中的类型。
+      // slot 0 = 明悟(mingwu)，slot 1 = 洞察(insight)。默认两者皆选，让「自动生成选中」复选框真正生效。
+      // 后端 /api/generate-mingwu 仍同时生成两份报告（未在本次改动范围），此处按选中过滤落库。
+      const selectedIndices = useSettingsStore.getState().mingwuInsightSelectedIndices || [0, 1];
+      const wantMingwu = selectedIndices.includes(0);
+      const wantInsight = selectedIndices.includes(1);
+
       // 明悟卡片
-      if (data.mingwu_report) {
+      if (wantMingwu && data.mingwu_report) {
         const mingwuTags = await processTagsFromText(data.mingwu_report);
         const mingwuCard: Mingwu = {
           id: generateUUID(),
@@ -166,7 +173,7 @@ export const useMingwuStore = create<MingwuState>(() => ({
       }
 
       // 洞察卡片（时间戳略晚 1ms，保证列表中明悟在前）
-      if (data.insight_report) {
+      if (wantInsight && data.insight_report) {
         const insightTags = await processTagsFromText(data.insight_report);
         const insightCard: Mingwu = {
           id: generateUUID(),

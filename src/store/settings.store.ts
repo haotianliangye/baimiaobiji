@@ -877,23 +877,9 @@ export const useSettingsStore = create<SettingsState>()(
           
           const merged = { ...currentState, ...persistedState };
 
-          // --- #009: TTS 外部 API 配置补默认值（老用户 v12 未保存这些字段时回填）---
-          // 不升 version（已在 12），靠 merge 的 currentState spread + 显式兜底补默认。
-          if (!merged.ttsProvider) {
-            merged.ttsProvider = 'gemini';
-          }
-          if (merged.ttsApiKey === undefined) {
-            merged.ttsApiKey = DEFAULT_TTS_PROVIDER_CONFIGS[merged.ttsProvider]?.apiKey ?? '';
-          }
-          if (merged.ttsBaseUrl === undefined) {
-            merged.ttsBaseUrl = DEFAULT_TTS_PROVIDER_CONFIGS[merged.ttsProvider]?.baseUrl ?? '';
-          }
-          if (merged.ttsModel === undefined) {
-            merged.ttsModel = DEFAULT_TTS_PROVIDER_CONFIGS[merged.ttsProvider]?.model ?? '';
-          }
-          if (!merged.ttsConfigs || typeof merged.ttsConfigs !== 'object') {
-            merged.ttsConfigs = {};
-          }
+          // --- #009: TTS 外部 API 配置初始化已移至 migrate() v<12 块（PRD line 309）。 ---
+          // merge 阶段不再显式兜底：currentState spread 已为缺失字段提供初始默认值
+          // （ttsProvider='gemini' 等）；老用户升级时由 migrate v<12 回填，已落盘字段原样保留。
 
           // --- #5: 5 槽统一 reviewPrompts 防污染 ---
           // 强制 slot 0 = DEFAULT_DIARY_PROMPT，slot 1 = DEFAULT_REVIEW_PROMPT
@@ -1504,6 +1490,25 @@ export const useSettingsStore = create<SettingsState>()(
                 zh: persistedState.insightSummaryPromptByLang?.zh || DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT,
                 en: persistedState.insightSummaryPromptByLang?.en || DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT_EN,
               };
+            }
+
+            // --- #009: TTS 外部 API 配置初始化（PRD line 309：放在 migrate v<12，而非 merge）---
+            // 老用户升级到 v12 时回填 ttsProvider/ttsApiKey/ttsBaseUrl/ttsModel/ttsConfigs 默认值。
+            // merge 阶段的 currentState spread 已为全新字段提供初始默认值，此处仅为升级用户显式补齐。
+            if (!persistedState.ttsProvider) {
+              persistedState.ttsProvider = 'gemini';
+            }
+            if (persistedState.ttsApiKey === undefined) {
+              persistedState.ttsApiKey = DEFAULT_TTS_PROVIDER_CONFIGS[persistedState.ttsProvider]?.apiKey ?? '';
+            }
+            if (persistedState.ttsBaseUrl === undefined) {
+              persistedState.ttsBaseUrl = DEFAULT_TTS_PROVIDER_CONFIGS[persistedState.ttsProvider]?.baseUrl ?? '';
+            }
+            if (persistedState.ttsModel === undefined) {
+              persistedState.ttsModel = DEFAULT_TTS_PROVIDER_CONFIGS[persistedState.ttsProvider]?.model ?? '';
+            }
+            if (!persistedState.ttsConfigs || typeof persistedState.ttsConfigs !== 'object') {
+              persistedState.ttsConfigs = {};
             }
           }
 
