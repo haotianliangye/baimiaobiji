@@ -623,4 +623,15 @@ export const zh: TranslationDict = {
   'randomWalk.thoughtsTagHint': '沉思标签来自正文中的 #标签，编辑正文即可修改。',
   'randomWalk.unsupportedTags': '该记录类型暂不支持标签管理。',
   'randomWalk.confirmDelete': '确认删除这条记录吗？删除后不可恢复。',
+
+  // --- CalendarHeatmap (热力图) ---
+  'calendarHeatmap.record': '碎屑',
+  'calendarHeatmap.diary': '日记',
+  'calendarHeatmap.review': '回顾',
+  'calendarHeatmap.days': '天',
+  'calendarHeatmap.todayChars': '今日{section}字数',
+  'calendarHeatmap.totalChars': '{section}总字数',
+  'calendarHeatmap.cellTitle': '{date}: {count} 条记录',
+  'calendarHeatmap.backToToday': '回到今天',
+  'calendarHeatmap.monthFormat': 'MM月',
 };

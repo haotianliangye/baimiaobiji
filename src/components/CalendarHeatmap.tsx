@@ -3,6 +3,7 @@ import { startOfDay, format, addDays, subDays, parse, isSameDay } from 'date-fns
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { countChars } from '../lib/wordCount';
+import { useTranslation } from '../lib/i18n';
 
 export type HeatmapSection = 'record' | 'diary' | 'review';
 
@@ -14,6 +15,7 @@ interface CalendarHeatmapProps {
 }
 
 export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, activeSection = 'record' }: CalendarHeatmapProps) {
+  const { t } = useTranslation();
   const today = new Date();
   
   // End of period is target currentDate (selected date)
@@ -63,12 +65,12 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, ac
 
   const totalLogsAllTime = allLogs?.length || 0;
   const middleCount = activeSection === 'review' ? (allReviews?.length || 0) : (allDiaries?.length || 0);
-  const middleLabel = activeSection === 'review' ? '回顾' : '日记';
+  const middleLabel = activeSection === 'review' ? t('calendarHeatmap.review') : t('calendarHeatmap.diary');
 
-  const sectionNameMap = {
-    record: '碎屑',
-    diary: '日记',
-    review: '回顾',
+  const sectionNameMap: Record<HeatmapSection, string> = {
+    record: t('calendarHeatmap.record'),
+    diary: t('calendarHeatmap.diary'),
+    review: t('calendarHeatmap.review'),
   };
   const sectionName = sectionNameMap[activeSection];
 
@@ -116,7 +118,7 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, ac
         <div className="flex items-center justify-between w-full px-2 mt-1 text-center">
           <div className="flex flex-col items-center">
              <span className={`text-[32px] font-bold font-mono tracking-tight leading-none ${activeSection === 'record' ? 'text-baimiao-mysteria' : 'text-stone-400'}`}>{totalLogsAllTime}</span>
-             <span className="text-[12px] text-stone-400 font-medium mt-1">碎屑</span>
+             <span className="text-[12px] text-stone-400 font-medium mt-1">{t('calendarHeatmap.record')}</span>
           </div>
           <div className="flex flex-col items-center">
              <span className={`text-[32px] font-bold font-mono tracking-tight leading-none ${activeSection === 'diary' || activeSection === 'review' ? 'text-baimiao-mysteria' : 'text-stone-400'}`}>{middleCount}</span>
@@ -124,20 +126,20 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, ac
           </div>
           <div className="flex flex-col items-center">
              <span className="text-[32px] font-bold text-stone-400 font-mono tracking-tight leading-none">{daysSinceEpoch}</span>
-             <span className="text-[12px] text-stone-400 font-medium mt-1">天</span>
+             <span className="text-[12px] text-stone-400 font-medium mt-1">{t('calendarHeatmap.days')}</span>
           </div>
         </div>
 
         {/* Word Count Stats */}
         <div className="flex items-end justify-between w-full px-2 mt-3 mb-1">
           <div className="flex flex-col items-start">
-            <span className="text-[11px] text-stone-400 font-medium">今日{sectionName}字数</span>
+            <span className="text-[11px] text-stone-400 font-medium">{t('calendarHeatmap.todayChars', { section: sectionName })}</span>
             <span className="text-[18px] font-bold text-baimiao-mysteria font-mono tracking-tight leading-none mt-0.5">
               {wordCountStats.daily.toLocaleString()}
             </span>
           </div>
           <div className="flex flex-col items-end">
-            <span className="text-[11px] text-stone-400 font-medium">{sectionName}总字数</span>
+            <span className="text-[11px] text-stone-400 font-medium">{t('calendarHeatmap.totalChars', { section: sectionName })}</span>
             <span className="text-[18px] font-bold text-baimiao-mysteria font-mono tracking-tight leading-none mt-0.5">
               {wordCountStats.total.toLocaleString()}
             </span>
@@ -164,7 +166,7 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, ac
                            onClose();
                         }}
                         className={`w-[18px] h-[18px] transition-all transform active:scale-[0.85] ${getIntensityClass(count, isSelected)}`}
-                        title={`${dateStr}: ${count} 记录`}
+                        title={t('calendarHeatmap.cellTitle', { date: dateStr, count })}
                       />
                     );
                   })}
@@ -174,8 +176,8 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, ac
            
            {/* Bottom Month Labels */}
            <div className="flex justify-between w-full mt-2 px-1 text-[11px] text-stone-400 font-semibold font-sans">
-             <span>{format(startDate, 'MM月')}</span>
-             <span>{format(baseDate, 'MM月')}</span>
+             <span>{format(startDate, t('calendarHeatmap.monthFormat'))}</span>
+             <span>{format(baseDate, t('calendarHeatmap.monthFormat'))}</span>
            </div>
         </div>
 
@@ -189,7 +191,7 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, ac
               className="w-full bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white py-3 rounded-2xl text-[13px] font-semibold tracking-wide shadow-md shadow-baimiao-mysteria/10 hover:brightness-110 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
             >
               <svg className="w-4 h-4 opacity-95" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-              回到今天
+              {t('calendarHeatmap.backToToday')}
             </button>
         </div>
       </div>

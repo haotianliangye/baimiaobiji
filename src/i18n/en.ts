@@ -622,4 +622,15 @@ export const en: TranslationDict = {
   'randomWalk.thoughtsTagHint': 'Reflection tags come from #tags in the body. Edit the body to modify.',
   'randomWalk.unsupportedTags': 'Tag management is not supported for this record type.',
   'randomWalk.confirmDelete': 'Delete this record? This cannot be undone.',
+
+  // --- CalendarHeatmap ---
+  'calendarHeatmap.record': 'Fragments',
+  'calendarHeatmap.diary': 'Diary',
+  'calendarHeatmap.review': 'Review',
+  'calendarHeatmap.days': 'days',
+  'calendarHeatmap.todayChars': 'Today {section} chars',
+  'calendarHeatmap.totalChars': 'Total {section} chars',
+  'calendarHeatmap.cellTitle': '{date}: {count} records',
+  'calendarHeatmap.backToToday': 'Back to today',
+  'calendarHeatmap.monthFormat': 'MMM',
 };
