@@ -166,6 +166,7 @@ export const zh: TranslationDict = {
   'editor.linkUrlPlaceholder': 'https://...',
   'editor.linkTextPlaceholder': '显示文本（可选）',
   'editor.insertLink': '插入',
+  'editor.addLinkAttachment': '添加为附件',
   'editor.recording': '录音中…',
   'editor.transcribing': '转写中…',
   'editor.micError': '无法访问麦克风，请检查权限设置。',

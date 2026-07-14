@@ -245,7 +245,7 @@ export default function RichEditor({
   };
 
   // --- 通用上传 ---
-  /** 通用上传：支持 image/audio/video 多选，读取为 data URL 存入 attachments.ref。 */
+  /** 通用上传：支持 image/audio/video/file 多选，读取为 data URL 存入 attachments.ref。 */
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -300,6 +300,18 @@ export default function RichEditor({
         ta.selectionEnd = start + 1 + selected.length;
       });
     }
+    setLinkUrl('');
+    setLinkText('');
+    setShowLinkDialog(false);
+  };
+
+  /** 添加链接附件（AttachmentMeta kind='link'，仅元数据不入库 Blob）。 */
+  const handleAddLinkAttachment = () => {
+    const url = linkUrl.trim();
+    if (!url) return;
+    const text = linkText.trim();
+    const meta: AttachmentMeta = { kind: 'link', ref: url, name: text || url };
+    onAttachmentsChange?.([...attachments, meta]);
     setLinkUrl('');
     setLinkText('');
     setShowLinkDialog(false);
@@ -480,7 +492,7 @@ export default function RichEditor({
           ref={fileInputRef}
           type="file"
           data-testid="editor-file-input"
-          accept="image/*,audio/*,video/*"
+          accept="image/*,audio/*,video/*,*/*"
           multiple
           className="hidden"
           onChange={handleFileSelect}
@@ -677,20 +689,33 @@ export default function RichEditor({
                 />
               </div>
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="flex items-center justify-between gap-2">
               <button
-                onClick={() => setShowLinkDialog(false)}
-                className="px-3.5 py-1.5 rounded-full text-[13px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors"
-              >
-                {t('record.cancel')}
-              </button>
-              <button
-                onClick={handleInsertLink}
+                type="button"
+                data-testid="editor-link-add-attachment"
+                onClick={handleAddLinkAttachment}
                 disabled={!linkUrl.trim()}
-                className="px-4 py-1.5 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 transition-all disabled:opacity-40"
+                className="px-3 py-1.5 rounded-full text-[12.5px] font-medium text-baimiao-mysteria bg-baimiao-mysteria/8 hover:bg-baimiao-mysteria/12 transition-colors disabled:opacity-40"
               >
-                {t('editor.insertLink')}
+                {t('editor.addLinkAttachment')}
               </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowLinkDialog(false)}
+                  className="px-3.5 py-1.5 rounded-full text-[13px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors"
+                >
+                  {t('record.cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleInsertLink}
+                  disabled={!linkUrl.trim()}
+                  className="px-4 py-1.5 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 transition-all disabled:opacity-40"
+                >
+                  {t('editor.insertLink')}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -165,6 +165,7 @@ export const en: TranslationDict = {
   'editor.linkUrlPlaceholder': 'https://...',
   'editor.linkTextPlaceholder': 'Display text (optional)',
   'editor.insertLink': 'Insert',
+  'editor.addLinkAttachment': 'Add as attachment',
   'editor.recording': 'Recording…',
   'editor.transcribing': 'Transcribing…',
   'editor.micError': 'Cannot access microphone. Please check permissions.',
