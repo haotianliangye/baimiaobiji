@@ -244,6 +244,7 @@ export const zh: TranslationDict = {
   'thoughts.copy': '复制',
   'thoughts.today': '今天',
   'thoughts.yesterday': '昨天',
+  'thoughts.dateLabelFormat': 'M月d日',
   'thoughts.confirmDelete': '确认删除这条沉思笔记吗？',
   'thoughts.charCount': '{count} 字',
   'thoughts.itemCount': '{count} 条',

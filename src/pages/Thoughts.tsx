@@ -43,7 +43,7 @@ import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { countChars } from '../lib/wordCount';
 import RichEditor from '../components/RichEditor';
 import RandomWalk from '../components/RandomWalk';
-import { useTranslation, getCurrentLanguage } from '../lib/i18n';
+import { useTranslation } from '../lib/i18n';
 
 type ViewMode = 'masonry' | 'timeline';
 
@@ -65,13 +65,16 @@ interface TimelineGroup {
   thoughts: Thought[];
 }
 
-function buildTimelineGroups(thoughts: Thought[]): TimelineGroup[] {
+/** 时间线分组标签翻译函数类型（与 useTranslation().t 签名一致）。 */
+type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
+
+function buildTimelineGroups(thoughts: Thought[], t: TranslateFn): TimelineGroup[] {
   const map = new Map<string, Thought[]>();
   const sorted = [...thoughts].sort((a, b) => b.created_at - a.created_at);
-  for (const t of sorted) {
-    const date = format(new Date(t.created_at), 'yyyy-MM-dd');
+  for (const thought of sorted) {
+    const date = format(new Date(thought.created_at), 'yyyy-MM-dd');
     if (!map.has(date)) map.set(date, []);
-    map.get(date)!.push(t);
+    map.get(date)!.push(thought);
   }
   const today = format(new Date(), 'yyyy-MM-dd');
   const yesterday = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
@@ -79,9 +82,9 @@ function buildTimelineGroups(thoughts: Thought[]): TimelineGroup[] {
     .sort((a, b) => (a[0] < b[0] ? 1 : -1))
     .map(([date, items]) => {
       let label: string;
-      if (date === today) label = getCurrentLanguage() === 'zh' ? '今天' : 'Today';
-      else if (date === yesterday) label = getCurrentLanguage() === 'zh' ? '昨天' : 'Yesterday';
-      else label = format(new Date(date), getCurrentLanguage() === 'zh' ? 'M月d日' : 'MMM d');
+      if (date === today) label = t('thoughts.today');
+      else if (date === yesterday) label = t('thoughts.yesterday');
+      else label = format(new Date(date), t('thoughts.dateLabelFormat'));
       return { date, label, thoughts: items };
     });
 }
@@ -170,7 +173,7 @@ export default function Thoughts() {
     [thoughts]
   );
 
-  const timelineGroups = useMemo(() => buildTimelineGroups(thoughts), [thoughts]);
+  const timelineGroups = useMemo(() => buildTimelineGroups(thoughts, t), [thoughts, t]);
 
   return (
     <div className="flex flex-col h-full bg-transparent">
@@ -446,6 +449,10 @@ const COLLAPSED_MAX_H_MASONRY = 270; // px
 const THUMB_CAP_TIMELINE = 6; // 3 * 2
 const THUMB_CAP_MASONRY = 4; // 2 * 2
 
+/** Seam 5: 移动端长按阈值与取消判定（长按 = 进入编辑，对标桌面端双击）。 */
+const LONG_PRESS_MS = 500;
+const LONG_PRESS_MOVE_THRESHOLD = 10; // px，手指滑动超过该距离取消长按
+
 function ThoughtCard({ thought, view, copied, onCopy, onEdit }: ThoughtCardProps) {
   const { t } = useTranslation();
   const tags = thought.tags || [];
@@ -458,6 +465,10 @@ function ThoughtCard({ thought, view, copied, onCopy, onEdit }: ThoughtCardProps
   const [isOverflowing, setIsOverflowing] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Seam 5: 移动端长按状态
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
+  const longPressFired = useRef(false);
 
   // 测量内容是否超出折叠高度（ResizeObserver 兼顾图片加载后的高度变化）
   useLayoutEffect(() => {
@@ -470,15 +481,21 @@ function ThoughtCard({ thought, view, copied, onCopy, onEdit }: ThoughtCardProps
     return () => ro.disconnect();
   }, [collapsedMaxH, thought.content, attachments]);
 
-  // 卸载时清理单击计时器
+  // 卸载时清理单击/长按计时器
   useEffect(() => {
     return () => {
       if (clickTimer.current) clearTimeout(clickTimer.current);
+      if (longPressTimer.current) clearTimeout(longPressTimer.current);
     };
   }, []);
 
   // 单击切换展开/折叠；300ms 内第二次点击判双击，取消单击进入编辑
   const handleCardClick = () => {
+    // 长按已触发编辑时，吞掉手指抬起后合成的 click，避免再切换展开
+    if (longPressFired.current) {
+      longPressFired.current = false;
+      return;
+    }
     if (clickTimer.current) {
       clearTimeout(clickTimer.current);
       clickTimer.current = null;
@@ -489,6 +506,50 @@ function ThoughtCard({ thought, view, copied, onCopy, onEdit }: ThoughtCardProps
       clickTimer.current = null;
       setExpanded((e) => !e);
     }, 300);
+  };
+
+  // Seam 5: 移动端长按 -> 进入编辑（对标桌面端双击）
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
+    longPressFired.current = false;
+    longPressTimer.current = setTimeout(() => {
+      longPressFired.current = true;
+      if (clickTimer.current) {
+        clearTimeout(clickTimer.current);
+        clickTimer.current = null;
+      }
+      onEdit();
+    }, LONG_PRESS_MS);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    const start = touchStartPos.current;
+    if (!touch || !start) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (dx * dx + dy * dy > LONG_PRESS_MOVE_THRESHOLD * LONG_PRESS_MOVE_THRESHOLD) {
+      // 手指移动过多（多为滚动），取消长按
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    // 长按已触发编辑时，touchend 会合成一次 click；longPressFired 由 handleCardClick 消费
+  };
+
+  // 阻止移动端长按弹出的系统上下文菜单/选区
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
   };
 
   const toggleExpand = (e: React.MouseEvent) => {
@@ -513,6 +574,10 @@ function ThoughtCard({ thought, view, copied, onCopy, onEdit }: ThoughtCardProps
       data-testid="thought-card"
       data-thought-id={thought.id}
       onClick={handleCardClick}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onContextMenu={handleContextMenu}
       className="baimiao-card-bubble p-3.5 cursor-pointer group select-none"
       title={t('thoughts.cardHint')}
     >

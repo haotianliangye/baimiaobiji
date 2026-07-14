@@ -243,6 +243,7 @@ export const en: TranslationDict = {
   'thoughts.copy': 'Copy',
   'thoughts.today': 'Today',
   'thoughts.yesterday': 'Yesterday',
+  'thoughts.dateLabelFormat': 'MMM d',
   'thoughts.confirmDelete': 'Delete this reflection?',
   'thoughts.charCount': '{count} chars',
   'thoughts.itemCount': '{count} notes',
