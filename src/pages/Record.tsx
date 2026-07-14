@@ -542,6 +542,10 @@ export default function Record() {
   // #6 多媒体附件状态
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const [showAttachmentSheet, setShowAttachmentSheet] = useState(false);
+  // 需求 8：面板上推主内容 + 下滑关闭
+  const [sheetHeight, setSheetHeight] = useState(0);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const sheetDragStartY = useRef<number | null>(null);
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [linkInput, setLinkInput] = useState("");
   // #005 多媒体卡片渲染状态
@@ -622,6 +626,20 @@ export default function Record() {
   useEffect(() => {
     adjustTextareaHeight();
   }, [inputText, adjustTextareaHeight]);
+
+  // 需求 8：面板打开后测量高度，用于上推主内容
+  useEffect(() => {
+    if (showAttachmentSheet && sheetRef.current) {
+      const measure = () => {
+        if (sheetRef.current) {
+          setSheetHeight(sheetRef.current.offsetHeight);
+        }
+      };
+      requestAnimationFrame(measure);
+    } else {
+      setSheetHeight(0);
+    }
+  }, [showAttachmentSheet]);
 
   // #4 标签：确保别名缓存已加载（供保存时 resolveAlias 纠正被合并的标签）
   const refreshAliases = useTagsStore(state => state.refreshAliases);
@@ -875,6 +893,20 @@ export default function Record() {
     setFileAccept(acceptMap[kind]);
     // 延迟点击，确保 accept 已更新
     setTimeout(() => fileInputRef.current?.click(), 0);
+  };
+
+  /** 需求 8：下滑手势关闭附件面板。 */
+  const handleSheetTouchStart = (e: React.TouchEvent) => {
+    sheetDragStartY.current = e.touches[0].clientY;
+  };
+
+  const handleSheetTouchEnd = (e: React.TouchEvent) => {
+    if (sheetDragStartY.current === null) return;
+    const deltaY = e.changedTouches[0].clientY - sheetDragStartY.current;
+    if (deltaY > 50) {
+      setShowAttachmentSheet(false);
+    }
+    sheetDragStartY.current = null;
   };
 
   /** 文件选择回调：将 File 转为 PendingAttachment。 */
@@ -1371,7 +1403,12 @@ export default function Record() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-transparent relative">
+    <div className="flex flex-col h-full bg-transparent relative overflow-hidden">
+      {/* 需求 8：面板打开时上推主内容（输入栏 + 主内容区） */}
+      <div
+        className="flex-1 flex flex-col min-h-0 transition-transform duration-300 ease-out"
+        style={{ transform: showAttachmentSheet && sheetHeight > 0 ? `translateY(-${sheetHeight}px)` : 'translateY(0)' }}
+      >
 
       {isPersisted === false && !hideStorageWarning && (
         <div className="bg-[#fcf8fa]/95 backdrop-blur border-b border-rose-100/30 px-4 py-2 flex items-center justify-between text-[11px] text-rose-900 animate-in slide-in-from-top duration-200 z-10 relative">
@@ -1706,8 +1743,9 @@ export default function Record() {
         </>
         )}
       </div>
+      </div>
 
-      {/* #007 附件类型选择面板（网格布局，底部上滑） */}
+      {/* 需求 8：附件类型选择面板（底部上滑网格，上推主内容，下滑关闭） */}
       {showAttachmentSheet && (
         <>
           <div
@@ -1715,9 +1753,15 @@ export default function Record() {
             className="fixed inset-0 bg-black/40 z-[100] transition-opacity"
             onClick={() => setShowAttachmentSheet(false)}
           />
-          <div data-testid="attachment-sheet" className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-[101] max-w-md mx-auto transform transition-transform animate-in slide-in-from-bottom-full duration-300 pb-safe max-h-[50vh] flex flex-col">
+          <div
+            ref={sheetRef}
+            data-testid="attachment-sheet"
+            onTouchStart={handleSheetTouchStart}
+            onTouchEnd={handleSheetTouchEnd}
+            className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-[101] max-w-md mx-auto transform transition-transform animate-in slide-in-from-bottom-full duration-300 pb-safe max-h-[50vh] flex flex-col"
+          >
             <div className="p-4 overflow-y-auto">
-              <div className="w-10 h-1.5 bg-stone-200 rounded-full mx-auto mb-5" />
+              <div data-testid="attachment-sheet-handle" className="w-10 h-1.5 bg-stone-200 rounded-full mx-auto mb-5" />
               <div className="grid grid-cols-3 gap-3">
                 {/* 第一行：相册 / 音频 / 视频 */}
                 <button

@@ -422,6 +422,50 @@ async function run() {
 
   await page6.close();
   await ctx6.close();
+
+  // ---------- 旅程 K/L：下滑手势关闭 + 上推主内容（需求 8） ----------
+  const ctx7 = await browser.createBrowserContext();
+  const page7 = await ctx7.newPage();
+  await page7.setViewport({ width: 390, height: 844 });
+  await page7.setRequestInterception(true);
+  page7.on('request', (req) => req.continue());
+  await page7.goto(`${BASE_URL}/`, { waitUntil: 'networkidle2' });
+
+  // L: 上推主内容 — 打开面板前后对比附件按钮 Y 位置
+  await page7.waitForSelector('[data-testid="attachment-button"]', { timeout: 5000 });
+  const inputBarYBefore = await page7.$eval('[data-testid="attachment-button"]', (el) =>
+    el.getBoundingClientRect().y
+  );
+  await page7.click('[data-testid="attachment-button"]');
+  await page7.waitForSelector('[data-testid="attachment-sheet"]', { timeout: 5000 });
+  // 等待上推动画完成（300ms transition + buffer）
+  await new Promise((r) => setTimeout(r, 600));
+  const inputBarYAfter = await page7.$eval('[data-testid="attachment-button"]', (el) =>
+    el.getBoundingClientRect().y
+  );
+  assert(
+    'L 面板打开上推主内容',
+    inputBarYAfter < inputBarYBefore,
+    `before=${inputBarYBefore.toFixed(0)}, after=${inputBarYAfter.toFixed(0)}`
+  );
+
+  // K: 下滑手势关闭
+  const sheetBox = await page7.$eval('[data-testid="attachment-sheet"]', (el: any) => {
+    const rect = el.getBoundingClientRect();
+    return { x: rect.x + rect.width / 2, topY: rect.top + 20 };
+  });
+  // 使用 Puppeteer touchscreen API 模拟下滑手势
+  await page7.touchscreen.touchStart(sheetBox.x, sheetBox.topY);
+  await new Promise((r) => setTimeout(r, 50));
+  await page7.touchscreen.touchMove(sheetBox.x, sheetBox.topY + 100);
+  await new Promise((r) => setTimeout(r, 50));
+  await page7.touchscreen.touchEnd();
+  await new Promise((r) => setTimeout(r, 500));
+  const sheetGoneAfterSwipe = await page7.$('[data-testid="attachment-sheet"]');
+  assert('K 下滑手势关闭附件面板', !sheetGoneAfterSwipe, sheetGoneAfterSwipe ? '面板仍存在' : '面板已关闭');
+
+  await page7.close();
+  await ctx7.close();
 }
 
 run()
