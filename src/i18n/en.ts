@@ -645,4 +645,8 @@ export const en: TranslationDict = {
   'calendarHeatmap.cellTitle': '{date}: {count} records',
   'calendarHeatmap.backToToday': 'Back to today',
   'calendarHeatmap.monthFormat': 'MMM',
+
+  // --- MediaPreview fullscreen preview ---
+  'mediaPreview.prev': 'Previous',
+  'mediaPreview.next': 'Next',
 };

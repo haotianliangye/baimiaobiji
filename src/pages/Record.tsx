@@ -44,6 +44,7 @@ import { parseTagsFromText, resolveAlias } from "../lib/tags";
 import { useTagsStore } from "../store/tags.store";
 import TodayStats from "../components/TodayStats";
 import RichEditor from "../components/RichEditor";
+import MediaPreview from "../components/MediaPreview";
 import { saveAttachmentBlob, blobToBase64, generateAttachmentSummary, requestMultimediaSummary } from "../lib/multimedia";
 import type { AttachmentMeta } from "../db/db";
 import { useTranslation } from "../lib/i18n";
@@ -199,18 +200,17 @@ function MediaThumb({
   logId,
   isRetrying,
   onRetry,
-  onOpenLightbox,
+  onOpenPreview,
 }: {
   att: AttachmentMeta;
   originalIndex: number;
   logId: string;
   isRetrying: boolean;
   onRetry: (logId: string, originalIndex: number) => void;
-  onOpenLightbox: (url: string) => void;
+  onOpenPreview: () => void;
 }) {
   const { t } = useTranslation();
   const url = useAttachmentUrl(att.ref);
-  const [playing, setPlaying] = useState(false);
 
   if (!url) {
     return <div className="aspect-video w-full bg-stone-100 rounded-lg animate-pulse" />;
@@ -222,15 +222,8 @@ function MediaThumb({
         <img
           src={url}
           alt={att.name || t('record.image')}
-          onClick={() => onOpenLightbox(url)}
+          onClick={onOpenPreview}
           className="w-full h-full object-cover cursor-pointer"
-        />
-      ) : playing ? (
-        <video
-          controls
-          autoPlay
-          src={url}
-          className="w-full h-full object-cover bg-stone-900"
         />
       ) : (
         <>
@@ -241,7 +234,7 @@ function MediaThumb({
           />
           <button
             type="button"
-            onClick={() => setPlaying(true)}
+            onClick={onOpenPreview}
             className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 transition-colors"
             aria-label={t('record.video')}
           >
@@ -251,8 +244,8 @@ function MediaThumb({
           </button>
         </>
       )}
-      {/* 单附件重试按钮：无 summary 且非播放状态时显示在右下角 */}
-      {!att.summary && !playing && (
+      {/* 单附件重试按钮：无 summary 时显示在右下角 */}
+      {!att.summary && (
         <button
           type="button"
           onClick={(e) => {
@@ -342,7 +335,7 @@ function MultimediaAttachments({
   retryingIds,
   onRetryAttachment,
   onRetryAudio,
-  onOpenLightbox,
+  onOpenPreview,
   onOpenDetail,
 }: {
   log: any;
@@ -350,7 +343,7 @@ function MultimediaAttachments({
   retryingIds: Set<string>;
   onRetryAttachment: (logId: string, originalIndex: number) => void;
   onRetryAudio: (logId: string, originalIndex: number) => void;
-  onOpenLightbox: (url: string) => void;
+  onOpenPreview: (items: AttachmentMeta[], initialIndex: number) => void;
   onOpenDetail: (log: any) => void;
 }) {
   const { t } = useTranslation();
@@ -407,7 +400,7 @@ function MultimediaAttachments({
                   logId={log.id}
                   isRetrying={retryingIds.has(`${log.id}-${originalIndex}`)}
                   onRetry={onRetryAttachment}
-                  onOpenLightbox={onOpenLightbox}
+                  onOpenPreview={() => onOpenPreview(mediaItems.map(({ att: a }) => a), i)}
                 />
                 {showOverflow && (
                   <button
@@ -554,7 +547,7 @@ export default function Record() {
   // #005 多媒体卡片渲染状态
   const [generatingSummaryIds, setGeneratingSummaryIds] = useState<Set<string>>(new Set());
   const [retryingAttachmentIds, setRetryingAttachmentIds] = useState<Set<string>>(new Set());
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [mediaPreview, setMediaPreview] = useState<{ items: AttachmentMeta[]; initialIndex: number } | null>(null);
   const [detailLog, setDetailLog] = useState<any | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileAccept, setFileAccept] = useState("");
@@ -1521,7 +1514,7 @@ export default function Record() {
                         retryingIds={retryingAttachmentIds}
                         onRetryAttachment={handleRetryAttachmentSummary}
                         onRetryAudio={handleRetryAudioAttachment}
-                        onOpenLightbox={(url: string) => setLightboxUrl(url)}
+                        onOpenPreview={(items: AttachmentMeta[], initialIndex: number) => setMediaPreview({ items, initialIndex })}
                         onOpenDetail={(l: any) => setDetailLog(l)}
                       />
                     )}
@@ -1981,26 +1974,13 @@ export default function Record() {
         </div>
       )}
 
-      {/* #005 图片灯箱 */}
-      {lightboxUrl && (
-        <div
-          className="fixed inset-0 z-[120] bg-black/80 flex items-center justify-center p-4"
-          onClick={() => setLightboxUrl(null)}
-        >
-          <img
-            src={lightboxUrl}
-            alt=""
-            className="max-w-full max-h-full object-contain rounded-lg"
-            onClick={(e) => e.stopPropagation()}
-          />
-          <button
-            onClick={() => setLightboxUrl(null)}
-            className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-            aria-label={t('about.close')}
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+      {/* 需求 7：图片/视频全屏预览 */}
+      {mediaPreview && (
+        <MediaPreview
+          items={mediaPreview.items}
+          initialIndex={mediaPreview.initialIndex}
+          onClose={() => setMediaPreview(null)}
+        />
       )}
 
       {/* #005 附件详情面板：+N 点击后展示全部附件 + 完整摘要 */}
@@ -2025,10 +2005,11 @@ export default function Record() {
             <div className="overflow-y-auto px-4 pb-4 flex-1">
               {(detailLog.attachments || []).some((a: AttachmentMeta) => a.kind === 'image' || a.kind === 'video') && (
                 <div className="grid grid-cols-2 gap-1 mb-2">
-                  {(detailLog.attachments || [])
-                    .map((att: AttachmentMeta, idx: number) => ({ att, originalIndex: idx }))
-                    .filter(({ att }) => att.kind === 'image' || att.kind === 'video')
-                    .map(({ att, originalIndex }) => (
+                  {(() => {
+                    const detailMedia = (detailLog.attachments || [])
+                      .map((att: AttachmentMeta, idx: number) => ({ att, originalIndex: idx }))
+                      .filter(({ att }) => att.kind === 'image' || att.kind === 'video');
+                    return detailMedia.map(({ att, originalIndex }, i) => (
                       <MediaThumb
                         key={originalIndex}
                         att={att}
@@ -2036,9 +2017,10 @@ export default function Record() {
                         logId={detailLog.id}
                         isRetrying={retryingAttachmentIds.has(`${detailLog.id}-${originalIndex}`)}
                         onRetry={handleRetryAttachmentSummary}
-                        onOpenLightbox={(url: string) => setLightboxUrl(url)}
+                        onOpenPreview={() => setMediaPreview({ items: detailMedia.map(({ att: a }) => a), initialIndex: i })}
                       />
-                    ))}
+                    ));
+                  })()}
                 </div>
               )}
               {detailLog.attachment_summary && (

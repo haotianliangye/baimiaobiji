@@ -31,6 +31,7 @@ import {
   ChevronDown,
   Film,
   Music,
+  Play,
 } from 'lucide-react';
 import { db, type Thought, type AttachmentMeta } from '../db/db';
 import { useThoughtsStore } from '../store/thoughts.store';
@@ -39,6 +40,7 @@ import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { countChars } from '../lib/wordCount';
 import RichEditor from '../components/RichEditor';
 import TodayStats from '../components/TodayStats';
+import MediaPreview from '../components/MediaPreview';
 import { useAppStore } from '../store/app.store';
 import { useTranslation } from '../lib/i18n';
 
@@ -94,6 +96,9 @@ export default function Thoughts() {
   useEffect(() => {
     refreshAliases();
   }, [refreshAliases]);
+
+  // 需求 7：图片/视频全屏预览状态
+  const [mediaPreview, setMediaPreview] = useState<{ items: AttachmentMeta[]; initialIndex: number } | null>(null);
 
   const allThoughts = useLiveQuery(() => db.thoughts.toArray(), []);
   const thoughts = useMemo(
@@ -191,6 +196,7 @@ export default function Thoughts() {
                   copied={copied}
                   onCopy={() => copy(t.content)}
                   onEdit={() => openEdit(t)}
+                  onOpenPreview={(items, initialIndex) => setMediaPreview({ items, initialIndex })}
                 />
               </div>
             ))}
@@ -219,6 +225,7 @@ export default function Thoughts() {
                     copied={copied}
                     onCopy={() => copy(t.content)}
                     onEdit={() => openEdit(t)}
+                    onOpenPreview={(items, initialIndex) => setMediaPreview({ items, initialIndex })}
                   />
                 ))}
               </div>
@@ -359,6 +366,15 @@ export default function Thoughts() {
           </div>
         </div>
       )}
+
+      {/* 需求 7：图片/视频全屏预览 */}
+      {mediaPreview && (
+        <MediaPreview
+          items={mediaPreview.items}
+          initialIndex={mediaPreview.initialIndex}
+          onClose={() => setMediaPreview(null)}
+        />
+      )}
     </div>
   );
 }
@@ -389,6 +405,7 @@ interface ThoughtCardProps {
   copied: boolean;
   onCopy: () => void;
   onEdit: () => void;
+  onOpenPreview: (items: AttachmentMeta[], initialIndex: number) => void;
 }
 
 /** 折叠态最大高度（按正文行高 ~22px 估算：时间线 7 行，瀑布流 12 行）。 */
@@ -402,7 +419,7 @@ const THUMB_CAP_MASONRY = 4; // 2 * 2
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_THRESHOLD = 10; // px，手指滑动超过该距离取消长按
 
-function ThoughtCard({ thought, view, copied, onCopy, onEdit }: ThoughtCardProps) {
+function ThoughtCard({ thought, view, copied, onCopy, onEdit, onOpenPreview }: ThoughtCardProps) {
   const { t } = useTranslation();
   const tags = thought.tags || [];
   const attachments = thought.attachments || [];
@@ -514,6 +531,10 @@ function ThoughtCard({ thought, view, copied, onCopy, onEdit }: ThoughtCardProps
   const mediaAttachments = attachments.filter(
     (a) => a.kind === 'image' || a.kind === 'video' || a.kind === 'audio'
   );
+  // 需求 7：全屏预览仅含 image/video
+  const previewItems = attachments.filter(
+    (a) => a.kind === 'image' || a.kind === 'video'
+  );
   const showOverflow = mediaAttachments.length > thumbCap;
   const visibleMedia = showOverflow ? mediaAttachments.slice(0, thumbCap - 1) : mediaAttachments;
   const overflowCount = mediaAttachments.length - (thumbCap - 1);
@@ -546,9 +567,17 @@ function ThoughtCard({ thought, view, copied, onCopy, onEdit }: ThoughtCardProps
         {/* 多媒体缩略图：统一 1:1，时间线一行 3 个，瀑布流一行 2 个 */}
         {mediaAttachments.length > 0 && (
           <div className={`grid gap-1.5 mt-2 ${view === 'timeline' ? 'grid-cols-3' : 'grid-cols-2'}`}>
-            {visibleMedia.map((att, idx) => (
-              <ThumbTile key={idx} att={att} name={att.name} />
-            ))}
+            {visibleMedia.map((att, idx) => {
+              const previewIdx = previewItems.indexOf(att);
+              return (
+                <ThumbTile
+                  key={idx}
+                  att={att}
+                  name={att.name}
+                  onOpenPreview={previewIdx >= 0 ? () => onOpenPreview(previewItems, previewIdx) : undefined}
+                />
+              );
+            })}
             {showOverflow && (
               <button
                 type="button"
@@ -620,22 +649,44 @@ function ThoughtCard({ thought, view, copied, onCopy, onEdit }: ThoughtCardProps
   );
 }
 
-/** 单个多媒体缩略图（1:1）：image 显示图片，video/audio 用图标占位。 */
-function ThumbTile({ att, name }: { att: AttachmentMeta; name?: string }) {
+/**
+ * 单个多媒体缩略图（1:1）：image 显示图片，video/audio 用图标占位。
+ * 需求 7：image/video 点击打开全屏预览（onOpenPreview 传入时启用）。
+ */
+function ThumbTile({ att, name, onOpenPreview }: { att: AttachmentMeta; name?: string; onOpenPreview?: () => void }) {
   const { t } = useTranslation();
+  const clickable = !!onOpenPreview && (att.kind === 'image' || att.kind === 'video');
+
+  const handleClick = (e: React.MouseEvent) => {
+    // 阻止冒泡到卡片的单击/双击/长按逻辑
+    e.stopPropagation();
+    if (clickable) onOpenPreview?.();
+  };
+
   if (att.kind === 'image' && att.ref) {
     return (
       <img
         src={att.ref}
         alt={name || t('record.image')}
-        className="w-full aspect-square object-cover rounded-lg border border-stone-200"
+        onClick={clickable ? handleClick : undefined}
+        className={`w-full aspect-square object-cover rounded-lg border border-stone-200 ${clickable ? 'cursor-pointer' : ''}`}
       />
     );
   }
   if (att.kind === 'video') {
     return (
-      <div className="w-full aspect-square rounded-lg border border-stone-200 bg-stone-100 flex items-center justify-center text-stone-400">
+      <div
+        onClick={clickable ? handleClick : undefined}
+        className={`relative w-full aspect-square rounded-lg border border-stone-200 bg-stone-100 flex items-center justify-center text-stone-400 ${clickable ? 'cursor-pointer' : ''}`}
+      >
         <Film className="w-5 h-5" />
+        {clickable && (
+          <span className="absolute inset-0 flex items-center justify-center">
+            <span className="w-6 h-6 rounded-full bg-white/90 flex items-center justify-center shadow-md">
+              <Play className="w-3 h-3 text-stone-900 ml-0.5" fill="currentColor" />
+            </span>
+          </span>
+        )}
       </div>
     );
   }

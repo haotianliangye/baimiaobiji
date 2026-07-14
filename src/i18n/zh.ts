@@ -646,4 +646,8 @@ export const zh: TranslationDict = {
   'calendarHeatmap.cellTitle': '{date}: {count} 条记录',
   'calendarHeatmap.backToToday': '回到今天',
   'calendarHeatmap.monthFormat': 'MM月',
+
+  // --- MediaPreview 全屏预览 ---
+  'mediaPreview.prev': '上一个',
+  'mediaPreview.next': '下一个',
 };
