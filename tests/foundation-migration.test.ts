@@ -1,12 +1,14 @@
 /**
  * #3 Foundation E2E 测试（Puppeteer）
  *
- * 覆盖四个旅程：
+ * 覆盖五个旅程：
  *   A. 导航：底部 4 Tab 为「碎屑/回顾/沉思/明悟」；/diary 重定向到 /review、/insights 重定向到 /mingwu。
  *   B. 迁移：构造旧版 v7 IndexedDB（daily_diaries + insights + daily_reviews），启动应用触发 v8 升级，
  *      验证数据迁移到 daily_reviews(entry_type) / mingwu、旧表删除、migration_backups 写入。
  *   C. 回顾合并：迁移后 /review 同列展示「日记」与「回顾」卡片。
  *   D. 明悟图标：TabBar 明悟 tab / 明悟卡片 header / 生成按钮均渲染为 Phosphor Sun 图标（需求 5）。
+ *   E. 设置页：点 ≡ 滑出抽屉（菜单 + 所有标签区块）、点项跳全页、横向导航切换 + 胶囊高亮、
+ *      标签区块独立滚动、抽屉「管理标签」双入口、全页直接关闭、桌面端同模式（需求 9）。
  *
  * 运行：先 `npm run build`，再 `npm run test:e2e`。
  * 通过退出码 0/1 反映结果，便于 CI。
@@ -319,6 +321,263 @@ async function run() {
 
   await pageB.close();
   await ctx.close();
+
+  // ---------- 旅程 E：设置页（需求 9 / issue 109） ----------
+  // PRD 测试重点：抽屉滑出、菜单+标签区块、点项跳全页、横向导航切换+胶囊高亮、桌面同模式、标签滚动、双入口。
+  const ctxE = await browser.createBrowserContext();
+  const pageE = await ctxE.newPage();
+  await pageE.setViewport({ width: 390, height: 844 });
+
+  // 辅助：点 ≡ 进设置抽屉（不抛错，返回是否成功打开）
+  const openDrawer = async (p: Page): Promise<boolean> => {
+    await p.waitForSelector('button[aria-label="系统设置"]', { timeout: 5000 }).catch(() => {});
+    await p.evaluate(() => {
+      const btn = document.querySelector('button[aria-label="系统设置"]') as HTMLElement | null;
+      if (btn) btn.click();
+    });
+    try {
+      await p.waitForSelector('[data-testid="settings-drawer"]', { timeout: 5000 });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  // 辅助：点详情页返回按钮（aria-label=返回）退出设置
+  const clickDetailBack = (p: Page) =>
+    p.evaluate(() => {
+      const back = document.querySelector('button[aria-label="返回"]') as HTMLElement | null;
+      if (back) back.click();
+    });
+
+  // 加载首页，等 app 初始化建库后注入 40 个标签（用于「所有标签」区块滚动测试）
+  await pageE.goto(`${BASE_URL}/`, { waitUntil: 'networkidle2' });
+  await new Promise((r) => setTimeout(r, 1500));
+  await pageE.evaluate(
+    (args: { name: string; tags: { path: string; name: string; created_at: number }[] }) =>
+      new Promise<void>((resolve, reject) => {
+        const req = indexedDB.open(args.name);
+        req.onsuccess = (e: any) => {
+          const idb = e.target.result;
+          if (!idb.objectStoreNames.contains('tags')) { idb.close(); return resolve(); }
+          const tx = idb.transaction('tags', 'readwrite');
+          const store = tx.objectStore('tags');
+          for (const t of args.tags) store.put(t);
+          tx.oncomplete = () => { idb.close(); resolve(); };
+          tx.onerror = () => { idb.close(); reject(tx.error); };
+        };
+        req.onerror = () => reject(req.error);
+      }),
+    {
+      name: DB_NAME,
+      tags: Array.from({ length: 40 }, (_, i) => ({
+        path: `测试分类/标签${String(i).padStart(2, '0')}`,
+        name: `标签${i}`,
+        created_at: Date.now() + i,
+      })),
+    }
+  );
+  // 重载让 Dexie liveQuery 读取新标签
+  await pageE.goto(`${BASE_URL}/`, { waitUntil: 'networkidle2' });
+  await new Promise((r) => setTimeout(r, 1500));
+
+  // E1：点击 ≡ 从左侧滑出抽屉
+  const e1Ok = await openDrawer(pageE);
+  const e1Rect = await pageE.evaluate(() => {
+    const d = document.querySelector('[data-testid="settings-drawer"]') as HTMLElement | null;
+    if (!d) return null;
+    const r = d.getBoundingClientRect();
+    return { left: r.left, top: r.top };
+  });
+  assert(
+    'E1 点 ≡ 从左侧滑出抽屉',
+    e1Ok && e1Rect !== null && e1Rect.left === 0 && e1Rect.top === 0,
+    e1Rect ? `left=${e1Rect.left}, top=${e1Rect.top}` : 'settings-drawer 未出现'
+  );
+
+  // E2：抽屉含设置菜单项 + 「所有标签」区块
+  const e2 = await pageE.evaluate(() => {
+    const d = document.querySelector('[data-testid="settings-drawer"]');
+    const text = d ? (d.textContent || '') : '';
+    return {
+      hasModel: text.includes('对话模型'),
+      hasAllTags: text.includes('所有标签'),
+      hasAllTagsBox: !!document.querySelector('[data-testid="drawer-all-tags"]'),
+    };
+  });
+  assert(
+    'E2 抽屉含菜单项 + 所有标签区块',
+    e2.hasModel && e2.hasAllTags && e2.hasAllTagsBox,
+    `对话模型=${e2.hasModel}, 所有标签=${e2.hasAllTags}, 区块=${e2.hasAllTagsBox}`
+  );
+
+  // 等待标签数据渲染（liveQuery 异步读取 40 个标签）
+  await pageE
+    .waitForFunction(() => document.querySelectorAll('[data-testid="drawer-all-tags"] button').length > 10, { timeout: 5000 })
+    .catch(() => {});
+
+  // E6：标签数量多时仅「所有标签」区块内部滚动（抽屉菜单项不滚动）
+  const e6 = await pageE.evaluate(() => {
+    const tagsBox = document.querySelector('[data-testid="drawer-all-tags"]') as HTMLElement | null;
+    const nav = document.querySelector('[data-testid="settings-drawer"] nav') as HTMLElement | null;
+    return {
+      tagsScrollable: tagsBox ? tagsBox.scrollHeight > tagsBox.clientHeight : false,
+      navScrollable: nav ? nav.scrollHeight > nav.clientHeight : false,
+      tagsCount: tagsBox ? tagsBox.querySelectorAll('button').length : 0,
+    };
+  });
+  assert(
+    'E6 标签多时仅所有标签区块滚动',
+    e6.tagsScrollable && !e6.navScrollable,
+    `标签区可滚=${e6.tagsScrollable}(共${e6.tagsCount}标签), 菜单区可滚=${e6.navScrollable}`
+  );
+
+  // E8：抽屉「所有标签」快捷入口「管理标签」-> 全页标签设置（双入口之一）
+  await pageE.evaluate(() => {
+    const drawer = document.querySelector('[data-testid="settings-drawer"]');
+    if (!drawer) return;
+    for (const b of Array.from(drawer.querySelectorAll('button'))) {
+      if ((b.textContent || '').includes('管理标签')) { (b as HTMLElement).click(); return; }
+    }
+  });
+  try {
+    await pageE.waitForSelector('[data-testid="settings-horizontal-nav"]', { timeout: 5000 });
+  } catch {}
+  await pageE
+    .waitForFunction(() => document.querySelector('[data-testid^="tag-node-"]') !== null, { timeout: 5000 })
+    .catch(() => {});
+  const e8 = await pageE.evaluate(() => {
+    const nav = document.querySelector('[data-testid="settings-horizontal-nav"]');
+    let tagsHi = false;
+    if (nav) {
+      for (const b of Array.from(nav.querySelectorAll('button'))) {
+        const cs = window.getComputedStyle(b);
+        if ((b.textContent || '').includes('标签设置') && cs.color === 'rgb(255, 255, 255)') tagsHi = true;
+      }
+    }
+    return { hasTagsContent: !!document.querySelector('[data-testid^="tag-node-"]'), tagsHi };
+  });
+  assert(
+    'E8 抽屉管理标签快捷入口达标签设置全页',
+    e8.hasTagsContent && e8.tagsHi,
+    `标签内容=${e8.hasTagsContent}, 标签设置高亮=${e8.tagsHi}`
+  );
+
+  // 退出设置回首页，再进抽屉测点菜单项跳全页
+  await clickDetailBack(pageE);
+  await new Promise((r) => setTimeout(r, 600));
+
+  // E3：点击抽屉菜单项跳转全屏设置详情页（不再右侧展开）
+  await openDrawer(pageE);
+  await pageE.evaluate(() => {
+    const drawer = document.querySelector('[data-testid="settings-drawer"]');
+    if (!drawer) return;
+    for (const b of Array.from(drawer.querySelectorAll('button'))) {
+      if ((b.textContent || '').includes('语音朗读')) { (b as HTMLElement).click(); return; }
+    }
+  });
+  let e3Detail = false;
+  try {
+    await pageE.waitForSelector('[data-testid="settings-horizontal-nav"]', { timeout: 5000 });
+    e3Detail = true;
+  } catch {}
+  const e3DrawerGone = await pageE.$('[data-testid="settings-drawer"]') === null;
+  assert(
+    'E3 点菜单项跳全屏详情页',
+    e3Detail && e3DrawerGone,
+    `横向导航=${e3Detail}, 抽屉已隐藏=${e3DrawerGone}`
+  );
+
+  // E4：横向导航栏点击切换设置项 + 胶囊高亮当前
+  // 点「标签设置」tab
+  await pageE.evaluate(() => {
+    const nav = document.querySelector('[data-testid="settings-horizontal-nav"]');
+    if (!nav) return;
+    for (const b of Array.from(nav.querySelectorAll('button'))) {
+      if ((b.textContent || '').includes('标签设置')) { (b as HTMLElement).click(); return; }
+    }
+  });
+  await pageE
+    .waitForFunction(() => document.querySelector('[data-testid^="tag-node-"]') !== null, { timeout: 5000 })
+    .catch(() => {});
+  const e4a = await pageE.evaluate(() => {
+    const nav = document.querySelector('[data-testid="settings-horizontal-nav"]');
+    let whiteCount = 0;
+    let tagsHi = false;
+    if (nav) {
+      for (const b of Array.from(nav.querySelectorAll('button'))) {
+        const cs = window.getComputedStyle(b);
+        if (cs.color === 'rgb(255, 255, 255)') {
+          whiteCount++;
+          if ((b.textContent || '').includes('标签设置')) tagsHi = true;
+        }
+      }
+    }
+    return { hasTagsContent: !!document.querySelector('[data-testid^="tag-node-"]'), whiteCount, tagsHi };
+  });
+  // 点回「对话模型」tab
+  await pageE.evaluate(() => {
+    const nav = document.querySelector('[data-testid="settings-horizontal-nav"]');
+    if (!nav) return;
+    for (const b of Array.from(nav.querySelectorAll('button'))) {
+      if ((b.textContent || '').includes('对话模型')) { (b as HTMLElement).click(); return; }
+    }
+  });
+  await new Promise((r) => setTimeout(r, 500));
+  const e4b = await pageE.evaluate(() => {
+    const text = document.body.textContent || '';
+    const nav = document.querySelector('[data-testid="settings-horizontal-nav"]');
+    let modelHi = false;
+    if (nav) {
+      for (const b of Array.from(nav.querySelectorAll('button'))) {
+        const cs = window.getComputedStyle(b);
+        if ((b.textContent || '').includes('对话模型') && cs.color === 'rgb(255, 255, 255)') modelHi = true;
+      }
+    }
+    return { hasModelContent: /Gemini|OpenAI/.test(text), modelHi };
+  });
+  assert(
+    'E4 横向导航切换 + 胶囊高亮',
+    e4a.hasTagsContent && e4a.whiteCount === 1 && e4a.tagsHi && e4b.hasModelContent && e4b.modelHi,
+    `标签内容=${e4a.hasTagsContent}, 高亮数=${e4a.whiteCount}, 标签高亮=${e4a.tagsHi}; 模型内容=${e4b.hasModelContent}, 模型高亮=${e4b.modelHi}`
+  );
+
+  // E7：全屏详情页直接关闭设置（不返回抽屉）
+  await clickDetailBack(pageE);
+  await new Promise((r) => setTimeout(r, 600));
+  const e7Url = pageE.url();
+  const e7NavGone = await pageE.$('[data-testid="settings-horizontal-nav"]') === null;
+  const e7DrawerGone = await pageE.$('[data-testid="settings-drawer"]') === null;
+  assert(
+    'E7 全屏详情页直接关闭设置',
+    !e7Url.includes('/settings') && e7NavGone && e7DrawerGone,
+    `url=${e7Url}, 横向导航已消失=${e7NavGone}, 抽屉已消失=${e7DrawerGone}`
+  );
+
+  // E5：桌面端宽屏同样用抽屉 + 全页模式（不保留左右分栏）
+  await pageE.setViewport({ width: 1280, height: 800 });
+  await new Promise((r) => setTimeout(r, 400));
+  const e5DrawerOk = await openDrawer(pageE);
+  // 桌面进全页详情，确认横向导航（非左右分栏）
+  await pageE.evaluate(() => {
+    const drawer = document.querySelector('[data-testid="settings-drawer"]');
+    if (!drawer) return;
+    for (const b of Array.from(drawer.querySelectorAll('button'))) {
+      if ((b.textContent || '').includes('关于')) { (b as HTMLElement).click(); return; }
+    }
+  });
+  let e5Detail = false;
+  try {
+    await pageE.waitForSelector('[data-testid="settings-horizontal-nav"]', { timeout: 5000 });
+    e5Detail = true;
+  } catch {}
+  assert(
+    'E5 桌面端用抽屉 + 全页模式',
+    e5DrawerOk && e5Detail,
+    `桌面抽屉=${e5DrawerOk}, 桌面横向导航=${e5Detail}`
+  );
+
+  await pageE.close();
+  await ctxE.close();
 }
 
 run()
