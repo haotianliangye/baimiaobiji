@@ -382,6 +382,18 @@ async function run() {
 
   // E1：点击 ≡ 从左侧滑出抽屉
   const e1Ok = await openDrawer(pageE);
+  // 等待 framer-motion 滑入动画（duration 0.3s）完成，否则 getBoundingClientRect 读到动画中途 left<0
+  if (e1Ok) {
+    await pageE
+      .waitForFunction(
+        () => {
+          const d = document.querySelector('[data-testid="settings-drawer"]');
+          return !d || d.getBoundingClientRect().left >= -1;
+        },
+        { timeout: 5000 }
+      )
+      .catch(() => {});
+  }
   const e1Rect = await pageE.evaluate(() => {
     const d = document.querySelector('[data-testid="settings-drawer"]') as HTMLElement | null;
     if (!d) return null;
