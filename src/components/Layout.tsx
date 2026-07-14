@@ -327,10 +327,9 @@ export default function Layout() {
               <div className="absolute left-1/2 -translate-x-1/2 shrink-0" ref={thoughtsCapsuleRef}>
                 <button
                   onClick={() => setShowThoughtsDropdown(!showThoughtsDropdown)}
-                  className="flex items-center gap-1 px-3 py-1 rounded-full bg-white/10 border border-white/10 text-white/90 text-[12px] font-medium select-none hover:bg-white/15 transition-colors active:scale-95"
+                  className="px-3 py-1 rounded-full bg-white/10 border border-white/10 text-white/90 text-[12px] font-medium select-none hover:bg-white/15 transition-colors active:scale-95"
                 >
                   {thoughtsViewMode === 'masonry' ? t('thoughts.masonry') : t('thoughts.timeline')}
-                  <ChevronDown className="w-3 h-3 opacity-60" />
                 </button>
               </div>
             )}
