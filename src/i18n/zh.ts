@@ -14,6 +14,9 @@ export const zh: TranslationDict = {
   'app.authorLabel': '作者',
   'app.tagline': '隐私优先的极简 AI 记录与反思工具',
 
+  // --- 通用文案 ---
+  'common.cancel': '取消',
+
   // --- TabBar 标签 ---
   'tab.record': '碎屑',
   'tab.review': '回顾',
@@ -131,6 +134,9 @@ export const zh: TranslationDict = {
   'record.moreCount': '+{count}',
   'record.saveFailed': '保存失败：{msg}',
   'record.file': '文件',
+  'record.album': '相册',
+  'record.detailTitle': '附件详情',
+  'record.fullSummary': '完整摘要',
 
   // --- RichEditor 富文本编辑器工具栏 ---
   'editor.bold': '粗体',

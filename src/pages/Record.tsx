@@ -272,12 +272,14 @@ function AudioAttachmentItem({
   originalIndex,
   logId,
   isRetrying,
+  failed,
   onRetry,
 }: {
   att: AttachmentMeta;
   originalIndex: number;
   logId: string;
   isRetrying: boolean;
+  failed: boolean;
   onRetry: (logId: string, originalIndex: number) => void;
 }) {
   const { t } = useTranslation();
@@ -297,19 +299,21 @@ function AudioAttachmentItem({
           <div className="h-8 w-full bg-stone-100 rounded animate-pulse" />
         )}
       </div>
-      <button
-        type="button"
-        onClick={() => onRetry(logId, originalIndex)}
-        disabled={isRetrying}
-        className="shrink-0 flex items-center gap-0.5 px-1.5 py-1 rounded-md text-stone-400 hover:text-indigo-500 hover:bg-stone-100 text-[10px] font-medium transition-colors disabled:opacity-50"
-      >
-        {isRetrying ? (
-          <Loader2 className="w-3 h-3 animate-spin" />
-        ) : (
-          <RefreshCw className="w-3 h-3" />
-        )}
-        {t('record.retranscribe')}
-      </button>
+      {failed && (
+        <button
+          type="button"
+          onClick={() => onRetry(logId, originalIndex)}
+          disabled={isRetrying}
+          className="shrink-0 flex items-center gap-0.5 px-1.5 py-1 rounded-md text-stone-400 hover:text-indigo-500 hover:bg-stone-100 text-[10px] font-medium transition-colors disabled:opacity-50"
+        >
+          {isRetrying ? (
+            <Loader2 className="w-3 h-3 animate-spin" />
+          ) : (
+            <RefreshCw className="w-3 h-3" />
+          )}
+          {t('record.retranscribe')}
+        </button>
+      )}
     </div>
   );
 }
@@ -328,6 +332,7 @@ function MultimediaAttachments({
   onRetryAttachment,
   onRetryAudio,
   onOpenLightbox,
+  onOpenDetail,
 }: {
   log: any;
   isGenerating: boolean;
@@ -335,6 +340,7 @@ function MultimediaAttachments({
   onRetryAttachment: (logId: string, originalIndex: number) => void;
   onRetryAudio: (logId: string, originalIndex: number) => void;
   onOpenLightbox: (url: string) => void;
+  onOpenDetail: (log: any) => void;
 }) {
   const { t } = useTranslation();
   const attachments: AttachmentMeta[] = log.attachments || [];
@@ -372,6 +378,8 @@ function MultimediaAttachments({
   const hasAudio = audioItems.length > 0;
   const hasLink = linkItems.length > 0;
   const showSummary = summaryState !== 'none';
+  // 音频转写失败标记：仅当 content 含失败标记时才显示"重新转写"按钮
+  const audioTranscribeFailed = (log.content || '').includes(t('record.audioTranscribeFailed'));
 
   return (
     <div className="mt-2 w-full">
@@ -391,9 +399,13 @@ function MultimediaAttachments({
                   onOpenLightbox={onOpenLightbox}
                 />
                 {showOverflow && (
-                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-semibold text-[15px] rounded-lg pointer-events-none">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onOpenDetail(log); }}
+                    className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-semibold text-[15px] rounded-lg transition-colors hover:bg-black/60"
+                  >
                     {t('record.moreCount', { count: overflowCount })}
-                  </div>
+                  </button>
                 )}
               </div>
             );
@@ -411,6 +423,7 @@ function MultimediaAttachments({
               originalIndex={originalIndex}
               logId={log.id}
               isRetrying={retryingIds.has(`${log.id}-${originalIndex}`)}
+              failed={audioTranscribeFailed}
               onRetry={onRetryAudio}
             />
           ))}
@@ -437,7 +450,7 @@ function MultimediaAttachments({
 
       {/* AI 摘要区 */}
       {showSummary && summaryState === 'ready' && log.attachment_summary && (
-        <p className="mt-2 text-[12px] leading-relaxed text-stone-500 line-clamp-3 break-words">
+        <p className="mt-2 text-[15.5px] leading-relaxed text-stone-500 line-clamp-3 break-words">
           {log.attachment_summary}
         </p>
       )}
@@ -531,6 +544,7 @@ export default function Record() {
   const [generatingSummaryIds, setGeneratingSummaryIds] = useState<Set<string>>(new Set());
   const [retryingAttachmentIds, setRetryingAttachmentIds] = useState<Set<string>>(new Set());
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [detailLog, setDetailLog] = useState<any | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileAccept, setFileAccept] = useState("");
 
@@ -1387,6 +1401,7 @@ export default function Record() {
                         onRetryAttachment={handleRetryAttachmentSummary}
                         onRetryAudio={handleRetryAudioAttachment}
                         onOpenLightbox={(url: string) => setLightboxUrl(url)}
+                        onOpenDetail={(l: any) => setDetailLog(l)}
                       />
                     )}
                   </div>
@@ -1591,8 +1606,8 @@ export default function Record() {
             className="fixed inset-0 bg-black/40 z-[100] transition-opacity"
             onClick={() => setShowAttachmentSheet(false)}
           />
-          <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-[101] max-w-md mx-auto transform transition-transform animate-in slide-in-from-bottom-full duration-300 pb-safe">
-            <div className="p-4">
+          <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-[101] max-w-md mx-auto transform transition-transform animate-in slide-in-from-bottom-full duration-300 pb-safe max-h-[50vh] flex flex-col">
+            <div className="p-4 overflow-y-auto">
               <div className="w-10 h-1.5 bg-stone-200 rounded-full mx-auto mb-5" />
               <div className="grid grid-cols-3 gap-3">
                 {/* 第一行：相册 / 音频 / 视频 */}
@@ -1604,7 +1619,7 @@ export default function Record() {
                   <span className="w-11 h-11 flex items-center justify-center rounded-full bg-stone-100 text-stone-600">
                     <ImageIcon className="w-5 h-5" />
                   </span>
-                  <span className="text-[12px] font-medium text-stone-600">{t('record.image')}</span>
+                  <span className="text-[12px] font-medium text-stone-600">{t('record.album')}</span>
                 </button>
                 <button
                   type="button"
@@ -1848,6 +1863,55 @@ export default function Record() {
             <X className="w-5 h-5" />
           </button>
         </div>
+      )}
+
+      {/* #005 附件详情面板：+N 点击后展示全部附件 + 完整摘要 */}
+      {detailLog && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/40 z-[110] transition-opacity"
+            onClick={() => setDetailLog(null)}
+          />
+          <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-[111] max-w-md mx-auto transform transition-transform animate-in slide-in-from-bottom-full duration-300 pb-safe max-h-[70vh] flex flex-col">
+            <div className="shrink-0 px-4 pt-4 pb-2 flex items-center justify-between">
+              <h3 className="text-[14px] font-semibold text-stone-700">{t('record.detailTitle')}</h3>
+              <button
+                type="button"
+                onClick={() => setDetailLog(null)}
+                className="w-7 h-7 flex items-center justify-center rounded-full text-stone-400 hover:bg-stone-100 transition-colors"
+                aria-label={t('about.close')}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="overflow-y-auto px-4 pb-4 flex-1">
+              {(detailLog.attachments || []).some((a: AttachmentMeta) => a.kind === 'image' || a.kind === 'video') && (
+                <div className="grid grid-cols-2 gap-1 mb-2">
+                  {(detailLog.attachments || [])
+                    .map((att: AttachmentMeta, idx: number) => ({ att, originalIndex: idx }))
+                    .filter(({ att }) => att.kind === 'image' || att.kind === 'video')
+                    .map(({ att, originalIndex }) => (
+                      <MediaThumb
+                        key={originalIndex}
+                        att={att}
+                        originalIndex={originalIndex}
+                        logId={detailLog.id}
+                        isRetrying={retryingAttachmentIds.has(`${detailLog.id}-${originalIndex}`)}
+                        onRetry={handleRetryAttachmentSummary}
+                        onOpenLightbox={(url: string) => setLightboxUrl(url)}
+                      />
+                    ))}
+                </div>
+              )}
+              {detailLog.attachment_summary && (
+                <div className="mt-2">
+                  <p className="text-[12px] font-medium text-stone-400 mb-1">{t('record.fullSummary')}</p>
+                  <p className="text-[15.5px] leading-relaxed text-stone-600 break-words">{detailLog.attachment_summary}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

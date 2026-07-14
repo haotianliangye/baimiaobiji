@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useTranslation } from '../lib/i18n';
 
 interface ActionSheetProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface ActionSheetProps {
 }
 
 export default function ActionSheet({ isOpen, onClose, actions }: ActionSheetProps) {
+  const { t } = useTranslation();
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -52,7 +54,7 @@ export default function ActionSheet({ isOpen, onClose, actions }: ActionSheetPro
             onClick={onClose}
             className="flex items-center justify-center p-4 w-full text-center text-stone-600 bg-stone-100 hover:bg-stone-200 active:bg-stone-300 rounded-2xl transition-colors font-medium text-[16px]"
           >
-            取消
+            {t('common.cancel')}
           </button>
         </div>
       </div>

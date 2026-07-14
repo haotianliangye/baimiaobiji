@@ -145,10 +145,10 @@ async function run() {
   await page.waitForSelector('[data-testid="attachment-button"]', { timeout: 5000 });
   await page.click('[data-testid="attachment-button"]');
 
-  // 点击"图片" -> 触发文件选择器
+  // 点击"相册" -> 触发文件选择器
   const [fileChooser] = await Promise.all([
     page.waitForFileChooser({ timeout: 5000 }),
-    clickActionSheetOption(page, '图片'),
+    clickActionSheetOption(page, '相册'),
   ]);
 
   // 创建 1x1 PNG 测试图片（写入临时文件，Puppeteer fileChooser.accept 需文件路径）

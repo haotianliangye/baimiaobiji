@@ -13,6 +13,9 @@ export const en: TranslationDict = {
   'app.authorLabel': 'Author',
   'app.tagline': 'Privacy-first minimalist AI journaling and reflection tool',
 
+  // --- Common text ---
+  'common.cancel': 'Cancel',
+
   // --- TabBar labels ---
   'tab.record': 'Fragments',
   'tab.review': 'Review',
@@ -130,6 +133,9 @@ export const en: TranslationDict = {
   'record.moreCount': '+{count}',
   'record.saveFailed': 'Save failed: {msg}',
   'record.file': 'File',
+  'record.album': 'Album',
+  'record.detailTitle': 'Attachment Details',
+  'record.fullSummary': 'Full Summary',
 
   // --- RichEditor toolbar ---
   'editor.bold': 'Bold',
