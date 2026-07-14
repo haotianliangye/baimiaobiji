@@ -277,6 +277,7 @@ export default function Layout() {
                   onClick={() => syncNow()}
                   disabled={syncStatus === 'syncing'}
                   title={syncStatus === 'error' ? `${t('layout.syncError')}: ${syncErrorMessage}` : t('layout.syncManual')}
+                  aria-label={syncStatus === 'error' ? `${t('layout.syncError')}: ${syncErrorMessage}` : t('layout.syncManual')}
                   className="p-1.5 hover:opacity-70 transition-opacity active:scale-95 disabled:opacity-80 shrink-0"
                 >
                   {syncStatus === 'syncing' && <Loader2 className="w-[18px] h-[18px] text-blue-400 animate-spin" />}
@@ -373,7 +374,7 @@ export default function Layout() {
         {/* Tab Bar */}
         <nav className="h-[64px] shrink-0 border-t border-baimiao-border/50 bg-white/80 backdrop-blur-md pb-safe z-50 relative">
           <div className="w-full h-full flex justify-around items-center px-2">
-            <TabItem to="/" icon={<ChatCircleDots weight="regular" />} label={t('tab.record')} />
+            <TabItem to="/" end icon={<ChatCircleDots weight="regular" />} label={t('tab.record')} />
             <TabItem to="/review" icon={<Clock weight="regular" />} label={t('tab.review')} />
             <TabItem to="/thoughts" icon={<HeadCircuit weight="regular" />} label={t('tab.thoughts')} />
             <TabItem to="/mingwu" icon={<SunDim weight="regular" />} label={t('tab.mingwu')} />
@@ -714,7 +715,7 @@ export default function Layout() {
           {/* Tab Bar (inside search — tapping exits search & navigates to the section) */}
           <nav className="h-[60px] shrink-0 border-t border-baimiao-border/50 bg-white/80 backdrop-blur-md pb-safe z-50 relative">
             <div className="w-full h-full flex justify-around items-center px-2">
-              <TabItem to="/" icon={<ChatCircleDots weight="regular" />} label={t('tab.record')} onNavigate={() => setSearchMode(false)} />
+              <TabItem to="/" end icon={<ChatCircleDots weight="regular" />} label={t('tab.record')} onNavigate={() => setSearchMode(false)} />
               <TabItem to="/review" icon={<Clock weight="regular" />} label={t('tab.review')} onNavigate={() => setSearchMode(false)} />
               <TabItem to="/thoughts" icon={<HeadCircuit weight="regular" />} label={t('tab.thoughts')} onNavigate={() => setSearchMode(false)} />
               <TabItem to="/mingwu" icon={<SunDim weight="regular" />} label={t('tab.mingwu')} onNavigate={() => setSearchMode(false)} />
@@ -726,7 +727,7 @@ export default function Layout() {
   );
 }
 
-function TabItem({ to, icon, label, disabled = false, onNavigate, activeWeight = 'fill' }: { to: string, icon: React.ReactNode, label: string, disabled?: boolean, onNavigate?: () => void, activeWeight?: 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone' }) {
+function TabItem({ to, icon, label, disabled = false, onNavigate, activeWeight = 'fill', end = false }: { to: string, icon: React.ReactNode, label: string, disabled?: boolean, onNavigate?: () => void, activeWeight?: 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone', end?: boolean }) {
   const setCopilotMode = useAppStore(state => state.setCopilotMode);
   if (disabled) {
     return (
@@ -739,6 +740,7 @@ function TabItem({ to, icon, label, disabled = false, onNavigate, activeWeight =
   return (
     <NavLink
       to={to}
+      end={end}
       onClick={() => { setCopilotMode(false); onNavigate?.(); }}
       className={({ isActive }) =>
         `relative flex flex-col items-center justify-center px-4 py-1 rounded-xl transition-all duration-200 select-none ${
