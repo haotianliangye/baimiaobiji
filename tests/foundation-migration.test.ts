@@ -1,11 +1,12 @@
 /**
  * #3 Foundation E2E 测试（Puppeteer）
  *
- * 覆盖三个旅程：
+ * 覆盖四个旅程：
  *   A. 导航：底部 4 Tab 为「碎屑/回顾/沉思/明悟」；/diary 重定向到 /review、/insights 重定向到 /mingwu。
  *   B. 迁移：构造旧版 v7 IndexedDB（daily_diaries + insights + daily_reviews），启动应用触发 v8 升级，
  *      验证数据迁移到 daily_reviews(entry_type) / mingwu、旧表删除、migration_backups 写入。
  *   C. 回顾合并：迁移后 /review 同列展示「日记」与「回顾」卡片。
+ *   D. 明悟图标：TabBar 明悟 tab / 明悟卡片 header / 生成按钮均渲染为 Phosphor Sun 图标（需求 5）。
  *
  * 运行：先 `npm run build`，再 `npm run test:e2e`。
  * 通过退出码 0/1 反映结果，便于 CI。
@@ -16,6 +17,8 @@ import http from 'http';
 
 const BASE_URL = 'http://localhost:4173';
 const DB_NAME = 'whitewash_diary';
+/** Phosphor Sun 图标 path d 起始前缀（regular/fill 等 weight 共享此前缀，用于 E2E 识别 Sun 图标）。 */
+const SUN_PATH_PREFIX = 'M120,40V16a8,8,0,0,1,16,0V40';
 
 let serverProc: ChildProcess | null = null;
 let browser: Browser | null = null;
@@ -244,6 +247,74 @@ async function run() {
       reviewPageText.includes('日记摘要') &&
       reviewPageText.includes('回顾摘要'),
     `含日记摘要=${reviewPageText.includes('日记摘要')}, 含回顾摘要=${reviewPageText.includes('回顾摘要')}`
+  );
+
+  // ---------- 旅程 D：明悟 Sun 图标（需求 5 / issue 105） ----------
+  // PRD 测试重点：底部 TabBar 明悟 tab 渲染为 Sun、明悟页 header 渲染为 Sun、
+  // 全局旧明悟图标处（生成按钮等）均替换为 Sun 无遗漏。
+  // pageB 已含迁移后的 mingwu 记录（i1），可直接验证卡片 header 图标。
+  await pageB.goto(`${BASE_URL}/mingwu`, { waitUntil: 'networkidle2' });
+  await new Promise((r) => setTimeout(r, 800));
+
+  // D1：底部 TabBar 明悟 tab 渲染为 Phosphor Sun 图标
+  const d1TabSun = await pageB.evaluate((prefix) => {
+    for (const link of document.querySelectorAll('nav a')) {
+      if ((link.textContent || '').includes('明悟')) {
+        for (const svg of link.querySelectorAll('svg')) {
+          for (const p of svg.querySelectorAll('path')) {
+            if ((p.getAttribute('d') || '').startsWith(prefix)) return true;
+          }
+        }
+      }
+    }
+    return false;
+  }, SUN_PATH_PREFIX);
+  assert(
+    'D1 TabBar 明悟 tab 渲染为 Sun 图标',
+    d1TabSun,
+    d1TabSun ? 'nav 明悟 tab 含 Sun SVG' : 'nav 明悟 tab 未找到 Sun SVG'
+  );
+
+  // D2：明悟页卡片 header 渲染为 Phosphor Sun 图标（明悟页内部 header）
+  let d2CardSun = false;
+  try {
+    await pageB.waitForSelector('[data-testid="mingwu-card"]', { timeout: 10000 });
+    d2CardSun = await pageB.evaluate((prefix) => {
+      const card = document.querySelector('[data-testid="mingwu-card"]');
+      if (!card) return false;
+      const headerBtn = card.querySelector('button');
+      if (!headerBtn) return false;
+      for (const svg of headerBtn.querySelectorAll('svg')) {
+        for (const p of svg.querySelectorAll('path')) {
+          if ((p.getAttribute('d') || '').startsWith(prefix)) return true;
+        }
+      }
+      return false;
+    }, SUN_PATH_PREFIX);
+  } catch {
+    d2CardSun = false;
+  }
+  assert(
+    'D2 明悟卡片 header 渲染为 Sun 图标',
+    d2CardSun,
+    d2CardSun ? '卡片 header 含 Sun SVG' : '卡片 header 未找到 Sun SVG'
+  );
+
+  // D3：明悟生成按钮渲染为 Phosphor Sun 图标（全局旧明悟图标处无遗漏）
+  const d3GenSun = await pageB.evaluate((prefix) => {
+    const btn = document.querySelector('[data-testid="mingwu-generate-btn"]');
+    if (!btn) return false;
+    for (const svg of btn.querySelectorAll('svg')) {
+      for (const p of svg.querySelectorAll('path')) {
+        if ((p.getAttribute('d') || '').startsWith(prefix)) return true;
+      }
+    }
+    return false;
+  }, SUN_PATH_PREFIX);
+  assert(
+    'D3 明悟生成按钮渲染为 Sun 图标',
+    d3GenSun,
+    d3GenSun ? '生成按钮含 Sun SVG' : '生成按钮未找到 Sun SVG'
   );
 
   await pageB.close();
