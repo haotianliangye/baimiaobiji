@@ -416,6 +416,7 @@ export default function RichEditor({
         {/* 通用上传 */}
         <button
           type="button"
+          data-testid="editor-upload"
           title={t('editor.upload')}
           onClick={() => fileInputRef.current?.click()}
           className="w-7 h-7 flex items-center justify-center rounded-md text-stone-500 hover:text-baimiao-mysteria hover:bg-stone-200/50 transition-colors active:scale-95"
@@ -425,6 +426,7 @@ export default function RichEditor({
         <input
           ref={fileInputRef}
           type="file"
+          data-testid="editor-file-input"
           accept="image/*,audio/*,video/*"
           multiple
           className="hidden"
@@ -433,6 +435,7 @@ export default function RichEditor({
         {/* 超链接 */}
         <button
           type="button"
+          data-testid="editor-hyperlink"
           title={t('editor.hyperlink')}
           onClick={() => { setLinkUrl(''); setLinkText(''); setShowLinkDialog(true); }}
           className="w-7 h-7 flex items-center justify-center rounded-md text-stone-500 hover:text-baimiao-mysteria hover:bg-stone-200/50 transition-colors active:scale-95"
@@ -442,6 +445,7 @@ export default function RichEditor({
         {/* 麦克风 */}
         <button
           type="button"
+          data-testid="editor-mic"
           title={isRecording ? t('editor.recording') : isTranscribing ? t('editor.transcribing') : t('editor.micRecord')}
           onClick={handleMicToggle}
           disabled={isTranscribing}
@@ -464,6 +468,7 @@ export default function RichEditor({
         {/* #标签 */}
         <button
           type="button"
+          data-testid="editor-tag"
           title={t('editor.tag')}
           onClick={() => insertAtCursor('#')}
           className="w-7 h-7 flex items-center justify-center rounded-md text-stone-500 hover:text-baimiao-mysteria hover:bg-stone-200/50 transition-colors active:scale-95"
@@ -474,6 +479,7 @@ export default function RichEditor({
         <div className="relative" ref={moreMenuRef}>
           <button
             type="button"
+            data-testid="editor-more"
             title={t('editor.more')}
             onClick={() => setShowMoreMenu((v) => !v)}
             className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors active:scale-95 ${
@@ -485,7 +491,7 @@ export default function RichEditor({
             <MoreHorizontal className="w-4 h-4" />
           </button>
           {showMoreMenu && (
-            <div className="absolute top-full left-0 mt-1 z-50 bg-white rounded-xl shadow-lg border border-stone-200 py-1 min-w-[150px] animate-in fade-in zoom-in-95 duration-100">
+            <div data-testid="editor-more-menu" className="absolute top-full left-0 mt-1 z-50 bg-white rounded-xl shadow-lg border border-stone-200 py-1 min-w-[150px] animate-in fade-in zoom-in-95 duration-100">
               {moreMenuItems.map((item) => (
                 <button
                   key={item.key}
@@ -594,6 +600,7 @@ export default function RichEditor({
       {/* 超链接弹框 */}
       {showLinkDialog && (
         <div
+          data-testid="editor-link-dialog"
           className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-6"
           onClick={() => setShowLinkDialog(false)}
         >

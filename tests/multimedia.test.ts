@@ -271,6 +271,157 @@ async function run() {
 
   await page3.close();
   await ctx3.close();
+
+  // ---------- 旅程 E/F/G/J：附件面板布局、遮罩关闭、取消关闭、移动端视口 ----------
+  const ctx4 = await browser.createBrowserContext();
+  const page4 = await ctx4.newPage();
+  // J: 移动端视口（验证移动端弹出）
+  await page4.setViewport({ width: 390, height: 844 });
+  await page4.setRequestInterception(true);
+  page4.on('request', (req) => req.continue());
+  await page4.goto(`${BASE_URL}/`, { waitUntil: 'networkidle2' });
+
+  // 打开附件面板
+  await page4.waitForSelector('[data-testid="attachment-button"]', { timeout: 5000 });
+  await page4.click('[data-testid="attachment-button"]');
+  await page4.waitForSelector('[data-testid="attachment-sheet"]', { timeout: 5000 });
+
+  // E: 6 选项布局完整
+  const optionIds = [
+    'attachment-option-image',
+    'attachment-option-audio',
+    'attachment-option-video',
+    'attachment-option-link',
+    'attachment-option-file',
+    'attachment-option-cancel',
+  ];
+  let allOptionsPresent = true;
+  for (const id of optionIds) {
+    const el = await page4.$(`[data-testid="${id}"]`);
+    if (!el) allOptionsPresent = false;
+  }
+  assert('E 附件面板 6 选项布局完整', allOptionsPresent, allOptionsPresent ? '6 选项全在' : '有选项缺失');
+
+  // J: 移动端视口弹出（面板可见且贴底）
+  await new Promise((r) => setTimeout(r, 400)); // 等待 slide-in 动画完成
+  const sheetBox = await page4.$eval('[data-testid="attachment-sheet"]', (el: any) => {
+    const rect = el.getBoundingClientRect();
+    return { bottom: rect.bottom, height: rect.height, viewportHeight: window.innerHeight };
+  });
+  assert(
+    'J 移动端视口弹出底部面板',
+    !!sheetBox && Math.abs(sheetBox.bottom - sheetBox.viewportHeight) < 5 && sheetBox.height > 0,
+    `bottom=${sheetBox?.bottom}, height=${sheetBox?.height}, vh=${sheetBox?.viewportHeight}`
+  );
+
+  // F: 点击遮罩关闭
+  await page4.click('[data-testid="attachment-sheet-mask"]');
+  await new Promise((r) => setTimeout(r, 500));
+  const sheetGoneAfterMask = await page4.$('[data-testid="attachment-sheet"]');
+  assert('F 点击遮罩关闭附件面板', !sheetGoneAfterMask, sheetGoneAfterMask ? '面板仍存在' : '面板已关闭');
+
+  // G: 点击取消关闭
+  await page4.click('[data-testid="attachment-button"]');
+  await page4.waitForSelector('[data-testid="attachment-sheet"]', { timeout: 5000 });
+  await page4.click('[data-testid="attachment-option-cancel"]');
+  await new Promise((r) => setTimeout(r, 500));
+  const sheetGoneAfterCancel = await page4.$('[data-testid="attachment-sheet"]');
+  assert('G 点击取消关闭附件面板', !sheetGoneAfterCancel, sheetGoneAfterCancel ? '面板仍存在' : '面板已关闭');
+
+  await page4.close();
+  await ctx4.close();
+
+  // ---------- 旅程 H：accept 属性断言（image/*, audio/*, video/*） ----------
+  const ctx5 = await browser.createBrowserContext();
+  const page5 = await ctx5.newPage();
+  await page5.setViewport({ width: 390, height: 844 });
+  await page5.setRequestInterception(true);
+  page5.on('request', (req) => req.continue());
+  await page5.goto(`${BASE_URL}/`, { waitUntil: 'networkidle2' });
+
+  // 阻止文件选择器弹出，便于连续测试 accept 属性
+  await page5.evaluate(`
+    var orig = HTMLInputElement.prototype.click;
+    window.__origClick = orig;
+    HTMLInputElement.prototype.click = function() {
+      if (this.type === 'file') return;
+      return orig.call(this);
+    };
+  `);
+
+  const acceptTests = [
+    { option: 'attachment-option-image', expected: 'image/*', label: 'image' },
+    { option: 'attachment-option-audio', expected: 'audio/*', label: 'audio' },
+    { option: 'attachment-option-video', expected: 'video/*', label: 'video' },
+  ];
+  for (const at of acceptTests) {
+    await page5.waitForSelector('[data-testid="attachment-button"]', { timeout: 5000 });
+    await page5.click('[data-testid="attachment-button"]');
+    await page5.waitForSelector('[data-testid="attachment-sheet"]', { timeout: 5000 });
+    // 点击选项 -> 设置 accept，但不弹文件选择器（click 已被拦截）
+    await page5.click(`[data-testid="${at.option}"]`);
+    await new Promise((r) => setTimeout(r, 500));
+    const acceptVal = await page5.$eval(
+      '[data-testid="attachment-file-input"]',
+      (el: any) => el.getAttribute('accept') || ''
+    );
+    assert(
+      `H ${at.label} accept=${at.expected}`,
+      acceptVal === at.expected,
+      `accept=${acceptVal}, expected=${at.expected}`
+    );
+  }
+
+  await page5.close();
+  await ctx5.close();
+
+  // ---------- 旅程 I：多选场景 ----------
+  const ctx6 = await browser.createBrowserContext();
+  const page6 = await ctx6.newPage();
+  await page6.setViewport({ width: 390, height: 844 });
+  await page6.setRequestInterception(true);
+  page6.on('request', (req) => {
+    if (req.url().includes('/api/')) {
+      req.respond({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ summary: '', text: '', embedding: [] }),
+      });
+    } else {
+      req.continue();
+    }
+  });
+  await page6.goto(`${BASE_URL}/`, { waitUntil: 'networkidle2' });
+
+  // 创建两张测试图片
+  const pngBase64Multi =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  const tempFile1 = path.join(os.tmpdir(), `baimiao-multi-1-${Date.now()}.png`);
+  const tempFile2 = path.join(os.tmpdir(), `baimiao-multi-2-${Date.now()}.png`);
+  fs.writeFileSync(tempFile1, Buffer.from(pngBase64Multi, 'base64'));
+  fs.writeFileSync(tempFile2, Buffer.from(pngBase64Multi, 'base64'));
+
+  // 打开附件面板，选择多张图片
+  await page6.waitForSelector('[data-testid="attachment-button"]', { timeout: 5000 });
+  await page6.click('[data-testid="attachment-button"]');
+  await page6.waitForSelector('[data-testid="attachment-sheet"]', { timeout: 5000 });
+  const [multiChooser] = await Promise.all([
+    page6.waitForFileChooser({ timeout: 5000 }),
+    page6.click('[data-testid="attachment-option-image"]'),
+  ]);
+  await multiChooser.accept([tempFile1, tempFile2]);
+
+  // 等待预览出现
+  await page6.waitForSelector('[data-testid="attachment-preview"]', { timeout: 5000 });
+  await new Promise((r) => setTimeout(r, 500));
+  const thumbCount = await page6.$$eval(
+    '[data-testid^="attachment-thumb-"]',
+    (els: any[]) => els.length
+  );
+  assert('I 多选场景出现多个预览缩略图', thumbCount >= 2, `thumbCount=${thumbCount}`);
+
+  await page6.close();
+  await ctx6.close();
 }
 
 run()

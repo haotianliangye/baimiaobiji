@@ -1581,6 +1581,7 @@ export default function Record() {
         <input
           ref={fileInputRef}
           type="file"
+          data-testid="attachment-file-input"
           accept={fileAccept}
           multiple
           onChange={handleFileChange}
@@ -1603,16 +1604,18 @@ export default function Record() {
       {showAttachmentSheet && (
         <>
           <div
+            data-testid="attachment-sheet-mask"
             className="fixed inset-0 bg-black/40 z-[100] transition-opacity"
             onClick={() => setShowAttachmentSheet(false)}
           />
-          <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-[101] max-w-md mx-auto transform transition-transform animate-in slide-in-from-bottom-full duration-300 pb-safe max-h-[50vh] flex flex-col">
+          <div data-testid="attachment-sheet" className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-[101] max-w-md mx-auto transform transition-transform animate-in slide-in-from-bottom-full duration-300 pb-safe max-h-[50vh] flex flex-col">
             <div className="p-4 overflow-y-auto">
               <div className="w-10 h-1.5 bg-stone-200 rounded-full mx-auto mb-5" />
               <div className="grid grid-cols-3 gap-3">
                 {/* 第一行：相册 / 音频 / 视频 */}
                 <button
                   type="button"
+                  data-testid="attachment-option-image"
                   onClick={() => { handleSelectAttachmentKind('image'); setShowAttachmentSheet(false); }}
                   className="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-stone-100 active:bg-stone-200 transition-colors"
                 >
@@ -1623,6 +1626,7 @@ export default function Record() {
                 </button>
                 <button
                   type="button"
+                  data-testid="attachment-option-audio"
                   onClick={() => { handleSelectAttachmentKind('audio'); setShowAttachmentSheet(false); }}
                   className="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-stone-100 active:bg-stone-200 transition-colors"
                 >
@@ -1633,6 +1637,7 @@ export default function Record() {
                 </button>
                 <button
                   type="button"
+                  data-testid="attachment-option-video"
                   onClick={() => { handleSelectAttachmentKind('video'); setShowAttachmentSheet(false); }}
                   className="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-stone-100 active:bg-stone-200 transition-colors"
                 >
@@ -1644,6 +1649,7 @@ export default function Record() {
                 {/* 第二行：链接 / 文件 / 取消 */}
                 <button
                   type="button"
+                  data-testid="attachment-option-link"
                   onClick={() => { handleSelectAttachmentKind('link'); setShowAttachmentSheet(false); }}
                   className="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-stone-100 active:bg-stone-200 transition-colors"
                 >
@@ -1654,6 +1660,7 @@ export default function Record() {
                 </button>
                 <button
                   type="button"
+                  data-testid="attachment-option-file"
                   onClick={() => { handleSelectAttachmentKind('file'); setShowAttachmentSheet(false); }}
                   className="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-stone-100 active:bg-stone-200 transition-colors"
                 >
@@ -1664,6 +1671,7 @@ export default function Record() {
                 </button>
                 <button
                   type="button"
+                  data-testid="attachment-option-cancel"
                   onClick={() => setShowAttachmentSheet(false)}
                   className="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-stone-100 active:bg-stone-200 transition-colors"
                 >

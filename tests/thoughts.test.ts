@@ -265,6 +265,124 @@ async function run() {
 
   await page.close();
   await ctx.close();
+
+  // ---------- 6. 沉思工具栏按钮测试（upload/hyperlink/mic/tag/more） ----------
+  const ctx2 = await browser.createBrowserContext();
+  const page2 = await ctx2.newPage();
+  await page2.setViewport({ width: 390, height: 844 });
+
+  // mic 按钮在无麦克风时弹 alert，自动接受
+  const dialogMessages: string[] = [];
+  page2.on('dialog', async (dialog) => {
+    dialogMessages.push(dialog.message());
+    await dialog.accept();
+  });
+
+  await page2.goto(`${BASE_URL}/thoughts`, { waitUntil: 'networkidle2' });
+  await page2.waitForSelector('[data-testid="thought-quick-input"]', { timeout: 15000 });
+
+  // 展开富文本编辑器
+  await page2.click('[data-testid="thought-quick-input"]');
+  await page2.waitForSelector('[data-testid="thought-create-textarea"]', { timeout: 5000 });
+
+  // 6a. upload 按钮触发文件选择器，accept 含 image/audio/video
+  const [uploadChooser] = await Promise.all([
+    page2.waitForFileChooser({ timeout: 5000 }),
+    page2.click('[data-testid="editor-upload"]'),
+  ]);
+  const uploadAccept = await page2.$eval(
+    '[data-testid="editor-file-input"]',
+    (el: any) => el.getAttribute('accept') || ''
+  );
+  assert(
+    '6a upload 按钮触发文件选择器，accept=image/*,audio/*,video/*',
+    uploadAccept.includes('image/*') &&
+      uploadAccept.includes('audio/*') &&
+      uploadAccept.includes('video/*'),
+    `accept=${uploadAccept}`
+  );
+  // 关闭文件选择器（不接受任何文件）
+  await uploadChooser.accept([]);
+  await new Promise((r) => setTimeout(r, 300));
+
+  // 6d. tag 按钮在光标处插入 #
+  await page2.click('[data-testid="thought-create-textarea"]');
+  await page2.click('[data-testid="editor-tag"]');
+  await new Promise((r) => setTimeout(r, 300));
+  const afterTag = await page2.$eval(
+    '[data-testid="thought-create-textarea"]',
+    (el: any) => (el as HTMLTextAreaElement).value
+  );
+  assert('6d tag 按钮插入 # 到文本', afterTag.includes('#'), `textarea=${afterTag}`);
+
+  // 6e. more 按钮展开更多菜单
+  await page2.click('[data-testid="editor-more"]');
+  const moreMenu = await page2.waitForSelector('[data-testid="editor-more-menu"]', {
+    timeout: 5000,
+  });
+  assert('6e more 按钮展开更多菜单', !!moreMenu, moreMenu ? '菜单可见' : '菜单未出现');
+  // 再次点击 more 关闭菜单
+  await page2.click('[data-testid="editor-more"]');
+  await new Promise((r) => setTimeout(r, 300));
+
+  // 6b. hyperlink 按钮打开链接弹框
+  await page2.click('[data-testid="editor-hyperlink"]');
+  const linkDialog = await page2.waitForSelector('[data-testid="editor-link-dialog"]', {
+    timeout: 5000,
+  });
+  assert('6b hyperlink 按钮打开链接弹框', !!linkDialog, linkDialog ? '弹框可见' : '弹框未出现');
+  // 点击遮罩区域关闭弹框（通过 evaluate 直接触发 overlay click，避免坐标命中内部内容）
+  await page2.evaluate(() => {
+    const overlay = document.querySelector('[data-testid="editor-link-dialog"]');
+    if (overlay) (overlay as HTMLElement).click();
+  });
+  await new Promise((r) => setTimeout(r, 500));
+  // 确认弹框已关闭，避免遮罩拦截后续 mic 按钮点击
+  const dialogStillOpen = await page2.$('[data-testid="editor-link-dialog"]');
+  if (dialogStillOpen) {
+    // 备用：按 Escape 关闭
+    await page2.keyboard.press('Escape');
+    await new Promise((r) => setTimeout(r, 300));
+  }
+
+  // 6c. mic 按钮触发麦克风访问（getUserMedia 被调用即验证按钮接线正确）
+  // 覆盖 navigator.mediaDevices.getUserMedia 使其确定性 reject
+  await page2.evaluate(`
+    window.__gumCalled = false;
+    window.__micClicked = false;
+    var micBtn = document.querySelector('[data-testid="editor-mic"]');
+    if (micBtn) {
+      micBtn.addEventListener('click', function() { window.__micClicked = true; }, true);
+    }
+    try {
+      Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
+        value: function() {
+          window.__gumCalled = true;
+          return Promise.reject(new Error('test: no microphone'));
+        },
+        configurable: true,
+        writable: true
+      });
+    } catch (e) {
+      window.__gumOverrideError = String(e);
+    }
+  `);
+  dialogMessages.length = 0;
+  await page2.click('[data-testid="editor-mic"]');
+  // 等待 getUserMedia reject -> alert 弹出（异步流程）
+  await new Promise((r) => setTimeout(r, 2000));
+  const micDiag = await page2.evaluate(
+    'JSON.stringify({ gumCalled: window.__gumCalled, micClicked: window.__micClicked, overrideError: window.__gumOverrideError || "none" })'
+  );
+  const diagObj = JSON.parse(micDiag);
+  assert(
+    '6c mic 按钮触发录音行为（click + getUserMedia/alert）',
+    diagObj.micClicked && (diagObj.gumCalled || dialogMessages.length > 0),
+    `micDiag=${micDiag}, dialogMsgs=${dialogMessages.length}`
+  );
+
+  await page2.close();
+  await ctx2.close();
 }
 
 run()
