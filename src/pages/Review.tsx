@@ -140,6 +140,8 @@ export default function Review() {
   const touchStartY = useRef<number | null>(null);
   const [activeReview, setActiveReview] = useState<any>(null);
   const holdTimeoutRef = useRef<any>(null);
+  // #104 单击/双击互斥：延迟单击折叠/展开，双击取消延迟并触发 inline 编辑
+  const clickTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout> | null>>({});
   const dateParam = searchParams.get('date');
   const [showPromptMenu, setShowPromptMenu] = useState(false);
   // Stores the DOMRect of the triggering button (viewport-relative, for fixed positioning)
@@ -461,7 +463,25 @@ export default function Review() {
                 return (
                   <div
                     key={review.id}
+                    data-testid="review-card"
                     className="w-full overflow-hidden baimiao-card-review"
+                    onDoubleClick={(e) => {
+                      // #104 双击触发 inline 编辑（textarea 获得焦点）
+                      if (isEditing || isGenerating) return;
+                      // 取消延迟的单击折叠/展开
+                      if (clickTimeoutsRef.current[review.id]) {
+                        clearTimeout(clickTimeoutsRef.current[review.id]!);
+                        clickTimeoutsRef.current[review.id] = null;
+                      }
+                      const target = e.target as HTMLElement;
+                      // 双击操作按钮/链接/输入框时不触发编辑
+                      const closestButton = target.closest('button');
+                      if (closestButton && !closestButton.hasAttribute('data-card-header')) return;
+                      if (target.closest('a, input, textarea')) return;
+                      setEditText(entryContent || '');
+                      setEditingReviewId(review.id);
+                      setExpandedReviewId(review.id);
+                    }}
                     onTouchStart={(e) => {
                       if (isEditing) return;
                       const touch = e.touches[0];
@@ -485,9 +505,19 @@ export default function Review() {
                   >
                     {/* Card header */}
                     <button
+                      data-card-header
+                      data-testid="review-card-header"
                       onClick={() => {
                         if (isEditing) return;
-                        setExpandedReviewId(isReviewExpanded ? null : review.id);
+                        // #104 单击/双击互斥：延迟折叠/展开，双击时取消
+                        if (clickTimeoutsRef.current[review.id]) {
+                          clearTimeout(clickTimeoutsRef.current[review.id]!);
+                          clickTimeoutsRef.current[review.id] = null;
+                        }
+                        clickTimeoutsRef.current[review.id] = setTimeout(() => {
+                          setExpandedReviewId(isReviewExpanded ? null : review.id);
+                          clickTimeoutsRef.current[review.id] = null;
+                        }, 250);
                       }}
                       className="p-4 text-left hover:bg-stone-50 active:bg-stone-100 transition-colors flex flex-col gap-1.5 w-full relative"
                     >
@@ -601,7 +631,15 @@ export default function Review() {
                               onClick={(e) => {
                                 // 避免点击内部链接时触发收起
                                 if ((e.target as HTMLElement).tagName.toLowerCase() === 'a') return;
-                                setExpandedReviewId(null);
+                                // #104 单击/双击互斥：延迟收起，双击时取消
+                                if (clickTimeoutsRef.current[review.id]) {
+                                  clearTimeout(clickTimeoutsRef.current[review.id]!);
+                                  clickTimeoutsRef.current[review.id] = null;
+                                }
+                                clickTimeoutsRef.current[review.id] = setTimeout(() => {
+                                  setExpandedReviewId(null);
+                                  clickTimeoutsRef.current[review.id] = null;
+                                }, 250);
                               }}
                             >
                               <ReactMarkdown

@@ -397,7 +397,7 @@ function MultimediaAttachments({
   const audioTranscribeFailed = (log.content || '').includes(t('record.audioTranscribeFailed'));
 
   return (
-    <div className="mt-2 w-full">
+    <div className="mt-2 w-full" data-attachment-region>
       {/* 图片/视频网格 */}
       {visibleMedia.length > 0 && (
         <div className={isSingle ? 'w-full' : 'grid grid-cols-2 gap-1'}>
@@ -1172,6 +1172,17 @@ export default function Record() {
     }
   }, [t]);
 
+  /**
+   * #104 打开碎屑编辑弹窗（RichEditor）。
+   * 供右键菜单"编辑记录"和双击卡片入口共用。
+   */
+  const handleOpenEditModal = useCallback((log: any) => {
+    setActiveLog(log);
+    setEditContent(log.content);
+    setEditAttachments(log.attachments || []);
+    setIsEditingModalOpen(true);
+  }, []);
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const isMobile = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth < 768);
     
@@ -1466,6 +1477,7 @@ export default function Record() {
                 <div
                   key={log.id}
                   id={`log-${log.id}`}
+                  data-testid="log-card"
                   className={`flex gap-3 group items-start px-2 py-1 rounded-lg relative ${isMultiSelectMode ? "cursor-pointer" : ""} animate-in fade-in slide-in-from-bottom-2 duration-300`}
                   onClick={() => {
                     if (isMultiSelectMode) {
@@ -1474,6 +1486,16 @@ export default function Record() {
                       else newSelected.add(log.id);
                       setSelectedLogIds(newSelected);
                     }
+                  }}
+                  onDoubleClick={(e) => {
+                    // #104 多选模式下双击不触发编辑
+                    if (isMultiSelectMode) return;
+                    const target = e.target as HTMLElement;
+                    // 附件区单击保留打开灯箱/详情，双击只在非附件区触发编辑
+                    if (target.closest('[data-attachment-region]') || target.closest('button, audio, video, img, a')) {
+                      return;
+                    }
+                    handleOpenEditModal(log);
                   }}
                 onTouchStart={(e) => {
                   if (isMultiSelectMode) return;
@@ -1892,10 +1914,7 @@ export default function Record() {
             </button>
             <button
               onClick={() => {
-                setActiveLog(contextMenuState.log);
-                setEditContent(contextMenuState.log.content);
-                setEditAttachments(contextMenuState.log.attachments || []);
-                setIsEditingModalOpen(true);
+                handleOpenEditModal(contextMenuState.log);
                 setContextMenuState({ ...contextMenuState, isOpen: false });
               }}
               className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 disabled:opacity-50"
