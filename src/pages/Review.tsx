@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { db } from '../db/db';
 import CalendarHeatmap from '../components/CalendarHeatmap';
+import TodayStats from '../components/TodayStats';
 import { countChars } from '../lib/wordCount';
 import { formatDiaryMarkdown } from '../lib/utils';
 import { washCitations } from '../lib/citationWash';
@@ -368,9 +369,6 @@ export default function Review() {
            {t('review.title')}
          </h2>
          <div className="flex items-center gap-3">
-           <span className="inline-flex text-[11px] font-medium text-stone-500 bg-stone-100/80 px-2 py-1 rounded-full">
-             {t('record.todayChars', { count: dailyChars })}
-           </span>
            <button onClick={() => navigateToDate(-1)} className="p-1 hover:bg-stone-200/50 rounded-full transition-colors text-stone-400 hover:text-stone-700">
              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
            </button>
@@ -425,6 +423,8 @@ export default function Review() {
                   {t('review.todayFragmentsCount', { count: logsCountForDate })}
                 </p>
                 <p className="text-[12.5px] text-stone-500 mb-6 leading-relaxed">{t('review.emptyTodayDesc')}</p>
+                {/* 需求 1：空状态 AI 智能整理按钮上方今日统计 */}
+                <TodayStats count={reviewsForDate.length} chars={dailyChars} className="w-full" />
                 <button
                   disabled={logsCountForDate === 0}
                   onClick={(e) => openPromptMenu(e.currentTarget.getBoundingClientRect(), { dateStr })}
@@ -764,6 +764,8 @@ export default function Review() {
                 );
               })}
 
+              {/* 需求 1：卡片列表底部 AI 智能整理(追加)按钮上方今日统计 */}
+              <TodayStats count={reviewsForDate.length} chars={dailyChars} />
               {/* Append new review button */}
               <button
                 onClick={(e) => openPromptMenu(e.currentTarget.getBoundingClientRect(), { dateStr })}

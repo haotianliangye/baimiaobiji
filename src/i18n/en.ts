@@ -15,6 +15,8 @@ export const en: TranslationDict = {
 
   // --- Common text ---
   'common.cancel': 'Cancel',
+  // Issue 1: stats subtitle relocated to module top-left (Fragments/Review/Reflections)
+  'common.todayStats': 'Today {count} notes · {chars} chars',
 
   // --- TabBar labels ---
   'tab.record': 'Fragments',

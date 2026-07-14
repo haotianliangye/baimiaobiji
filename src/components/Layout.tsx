@@ -1,13 +1,10 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Loader2, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning, Sparkles, MessageSquare, Calendar as CalendarIcon, Menu, Lightbulb, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ChatCircleDots, HeadCircuit, Clock, SunDim } from '@phosphor-icons/react';
-import { subDays, startOfDay, endOfDay, format, parse, addDays, isSameDay } from 'date-fns';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db/db';
+import { subDays, format, parse, addDays, isSameDay } from 'date-fns';
 import { useAppStore } from '../store/app.store';
 import { useSettingsStore } from '../store/settings.store';
-import { countChars } from '../lib/wordCount';
 import MiniCalendar from './MiniCalendar';
 import CalendarHeatmap from './CalendarHeatmap';
 import RandomWalk from './RandomWalk';
@@ -56,7 +53,6 @@ export default function Layout() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const currentPath = location.pathname;
-  const isMingwu = currentPath === '/mingwu';
   // 日期导航仅在「碎屑 / 回顾」两个按日期浏览的 Tab 显示
   const showDateNav = currentPath === '/' || currentPath === '/review';
 
@@ -68,19 +64,6 @@ export default function Layout() {
     '/mingwu': 'tab.mingwu',
   };
   const headerTitleKey = routeTitleKey[currentPath] || 'layout.titleBaimiao';
-
-  // 副标题「今日 X 字」：取今日 raw_logs 字数（明悟不显示）
-  const todayLogs = useLiveQuery(() => {
-    const now = new Date();
-    return db.raw_logs
-      .where('created_at')
-      .between(startOfDay(now).getTime(), endOfDay(now).getTime())
-      .toArray();
-  }, []);
-  const todayCharCount = useMemo(
-    () => (todayLogs || []).reduce((sum, log) => sum + countChars(log.content), 0),
-    [todayLogs]
-  );
 
   // 日期导航（与各页面共用 ?date= 查询参数）
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -233,10 +216,6 @@ export default function Layout() {
                 <span className={`flex items-center gap-1 bg-white/10 text-white/90 border border-white/10 text-[10px] px-2 py-0.5 rounded-full font-medium select-none tracking-wide ${isQueuePaused ? 'opacity-65' : 'animate-pulse'} shrink-0`}>
                   <Loader2 className={`w-2.5 h-2.5 text-white/60 ${isQueuePaused ? '' : 'animate-spin'}`} />
                   {isQueuePaused ? `${t('layout.aiPaused')} (${autoGenTasks.length})` : `${t('layout.aiProcessing')} (${autoGenTasks.length})`}
-                </span>
-              ) : !isMingwu ? (
-                <span className="text-[10.5px] text-white/55 font-medium select-none shrink-0 truncate">
-                  · {t('record.todayChars', { count: todayCharCount })}
                 </span>
               ) : null}
             </div>

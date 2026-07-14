@@ -46,6 +46,7 @@ import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { parseTagsFromText, resolveAlias } from "../lib/tags";
 import { useTagsStore } from "../store/tags.store";
 import CalendarHeatmap from "../components/CalendarHeatmap";
+import TodayStats from "../components/TodayStats";
 import { saveAttachmentBlob, blobToBase64, generateAttachmentSummary, requestMultimediaSummary } from "../lib/multimedia";
 import type { AttachmentMeta } from "../db/db";
 import { useTranslation } from "../lib/i18n";
@@ -1245,9 +1246,6 @@ export default function Record() {
           {t('record.title')}
         </h2>
         <div className="flex items-center gap-3">
-          <span className="inline-flex text-[11px] font-medium text-stone-500 bg-stone-100/80 px-2 py-1 rounded-full">
-            {t('record.todayChars', { count: dailyChars })}
-          </span>
           <button
             onClick={() => navigateToDate(-1)}
             className="p-1 hover:bg-stone-200/50 rounded-full transition-colors text-stone-400 hover:text-stone-700"
@@ -1450,6 +1448,8 @@ export default function Record() {
           </div>
         ) : (
         <>
+        {/* 需求 1：底部输入框左上方今日统计（当前查看日期 raw_logs） */}
+        <TodayStats count={(logs || []).length} chars={dailyChars} />
         {/* #6 待提交附件预览 */}
         {pendingAttachments.length > 0 && (
           <div data-testid="attachment-preview" className="flex flex-wrap gap-2 mb-2 px-1">

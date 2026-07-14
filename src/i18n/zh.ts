@@ -16,6 +16,8 @@ export const zh: TranslationDict = {
 
   // --- 通用文案 ---
   'common.cancel': '取消',
+  // 需求 1：统计小字下移与统一（碎屑/回顾/沉思 模块左上方）
+  'common.todayStats': '今日 {count} 条 {chars} 字',
 
   // --- TabBar 标签 ---
   'tab.record': '碎屑',

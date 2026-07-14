@@ -15,7 +15,7 @@
  */
 import { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { format } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
 import { Notepad } from '@phosphor-icons/react';
 import {
@@ -42,6 +42,7 @@ import { useTagsStore } from '../store/tags.store';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { countChars } from '../lib/wordCount';
 import RichEditor from '../components/RichEditor';
+import TodayStats from '../components/TodayStats';
 import RandomWalk from '../components/RandomWalk';
 import { useTranslation } from '../lib/i18n';
 
@@ -168,9 +169,14 @@ export default function Thoughts() {
     closeEdit();
   };
 
-  const totalChars = useMemo(
-    () => thoughts.reduce((sum, t) => sum + countChars(t.content), 0),
+  // 需求 1：真实今日沉思统计（按 created_at），用于底部输入框左上方小字
+  const todayThoughts = useMemo(
+    () => thoughts.filter((t) => isSameDay(new Date(t.created_at), new Date())),
     [thoughts]
+  );
+  const todayThoughtsChars = useMemo(
+    () => todayThoughts.reduce((sum, t) => sum + countChars(t.content), 0),
+    [todayThoughts]
   );
 
   const timelineGroups = useMemo(() => buildTimelineGroups(thoughts, t), [thoughts, t]);
@@ -182,9 +188,6 @@ export default function Thoughts() {
         <h2 className="text-[13.5px] font-bold tracking-wide text-baimiao-mysteria flex items-center gap-1.5 font-serif baimiao-editorial-title">
           <Notepad weight="regular" className="w-4 h-4 text-baimiao-mysteria/70 translate-y-[-0.8px] shrink-0" />
           {t('thoughts.title')}
-          {thoughts.length > 0 && (
-            <span className="text-[11px] font-medium text-stone-400 ml-1">{t('thoughts.countChars', { count: thoughts.length, chars: totalChars })}</span>
-          )}
         </h2>
         {/* 视图切换 + 随机漫步入口 */}
         <div className="flex items-center gap-1.5">
@@ -279,6 +282,8 @@ export default function Thoughts() {
 
       {/* 底部快速输入 / 展开编辑器 */}
       <div className="shrink-0 border-t border-baimiao-border/40 bg-[#faf9fc]/85 backdrop-blur px-3 py-2.5">
+        {/* 需求 1：底部输入框左上方今日统计（真实今日 created_at） */}
+        <TodayStats count={todayThoughts.length} chars={todayThoughtsChars} />
         {isCreating ? (
           <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
             <RichEditor
