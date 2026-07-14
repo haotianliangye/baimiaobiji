@@ -632,6 +632,7 @@ export const zh: TranslationDict = {
   'randomWalk.thoughtsTagHint': '沉思标签来自正文中的 #标签，编辑正文即可修改。',
   'randomWalk.unsupportedTags': '该记录类型暂不支持标签管理。',
   'randomWalk.confirmDelete': '确认删除这条记录吗？删除后不可恢复。',
+  'randomWalk.editTitle': '编辑记录',
 
   // --- CalendarHeatmap (热力图) ---
   'calendarHeatmap.record': '碎屑',

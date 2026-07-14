@@ -44,7 +44,9 @@ export default function Layout() {
     totalVectorsCount,
     embeddingQueueSize,
     isCopilotMode,
-    setCopilotMode
+    setCopilotMode,
+    isRandomWalkMode,
+    setRandomWalkMode
   } = useAppStore();
 
   const { syncEnabled, embedEnabled, diaryPrompts } = useSettingsStore();
@@ -82,8 +84,7 @@ export default function Layout() {
   };
   const heatmapSection = currentPath === '/review' ? 'review' : 'record';
 
-  // 灯泡入口：随机漫步
-  const [showRandomWalk, setShowRandomWalk] = useState(false);
+  // 灯泡入口：随机漫步（全局状态控制显隐，主内容区渲染）
 
   const [showDateDropdown, setShowDateDropdown] = useState(false);
   const dateDropdownRef = useRef<HTMLDivElement>(null);
@@ -210,18 +211,20 @@ export default function Layout() {
                 <Menu className="w-[18px] h-[18px]" />
               </button>
               <h1 className="text-[16px] font-normal font-serif tracking-widest select-none truncate translate-y-[2px]">
-                {t(headerTitleKey)}
+                {isRandomWalkMode ? t('randomWalk.title') : t(headerTitleKey)}
               </h1>
-              {autoGenTasks.length > 0 && (isProcessingQueue || isQueuePaused) ? (
-                <span className={`flex items-center gap-1 bg-white/10 text-white/90 border border-white/10 text-[10px] px-2 py-0.5 rounded-full font-medium select-none tracking-wide ${isQueuePaused ? 'opacity-65' : 'animate-pulse'} shrink-0`}>
-                  <Loader2 className={`w-2.5 h-2.5 text-white/60 ${isQueuePaused ? '' : 'animate-spin'}`} />
-                  {isQueuePaused ? `${t('layout.aiPaused')} (${autoGenTasks.length})` : `${t('layout.aiProcessing')} (${autoGenTasks.length})`}
-                </span>
-              ) : null}
+              {isRandomWalkMode ? null : (
+                autoGenTasks.length > 0 && (isProcessingQueue || isQueuePaused) ? (
+                  <span className={`flex items-center gap-1 bg-white/10 text-white/90 border border-white/10 text-[10px] px-2 py-0.5 rounded-full font-medium select-none tracking-wide ${isQueuePaused ? 'opacity-65' : 'animate-pulse'} shrink-0`}>
+                    <Loader2 className={`w-2.5 h-2.5 text-white/60 ${isQueuePaused ? '' : 'animate-spin'}`} />
+                    {isQueuePaused ? `${t('layout.aiPaused')} (${autoGenTasks.length})` : `${t('layout.aiProcessing')} (${autoGenTasks.length})`}
+                  </span>
+                ) : null
+              )}
             </div>
 
-            {/* 中：日期导航（仅碎屑/回顾；点击日期打开日期选择器） */}
-            {showDateNav && (
+            {/* 中：日期导航（仅碎屑/回顾；点击日期打开日期选择器；随机漫步模式下隐藏） */}
+            {showDateNav && !isRandomWalkMode && (
               <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1 shrink-0">
                 <button
                   onClick={() => navigateToDate(-1)}
@@ -249,45 +252,70 @@ export default function Layout() {
               </div>
             )}
 
-            {/* 右：同步状态 -> 搜索 -> RAG+CHAT -> 灯泡（随机漫步） */}
+            {/* 右：随机漫步模式下显示灯泡(toggle退出)+×关闭；否则显示 同步/搜索/RAG/灯泡 */}
             <div className="flex items-center gap-2 shrink-0 flex-1 justify-end z-10">
-              {syncEnabled && (
-                <button
-                  onClick={() => syncNow()}
-                  disabled={syncStatus === 'syncing'}
-                  title={syncStatus === 'error' ? `${t('layout.syncError')}: ${syncErrorMessage}` : t('layout.syncManual')}
-                  aria-label={syncStatus === 'error' ? `${t('layout.syncError')}: ${syncErrorMessage}` : t('layout.syncManual')}
-                  className="p-1.5 hover:opacity-70 transition-opacity active:scale-95 disabled:opacity-80 shrink-0"
-                >
-                  {syncStatus === 'syncing' && <Loader2 className="w-[18px] h-[18px] text-blue-400 animate-spin" />}
-                  {syncStatus === 'idle' && <Cloud className="w-[18px] h-[18px] text-emerald-400 fill-emerald-500/10" />}
-                  {syncStatus === 'error' && <CloudLightning className="w-[18px] h-[18px] text-red-400 animate-bounce" />}
-                  {syncStatus === 'disabled' && <CloudOff className="w-[18px] h-[18px] text-stone-500" />}
-                </button>
+              {isRandomWalkMode ? (
+                <>
+                  <button
+                    onClick={() => setRandomWalkMode(false)}
+                    title={t('thoughts.randomWalk')}
+                    aria-label={t('thoughts.randomWalk')}
+                    className="p-1.5 hover:opacity-70 transition-opacity active:scale-95 shrink-0"
+                  >
+                    <Lightbulb className="w-[18px] h-[18px]" />
+                  </button>
+                  <button
+                    data-testid="walk-close"
+                    onClick={() => setRandomWalkMode(false)}
+                    title={t('about.close')}
+                    aria-label={t('about.close')}
+                    className="p-1.5 hover:opacity-70 transition-opacity active:scale-95 shrink-0"
+                  >
+                    <X className="w-[18px] h-[18px]" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  {syncEnabled && (
+                    <button
+                      onClick={() => syncNow()}
+                      disabled={syncStatus === 'syncing'}
+                      title={syncStatus === 'error' ? `${t('layout.syncError')}: ${syncErrorMessage}` : t('layout.syncManual')}
+                      aria-label={syncStatus === 'error' ? `${t('layout.syncError')}: ${syncErrorMessage}` : t('layout.syncManual')}
+                      className="p-1.5 hover:opacity-70 transition-opacity active:scale-95 disabled:opacity-80 shrink-0"
+                    >
+                      {syncStatus === 'syncing' && <Loader2 className="w-[18px] h-[18px] text-blue-400 animate-spin" />}
+                      {syncStatus === 'idle' && <Cloud className="w-[18px] h-[18px] text-emerald-400 fill-emerald-500/10" />}
+                      {syncStatus === 'error' && <CloudLightning className="w-[18px] h-[18px] text-red-400 animate-bounce" />}
+                      {syncStatus === 'disabled' && <CloudOff className="w-[18px] h-[18px] text-stone-500" />}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setSearchMode(true)}
+                    aria-label={t('search.placeholder')}
+                    className="p-1.5 hover:opacity-70 transition-opacity active:scale-95"
+                  >
+                    <Search className="w-[18px] h-[18px]" />
+                  </button>
+                  <button
+                    onClick={() => setCopilotMode(true)}
+                    title={t('layout.copilot')}
+                    aria-label={t('layout.copilot')}
+                    className="p-1.5 hover:opacity-70 transition-opacity active:scale-95"
+                  >
+                    <MessageSquare className="w-[18px] h-[18px]" />
+                  </button>
+                  <button
+                    data-testid="walk-open"
+                    onClick={() => setRandomWalkMode(true)}
+                    title={t('thoughts.randomWalk')}
+                    aria-label={t('thoughts.randomWalk')}
+                    className="p-1.5 hover:opacity-70 transition-opacity active:scale-95"
+                  >
+                    <Lightbulb className="w-[18px] h-[18px]" />
+                  </button>
+                </>
               )}
-              <button
-                onClick={() => setSearchMode(true)}
-                aria-label={t('search.placeholder')}
-                className="p-1.5 hover:opacity-70 transition-opacity active:scale-95"
-              >
-                <Search className="w-[18px] h-[18px]" />
-              </button>
-              <button
-                onClick={() => setCopilotMode(true)}
-                title={t('layout.copilot')}
-                aria-label={t('layout.copilot')}
-                className="p-1.5 hover:opacity-70 transition-opacity active:scale-95"
-              >
-                <MessageSquare className="w-[18px] h-[18px]" />
-              </button>
-              <button
-                onClick={() => setShowRandomWalk(true)}
-                title={t('thoughts.randomWalk')}
-                aria-label={t('thoughts.randomWalk')}
-                className="p-1.5 hover:opacity-70 transition-opacity active:scale-95"
-              >
-                <Lightbulb className="w-[18px] h-[18px]" />
-              </button>
             </div>
           </header>
         )}
@@ -347,7 +375,7 @@ export default function Layout() {
 
         {/* Main Canvas */}
         <main className="flex-1 overflow-hidden bg-white selection:bg-black selection:text-white flex flex-col relative">
-          {isCopilotMode ? <Copilot /> : <Outlet />}
+          {isCopilotMode ? <Copilot /> : isRandomWalkMode ? <RandomWalk /> : <Outlet />}
         </main>
 
         {/* Tab Bar */}
@@ -369,11 +397,6 @@ export default function Layout() {
           onClose={() => setShowDatePicker(false)}
           activeSection={heatmapSection}
         />
-      )}
-
-      {/* 灯泡入口：随机漫步 */}
-      {showRandomWalk && (
-        <RandomWalk onClose={() => setShowRandomWalk(false)} />
       )}
 
       {/* Global Search Panel */}
@@ -708,6 +731,7 @@ export default function Layout() {
 
 function TabItem({ to, icon, label, disabled = false, onNavigate, activeWeight = 'fill', end = false }: { to: string, icon: React.ReactNode, label: string, disabled?: boolean, onNavigate?: () => void, activeWeight?: 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone', end?: boolean }) {
   const setCopilotMode = useAppStore(state => state.setCopilotMode);
+  const setRandomWalkMode = useAppStore(state => state.setRandomWalkMode);
   if (disabled) {
     return (
       <div className="flex flex-col items-center justify-center p-2 opacity-30 cursor-not-allowed">
@@ -720,7 +744,7 @@ function TabItem({ to, icon, label, disabled = false, onNavigate, activeWeight =
     <NavLink
       to={to}
       end={end}
-      onClick={() => { setCopilotMode(false); onNavigate?.(); }}
+      onClick={() => { setCopilotMode(false); setRandomWalkMode(false); onNavigate?.(); }}
       className={({ isActive }) =>
         `relative flex flex-col items-center justify-center px-4 py-1 rounded-xl transition-all duration-200 select-none ${
           isActive

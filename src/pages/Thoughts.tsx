@@ -43,7 +43,7 @@ import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { countChars } from '../lib/wordCount';
 import RichEditor from '../components/RichEditor';
 import TodayStats from '../components/TodayStats';
-import RandomWalk from '../components/RandomWalk';
+import { useAppStore } from '../store/app.store';
 import { useTranslation } from '../lib/i18n';
 
 type ViewMode = 'masonry' | 'timeline';
@@ -107,8 +107,8 @@ export default function Thoughts() {
 
   const [view, setView] = useState<ViewMode>('masonry');
 
-  // --- 随机漫步入口（#11） ---
-  const [showRandomWalk, setShowRandomWalk] = useState(false);
+  // --- 随机漫步入口（#11）：触发全局 isRandomWalkMode（主内容区由 Layout 渲染） ---
+  const setRandomWalkMode = useAppStore((s) => s.setRandomWalkMode);
 
   // --- 底部快速创建编辑器 ---
   const [isCreating, setIsCreating] = useState(false);
@@ -193,7 +193,7 @@ export default function Thoughts() {
         <div className="flex items-center gap-1.5">
           <button
             data-testid="walk-open"
-            onClick={() => setShowRandomWalk(true)}
+            onClick={() => setRandomWalkMode(true)}
             className="p-2 rounded-full text-amber-400 hover:bg-amber-50 transition-colors"
             title={t('thoughts.randomWalk')}
           >
@@ -409,11 +409,6 @@ export default function Thoughts() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* 随机漫步覆盖层（#11） */}
-      {showRandomWalk && (
-        <RandomWalk onClose={() => setShowRandomWalk(false)} />
       )}
     </div>
   );

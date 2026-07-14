@@ -631,6 +631,7 @@ export const en: TranslationDict = {
   'randomWalk.thoughtsTagHint': 'Reflection tags come from #tags in the body. Edit the body to modify.',
   'randomWalk.unsupportedTags': 'Tag management is not supported for this record type.',
   'randomWalk.confirmDelete': 'Delete this record? This cannot be undone.',
+  'randomWalk.editTitle': 'Edit Record',
 
   // --- CalendarHeatmap ---
   'calendarHeatmap.record': 'Fragments',

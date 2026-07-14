@@ -193,3 +193,17 @@ html, body, #root {
   75%  { transform: scale(0.97); }
   100% { transform: scale(1); }
 }
+
+/* ==========================================================================
+   Swiper EffectCards (随机漫步) -- 扇形堆叠滑动
+   确保卡片占满容器高度，slide 内容可内部滚动。
+   ========================================================================== */
+.walk-swiper {
+  width: 100%;
+  height: 100%;
+}
+.walk-swiper .swiper-slide {
+  height: 100%;
+  border-radius: 16px;
+  overflow: hidden;
+}

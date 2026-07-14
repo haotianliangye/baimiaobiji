@@ -1,7 +1,9 @@
 /**
  * #11 随机漫步（RandomWalk）-- 卡片堆叠滑动浏览历史记录。
  *
- * 入口：Thoughts 页右上角灯泡图标。全屏覆盖层。
+ * 渲染模式（需求 2）：主内容区模式（非 fixed 全屏覆盖），限制在应用容器
+ * （max-w-md）内渲染，保留顶部 header 和底部 TabBar。顶部 header 标题、×
+ * 关闭、灯泡 toggle 由 Layout 控制；本组件只负责卡片区 + 底部操作栏。
  *
  * 数据源：默认 thoughts + daily_reviews；可在面板内扩展为
  *   raw_logs + thoughts + daily_reviews + mingwu（存 localStorage，不进 settings.store）。
@@ -9,20 +11,24 @@
  * 抽取规则：每次随机抽 3 条（跨所选数据源），过滤最近 N 天（默认 7，可配置）已展示过的记录；
  *   「已阅」按钮标记为永久不再出现。展示历史存 localStorage(random-walk-shown)。
  *
- * 形态：卡片堆叠，左右滑动切换（CSS transform + pointer 事件）。
- * 底部操作栏：已阅 / 标签 / 编辑 / 复制 / 删除。
+ * 形态：Swiper + EffectCards 扇形堆叠滑动，左右滑动切换。
+ * 底部操作栏（单排）：已阅 / 标签 / 编辑 / 复制 / 删除 / 换一批。
  *   - 删除/编辑按记录类型调对应表（raw_logs/thoughts/daily_reviews/mingwu）。
  *   - 标签：raw_logs/daily_reviews 可增删（#4 标签系统）；thoughts 标签来自正文 #标签（只读）。
  *   - 复制：useCopyToClipboard。
- *   - 编辑：跳转对应模块（碎屑->Record logId / 回顾->Review date / 沉思->/thoughts / 明悟->/mingwu）。
+ *   - 编辑：弹 RichEditor 编辑弹窗（不跳转页面），所有记录类型统一。
+ *   - 「下一张」靠左右滑动实现，不单设按钮。
  */
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { format } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
-import { useNavigate } from 'react-router-dom';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { EffectCards } from 'swiper/modules';
+import type { Swiper as SwiperClass } from 'swiper';
+import 'swiper/css';
+import 'swiper/css/effect-cards';
 import {
-  X,
   Lightbulb,
   Shuffle,
   Eye,
@@ -36,12 +42,15 @@ import {
   Clock,
   RotateCcw,
   ChevronRight,
+  X,
+  Save,
 } from 'lucide-react';
-import { db, type Thought, type RawLog, type DailyReview, type Mingwu } from '../db/db';
+import { db, type Thought, type RawLog, type DailyReview, type Mingwu, type AttachmentMeta } from '../db/db';
 import { useTagsStore } from '../store/tags.store';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { normalizeTagPath } from '../lib/tags';
 import { useTranslation } from '../lib/i18n';
+import RichEditor from './RichEditor';
 
 type SourceType = 'raw_logs' | 'thoughts' | 'daily_reviews' | 'mingwu';
 
@@ -83,10 +92,6 @@ interface WalkItem {
   reviewDate?: string; // daily_reviews 的 review_date
   rawText: string; // 复制用的纯文本
   typeLabel: string;
-}
-
-interface RandomWalkProps {
-  onClose: () => void;
 }
 
 // ---------- localStorage 读写 ----------
@@ -219,8 +224,7 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-export default function RandomWalk({ onClose }: RandomWalkProps) {
-  const navigate = useNavigate();
+export default function RandomWalk() {
   const { copied, copy } = useCopyToClipboard();
   const createTag = useTagsStore((s) => s.createTag);
   const { t } = useTranslation();
@@ -255,11 +259,14 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
   const [showTagSheet, setShowTagSheet] = useState(false);
   const [tagInput, setTagInput] = useState('');
 
-  // --- 滑动状态 ---
-  const [dragX, setDragX] = useState(0);
-  const [dragging, setDragging] = useState(false);
-  const dragStartX = useRef(0);
-  const dragPointerId = useRef<number | null>(null);
+  // --- Swiper 实例 ---
+  const swiperRef = useRef<SwiperClass | null>(null);
+
+  // --- 编辑弹窗状态 ---
+  const [editingItem, setEditingItem] = useState<WalkItem | null>(null);
+  const [editContent, setEditContent] = useState('');
+  const [editAttachments, setEditAttachments] = useState<AttachmentMeta[]>([]);
+  const [editSaving, setEditSaving] = useState(false);
 
   const sourcesRef = useRef(sources);
   sourcesRef.current = sources;
@@ -296,8 +303,11 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
     setItems(batch);
     setCurrentIndex(0);
     setEnded(batch.length === 0);
-    setDragX(0);
     setLoading(false);
+    // 重置 swiper 到首张（若实例已存在）
+    if (swiperRef.current) {
+      swiperRef.current.slideTo(0, 0);
+    }
   }, [t]);
 
   // 首次：等 live query 数据就绪后抽取
@@ -317,14 +327,14 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
 
   /** 前进到下一张；已到最后则进入结束态。 */
   const advance = useCallback(() => {
-    setDragX(0);
-    setDragging(false);
-    setCurrentIndex((idx) => {
-      if (idx < items.length - 1) return idx + 1;
+    const swiper = swiperRef.current;
+    const idx = swiper ? swiper.activeIndex : currentIndex;
+    if (idx < items.length - 1) {
+      swiper ? swiper.slideNext() : setCurrentIndex(idx + 1);
+    } else {
       setEnded(true);
-      return idx;
-    });
-  }, [items.length]);
+    }
+  }, [items.length, currentIndex]);
 
   // ---------- 操作 ----------
   const handleRead = () => {
@@ -356,20 +366,70 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
     advance();
   };
 
-  const handleEdit = () => {
-    if (!current) return;
-    if (current.type === 'raw_logs') {
-      const date = format(new Date(current.createdAt), 'yyyy-MM-dd');
-      navigate(`/?date=${date}&logId=${current.id}`);
-    } else if (current.type === 'daily_reviews') {
-      const date = current.reviewDate || format(new Date(current.createdAt), 'yyyy-MM-dd');
-      navigate(`/review?date=${date}`);
-    } else if (current.type === 'thoughts') {
-      navigate('/thoughts');
-    } else {
-      navigate('/mingwu');
+  // ---------- 编辑弹窗（RichEditor，不跳转页面） ----------
+  const canEditAttachments = editingItem?.type === 'raw_logs' || editingItem?.type === 'thoughts';
+
+  const openEdit = async (item: WalkItem) => {
+    setEditingItem(item);
+    setEditContent(item.content);
+    setEditAttachments([]);
+    // 从 DB 读取最新内容回显
+    if (item.type === 'raw_logs') {
+      const rec = await db.raw_logs.get(item.id);
+      setEditContent(rec?.content ?? item.content);
+      setEditAttachments(rec?.attachments ?? []);
+    } else if (item.type === 'thoughts') {
+      const rec = await db.thoughts.get(item.id);
+      setEditContent(rec?.content ?? item.content);
+      setEditAttachments(rec?.attachments ?? []);
+    } else if (item.type === 'daily_reviews') {
+      const rec = await db.daily_reviews.get(item.id);
+      const isDiary = rec?.entry_type === 'diary';
+      setEditContent(isDiary ? (rec?.ai_editorial ?? '') : (rec?.ai_review ?? ''));
+    } else if (item.type === 'mingwu') {
+      const rec = await db.mingwu.get(item.id);
+      setEditContent(rec?.content ?? item.content);
     }
-    onClose();
+  };
+
+  const closeEdit = () => {
+    setEditingItem(null);
+    setEditContent('');
+    setEditAttachments([]);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingItem) return;
+    const text = editContent.trim();
+    // raw_logs/thoughts 允许仅附件无文本；daily_reviews/mingwu 需非空文本
+    if (!text && !(canEditAttachments && editAttachments.length > 0)) return;
+    setEditSaving(true);
+    try {
+      if (editingItem.type === 'raw_logs') {
+        await db.raw_logs.update(editingItem.id, { content: editContent, attachments: editAttachments });
+      } else if (editingItem.type === 'thoughts') {
+        await db.thoughts.update(editingItem.id, { content: editContent, attachments: editAttachments });
+      } else if (editingItem.type === 'daily_reviews') {
+        const rec = await db.daily_reviews.get(editingItem.id);
+        const isDiary = rec?.entry_type === 'diary';
+        if (isDiary) {
+          await db.daily_reviews.update(editingItem.id, { ai_editorial: editContent });
+        } else {
+          await db.daily_reviews.update(editingItem.id, { ai_review: editContent });
+        }
+      } else if (editingItem.type === 'mingwu') {
+        await db.mingwu.update(editingItem.id, { content: editContent });
+      }
+      // 同步更新当前批次中的卡片内容
+      setItems((prev) =>
+        prev.map((it) =>
+          it.key === editingItem.key ? { ...it, content: editContent, rawText: editContent } : it
+        )
+      );
+      closeEdit();
+    } finally {
+      setEditSaving(false);
+    }
   };
 
   const handleCopy = () => {
@@ -433,75 +493,36 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
     draw();
   };
 
-  // ---------- 滑动（pointer 事件，兼容触摸与鼠标） ----------
-  const onPointerDown = (e: React.PointerEvent) => {
-    if (ended || !current) return;
-    setDragging(true);
-    dragStartX.current = e.clientX;
-    dragPointerId.current = e.pointerId;
-    (e.currentTarget as Element).setPointerCapture(e.pointerId);
-  };
-  const onPointerMove = (e: React.PointerEvent) => {
-    if (!dragging || dragPointerId.current !== e.pointerId) return;
-    setDragX(e.clientX - dragStartX.current);
-  };
-  const onPointerUp = (e: React.PointerEvent) => {
-    if (dragPointerId.current !== e.pointerId) return;
-    setDragging(false);
-    dragPointerId.current = null;
-    const threshold = 80;
-    if (Math.abs(dragX) > threshold) {
-      advance();
-    } else {
-      setDragX(0);
-    }
-  };
-
-  // 可见卡片：当前 + 后面最多 2 张（堆叠效果）
-  const visible = items.slice(currentIndex, currentIndex + 3).map((item, i) => ({
-    item,
-    depth: i,
-  }));
-  // 从后往前渲染，使前卡在 DOM 末尾（自然叠在上层）
-  const renderList = [...visible].reverse();
-
   return (
     <div
       data-testid="random-walk-overlay"
-      className="fixed inset-0 z-[130] bg-[#faf9fc] flex flex-col animate-in fade-in duration-200"
+      className="flex flex-col h-full bg-[#faf9fc] animate-in fade-in duration-200 overflow-hidden"
     >
-      {/* Header */}
-      <div className="flex h-[52px] items-center px-4 bg-white/85 backdrop-blur border-b border-baimiao-border/40 z-20 shrink-0 justify-between">
-        <h2 className="text-[13.5px] font-bold tracking-wide text-baimiao-mysteria flex items-center gap-1.5 font-serif baimiao-editorial-title">
-          <Lightbulb className="w-4 h-4 text-amber-400 translate-y-[-0.5px] shrink-0" />
-          {t('randomWalk.title')}
-          {items.length > 0 && !ended && (
-            <span className="text-[11px] font-medium text-stone-400 ml-1">
+      {/* 顶部细栏：计数 + 数据源设置（标题与 × 关闭在全局 header） */}
+      <div className="flex h-[40px] shrink-0 items-center px-4 bg-white/85 backdrop-blur border-b border-baimiao-border/40 z-20 justify-between">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Lightbulb className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+          {items.length > 0 && !ended ? (
+            <span className="text-[11.5px] font-medium text-stone-500 font-mono">
               {currentIndex + 1}/{items.length}
             </span>
+          ) : (
+            <span className="text-[11.5px] font-medium text-stone-400">{t('randomWalk.title')}</span>
           )}
-        </h2>
-        <div className="flex items-center gap-1">
-          <button
-            data-testid="walk-settings"
-            onClick={() => setShowSettings((v) => !v)}
-            className={`p-2 rounded-full transition-colors ${
-              showSettings
-                ? 'text-baimiao-mysteria bg-baimiao-mysteria/8'
-                : 'text-stone-400 hover:text-stone-700 hover:bg-stone-100'
-            }`}
-            title={t('randomWalk.settingsTitle')}
-          >
-            <Settings2 className="w-4 h-4" />
-          </button>
-          <button
-            data-testid="walk-close"
-            onClick={onClose}
-            className="p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-full transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
         </div>
+        <button
+          data-testid="walk-settings"
+          onClick={() => setShowSettings((v) => !v)}
+          className={`p-1.5 rounded-full transition-colors ${
+            showSettings
+              ? 'text-baimiao-mysteria bg-baimiao-mysteria/8'
+              : 'text-stone-400 hover:text-stone-700 hover:bg-stone-100'
+          }`}
+          title={t('randomWalk.settingsTitle')}
+          aria-label={t('randomWalk.settingsTitle')}
+        >
+          <Settings2 className="w-4 h-4" />
+        </button>
       </div>
 
       {/* 设置面板 */}
@@ -544,8 +565,8 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
         </div>
       )}
 
-      {/* 卡片堆叠区 */}
-      <div className="flex-1 overflow-hidden relative px-5 py-4 flex items-center justify-center">
+      {/* 卡片堆叠区（Swiper + EffectCards 扇形堆叠） */}
+      <div className="flex-1 overflow-hidden relative px-5 py-4 flex items-center justify-center min-h-0">
         {loading ? (
           <div className="text-[13px] text-stone-400">{t('randomWalk.loading')}</div>
         ) : ended ? (
@@ -582,34 +603,22 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
             </div>
           </div>
         ) : (
-          <div className="relative w-full max-w-md h-full max-h-[60vh]">
-            {renderList.map(({ item, depth }) => {
-              const isActive = depth === 0;
-              const scale = 1 - depth * 0.06;
-              const yOffset = -depth * 14;
-              const x = isActive ? dragX : 0;
-              const rot = isActive ? dragX * 0.04 : 0;
-              return (
+          <Swiper
+            effect="cards"
+            modules={[EffectCards]}
+            grabCursor
+            className="walk-swiper w-full h-full max-w-md"
+            onSwiper={(sw) => { swiperRef.current = sw; }}
+            onSlideChange={(sw) => setCurrentIndex(sw.activeIndex)}
+          >
+            {items.map((item, index) => (
+              <SwiperSlide key={item.key} className="overflow-hidden">
                 <div
-                  key={item.key}
                   data-testid="walk-card"
-                  data-active={isActive ? 'true' : 'false'}
+                  data-active={index === currentIndex ? 'true' : 'false'}
                   data-walk-type={item.type}
                   data-walk-key={item.key}
-                  onPointerDown={isActive ? onPointerDown : undefined}
-                  onPointerMove={isActive ? onPointerMove : undefined}
-                  onPointerUp={isActive ? onPointerUp : undefined}
-                  onPointerCancel={isActive ? onPointerUp : undefined}
-                  style={{
-                    transform: `translateX(${x}px) translateY(${yOffset}px) rotate(${rot}deg) scale(${scale})`,
-                    transition: dragging && isActive ? 'none' : 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)',
-                    zIndex: 20 - depth,
-                    opacity: 1 - depth * 0.15,
-                    touchAction: 'pan-y',
-                  }}
-                  className={`absolute inset-0 baimiao-card-bubble p-5 flex flex-col ${
-                    isActive ? 'cursor-grab active:cursor-grabbing' : 'pointer-events-none'
-                  }`}
+                  className="w-full h-full baimiao-card-bubble p-5 flex flex-col"
                 >
                   {/* 类型徽章 + 时间 */}
                   <div className="flex items-center justify-between shrink-0 mb-3">
@@ -632,10 +641,10 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
                     </p>
                   )}
 
-                  {/* 正文 */}
+                  {/* 正文（局部滚动，移动端红线） */}
                   <div
                     data-testid="walk-card-content"
-                    className="flex-1 overflow-y-auto thin-scrollbar markdown-body prose prose-stone baimiao-editorial-body prose-headings:font-serif baimiao-editorial-title max-w-none text-[13.5px] leading-relaxed prose-h1:text-[16px] prose-h2:text-[15px] prose-h3:text-[14px]"
+                    className="flex-1 overflow-y-auto thin-scrollbar markdown-body prose prose-stone baimiao-editorial-body prose-headings:font-serif baimiao-editorial-title max-w-none text-[13.5px] leading-relaxed prose-h1:text-[16px] prose-h2:text-[15px] prose-h3:text-[14px] min-h-0"
                   >
                     <ReactMarkdown>{item.content}</ReactMarkdown>
                   </div>
@@ -659,27 +668,27 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
                   )}
 
                   {/* 滑动提示 */}
-                  {isActive && (
+                  {index === currentIndex && (
                     <div className="flex items-center justify-center gap-1 mt-2 text-[10px] text-stone-300 shrink-0">
                       <ChevronRight className="w-3 h-3" />
                       {t('randomWalk.swipeHint')}
                     </div>
                   )}
                 </div>
-              );
-            })}
-          </div>
+              </SwiperSlide>
+            ))}
+          </Swiper>
         )}
       </div>
 
-      {/* 底部操作栏（仅在有当前卡片时显示） */}
+      {/* 底部操作栏（单排：已阅/标签/编辑/复制/删除/换一批） */}
       {!ended && current && !showTagSheet && (
-        <div className="shrink-0 border-t border-baimiao-border/40 bg-white/90 backdrop-blur px-3 py-2.5">
+        <div className="shrink-0 border-t border-baimiao-border/40 bg-white/90 backdrop-blur px-2 py-2">
           <div className="flex items-center justify-around max-w-md mx-auto">
             <button
               data-testid="walk-read"
               onClick={handleRead}
-              className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-stone-500 hover:bg-stone-100 hover:text-baimiao-mysteria transition-colors"
+              className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl text-stone-500 hover:bg-stone-100 hover:text-baimiao-mysteria transition-colors"
             >
               <Eye className="w-5 h-5" />
               <span className="text-[10.5px] font-medium">{t('randomWalk.read')}</span>
@@ -687,15 +696,15 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
             <button
               data-testid="walk-tags"
               onClick={() => setShowTagSheet(true)}
-              className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-stone-500 hover:bg-stone-100 hover:text-baimiao-mysteria transition-colors"
+              className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl text-stone-500 hover:bg-stone-100 hover:text-baimiao-mysteria transition-colors"
             >
               <Hash className="w-5 h-5" />
               <span className="text-[10.5px] font-medium">{t('randomWalk.tags')}</span>
             </button>
             <button
               data-testid="walk-edit"
-              onClick={handleEdit}
-              className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-stone-500 hover:bg-stone-100 hover:text-baimiao-mysteria transition-colors"
+              onClick={() => openEdit(current)}
+              className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl text-stone-500 hover:bg-stone-100 hover:text-baimiao-mysteria transition-colors"
             >
               <Pencil className="w-5 h-5" />
               <span className="text-[10.5px] font-medium">{t('randomWalk.edit')}</span>
@@ -703,7 +712,7 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
             <button
               data-testid="walk-copy"
               onClick={handleCopy}
-              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-colors ${
+              className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl transition-colors ${
                 copied
                   ? 'text-emerald-600 bg-emerald-50'
                   : 'text-stone-500 hover:bg-stone-100 hover:text-baimiao-mysteria'
@@ -715,31 +724,18 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
             <button
               data-testid="walk-delete"
               onClick={handleDelete}
-              className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-stone-500 hover:bg-rose-50 hover:text-rose-500 transition-colors"
+              className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl text-stone-500 hover:bg-rose-50 hover:text-rose-500 transition-colors"
             >
               <Trash2 className="w-5 h-5" />
               <span className="text-[10.5px] font-medium">{t('randomWalk.delete')}</span>
             </button>
-          </div>
-          {/* 换一批 / 下一张 */}
-          <div className="flex items-center justify-center gap-2 mt-2">
-            {currentIndex < items.length - 1 && (
-              <button
-                data-testid="walk-next"
-                onClick={advance}
-                className="flex items-center gap-1 px-3 py-1 rounded-full text-[11.5px] font-medium text-stone-500 bg-stone-100 hover:bg-stone-200 transition-colors"
-              >
-                {t('randomWalk.next')}
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            )}
             <button
               data-testid="walk-shuffle"
               onClick={draw}
-              className="flex items-center gap-1 px-3 py-1 rounded-full text-[11.5px] font-medium text-baimiao-mysteria bg-baimiao-mysteria/8 hover:bg-baimiao-mysteria/12 transition-colors"
+              className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl text-baimiao-mysteria hover:bg-baimiao-mysteria/8 transition-colors"
             >
-              <Shuffle className="w-3.5 h-3.5" />
-              {t('randomWalk.shuffle')}
+              <Shuffle className="w-5 h-5" />
+              <span className="text-[10.5px] font-medium">{t('randomWalk.shuffle')}</span>
             </button>
           </div>
         </div>
@@ -830,6 +826,64 @@ export default function RandomWalk({ onClose }: RandomWalkProps) {
                   {t('randomWalk.unsupportedTags')}
                 </p>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 编辑弹窗（RichEditor，不跳转页面，不显示/不修改展示时间） */}
+      {editingItem && (
+        <div
+          data-testid="walk-edit-modal"
+          className="fixed inset-0 z-[150] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 animate-in fade-in duration-200"
+          onClick={closeEdit}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-md max-h-[88vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 弹窗头 */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-stone-100 shrink-0">
+              <span className="text-[13.5px] font-semibold text-baimiao-mysteria font-serif baimiao-editorial-title">
+                {t('randomWalk.editTitle')}
+              </span>
+              <button
+                onClick={closeEdit}
+                className="p-1 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-full transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* 弹窗内容（可滚动） */}
+            <div className="flex-1 overflow-y-auto thin-scrollbar p-3 flex flex-col gap-3 min-h-0">
+              <RichEditor
+                value={editContent}
+                onChange={setEditContent}
+                attachments={canEditAttachments ? editAttachments : []}
+                onAttachmentsChange={canEditAttachments ? setEditAttachments : undefined}
+                minHeightClass="min-h-[160px]"
+                textareaTestId="walk-edit-textarea"
+              />
+            </div>
+
+            {/* 弹窗操作栏 */}
+            <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-stone-100 shrink-0">
+              <button
+                onClick={closeEdit}
+                className="px-3.5 py-1.5 rounded-full text-[12.5px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                data-testid="walk-edit-save"
+                onClick={handleSaveEdit}
+                disabled={editSaving || (!editContent.trim() && !(canEditAttachments && editAttachments.length > 0))}
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[12.5px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Save className="w-3.5 h-3.5" />
+                {t('record.save')}
+              </button>
             </div>
           </div>
         </div>

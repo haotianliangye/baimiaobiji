@@ -95,6 +95,7 @@ interface AppState {
   // 搜索状态
   isSearchMode: boolean;
   isCopilotMode: boolean;
+  isRandomWalkMode: boolean;
   searchQuery: string;
   searchHistory: string[];
   searchFilters: {
@@ -142,6 +143,7 @@ interface AppState {
   // 搜索动作
   setSearchMode: (open: boolean) => void;
   setCopilotMode: (open: boolean) => void;
+  setRandomWalkMode: (open: boolean) => void;
   setSearchQuery: (query: string) => void;
   setSearchFilters: (filters: {
     dateRange: string;
@@ -190,6 +192,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   // 搜索初始化状态
   isSearchMode: false,
   isCopilotMode: false,
+  isRandomWalkMode: false,
   searchQuery: '',
   searchHistory: (() => {
     try {
@@ -941,6 +944,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setCopilotMode: (open) => {
     set({ isCopilotMode: open });
+  },
+
+  setRandomWalkMode: (open) => {
+    set({ isRandomWalkMode: open });
   },
 
   setSearchQuery: (query) => {

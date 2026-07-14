@@ -107,6 +107,17 @@ async function waitForCardCount(page: Page, n: number, timeout = 5000) {
   );
 }
 
+/** 通过 Swiper 实例切到下一张（EffectCards 扇形堆叠，左右滑动切换）。
+ *  Swiper v11 把实例挂在 .swiper 元素的 swiper 属性上。 */
+async function slideToNext(page: Page) {
+  await page.evaluate(() => {
+    const el = document.querySelector('.swiper') as any;
+    if (el && el.swiper && typeof el.swiper.slideNext === 'function') {
+      el.swiper.slideNext();
+    }
+  });
+}
+
 /** 通过应用 UI 创建一条沉思笔记（走 RichEditor + thoughts.store）。 */
 async function createThought(page: Page, content: string, expectedCount: number) {
   await page.click('[data-testid="thought-quick-input"]');
@@ -183,7 +194,7 @@ async function run() {
 
   // ---------- 2. 滑动/下一张浏览 ----------
   const firstContent = await getActiveCardContent(page);
-  await page.click('[data-testid="walk-next"]');
+  await slideToNext(page);
   await new Promise((r) => setTimeout(r, 350)); // 等待切换动画
   const secondContent = await getActiveCardContent(page);
   assert(
@@ -193,7 +204,7 @@ async function run() {
   );
 
   // 再下一张到第 3 张
-  await page.click('[data-testid="walk-next"]');
+  await slideToNext(page);
   await new Promise((r) => setTimeout(r, 350));
   const thirdContent = await getActiveCardContent(page);
   assert(
