@@ -263,7 +263,7 @@ export default function Layout() {
             {/* 左：[≡] 页面标题 · 副标题（标题不可点击，≡ 进设置） */}
             <div className="flex items-center gap-2 min-w-0 flex-1 z-10">
               <button
-                onClick={() => navigate('/settings')}
+                onClick={() => navigate('/settings', { state: { drawer: true } })}
                 title={t('settings.title')}
                 aria-label={t('settings.title')}
                 className="p-1.5 hover:opacity-70 transition-opacity active:scale-95 shrink-0"

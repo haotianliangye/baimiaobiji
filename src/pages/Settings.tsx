@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning, Download, FileJson, FileText, MessageSquare, Volume2, Menu, Tags, Info, Database } from 'lucide-react';
-import { motion } from 'motion/react';
+import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning, Download, FileJson, FileText, MessageSquare, Volume2, Tags, Info, Database, X, Hash, ChevronRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import TagManagement from './TagManagement';
 import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_MINGWU_PROMPT, DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT, DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT, DEFAULT_PROMPTS_BY_LANG, DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG, DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG, type Language } from '../store/settings.store';
 import { db, normalizeLegacyDiary, normalizeLegacyInsight } from '../db/db';
@@ -28,8 +29,6 @@ const isVolcengineTtsKeyValid = (key: string): boolean => {
   if (sep <= 0) return false;
   return key.slice(0, sep).length > 0 && key.slice(sep + 1).length > 0;
 };
-const MOBILE_DRAWER_WIDTH_REM = '16rem'; // w-64 = 256px，移动端抽屉宽度，主内容右移量
-
 // #13 统一数据管理 -- 可导出的数据类型选项（labelKey 用于 i18n）
 const DATA_TYPE_OPTIONS: { id: DataType; labelKey: string }[] = [
   { id: 'raw_logs', labelKey: 'dataType.raw_logs' },
@@ -105,7 +104,12 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState<'model' | 'tts' | 'embedding' | 'data' | 'prompt' | 'tags' | 'about'>(
     (location.state as any)?.tab || 'model'
   );
-  const [menuOpen, setMenuOpen] = useState(false);
+  // Issue 109: 设置页抽屉 + 全页详情模式（推翻 Seam 2 左右分栏）
+  const [view, setView] = useState<'drawer' | 'detail'>(
+    (location.state as any)?.drawer ? 'drawer' : 'detail'
+  );
+  // Issue 109: 抽屉「所有标签」区块 -- 实时查询标签列表
+  const allTags = useLiveQuery(() => db.tags.orderBy('path').toArray(), []);
   const [isUpdating, setIsUpdating] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [showEmbedApiKey, setShowEmbedApiKey] = useState(false);
@@ -138,15 +142,6 @@ export default function Settings() {
       setStorageInfo(info);
     }
     loadStorageInfo();
-  }, []);
-
-  // Seam 2: 视口切到桌面(md, >=768px)时收起移动端 push 抽屉，避免主内容残留位移
-  useEffect(() => {
-    const onResize = () => {
-      if (window.innerWidth >= 768) setMenuOpen(false);
-    };
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
   }, []);
 
   // OAuth Callback Hash Parser
@@ -729,15 +724,33 @@ export default function Settings() {
 
   const handleMenuSelect = (tab: typeof activeTab) => {
     setActiveTab(tab);
-    setMenuOpen(false);
+    setView('detail');
+  };
+
+  // Issue 109: 横向导航栏左右滑动切换 tab
+  const touchStartX = useRef<number | null>(null);
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const delta = e.changedTouches[0].clientX - touchStartX.current;
+    if (Math.abs(delta) < 50) return; // 滑动阈值
+    const currentIndex = menuItems.findIndex(item => item.id === activeTab);
+    if (delta > 0 && currentIndex > 0) {
+      setActiveTab(menuItems[currentIndex - 1].id);
+    } else if (delta < 0 && currentIndex < menuItems.length - 1) {
+      setActiveTab(menuItems[currentIndex + 1].id);
+    }
+    touchStartX.current = null;
   };
 
   // Seam 8: 火山引擎 TTS API Key 客户端即时校验（仅 external + volcengine 时生效）
   const ttsApiKeyInvalid = ttsService === 'external' && ttsProvider === 'volcengine' && !isVolcengineTtsKeyValid(ttsApiKey);
 
-  // Seam 2: 左侧菜单 JSX（桌面常驻 + 移动抽屉共用）
-  const sidebarNav = (
-    <nav className="flex flex-col gap-0.5 p-2">
+  // Issue 109: 抽屉菜单项（上半部分）
+  const drawerNav = (
+    <nav className="flex flex-col gap-0.5 p-2 shrink-0">
       {menuItems.map(item => (
         <button
           key={item.id}
@@ -755,49 +768,118 @@ export default function Settings() {
     </nav>
   );
 
+  // Issue 109: 全屏详情页顶部横向导航栏（胶囊高亮 + 横向滚动）
+  const horizontalNav = (
+    <div
+      className="shrink-0 border-b border-baimiao-border/30 bg-[#faf9fc]/40 overflow-x-auto thin-scrollbar overscroll-x-none"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      data-testid="settings-horizontal-nav"
+    >
+      <div className="flex gap-1.5 p-2 min-w-min">
+        {menuItems.map(item => (
+          <button
+            key={item.id}
+            onClick={() => setActiveTab(item.id)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12.5px] font-medium transition-all whitespace-nowrap shrink-0 ${
+              activeTab === item.id
+                ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-sm font-semibold'
+                : 'text-stone-500 hover:text-stone-800 hover:bg-stone-100/60'
+            }`}
+          >
+            {item.icon}
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  // Issue 109: 抽屉模式 -- 点 ≡ 从左侧滑出，含菜单项 + 「所有标签」区块
+  if (view === 'drawer') {
+    return (
+      <div className="relative flex flex-col h-full bg-stone-100 font-sans text-stone-900 overflow-hidden items-center justify-center">
+        {/* 遮罩：点击直接关闭设置（退出） */}
+        <div
+          className="absolute inset-0 bg-black/40 backdrop-blur-sm z-40"
+          onClick={() => navigate(-1)}
+          data-testid="settings-drawer-backdrop"
+        />
+        <motion.aside
+          className="absolute top-0 left-0 bottom-0 w-72 bg-[#faf9fc] z-50 flex flex-col border-r border-baimiao-border/30 shadow-xl"
+          initial={{ x: '-100%' }}
+          animate={{ x: 0 }}
+          transition={{ duration: 0.3, ease: 'easeInOut' }}
+          data-testid="settings-drawer"
+        >
+          {/* 抽屉头部 */}
+          <div className="flex h-14 items-center justify-between px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 shrink-0">
+            <h2 className="text-[15.5px] font-bold text-baimiao-mysteria font-serif baimiao-editorial-title">{t('settings.title')}</h2>
+            <button
+              onClick={() => navigate(-1)}
+              className="p-2 -mr-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100/60 transition-all rounded-full active:scale-90"
+              aria-label={t('about.close')}
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* 上半部分：设置菜单项（不滚动） */}
+          {drawerNav}
+
+          {/* 下半部分：「所有标签」区块（仅区块内部滚动） */}
+          <div className="flex-1 overflow-hidden flex flex-col border-t border-baimiao-border/30 min-h-0">
+            <div className="flex items-center justify-between px-4 py-2.5 shrink-0">
+              <span className="text-[12px] font-semibold text-stone-500 uppercase tracking-wider">{t('settings.allTags')}</span>
+              <button
+                onClick={() => { setActiveTab('tags'); setView('detail'); }}
+                className="text-[11px] text-baimiao-mysteria hover:underline flex items-center gap-0.5 font-medium transition-all active:scale-95"
+              >
+                {t('settings.manageTags')}
+                <ChevronRight className="w-3 h-3" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto thin-scrollbar overscroll-contain px-2 pb-3" data-testid="drawer-all-tags">
+              {allTags && allTags.length > 0 ? (
+                <div className="flex flex-col gap-0.5">
+                  {allTags.map(tag => (
+                    <button
+                      key={tag.path}
+                      onClick={() => { setActiveTab('tags'); setView('detail'); }}
+                      className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[13px] text-stone-600 hover:bg-stone-100/60 transition-colors text-left"
+                    >
+                      <Hash className="w-3 h-3 text-baimiao-mysteria/50 shrink-0" />
+                      <span className="truncate">{tag.path}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="px-2 py-8 text-center text-[12px] text-stone-400">{t('tags.noTagsTitle')}</div>
+              )}
+            </div>
+          </div>
+        </motion.aside>
+      </div>
+    );
+  }
+
+  // Issue 109: 全屏详情模式 -- 横向导航栏 + 设置内容
   return (
     <div className="relative flex flex-col h-full bg-stone-100 font-sans text-stone-900 overflow-hidden items-center justify-center">
-        {/* Seam 2: 移动端真 push 抽屉 -- 绝对定位滑入；主内容(下方 motion.div)做位移变换，非 overlay 遮罩 */}
-        <motion.aside
-          className="md:hidden absolute top-0 left-0 bottom-0 w-64 bg-[#faf9fc] z-30 flex flex-col border-r border-baimiao-border/30 shadow-xl overflow-y-auto thin-scrollbar"
-          initial={false}
-          animate={{ x: menuOpen ? 0 : '-100%' }}
-          transition={{ duration: 0.3, ease: 'easeInOut' }}
-        >
-          {sidebarNav}
-        </motion.aside>
-      <motion.div
-        className="flex flex-col h-full overflow-hidden bg-white relative z-50 mx-auto w-full md:max-w-3xl shadow-sm ring-1 ring-black/5"
-        initial={false}
-        animate={{ x: menuOpen ? MOBILE_DRAWER_WIDTH_REM : 0 }}
-        transition={{ duration: 0.3, ease: 'easeInOut' }}
-      >
-        {/* Header */}
+      <div className="flex flex-col h-full overflow-hidden bg-white relative z-50 mx-auto w-full md:max-w-3xl shadow-sm ring-1 ring-black/5">
+        {/* Header -- 直接关闭设置（不返回抽屉） */}
         <div className="flex h-14 items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 shrink-0">
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="md:hidden p-2 -ml-2 text-baimiao-mysteria/70 hover:text-baimiao-mysteria hover:bg-baimiao-mysteria/5 transition-all rounded-full active:scale-90"
-            aria-label={t('settings.menuToggle')}
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-          <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-baimiao-mysteria/70 hover:text-baimiao-mysteria hover:bg-baimiao-mysteria/5 transition-all rounded-full active:scale-90">
+          <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-baimiao-mysteria/70 hover:text-baimiao-mysteria hover:bg-baimiao-mysteria/5 transition-all rounded-full active:scale-90" aria-label={t('settings.back')}>
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h2 className="text-[15.5px] font-bold ml-2 text-baimiao-mysteria font-serif baimiao-editorial-title">{t('settings.title')}</h2>
         </div>
 
-        {/* Body: sidebar + content */}
-        <div className="flex flex-1 overflow-hidden relative">
-          {/* Desktop sidebar - always visible */}
-          <aside className="hidden md:flex md:w-52 lg:w-56 flex-col border-r border-baimiao-border/30 bg-[#faf9fc]/40 shrink-0 overflow-y-auto thin-scrollbar">
-            {sidebarNav}
-          </aside>
+        {/* 横向导航栏 */}
+        {horizontalNav}
 
-          {/* Seam 2: 移动端抽屉已上移为 push 模式（见根容器），主内容右移让位，此处不再用 overlay 遮罩 */}
-
-          {/* Content area */}
-          <div className="flex-1 overflow-y-auto thin-scrollbar w-full p-3 space-y-3 pb-20">
+        {/* Content area */}
+        <div className="flex-1 overflow-y-auto thin-scrollbar w-full p-3 space-y-3 pb-20">
 
         {/* #12 Language Switcher -- 横向并排胶囊按钮，统一宽高，当前高亮 */}
         <section className="baimiao-card-diary p-3 flex items-center justify-between" data-testid="language-section">
@@ -831,7 +913,15 @@ export default function Settings() {
           </div>
         </section>
 
-        <div className="space-y-3">
+        <AnimatePresence mode="wait">
+        <motion.div
+          key={activeTab}
+          className="space-y-3"
+          initial={{ opacity: 0, x: 16 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -16 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+        >
           {activeTab === 'model' && (
             <>
               {/* Provider Selection */}
@@ -2603,9 +2693,9 @@ export default function Settings() {
               </div>
             </section>
           )}
-        </div>
+        </motion.div>
+        </AnimatePresence>
 
-        </div>
         </div>
 
         <div className="shrink-0 px-3 py-3 border-t border-baimiao-border/30 bg-white">
@@ -2650,7 +2740,7 @@ export default function Settings() {
           </button>
         </div>
 
-      </motion.div>
+      </div>
     </div>
   );
 }

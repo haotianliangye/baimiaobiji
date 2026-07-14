@@ -312,6 +312,9 @@ export const zh: TranslationDict = {
   'settings.tabTags': '标签设置',
   'settings.tabAbout': '关于',
   'settings.menuToggle': '菜单',
+  // 需求 9：设置抽屉 -- 所有标签区块 + 快捷入口
+  'settings.allTags': '所有标签',
+  'settings.manageTags': '管理标签',
   'settings.language': '界面语言',
   'settings.languageZh': '中文',
   'settings.languageEn': 'English',

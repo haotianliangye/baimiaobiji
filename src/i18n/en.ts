@@ -311,6 +311,9 @@ export const en: TranslationDict = {
   'settings.tabTags': 'Tags',
   'settings.tabAbout': 'About',
   'settings.menuToggle': 'Menu',
+  // Issue 109: Settings drawer -- all tags section + quick entry
+  'settings.allTags': 'All Tags',
+  'settings.manageTags': 'Manage',
   'settings.language': 'Interface Language',
   'settings.languageZh': '中文',
   'settings.languageEn': 'English',
