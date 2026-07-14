@@ -280,6 +280,7 @@ export const zh: TranslationDict = {
   'mingwu.rangeHalfYear': '半年',
   'mingwu.rangeYear': '一年',
   'mingwu.rangeCustomRange': '自选范围',
+  'mingwu.rangeCustomError': '请选择完整的起止时间',
   'mingwu.editPlaceholder': '开始编辑{type}...',
   'mingwu.generatingMingwu': '正在明悟中...',
   'mingwu.generatingMingwuDesc': '观照碎屑与沉思，浮现生命脉络',

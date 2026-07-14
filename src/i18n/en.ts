@@ -279,6 +279,7 @@ export const en: TranslationDict = {
   'mingwu.rangeHalfYear': 'Half year',
   'mingwu.rangeYear': 'Year',
   'mingwu.rangeCustomRange': 'Custom range',
+  'mingwu.rangeCustomError': 'Please select both start and end dates',
   'mingwu.editPlaceholder': 'Start editing {type}...',
   'mingwu.generatingMingwu': 'Awakening in progress...',
   'mingwu.generatingMingwuDesc': 'Contemplating fragments and reflections, surfacing life patterns',

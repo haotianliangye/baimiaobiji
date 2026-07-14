@@ -170,7 +170,7 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
               onClick={(e) => { e.stopPropagation(); onEndEdit(); }}
               className="px-4 py-2 rounded-full text-[13px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors shadow-sm select-none"
             >
-              取消
+              {t('mingwu.cancel')}
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); handleSaveEdit(); }}
@@ -260,21 +260,21 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
                className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
             >
                <Edit2 className="w-4 h-4" />
-               编辑
+               {t('mingwu.edit')}
             </button>
             <button
                onClick={(e) => { e.stopPropagation(); onRegenerate(mingwu); }}
                className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
             >
                <RefreshCw className="w-4 h-4" />
-               重新生成
+               {t('mingwu.regenerate')}
             </button>
             <button
                onClick={(e) => { e.stopPropagation(); setExpanded(false); }}
                className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
             >
                <ChevronUp className="w-4 h-4" />
-               收起
+               {t('mingwu.collapse')}
             </button>
           </div>
 
@@ -283,7 +283,7 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
              className={`flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl text-[13px] font-medium transition-colors ${showChat ? 'bg-stone-800 text-white' : 'bg-stone-100 hover:bg-stone-200 text-stone-700'}`}
           >
              <MessageCircle className="w-4 h-4" />
-             AI 追问
+             {t('mingwu.chatWithAI')}
           </button>
         </div>
       )}
@@ -442,40 +442,40 @@ export default function Insights() {
     const today = new Date();
     let startTime = today.getTime();
     let endTime = today.getTime();
-    let rangeLabel = "最近一周";
+    let rangeLabel = t('mingwu.rangeWeek');
 
     switch (timeRange) {
       case 'day':
         startTime = subDays(today, 1).getTime();
-        rangeLabel = "今天";
+        rangeLabel = t('mingwu.rangeDay');
         break;
       case 'week':
         startTime = subDays(today, 7).getTime();
-        rangeLabel = "最近一周";
+        rangeLabel = t('mingwu.rangeWeek');
         break;
       case 'month':
         startTime = subDays(today, 30).getTime();
-        rangeLabel = "最近一月";
+        rangeLabel = t('mingwu.rangeMonth');
         break;
       case 'quarter':
         startTime = subDays(today, 90).getTime();
-        rangeLabel = "最近一季度";
+        rangeLabel = t('mingwu.rangeQuarter');
         break;
       case 'half-year':
         startTime = subDays(today, 180).getTime();
-        rangeLabel = "最近半年";
+        rangeLabel = t('mingwu.rangeHalfYear');
         break;
       case 'year':
         startTime = subDays(today, 365).getTime();
-        rangeLabel = "最近一年";
+        rangeLabel = t('mingwu.rangeYear');
         break;
       case 'custom':
         if (!customStart || !customEnd) {
-           throw new Error("请选择完整的起止时间");
+           throw new Error(t('mingwu.rangeCustomError'));
         }
         startTime = new Date(customStart).getTime();
         endTime = new Date(customEnd).getTime() + 86400000;
-        rangeLabel = `${customStart} 至 ${customEnd}`;
+        rangeLabel = `${customStart} ${t('mingwu.to')} ${customEnd}`;
         break;
     }
     return { startTime, endTime, rangeLabel };
