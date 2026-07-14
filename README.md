@@ -97,12 +97,12 @@ npm start
 
 | 标签 | 图标 | 设计依据 |
 |:---|:---|:---|
-| 记录 | 💬 聊天气泡 (`ChatCircleDots`) | 碎屑记录是轻量、碎片化的"只言片语" |
-| 日记 | 📝 笔记本 (`Notepad`) | 记录整合成一篇完整日记 |
+| 碎屑 | 💬 聊天气泡 (`ChatCircleDots`) | 碎屑记录是轻量、碎片化的"只言片语" |
 | 回顾 | 🕐 时钟 (`Clock`) | 时间轴回溯，跨日统计复盘 |
-| 洞察 | 🧠 头脑电路 (`HeadCircuit`) | AI 提炼生命洞见，区别于回顾的圆形钟表图标 |
+| 沉思 | 🧠 头脑电路 (`HeadCircuit`) | 深度沉思与长文笔记 |
+| 明悟 | ☀️ 太阳 (`SunDim`) | 明悟、点亮，区别于沉思的头脑图标 |
 
-底部导航与各页面标题栏使用完全相同的图标，保持全局一致。
+底部 TabBar 与各页面标题栏使用完全相同的图标，保持全局一致。TabBar 用 `@phosphor-icons/react`，顶部栏/设置/面板用 `lucide-react`。
 
 ---
 
@@ -124,14 +124,14 @@ npm start
 server.ts              Express 开发服务端（融合 Vite 中间件）
 api/index.ts           Vercel Serverless API（与 server.ts 同步）
 src/
-├── db/db.ts           IndexedDB 声明与迁移
-├── lib/embedding.ts   向量队列、余弦相似度、语义搜索
-├── store/             Zustand 状态（app / settings）
-├── pages/             Record · Diary · Review · Insights · Settings · Copilot
-└── components/        Layout · ContextChat · CalendarHeatmap · MiniCalendar · ActionSheet
+├── db/db.ts           IndexedDB 声明与迁移（raw_logs / daily_reviews / thoughts / mingwu / attachments / chunks / tags）
+├── lib/               embedding · chunking · tts · multimedia · tags · i18n · dataExport/Import
+├── store/             Zustand 状态（app / settings / thoughts / mingwu / tags）
+├── pages/             Record · Review · Thoughts · Insights · Settings · Copilot
+└── components/        Layout · ContextChat · RichEditor · CalendarHeatmap · RandomWalk · ActionSheet
 ```
 
-后端路由：`generate-timeline` / `generate-review` / `generate-insights` / `*-chat` / `transcribe` / `generate-embedding` / `test-connection` / `webdav-proxy`。所有路由的 Key 均由请求体透传，服务端不保存。
+后端路由：`generate-timeline` / `generate-review` / `generate-mingwu` / `generate-insights` / `*-chat`（insight / diary / review / copilot） / `chat` / `transcribe` / `multimedia-summarize` / `generate-embedding` / `tts` / `test-connection` / `webdav-proxy`。所有路由的 Key 均由请求体透传，服务端不保存。
 
 ---
 
