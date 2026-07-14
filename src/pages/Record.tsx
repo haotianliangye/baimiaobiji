@@ -13,8 +13,6 @@ import {
   Mic,
   ArrowRight,
   Loader2,
-  ChevronLeft,
-  ChevronRight,
   Copy,
 
   Edit2,
@@ -35,7 +33,6 @@ import {
   Link as LinkIcon,
   FileUp,
 } from "lucide-react";
-import { ChatCircleDots } from "@phosphor-icons/react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { db } from "../db/db";
 import { generateUUID } from "../lib/utils";
@@ -45,7 +42,6 @@ import { useAppStore } from "../store/app.store";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { parseTagsFromText, resolveAlias } from "../lib/tags";
 import { useTagsStore } from "../store/tags.store";
-import CalendarHeatmap from "../components/CalendarHeatmap";
 import TodayStats from "../components/TodayStats";
 import RichEditor from "../components/RichEditor";
 import { saveAttachmentBlob, blobToBase64, generateAttachmentSummary, requestMultimediaSummary } from "../lib/multimedia";
@@ -517,7 +513,6 @@ export default function Record() {
     checkPersist();
   }, []);
   const [searchParams, setSearchParams] = useSearchParams();
-  const [showHeatmap, setShowHeatmap] = useState(false);
 
   // Action sheet & edit states
   const [activeLog, setActiveLog] = useState<any>(null);
@@ -1384,33 +1379,6 @@ export default function Record() {
 
   return (
     <div className="flex flex-col h-full bg-transparent relative">
-      <div className="flex h-[52px] items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 z-20 shrink-0 w-full justify-between">
-        <h2 className="text-[13.5px] font-bold tracking-wide text-baimiao-mysteria flex items-center gap-1.5 font-serif baimiao-editorial-title">
-          <ChatCircleDots weight="regular" className="w-4 h-4 text-baimiao-mysteria/70 translate-y-[-0.8px] shrink-0" />
-          {t('record.title')}
-        </h2>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigateToDate(-1)}
-            className="p-1 hover:bg-stone-200/50 rounded-full transition-colors text-stone-400 hover:text-stone-700"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setShowHeatmap(true)}
-            className="text-[13px] font-medium font-mono text-stone-700 w-[95px] text-center select-none hover:bg-stone-200/30 py-1 rounded-md transition-colors active:scale-95"
-          >
-            {dateStr}
-          </button>
-          <button
-            onClick={() => navigateToDate(1)}
-            disabled={isTodayDate}
-            className="p-1 hover:bg-stone-200/50 rounded-full transition-colors text-stone-400 hover:text-stone-700 disabled:opacity-30 disabled:hover:bg-transparent"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
 
       {isPersisted === false && !hideStorageWarning && (
         <div className="bg-[#fcf8fa]/95 backdrop-blur border-b border-rose-100/30 px-4 py-2 flex items-center justify-between text-[11px] text-rose-900 animate-in slide-in-from-top duration-200 z-10 relative">
@@ -1745,15 +1713,6 @@ export default function Record() {
         </>
         )}
       </div>
-
-      {showHeatmap && (
-        <CalendarHeatmap
-          currentDate={targetDate}
-          onSelectDate={(date) => setSearchParams({ date })}
-          onClose={() => setShowHeatmap(false)}
-          activeSection="record"
-        />
-      )}
 
       {/* #007 附件类型选择面板（网格布局，底部上滑） */}
       {showAttachmentSheet && (

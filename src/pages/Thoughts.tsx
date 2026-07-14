@@ -17,10 +17,7 @@ import { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { format, isSameDay } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
-import { Notepad } from '@phosphor-icons/react';
 import {
-  LayoutGrid,
-  List as ListIcon,
   Plus,
   X,
   Trash2,
@@ -30,7 +27,6 @@ import {
   Copy,
   Check,
   Sparkles,
-  Lightbulb,
   ChevronUp,
   ChevronDown,
   Film,
@@ -105,10 +101,8 @@ export default function Thoughts() {
     [allThoughts]
   );
 
-  const [view, setView] = useState<ViewMode>('masonry');
-
-  // --- 随机漫步入口（#11）：触发全局 isRandomWalkMode（主内容区由 Layout 渲染） ---
-  const setRandomWalkMode = useAppStore((s) => s.setRandomWalkMode);
+  // 需求 6：视图模式从 app store 读取（顶部栏胶囊控制）
+  const view = useAppStore((s) => s.thoughtsViewMode);
 
   // --- 底部快速创建编辑器 ---
   const [isCreating, setIsCreating] = useState(false);
@@ -183,51 +177,6 @@ export default function Thoughts() {
 
   return (
     <div className="flex flex-col h-full bg-transparent">
-      {/* Header */}
-      <div className="flex h-[52px] items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 z-20 shrink-0 w-full justify-between">
-        <h2 className="text-[13.5px] font-bold tracking-wide text-baimiao-mysteria flex items-center gap-1.5 font-serif baimiao-editorial-title">
-          <Notepad weight="regular" className="w-4 h-4 text-baimiao-mysteria/70 translate-y-[-0.8px] shrink-0" />
-          {t('thoughts.title')}
-        </h2>
-        {/* 视图切换 + 随机漫步入口 */}
-        <div className="flex items-center gap-1.5">
-          <button
-            data-testid="walk-open"
-            onClick={() => setRandomWalkMode(true)}
-            className="p-2 rounded-full text-amber-400 hover:bg-amber-50 transition-colors"
-            title={t('thoughts.randomWalk')}
-          >
-            <Lightbulb className="w-4 h-4" />
-          </button>
-          <div className="flex items-center bg-stone-100/80 rounded-full p-0.5">
-          <button
-            data-testid="view-masonry"
-            onClick={() => setView('masonry')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11.5px] font-medium transition-all ${
-              view === 'masonry'
-                ? 'bg-white text-baimiao-mysteria shadow-sm'
-                : 'text-stone-500 hover:text-stone-700'
-            }`}
-          >
-            <LayoutGrid className="w-3.5 h-3.5" />
-            {t('thoughts.masonry')}
-          </button>
-          <button
-            data-testid="view-timeline"
-            onClick={() => setView('timeline')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11.5px] font-medium transition-all ${
-              view === 'timeline'
-                ? 'bg-white text-baimiao-mysteria shadow-sm'
-                : 'text-stone-500 hover:text-stone-700'
-            }`}
-          >
-            <ListIcon className="w-3.5 h-3.5" />
-            {t('thoughts.timeline')}
-          </button>
-          </div>
-        </div>
-      </div>
-
       {/* 列表区（局部滚动，遵循移动端红线） */}
       <div ref={createScrollRef} className="flex-1 overflow-y-auto thin-scrollbar px-4 py-4">
         {thoughts.length === 0 ? (

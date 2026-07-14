@@ -378,33 +378,12 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
 
 export default function Insights() {
   const { t } = useTranslation();
-  const [timeRange, setTimeRange] = useState('week');
-  const [customStart, setCustomStart] = useState("");
-  const [customEnd, setCustomEnd] = useState("");
-  const [showDropdown, setShowDropdown] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowDropdown(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
-  const rangeOptions = [
-    { value: 'day', label: t('mingwu.rangeDay') },
-    { value: 'week', label: t('mingwu.rangeWeek') },
-    { value: 'month', label: t('mingwu.rangeMonth') },
-    { value: 'quarter', label: t('mingwu.rangeQuarter') },
-    { value: 'half-year', label: t('mingwu.rangeHalfYear') },
-    { value: 'year', label: t('mingwu.rangeYear') },
-    { value: 'custom', label: t('mingwu.rangeCustomRange') },
-  ];
+  // 需求 6：时间范围与自定义日期从 app store 读取（顶部栏胶囊控制）
+  const timeRange = useAppStore((s) => s.mingwuTimeRange);
+  const customStart = useAppStore((s) => s.mingwuCustomStart);
+  const customEnd = useAppStore((s) => s.mingwuCustomEnd);
+  const setMingwuCustomStart = useAppStore((s) => s.setMingwuCustomStart);
+  const setMingwuCustomEnd = useAppStore((s) => s.setMingwuCustomEnd);
 
   const { isGeneratingMingwu, mingwuError } = useAppStore();
   const { generateMingwu, regenerateMingwu } = useMingwuStore();
@@ -511,56 +490,18 @@ export default function Insights() {
 
   return (
     <div className="flex flex-col h-full bg-transparent relative overflow-hidden">
-      <div className="flex h-[52px] items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 z-20 shrink-0 w-full justify-between">
-         <h2 className="text-[13.5px] font-bold tracking-wide text-baimiao-mysteria flex items-center gap-1.5 font-serif baimiao-editorial-title">
-           <Sun weight="regular" className="w-4 h-4 text-baimiao-mysteria/70 translate-y-[-0.8px] shrink-0" />
-           {t('mingwu.title')}
-         </h2>
-         <div className="relative" ref={dropdownRef}>
-           <button
-             data-testid="mingwu-range-dropdown"
-             onClick={() => setShowDropdown(!showDropdown)}
-             className="flex items-center gap-1.5 bg-transparent text-[13px] font-medium text-stone-600 outline-none cursor-pointer hover:bg-stone-100 px-2 py-1 rounded transition-colors"
-           >
-             {rangeOptions.find(o => o.value === timeRange)?.label}
-             <ChevronDown className="w-3.5 h-3.5" />
-           </button>
-           {showDropdown && (
-             <div className="absolute right-0 top-full mt-1 w-28 bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-xl rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.15)] flex flex-col p-1.5 animate-in fade-in zoom-in-95 duration-100 z-50">
-               {rangeOptions.map((opt) => (
-                 <button
-                   key={opt.value}
-                   data-testid={`mingwu-range-option-${opt.value}`}
-                   onClick={() => {
-                     setTimeRange(opt.value);
-                     setShowDropdown(false);
-                   }}
-                   className={`px-3 py-2 text-[13px] font-medium rounded-lg text-left transition-colors ${
-                     timeRange === opt.value
-                       ? 'bg-white/10 text-white'
-                       : 'text-white/70 hover:text-white hover:bg-white/5'
-                   }`}
-                 >
-                   {opt.label}
-                 </button>
-               ))}
-             </div>
-           )}
-         </div>
-      </div>
-
       {timeRange === 'custom' && (
-        <div className="flex bg-white border-b border-stone-100 px-3 py-2.5 justify-center gap-2 items-center z-10 relative shadow-sm overflow-visible">
+        <div className="flex bg-white border-b border-stone-100 px-3 py-2.5 justify-center gap-2 items-center z-10 relative shadow-sm overflow-visible shrink-0">
           <DatePickerPopover
             value={customStart}
-            onChange={setCustomStart}
+            onChange={setMingwuCustomStart}
             placeholder={t('settings.startDate')}
             align="left"
           />
           <span className="text-stone-400 text-[12px] font-medium shrink-0">{t('mingwu.to')}</span>
           <DatePickerPopover
             value={customEnd}
-            onChange={setCustomEnd}
+            onChange={setMingwuCustomEnd}
             placeholder={t('settings.endDate')}
             align="right"
           />

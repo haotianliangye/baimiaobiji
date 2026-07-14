@@ -35,6 +35,7 @@ export const en: TranslationDict = {
   'layout.titleBaimiao': 'Baimiao',
   'layout.prevDay': 'Previous day',
   'layout.nextDay': 'Next day',
+  'layout.selectDate': 'Select date',
 
   // --- Auto-generated notifications ---
   'notify.autoDiary': 'Auto-generated diary for {date}',

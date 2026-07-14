@@ -96,6 +96,17 @@ interface AppState {
   isSearchMode: boolean;
   isCopilotMode: boolean;
   isRandomWalkMode: boolean;
+
+  // 需求 6：沉思视图模式 & 明悟时间范围（顶部栏胶囊与页面共享状态）
+  thoughtsViewMode: 'masonry' | 'timeline';
+  setThoughtsViewMode: (mode: 'masonry' | 'timeline') => void;
+  mingwuTimeRange: string;
+  setMingwuTimeRange: (range: string) => void;
+  mingwuCustomStart: string;
+  setMingwuCustomStart: (date: string) => void;
+  mingwuCustomEnd: string;
+  setMingwuCustomEnd: (date: string) => void;
+
   searchQuery: string;
   searchHistory: string[];
   searchFilters: {
@@ -193,6 +204,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   isSearchMode: false,
   isCopilotMode: false,
   isRandomWalkMode: false,
+
+  // 需求 6：沉思视图模式 & 明悟时间范围（顶部栏胶囊与页面共享状态）
+  thoughtsViewMode: 'masonry',
+  mingwuTimeRange: 'week',
+  mingwuCustomStart: '',
+  mingwuCustomEnd: '',
+
   searchQuery: '',
   searchHistory: (() => {
     try {
@@ -948,6 +966,22 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setRandomWalkMode: (open) => {
     set({ isRandomWalkMode: open });
+  },
+
+  setThoughtsViewMode: (mode) => {
+    set({ thoughtsViewMode: mode });
+  },
+
+  setMingwuTimeRange: (range) => {
+    set({ mingwuTimeRange: range });
+  },
+
+  setMingwuCustomStart: (date) => {
+    set({ mingwuCustomStart: date });
+  },
+
+  setMingwuCustomEnd: (date) => {
+    set({ mingwuCustomEnd: date });
   },
 
   setSearchQuery: (query) => {

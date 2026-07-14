@@ -46,7 +46,11 @@ export default function Layout() {
     isCopilotMode,
     setCopilotMode,
     isRandomWalkMode,
-    setRandomWalkMode
+    setRandomWalkMode,
+    thoughtsViewMode,
+    setThoughtsViewMode,
+    mingwuTimeRange,
+    setMingwuTimeRange,
   } = useAppStore();
 
   const { syncEnabled, embedEnabled, diaryPrompts } = useSettingsStore();
@@ -57,6 +61,9 @@ export default function Layout() {
   const currentPath = location.pathname;
   // 日期导航仅在「碎屑 / 回顾」两个按日期浏览的 Tab 显示
   const showDateNav = currentPath === '/' || currentPath === '/review';
+  // 需求 6：沉思中间为瀑布流/时间线胶囊；明悟中间为时间范围胶囊
+  const showThoughtsCapsule = currentPath === '/thoughts';
+  const showMingwuCapsule = currentPath === '/mingwu';
 
   // 页面标题映射：碎屑=白描 / 回顾 / 沉思 / 明悟（标题不可点击）
   const routeTitleKey: Record<string, string> = {
@@ -66,6 +73,19 @@ export default function Layout() {
     '/mingwu': 'tab.mingwu',
   };
   const headerTitleKey = routeTitleKey[currentPath] || 'layout.titleBaimiao';
+
+  // 需求 6：明悟时间范围胶囊选项（复用现有洞察下拉选项与语义）
+  const mingwuRangeOptions = [
+    { value: 'day', label: t('mingwu.rangeDay') },
+    { value: 'week', label: t('mingwu.rangeWeek') },
+    { value: 'month', label: t('mingwu.rangeMonth') },
+    { value: 'quarter', label: t('mingwu.rangeQuarter') },
+    { value: 'half-year', label: t('mingwu.rangeHalfYear') },
+    { value: 'year', label: t('mingwu.rangeYear') },
+    { value: 'custom', label: t('mingwu.rangeCustomRange') },
+  ];
+  const mingwuRangeLabel = (range: string) =>
+    mingwuRangeOptions.find((o) => o.value === range)?.label || t('mingwu.rangeWeek');
 
   // 日期导航（与各页面共用 ?date= 查询参数）
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -77,6 +97,8 @@ export default function Layout() {
     if (!isNaN(parsed.getTime())) targetDate = parsed;
   }
   const dateStr = format(targetDate, 'yyyy-MM-dd');
+  // 需求 6：日期选择器仅显示月-日（字号比标题略小）
+  const dateDisplayStr = format(targetDate, 'MM-dd');
   const isTodayDate = isSameDay(targetDate, navToday);
   const navigateToDate = (offset: number) => {
     const newDate = offset > 0 ? addDays(targetDate, offset) : subDays(targetDate, Math.abs(offset));
@@ -93,6 +115,14 @@ export default function Layout() {
   const promptDropdownRef = useRef<HTMLDivElement>(null);
   const promptCardRef = useRef<HTMLDivElement>(null);
   const [promptCardPos, setPromptCardPos] = useState<{ top: number; left: number } | null>(null);
+
+  // 需求 6：沉思胶囊 & 明悟时间范围胶囊下拉
+  const [showThoughtsDropdown, setShowThoughtsDropdown] = useState(false);
+  const thoughtsCapsuleRef = useRef<HTMLDivElement>(null);
+  const thoughtsCardRef = useRef<HTMLDivElement>(null);
+  const [showMingwuDropdown, setShowMingwuDropdown] = useState(false);
+  const mingwuCapsuleRef = useRef<HTMLDivElement>(null);
+  const mingwuCardRef = useRef<HTMLDivElement>(null);
 
   const [tempStartDate, setTempStartDate] = useState(searchFilters.customStartDate || '');
   const [tempEndDate, setTempEndDate] = useState(searchFilters.customEndDate || '');
@@ -119,6 +149,36 @@ export default function Layout() {
       if (!inButton && !inCard) {
         setShowPromptDropdown(false);
         setPromptCardPos(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  // 需求 6：沉思胶囊点击外部关闭
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const inButton = thoughtsCapsuleRef.current && thoughtsCapsuleRef.current.contains(event.target as Node);
+      const inCard = thoughtsCardRef.current && thoughtsCardRef.current.contains(event.target as Node);
+      if (!inButton && !inCard) {
+        setShowThoughtsDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  // 需求 6：明悟时间范围胶囊点击外部关闭
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const inButton = mingwuCapsuleRef.current && mingwuCapsuleRef.current.contains(event.target as Node);
+      const inCard = mingwuCardRef.current && mingwuCardRef.current.contains(event.target as Node);
+      if (!inButton && !inCard) {
+        setShowMingwuDropdown(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -236,9 +296,11 @@ export default function Layout() {
                 </button>
                 <button
                   onClick={() => setShowDatePicker(true)}
-                  className="text-[12px] font-mono text-white/90 w-[80px] text-center select-none hover:opacity-80 py-1 rounded-md transition-opacity active:scale-95"
+                  aria-label={t('layout.selectDate')}
+                  title={t('layout.selectDate')}
+                  className="text-[12px] font-mono text-white/90 w-[56px] text-center select-none hover:opacity-80 py-1 rounded-md transition-opacity active:scale-95"
                 >
-                  {dateStr}
+                  {dateDisplayStr}
                 </button>
                 <button
                   onClick={() => navigateToDate(1)}
@@ -249,6 +311,85 @@ export default function Layout() {
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
+              </div>
+            )}
+
+            {/* 中：沉思瀑布流/时间线下拉胶囊切换器（仅文字无图标；随机漫步模式下隐藏） */}
+            {showThoughtsCapsule && !isRandomWalkMode && (
+              <div className="absolute left-1/2 -translate-x-1/2 shrink-0" ref={thoughtsCapsuleRef}>
+                <button
+                  onClick={() => setShowThoughtsDropdown(!showThoughtsDropdown)}
+                  className="flex items-center gap-1 px-3 py-1 rounded-full bg-white/10 border border-white/10 text-white/90 text-[12px] font-medium select-none hover:bg-white/15 transition-colors active:scale-95"
+                >
+                  {thoughtsViewMode === 'masonry' ? t('thoughts.masonry') : t('thoughts.timeline')}
+                  <ChevronDown className="w-3 h-3 opacity-60" />
+                </button>
+              </div>
+            )}
+            {showThoughtsCapsule && showThoughtsDropdown && (
+              <div
+                ref={thoughtsCardRef}
+                className="absolute left-1/2 -translate-x-1/2 top-[44px] z-50 bg-white rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] flex flex-col p-1 animate-in fade-in zoom-in-95 duration-100"
+              >
+                <button
+                  data-testid="view-masonry"
+                  onClick={() => { setThoughtsViewMode('masonry'); setShowThoughtsDropdown(false); }}
+                  className={`px-4 py-1.5 text-[12px] font-medium rounded-lg text-left transition-colors ${
+                    thoughtsViewMode === 'masonry'
+                      ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria'
+                      : 'text-stone-600 hover:text-stone-800 hover:bg-stone-100'
+                  }`}
+                >
+                  {t('thoughts.masonry')}
+                </button>
+                <button
+                  data-testid="view-timeline"
+                  onClick={() => { setThoughtsViewMode('timeline'); setShowThoughtsDropdown(false); }}
+                  className={`px-4 py-1.5 text-[12px] font-medium rounded-lg text-left transition-colors ${
+                    thoughtsViewMode === 'timeline'
+                      ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria'
+                      : 'text-stone-600 hover:text-stone-800 hover:bg-stone-100'
+                  }`}
+                >
+                  {t('thoughts.timeline')}
+                </button>
+              </div>
+            )}
+
+            {/* 中：明悟时间范围下拉胶囊（随机漫步模式下隐藏） */}
+            {showMingwuCapsule && !isRandomWalkMode && (
+              <div className="absolute left-1/2 -translate-x-1/2 shrink-0" ref={mingwuCapsuleRef}>
+                <button
+                  data-testid="mingwu-range-dropdown"
+                  onClick={() => setShowMingwuDropdown(!showMingwuDropdown)}
+                  className="flex items-center gap-1 px-3 py-1 rounded-full bg-white/10 border border-white/10 text-white/90 text-[12px] font-medium select-none hover:bg-white/15 transition-colors active:scale-95"
+                >
+                  {mingwuRangeLabel(mingwuTimeRange)}
+                  <ChevronDown className="w-3 h-3 opacity-60" />
+                </button>
+              </div>
+            )}
+            {showMingwuCapsule && showMingwuDropdown && (
+              <div
+                ref={mingwuCardRef}
+                className="absolute left-1/2 -translate-x-1/2 top-[44px] z-50 bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-xl rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.15)] p-1.5 animate-in fade-in zoom-in-95 duration-100 w-[200px]"
+              >
+                <div className="grid grid-cols-4 gap-1">
+                  {mingwuRangeOptions.map((opt) => (
+                    <button
+                      key={opt.value}
+                      data-testid={`mingwu-range-option-${opt.value}`}
+                      onClick={() => { setMingwuTimeRange(opt.value); setShowMingwuDropdown(false); }}
+                      className={`px-1 py-2 text-[11px] font-medium rounded-lg text-center transition-colors ${
+                        mingwuTimeRange === opt.value
+                          ? 'bg-white/15 text-white'
+                          : 'text-white/70 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 

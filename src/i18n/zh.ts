@@ -36,6 +36,7 @@ export const zh: TranslationDict = {
   'layout.titleBaimiao': '白描',
   'layout.prevDay': '前一天',
   'layout.nextDay': '后一天',
+  'layout.selectDate': '选择日期',
 
   // --- 自动生成通知 ---
   'notify.autoDiary': '已自动为您整理 {date} 的日记',

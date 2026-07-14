@@ -4,7 +4,6 @@ import { format, startOfWeek, subDays, startOfDay, isSameDay, addDays, parse } f
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { db } from '../db/db';
-import CalendarHeatmap from '../components/CalendarHeatmap';
 import TodayStats from '../components/TodayStats';
 import { countChars } from '../lib/wordCount';
 import { formatDiaryMarkdown } from '../lib/utils';
@@ -12,7 +11,6 @@ import { washCitations } from '../lib/citationWash';
 import ActionSheet from '../components/ActionSheet';
 import ContextChat from '../components/ContextChat';
 import { Trash2, ChevronDown, ChevronUp, RefreshCw, X, Sparkles, MessageCircle, Copy, Check, Activity, Save, Edit2, Loader2, CheckSquare, Square, Hash, Plus, Volume2, Square as SquareIcon } from 'lucide-react';
-import { Clock } from '@phosphor-icons/react';
 import { useAppStore } from '../store/app.store';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useTTS } from '../lib/tts';
@@ -62,7 +60,6 @@ export default function Review() {
   const today = new Date();
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const [showHeatmap, setShowHeatmap] = useState(false);
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
   const [expandedReviewId, setExpandedReviewId] = useState<string | null>(null);
   const [chatReviewId, setChatReviewId] = useState<string | null>(null);
@@ -365,31 +362,6 @@ export default function Review() {
 
   return (
     <div className="flex flex-col h-full bg-transparent relative">
-      <div className="flex h-[52px] items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 z-20 shrink-0 w-full justify-between">
-         <h2 className="text-[13.5px] font-bold tracking-wide text-baimiao-mysteria flex items-center gap-1.5 font-serif baimiao-editorial-title">
-           <Clock weight="regular" className="w-4 h-4 text-baimiao-mysteria/70 translate-y-[-0.8px] shrink-0" />
-           {t('review.title')}
-         </h2>
-         <div className="flex items-center gap-3">
-           <button onClick={() => navigateToDate(-1)} className="p-1 hover:bg-stone-200/50 rounded-full transition-colors text-stone-400 hover:text-stone-700">
-             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-           </button>
-           <button
-             onClick={() => setShowHeatmap(true)}
-             className="text-[13px] font-medium font-mono text-stone-700 w-[95px] text-center select-none hover:bg-stone-200/30 py-1 rounded-md transition-colors active:scale-95"
-           >
-             {dateStr}
-           </button>
-           <button
-             onClick={() => navigateToDate(1)}
-             disabled={isTodayDate}
-             className="p-1 hover:bg-stone-200/50 rounded-full transition-colors text-stone-400 hover:text-stone-700 disabled:opacity-30 disabled:hover:bg-transparent"
-           >
-             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-           </button>
-         </div>
-      </div>
-
       <div
         className="flex-1 overflow-y-auto thin-scrollbar p-6 flex flex-col items-center"
         onTouchStart={handleTouchStart}
@@ -817,15 +789,6 @@ export default function Review() {
           )}
         </div>
       </div>
-      
-      {showHeatmap && (
-        <CalendarHeatmap
-          currentDate={targetDate}
-          onSelectDate={(date) => setSearchParams({ date })}
-          onClose={() => setShowHeatmap(false)}
-          activeSection="review"
-        />
-      )}
 
       {/* #5: 多选浮层 - Prompt 选择（日记/回顾/自定义1/2/3） */}
       {showPromptMenu && popoverRect && (
