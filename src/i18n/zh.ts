@@ -290,7 +290,7 @@ export const zh: TranslationDict = {
   'mingwu.rangeDay': '今日',
   'mingwu.rangeHalfYear': '半年',
   'mingwu.rangeYear': '一年',
-  'mingwu.rangeCustomRange': '自选范围',
+  'mingwu.rangeCustomRange': '自选',
   'mingwu.rangeCustomError': '请选择完整的起止时间',
   'mingwu.editPlaceholder': '开始编辑{type}...',
   'mingwu.generatingMingwu': '正在明悟中...',

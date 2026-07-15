@@ -289,7 +289,7 @@ export const en: TranslationDict = {
   'mingwu.rangeDay': 'Today',
   'mingwu.rangeHalfYear': 'Half year',
   'mingwu.rangeYear': 'Year',
-  'mingwu.rangeCustomRange': 'Custom range',
+  'mingwu.rangeCustomRange': 'Custom',
   'mingwu.rangeCustomError': 'Please select both start and end dates',
   'mingwu.editPlaceholder': 'Start editing {type}...',
   'mingwu.generatingMingwu': 'Awakening in progress...',

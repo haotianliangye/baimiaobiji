@@ -206,7 +206,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isRandomWalkMode: false,
 
   // 需求 6：沉思视图模式 & 明悟时间范围（顶部栏胶囊与页面共享状态）
-  thoughtsViewMode: 'masonry',
+  thoughtsViewMode: 'timeline',
   mingwuTimeRange: 'week',
   mingwuCustomStart: '',
   mingwuCustomEnd: '',

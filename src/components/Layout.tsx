@@ -6,6 +6,7 @@ import { subDays, format, parse, addDays, isSameDay } from 'date-fns';
 import { useAppStore } from '../store/app.store';
 import { useSettingsStore } from '../store/settings.store';
 import MiniCalendar from './MiniCalendar';
+import CalendarHeatmap from './CalendarHeatmap';
 import RandomWalk from './RandomWalk';
 import Copilot from '../pages/Copilot';
 import { useTranslation } from '../lib/i18n';
@@ -103,6 +104,8 @@ export default function Layout() {
     const newDate = offset > 0 ? addDays(targetDate, offset) : subDays(targetDate, Math.abs(offset));
     setSearchParams({ date: format(newDate, 'yyyy-MM-dd') });
   };
+  const heatmapSection = currentPath === '/review' ? 'review' : 'record';
+
   // 灯泡入口：随机漫步（全局状态控制显隐，主内容区渲染）
 
   const [showDateDropdown, setShowDateDropdown] = useState(false);
@@ -535,24 +538,14 @@ export default function Layout() {
         </nav>
       </div>
 
-      {/* 日期选择器（顶部栏中间日期入口）-- 恢复以前的月历模块（MiniCalendar） */}
+      {/* 日期选择器（顶部栏中间日期入口）-- 统计+热力图模块（CalendarHeatmap） */}
       {showDatePicker && (
-        <div
-          className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
-          onClick={() => setShowDatePicker(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-2xl p-3 w-full max-w-[320px] animate-in zoom-in-95 duration-150"
-          >
-            <MiniCalendar
-              value={dateStr}
-              onChange={(val) => { setSearchParams({ date: val }); setShowDatePicker(false); }}
-              onBack={() => setShowDatePicker(false)}
-              title={t('layout.selectDate')}
-            />
-          </div>
-        </div>
+        <CalendarHeatmap
+          currentDate={targetDate}
+          onSelectDate={(date) => { setSearchParams({ date }); setShowDatePicker(false); }}
+          onClose={() => setShowDatePicker(false)}
+          activeSection={heatmapSection}
+        />
       )}
 
       {/* Global Search Panel */}
