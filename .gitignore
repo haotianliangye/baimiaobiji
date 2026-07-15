@@ -6,3 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# 看门狗临时状态文件（勿 commit）
+.workflow-state.txt
