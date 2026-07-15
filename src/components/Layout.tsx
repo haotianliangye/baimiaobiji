@@ -6,7 +6,6 @@ import { subDays, format, parse, addDays, isSameDay } from 'date-fns';
 import { useAppStore } from '../store/app.store';
 import { useSettingsStore } from '../store/settings.store';
 import MiniCalendar from './MiniCalendar';
-import CalendarHeatmap from './CalendarHeatmap';
 import RandomWalk from './RandomWalk';
 import Copilot from '../pages/Copilot';
 import { useTranslation } from '../lib/i18n';
@@ -104,8 +103,6 @@ export default function Layout() {
     const newDate = offset > 0 ? addDays(targetDate, offset) : subDays(targetDate, Math.abs(offset));
     setSearchParams({ date: format(newDate, 'yyyy-MM-dd') });
   };
-  const heatmapSection = currentPath === '/review' ? 'review' : 'record';
-
   // 灯泡入口：随机漫步（全局状态控制显隐，主内容区渲染）
 
   const [showDateDropdown, setShowDateDropdown] = useState(false);
@@ -293,7 +290,7 @@ export default function Layout() {
 
             {/* 中：日期导航（仅碎屑/回顾；点击日期打开日期选择器；随机漫步模式下隐藏） */}
             {showDateNav && !isRandomWalkMode && (
-              <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1 shrink-0">
+              <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1 shrink-0 z-20">
                 <button
                   onClick={() => navigateToDate(-1)}
                   aria-label={t('layout.prevDay')}
@@ -324,7 +321,7 @@ export default function Layout() {
 
             {/* 中：沉思瀑布流/时间线下拉胶囊切换器（仅文字无图标；随机漫步模式下隐藏） */}
             {showThoughtsCapsule && !isRandomWalkMode && (
-              <div className="absolute left-1/2 -translate-x-1/2 shrink-0" ref={thoughtsCapsuleRef}>
+              <div className="absolute left-1/2 -translate-x-1/2 shrink-0 z-20" ref={thoughtsCapsuleRef}>
                 <button
                   onClick={() => setShowThoughtsDropdown(!showThoughtsDropdown)}
                   className="px-3 py-1 rounded-full bg-white/10 border border-white/10 text-white/90 text-[12px] font-medium select-none hover:bg-white/15 transition-colors active:scale-95"
@@ -365,7 +362,7 @@ export default function Layout() {
 
             {/* 中：明悟时间范围下拉胶囊（随机漫步模式下隐藏） */}
             {showMingwuCapsule && !isRandomWalkMode && (
-              <div className="absolute left-1/2 -translate-x-1/2 shrink-0" ref={mingwuCapsuleRef}>
+              <div className="absolute left-1/2 -translate-x-1/2 shrink-0 z-20" ref={mingwuCapsuleRef}>
                 <button
                   data-testid="mingwu-range-dropdown"
                   onClick={() => setShowMingwuDropdown(!showMingwuDropdown)}
@@ -538,14 +535,24 @@ export default function Layout() {
         </nav>
       </div>
 
-      {/* 日期选择器（顶部栏中间日期入口） */}
+      {/* 日期选择器（顶部栏中间日期入口）-- 恢复以前的月历模块（MiniCalendar） */}
       {showDatePicker && (
-        <CalendarHeatmap
-          currentDate={targetDate}
-          onSelectDate={(date) => { setSearchParams({ date }); setShowDatePicker(false); }}
-          onClose={() => setShowDatePicker(false)}
-          activeSection={heatmapSection}
-        />
+        <div
+          className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => setShowDatePicker(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl shadow-2xl p-3 w-full max-w-[320px] animate-in zoom-in-95 duration-150"
+          >
+            <MiniCalendar
+              value={dateStr}
+              onChange={(val) => { setSearchParams({ date: val }); setShowDatePicker(false); }}
+              onBack={() => setShowDatePicker(false)}
+              title={t('layout.selectDate')}
+            />
+          </div>
+        </div>
       )}
 
       {/* Global Search Panel */}
