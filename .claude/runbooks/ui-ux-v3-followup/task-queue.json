@@ -1,0 +1,66 @@
+{
+  "created_at": "2026-07-15T20:00:00+08:00",
+  "max_total_hours": 8,
+  "max_tokens": 2000000,
+  "max_agents_per_task": 20,
+  "max_retries": 3,
+  "stuck_threshold": 3,
+  "cwd": "D:\\baimiaobiji",
+  "state_file": "D:\\baimiaobiji\\.claude\\runbooks\\ui-ux-v3-followup\\.workflow-state.txt",
+  "tasks": [
+    {
+      "id": "task-111",
+      "issue": "docs/issues/111-settings-page-cleanup.md",
+      "status": "completed",
+      "title": "设置页结构整理：语言入口平铺 + 抽屉毛玻璃 + 标签区收纳",
+      "depends_on": [],
+      "prompt": "在 D:\\baimiaobiji 仓库中实现 issue docs/issues/111-settings-page-cleanup.md 与 PRD docs/prd-ui-ux-v3-2026-07-15.md 的需求 2/3/4。\n\n具体改动：\n1. 移除 Settings.tsx 中独立的 data-testid=\"language-section\" 区域。\n2. 在“对话模型”模块上方平铺横向胶囊切换器：中文 / English，切换后立即生效，复用 settingsStore.setLanguage。\n3. 设置抽屉的遮罩层改为毛玻璃透底效果（约 70% 可见后方），保留点击遮罩关闭抽屉。\n4. “所有标签”区块支持点击标题行展开/收起；收起时只显示标题行与图标，展开时显示完整标签列表且内部滚动保留。\n5. “管理标签”入口由文字改为设置图标（Settings2 / SlidersHorizontal），点击仍进入标签设置全屏详情页。\n\n约束：\n- 全局 html/body 必须保持 overflow-hidden + overscroll-behavior-none；所有滚动用局部容器。\n- 图标优先用 lucide-react。\n- 不 push。\n\n验收后必须运行：npm run lint && npm run build && npx vitest run tests/foundation-migration.test.ts。\n\nRETRY/BLOCKED/STUCK 规则：\n- lint/build/测试失败属于 RETRY，根据错误信息修复，最多重试 3 次。\n- 若某依赖缺失导致无法安装属于 BLOCKED，标记失败并继续。\n- 同一错误连续 3 次或修复后失败集合不变 → STUCK，停止并通知用户。\n\n完成后把 task-queue.json 中 id=\"task-111\" 的 status 改为 completed，result 写一句摘要。",
+      "result": "已完成：Settings.tsx 移除独立语言模块并在对话模型上方平铺中文/English胶囊切换器；设置抽屉遮罩改为 bg-white/30 backdrop-blur-md 毛玻璃透底并保留点击关闭；「所有标签」支持标题行展开/收起，管理标签入口改为 Settings2 图标；foundation-migration E2E 29/29 通过，lint/build 通过。"
+    },
+    {
+      "id": "task-112",
+      "issue": "docs/issues/112-tag-quick-actions.md",
+      "status": "pending",
+      "title": "标签快捷操作菜单：置顶、编辑、移除、删除",
+      "depends_on": ["task-111"],
+      "prompt": "在 D:\\baimiaobiji 仓库中实现 issue docs/issues/112-tag-quick-actions.md 与 PRD docs/prd-ui-ux-v3-2026-07-15.md 的需求 5。\n\n具体改动：\n1. 扩展 TagDef schema（src/db/db.ts）与 tags.store.ts，支持 pinned / sort_order / icon 字段持久化。\n2. 设置抽屉的“所有标签”列表中，每个标签右侧显示两个图标按钮：展开/收起子标签的 ChevronDown/ChevronUp，以及 MoreVertical “更多”菜单。\n3. “更多”菜单为弹出式动作菜单，含：置顶、编辑名称和图标、仅移除标签、删除标签和笔记。危险操作使用红色/玫瑰色警示。\n4. 点击菜单外部或滚动时关闭菜单。\n5. 置顶后标签排在列表最前，刷新后仍保持。\n6. “仅移除标签”从所有关联记录中移除该标签但不删除记录，需确认弹窗。\n7. “删除标签和笔记”级联删除标签定义及所有带该标签的记录，需二次确认。\n8. 新增 i18n key：tags.pinTop、tags.editNameAndIcon、tags.removeTagOnly、tags.deleteTagAndNotes。\n\n约束：\n- 全局 html/body 必须保持 overflow-hidden + overscroll-behavior-none。\n- 图标优先用 lucide-react。\n- 不 push。\n\n验收后必须运行：npm run lint && npm run build && npx vitest run tests/foundation-migration.test.ts。\n\nRETRY/BLOCKED/STUCK 规则：\n- lint/build/测试失败属于 RETRY，最多重试 3 次。\n- schema 变更若导致其他页面类型断裂也属于 RETRY。\n- 同一错误连续 3 次或修复后失败集合不变 → STUCK，停止并通知用户。\n\n完成后把 task-queue.json 中 id=\"task-112\" 的 status 改为 completed，result 写一句摘要。",
+      "result": ""
+    },
+    {
+      "id": "task-113",
+      "issue": "docs/issues/113-content-folding-interactions.md",
+      "status": "pending",
+      "title": "内容卡片折叠与交互恢复（拾微 + 回顾）",
+      "depends_on": [],
+      "prompt": "在 D:\\baimiaobiji 仓库中实现 issue docs/issues/113-content-folding-interactions.md 与 PRD docs/prd-ui-ux-v3-2026-07-15.md 的需求 1/8。\n\n具体改动：\n1. 拾微页（Record.tsx）与回顾页（Review.tsx）内容卡片：纯文本按渲染行数达到 12 行后进入折叠态；图片、视频、音频、数字摘要块等多媒体不计入 12 行。\n2. 折叠态下文字截断显示省略；多媒体仅保留一行缩略展示，与 MultimediaAttachments 缩略逻辑一致。\n3. 点击折叠态区域展开，点击已展开区域收起；单击与双击通过事件互斥（延迟单击或双击取消延迟）。\n4. 拾微页复用现有 onDoubleClick + handleOpenEditModal 进入编辑弹窗；回顾页恢复 onDoubleClick 进入 inline 编辑（setEditingReviewId + setEditText）。\n5. 移动端恢复 onTouchStart 500ms 长按检测 + onTouchEnd/onTouchMove 清除；桌面端保留 onContextMenu。菜单内容保持一致：复制、编辑、重新生成、删除。\n6. 折叠/展开的单击事件不得与附件区单击冲突；双击编辑仍跳过附件区。\n\n约束：\n- 全局 html/body 必须保持 overflow-hidden + overscroll-behavior-none；所有滚动用局部容器。\n- 性能：折叠态不要预渲染完整 Markdown，可用 line-clamp-12 或最大高度截断。\n- 不 push。\n\n验收后必须运行：npm run lint && npm run build && npx vitest run tests/thoughts.test.ts tests/multimedia.test.ts。\n\nRETRY/BLOCKED/STUCK 规则：\n- lint/build/测试失败属于 RETRY，最多重试 3 次。\n- 同一错误连续 3 次或修复后失败集合不变 → STUCK，停止并通知用户。\n\n完成后把 task-queue.json 中 id=\"task-113\" 的 status 改为 completed，result 写一句摘要。",
+      "result": ""
+    },
+    {
+      "id": "task-114",
+      "issue": "docs/issues/114-calendar-stats-alignment.md",
+      "status": "pending",
+      "title": "日历弹窗统计口径对齐数据合并",
+      "depends_on": [],
+      "prompt": "在 D:\\baimiaobiji 仓库中实现 issue docs/issues/114-calendar-stats-alignment.md 与 PRD docs/prd-ui-ux-v3-2026-07-15.md 的需求 6。\n\n具体改动：\n1. CalendarHeatmap.tsx 中中间统计项标签由 calendarHeatmap.diary 改为 calendarHeatmap.review，即显示“回顾”。\n2. 中间数量 middleCount 改为统计 daily_reviews 全表记录数（含旧 entry_type='diary' 与 'review'）。\n3. 下方字数统计中对应“回顾”的字数，合并计算旧日记字段 ai_editorial 与旧回顾字段 ai_review 的字数。\n4. 左侧“拾微”与右侧“天”的统计保持不变。\n\n约束：\n- 只改统计文案与合并计算逻辑，不动日历整体布局与滚动行为。\n- 不 push。\n\n验收后必须运行：npm run lint && npm run build && npx vitest run tests/foundation-migration.test.ts。\n\nRETRY/BLOCKED/STUCK 规则：\n- lint/build/测试失败属于 RETRY，最多重试 3 次。\n- 同一错误连续 3 次或修复后失败集合不变 → STUCK，停止并通知用户。\n\n完成后把 task-queue.json 中 id=\"task-114\" 的 status 改为 completed，result 写一句摘要。",
+      "result": ""
+    },
+    {
+      "id": "task-115",
+      "issue": "docs/issues/115-copilot-rag-history-filter.md",
+      "status": "pending",
+      "title": "Copilot RAG 选择器文案对齐与历史页日期筛选",
+      "depends_on": [],
+      "prompt": "在 D:\\baimiaobiji 仓库中实现 issue docs/issues/115-copilot-rag-history-filter.md 与 PRD docs/prd-ui-ux-v3-2026-07-15.md 的需求 7。\n\n具体改动：\n1. Copilot.tsx 中 RAG 选择器显示文案改为“识微 / 回顾 / 沉淀 / 洞察”，内部代码字段保持英文标识。\n2. 更新 CopilotRetrievalFilters、CopilotCitation 与 retrieveCopilotContext 中的模块联合类型，移除独立的 diary 分支，将日记与回顾合并到 review 分支。\n3. 检索索引映射：识微(record) → raw_logs；回顾(review) → daily_reviews 全表；沉淀(thoughts) → thoughts；洞察(insight) → mingwu。\n4. 历史页（navView === 'history'）顶部增加一行筛选区，仅保留“全部日期”日期选择器，复用 RAG 页现有日期选择器组件与样式。\n5. 历史列表默认按 updated_at 倒序，日期筛选后按选定范围过滤会话记录。\n6. 新增 i18n key：copilot.moduleShiwu、copilot.moduleHuigu、copilot.moduleChendian、copilot.moduleDongcha。\n\n约束：\n- 类型变更需同步更新类型定义与检索实现，避免前后端断裂。\n- 不 push。\n\n验收后必须运行：npm run lint && npm run build && npx vitest run tests/foundation-migration.test.ts。\n\nRETRY/BLOCKED/STUCK 规则：\n- lint/build/测试失败属于 RETRY，最多重试 3 次。\n- 类型断裂导致编译失败也属于 RETRY。\n- 同一错误连续 3 次或修复后失败集合不变 → STUCK，停止并通知用户。\n\n完成后把 task-queue.json 中 id=\"task-115\" 的 status 改为 completed，result 写一句摘要。",
+      "result": ""
+    },
+    {
+      "id": "task-116",
+      "issue": "docs/issues/116-random-walk-simplification.md",
+      "status": "pending",
+      "title": "随机漫步精简与视觉调整",
+      "depends_on": [],
+      "prompt": "在 D:\\baimiaobiji 仓库中实现 issue docs/issues/116-random-walk-simplification.md 与 PRD docs/prd-ui-ux-v3-2026-07-15.md 的需求 9。\n\n具体改动：\n1. RandomWalk.tsx 中 DRAW_COUNT 由 3 改为 7。\n2. 移除顶部细栏中的 1/N 计数展示。\n3. 移除顶部灯泡图标 Lightbulb 及其相关提示逻辑。\n4. 将设置图标 Settings2 从当前位置移到原灯泡位置（左上角），点击仍打开数据源/冷却期配置面板，面板展开方向与位置随图标移动而调整。\n5. 降低后方非当前卡片的透明度，避免前后文字重影。\n6. 卡片宽度缩小 1.2 倍，高度保持不变（仍 flex-1 填充可用空间）。\n7. 移除底部操作栏的“已阅”按钮 walk-read。\n8. 剩余 5 个底部按钮（标签、编辑、复制、删除、换一批）调整 icon/文字大小与间距，使整体与缩小后的卡片宽度协调。\n9. 已阅相关的 handleRead、randomWalk.read i18n、已阅状态过滤逻辑可保留在代码中供后续复用，但 UI 上不再展示。\n\n约束：\n- 全局 html/body 必须保持 overflow-hidden + overscroll-behavior-none；随机漫步卡片滚动在局部容器内完成。\n- 图标优先用 lucide-react。\n- 不 push。\n\n验收后必须运行：npm run lint && npm run build && npx vitest run tests/random-walk.test.ts。\n\nRETRY/BLOCKED/STUCK 规则：\n- lint/build/测试失败属于 RETRY，最多重试 3 次。\n- 同一错误连续 3 次或修复后失败集合不变 → STUCK，停止并通知用户。\n\n完成后把 task-queue.json 中 id=\"task-116\" 的 status 改为 completed，result 写一句摘要。",
+      "result": ""
+    }
+  ]
+}

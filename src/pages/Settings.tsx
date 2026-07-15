@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning, Download, FileJson, FileText, MessageSquare, Volume2, Tags, Info, Database, X, Hash, ChevronRight } from 'lucide-react';
+import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning, Download, FileJson, FileText, MessageSquare, Volume2, Tags, Info, Database, X, Hash, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import TagManagement from './TagManagement';
@@ -110,6 +110,8 @@ export default function Settings() {
   );
   // Issue 109: 抽屉「所有标签」区块 -- 实时查询标签列表
   const allTags = useLiveQuery(() => db.tags.orderBy('path').toArray(), []);
+  // task-111: 抽屉「所有标签」默认展开，点击标题行可展开/收起
+  const [tagsExpanded, setTagsExpanded] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [showEmbedApiKey, setShowEmbedApiKey] = useState(false);
@@ -799,9 +801,9 @@ export default function Settings() {
   if (view === 'drawer') {
     return (
       <div className="relative flex flex-col h-full bg-stone-100 font-sans text-stone-900 overflow-hidden items-center justify-center">
-        {/* 遮罩：点击直接关闭设置（退出） */}
+        {/* task-111: 遮罩改为毛玻璃透底效果，约 70% 可见后方应用版面 */}
         <div
-          className="absolute inset-0 bg-black/40 backdrop-blur-sm z-40"
+          className="absolute inset-0 bg-white/30 backdrop-blur-md z-40"
           onClick={() => navigate(-1)}
           data-testid="settings-drawer-backdrop"
         />
@@ -827,36 +829,47 @@ export default function Settings() {
           {/* 上半部分：设置菜单项（不滚动） */}
           {drawerNav}
 
-          {/* 下半部分：「所有标签」区块（仅区块内部滚动） */}
+          {/* task-111: 抽屉「所有标签」区块支持展开/收起；管理入口改为设置图标 */}
           <div className="flex-1 overflow-hidden flex flex-col border-t border-baimiao-border/30 min-h-0">
             <div className="flex items-center justify-between px-4 py-2.5 shrink-0">
-              <span className="text-[12px] font-semibold text-stone-500 uppercase tracking-wider">{t('settings.allTags')}</span>
+              <button
+                onClick={() => setTagsExpanded(v => !v)}
+                className="flex items-center gap-1.5 text-[12px] font-semibold text-stone-500 uppercase tracking-wider transition-colors hover:text-stone-700"
+                aria-label={tagsExpanded ? t('thoughts.collapse') : t('thoughts.expand')}
+                data-testid="drawer-all-tags-toggle"
+              >
+                {t('settings.allTags')}
+                {tagsExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              </button>
               <button
                 onClick={() => { setActiveTab('tags'); setView('detail'); }}
-                className="text-[11px] text-baimiao-mysteria hover:underline flex items-center gap-0.5 font-medium transition-all active:scale-95"
+                className="p-1.5 -mr-1.5 text-baimiao-mysteria hover:bg-baimiao-mysteria/5 rounded-full transition-all active:scale-95"
+                aria-label={t('settings.manageTags')}
+                data-testid="drawer-manage-tags"
               >
-                {t('settings.manageTags')}
-                <ChevronRight className="w-3 h-3" />
+                <Settings2 className="w-4 h-4" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto thin-scrollbar overscroll-contain px-2 pb-3" data-testid="drawer-all-tags">
-              {allTags && allTags.length > 0 ? (
-                <div className="flex flex-col gap-0.5">
-                  {allTags.map(tag => (
-                    <button
-                      key={tag.path}
-                      onClick={() => { setActiveTab('tags'); setView('detail'); }}
-                      className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[13px] text-stone-600 hover:bg-stone-100/60 transition-colors text-left"
-                    >
-                      <Hash className="w-3 h-3 text-baimiao-mysteria/50 shrink-0" />
-                      <span className="truncate">{tag.path}</span>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="px-2 py-8 text-center text-[12px] text-stone-400">{t('tags.noTagsTitle')}</div>
-              )}
-            </div>
+            {tagsExpanded && (
+              <div className="flex-1 overflow-y-auto thin-scrollbar overscroll-contain px-2 pb-3" data-testid="drawer-all-tags">
+                {allTags && allTags.length > 0 ? (
+                  <div className="flex flex-col gap-0.5">
+                    {allTags.map(tag => (
+                      <button
+                        key={tag.path}
+                        onClick={() => { setActiveTab('tags'); setView('detail'); }}
+                        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[13px] text-stone-600 hover:bg-stone-100/60 transition-colors text-left"
+                      >
+                        <Hash className="w-3 h-3 text-baimiao-mysteria/50 shrink-0" />
+                        <span className="truncate">{tag.path}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-2 py-8 text-center text-[12px] text-stone-400">{t('tags.noTagsTitle')}</div>
+                )}
+              </div>
+            )}
           </div>
         </motion.aside>
       </div>
@@ -881,17 +894,13 @@ export default function Settings() {
         {/* Content area */}
         <div className="flex-1 overflow-y-auto thin-scrollbar w-full p-3 space-y-3 pb-20">
 
-        {/* #12 Language Switcher -- 横向并排胶囊按钮，统一宽高，当前高亮 */}
-        <section className="baimiao-card-diary p-3 flex items-center justify-between" data-testid="language-section">
-          <div className="flex flex-col">
-            <span className="text-[13px] font-semibold text-stone-700">{t('settings.language')}</span>
-            <span className="text-[11px] text-stone-400 mt-0.5">{t('settings.languageHint')}</span>
-          </div>
-          <div className="flex items-center bg-stone-100/80 rounded-full p-0.5" data-testid="language-switcher">
+        {/* task-111: 语言入口平铺到对话模型模块上方（全局顶部，不随 tab 变化） */}
+        <div className="flex items-center justify-center" data-testid="language-switcher">
+          <div className="inline-flex items-center bg-stone-100/80 rounded-full p-0.5">
             <button
               data-testid="language-zh"
               onClick={() => setLanguage('zh')}
-              className={`flex-1 w-16 py-1.5 rounded-full text-[12.5px] font-medium transition-all text-center ${
+              className={`w-16 py-1.5 rounded-full text-[12.5px] font-medium transition-all text-center ${
                 language === 'zh'
                   ? 'bg-white text-baimiao-mysteria shadow-sm font-bold'
                   : 'text-stone-500 hover:text-stone-700'
@@ -902,7 +911,7 @@ export default function Settings() {
             <button
               data-testid="language-en"
               onClick={() => setLanguage('en')}
-              className={`flex-1 w-16 py-1.5 rounded-full text-[12.5px] font-medium transition-all text-center ${
+              className={`w-16 py-1.5 rounded-full text-[12.5px] font-medium transition-all text-center ${
                 language === 'en'
                   ? 'bg-white text-baimiao-mysteria shadow-sm font-bold'
                   : 'text-stone-500 hover:text-stone-700'
@@ -911,7 +920,7 @@ export default function Settings() {
               {t('settings.languageEn')}
             </button>
           </div>
-        </section>
+        </div>
 
         <AnimatePresence mode="wait">
         <motion.div
@@ -1100,7 +1109,7 @@ export default function Settings() {
                   <div className="flex-1 pr-3">
                     <h3 className="text-[13px] font-semibold text-stone-700 mb-1">{t('settings.multimediaSummary')}</h3>
                     <p className="text-[11.5px] text-stone-400 leading-relaxed">
-                      生成回顾/明悟时，是否将图片/视频附件的 AI 摘要一并提交给模型。关闭后仅提交文本内容。
+                      生成回顾/洞察时，是否将图片/视频附件的 AI 摘要一并提交给模型。关闭后仅提交文本内容。
                     </p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer shrink-0">

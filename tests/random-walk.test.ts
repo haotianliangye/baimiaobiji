@@ -2,7 +2,7 @@
  * #11 随机漫步（RandomWalk）E2E 测试（Puppeteer）
  *
  * 覆盖旅程：
- *   1. 沉思页右上角灯泡入口 -> 打开随机漫步 -> 展示 3 条卡片。
+ *   1. 沉淀页右上角灯泡入口 -> 打开随机漫步 -> 展示 3 条卡片。
  *   2. 滑动/下一张浏览卡片堆叠。
  *   3. 去重过滤：换一批后已展示记录被冷却期过滤 -> 空态；重置历史后恢复。
  *   4. 已阅后不再出现：冷却期设为 0 隔离已阅效果 -> 已阅卡片不再出现。
@@ -120,7 +120,7 @@ async function slideToNext(page: Page) {
   });
 }
 
-/** 通过应用 UI 创建一条沉思笔记（走 RichEditor + thoughts.store）。 */
+/** 通过应用 UI 创建一条沉淀笔记（走 RichEditor + thoughts.store）。 */
 async function createThought(page: Page, content: string, expectedCount: number) {
   await page.click('[data-testid="thought-quick-input"]');
   await page.waitForSelector('[data-testid="thought-create-textarea"]', { timeout: 5000 });
@@ -171,11 +171,11 @@ async function run() {
     await dialog.accept();
   });
 
-  // 导航到沉思页
+  // 导航到沉淀页
   await page.goto(`${BASE_URL}/thoughts`, { waitUntil: 'networkidle2' });
   await page.waitForSelector('[data-testid="thought-quick-input"]', { timeout: 15000 });
 
-  // ---------- 准备：创建 3 条沉思笔记（内容确定，便于断言） ----------
+  // ---------- 准备：创建 3 条沉淀笔记（内容确定，便于断言） ----------
   const NOTE_A = '随机漫步测试内容甲';
   const NOTE_B = '随机漫步测试内容乙';
   const NOTE_C = '随机漫步测试内容丙';

@@ -97,7 +97,7 @@ interface AppState {
   isCopilotMode: boolean;
   isRandomWalkMode: boolean;
 
-  // 需求 6：沉思视图模式 & 明悟时间范围（顶部栏胶囊与页面共享状态）
+  // 需求 6：沉淀视图模式 & 洞察时间范围（顶部栏胶囊与页面共享状态）
   thoughtsViewMode: 'masonry' | 'timeline';
   setThoughtsViewMode: (mode: 'masonry' | 'timeline') => void;
   mingwuTimeRange: string;
@@ -205,7 +205,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isCopilotMode: false,
   isRandomWalkMode: false,
 
-  // 需求 6：沉思视图模式 & 明悟时间范围（顶部栏胶囊与页面共享状态）
+  // 需求 6：沉淀视图模式 & 洞察时间范围（顶部栏胶囊与页面共享状态）
   thoughtsViewMode: 'timeline',
   mingwuTimeRange: 'week',
   mingwuCustomStart: '',
@@ -1038,7 +1038,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (myRequestId !== searchRequestId) return;
     }
 
-    // 1. 碎屑记录搜索
+    // 1. 拾微记录搜索
     if (modules.includes('record')) {
       const logs = await db.raw_logs.toArray();
       const matchedLogs = logs.filter(log => {
@@ -1051,7 +1051,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       results.push(...matchedLogs.map(log => ({
         id: log.id,
         type: 'record' as const,
-        title: `碎屑记录 · ${format(new Date(log.created_at), 'yyyy-MM-dd HH:mm')}`,
+        title: `拾微记录 · ${format(new Date(log.created_at), 'yyyy-MM-dd HH:mm')}`,
         content: log.content,
         date: format(new Date(log.created_at), 'yyyy-MM-dd'),
         highlightSnippets: getHighlightSnippet(log.content, query)
@@ -1154,7 +1154,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           metaByKey.set(key, {
             id: log.id,
             type: 'record',
-            title: `[语义] 碎屑记录 . ${format(new Date(log.created_at), 'yyyy-MM-dd HH:mm')}`,
+            title: `[语义] 拾微记录 . ${format(new Date(log.created_at), 'yyyy-MM-dd HH:mm')}`,
             content: log.content,
             date: format(new Date(log.created_at), 'yyyy-MM-dd'),
             highlightSnippets: getHighlightSnippet(log.content, query),

@@ -1,6 +1,6 @@
 /**
  * #12 中文 UI 文案字典
- * 覆盖所有硬编码中文（碎屑/回顾/沉思/明悟 Tab、按钮、提示、设置项等）。
+ * 覆盖所有硬编码中文（拾微/回顾/沉淀/洞察 Tab、按钮、提示、设置项等）。
  * Key 命名：功能域.具体文案
  */
 import type { TranslationDict } from '../lib/i18n';
@@ -16,14 +16,14 @@ export const zh: TranslationDict = {
 
   // --- 通用文案 ---
   'common.cancel': '取消',
-  // 需求 1：统计小字下移与统一（碎屑/回顾/沉思 模块左上方）
+  // 需求 1：统计小字下移与统一（拾微/回顾/沉淀 模块左上方）
   'common.todayStats': '今日 {count} 条 {chars} 字',
 
   // --- TabBar 标签 ---
-  'tab.record': '碎屑',
+  'tab.record': '拾微',
   'tab.review': '回顾',
-  'tab.thoughts': '沉思',
-  'tab.mingwu': '明悟',
+  'tab.thoughts': '沉淀',
+  'tab.mingwu': '洞察',
 
   // --- Layout Header ---
   'layout.aiProcessing': 'AI 整理中',
@@ -32,7 +32,7 @@ export const zh: TranslationDict = {
   'layout.tagManagement': '标签管理',
   'layout.copilot': '白描 Copilot',
   'layout.syncError': '同步出错',
-  // 顶部栏页面标题映射：碎屑=白描（其余复用 tab.*）
+  // 顶部栏页面标题映射：拾微=白描（其余复用 tab.*）
   'layout.titleBaimiao': '白描',
   'layout.prevDay': '前一天',
   'layout.nextDay': '后一天',
@@ -50,7 +50,7 @@ export const zh: TranslationDict = {
   'about.close': '关闭',
 
   // --- 搜索面板 ---
-  'search.placeholder': '搜索碎屑、日记、反思...',
+  'search.placeholder': '搜索拾微、日记、反思...',
   'search.cancel': '取消',
   'search.recent': '最近搜索',
   'search.emptyHint': '输入关键词查找您的灵感碎片',
@@ -76,7 +76,7 @@ export const zh: TranslationDict = {
   'search.selectEnd': '选择结束时间',
   'search.alertSelectDates': '请选择完整的开始和结束日期',
   'search.alertStartAfterEnd': '开始时间不能晚于结束时间',
-  'search.typeRecord': '碎屑',
+  'search.typeRecord': '拾微',
   'search.typeDiary': '日记',
   'search.typeReview': '回顾',
   'search.typeInsight': '洞察',
@@ -85,8 +85,8 @@ export const zh: TranslationDict = {
   'search.vectorEmpty': '本地向量库为空 (请确认设置并等待数据录入)',
   'search.computing': '正在计算中...',
 
-  // --- Record 页 (碎屑) ---
-  'record.title': '时间碎屑',
+  // --- Record 页 (拾微) ---
+  'record.title': '时间拾微',
   'record.storageWarning': '安全提示：未激活永久存储保护，数据可能被系统自动清理。',
   'record.settings': '设置',
   'record.dontRemind': '不再提示',
@@ -112,8 +112,8 @@ export const zh: TranslationDict = {
   'record.editRecord': '编辑记录',
   'record.multiSelect': '多选',
   'record.deleteRecord': '删除记录',
-  'record.editTitle': '编辑碎屑',
-  'record.confirmDelete': '确认删除这条碎屑吗？删除后不可恢复。',
+  'record.editTitle': '编辑拾微',
+  'record.confirmDelete': '确认删除这条拾微吗？删除后不可恢复。',
   'record.save': '保存',
   'record.saving': '保存中…',
   'record.contentPlaceholder': '内容...',
@@ -206,11 +206,11 @@ export const zh: TranslationDict = {
   'review.batchGenerate': '批量生成',
   'review.batchProgress': '正在生成 {current}/{total}',
   'review.confirmDelete': '确认删除这条回顾吗？',
-  'review.noFragmentsGen': '该天没有任何记录碎屑，无法生成回顾。',
-  'review.noFragmentsRegen': '该天没有任何记录碎屑，无法重新生成回顾。',
+  'review.noFragmentsGen': '该天没有任何拾微记录，无法生成回顾。',
+  'review.noFragmentsRegen': '该天没有任何拾微记录，无法重新生成回顾。',
   'review.emptyTodayTitle': '今天暂无任何回顾内容',
   'review.emptyTodayDesc': '让 AI 为你总结今天',
-  'review.todayFragmentsCount': '今天你积累了 {count} 条碎屑',
+  'review.todayFragmentsCount': '今天你积累了 {count} 条拾微',
   'review.batchGenerating': '正在批量生成 {current}/{total}...',
   'review.contentEmpty': '该回顾内容为空',
   'review.selectTemplate': '选择生成模板（可多选）',
@@ -229,22 +229,22 @@ export const zh: TranslationDict = {
   'review.generateNow': '立即生成回顾',
   'review.generateNReviews': '生成 {count} 篇',
 
-  // --- Thoughts 页 (沉思) ---
-  'thoughts.title': '沉思',
+  // --- Thoughts 页 (沉淀) ---
+  'thoughts.title': '沉淀',
   'thoughts.countChars': '{count} 条 · {chars} 字',
   'thoughts.masonry': '瀑布流',
   'thoughts.timeline': '时间线',
   'thoughts.randomWalk': '随机漫步',
-  'thoughts.quickInput': '记录一条沉思...',
+  'thoughts.quickInput': '记录一条沉淀...',
   'thoughts.cancel': '取消',
   'thoughts.save': '保存',
-  'thoughts.editTitle': '编辑沉思',
+  'thoughts.editTitle': '编辑沉淀',
   'thoughts.displayTime': '展示时间',
   'thoughts.displayTimeHint': '修改展示时间不影响创建溯源时间（original_created_at 保留首次值）。',
   'thoughts.delete': '删除',
-  'thoughts.emptyTitle': '沉思板块',
+  'thoughts.emptyTitle': '沉淀板块',
   'thoughts.emptyDesc': '这里是你慢思考的沉淀空间——支持 Markdown、标签与附件的笔记系统。',
-  'thoughts.emptyHint': '点击下方输入框，记录第一条沉思',
+  'thoughts.emptyHint': '点击下方输入框，记录第一条沉淀',
   'thoughts.doubleClickEdit': '双击编辑',
   'thoughts.cardHint': '单击展开/收起，双击编辑',
   'thoughts.expand': '展开',
@@ -255,12 +255,12 @@ export const zh: TranslationDict = {
   'thoughts.today': '今天',
   'thoughts.yesterday': '昨天',
   'thoughts.dateLabelFormat': 'M月d日',
-  'thoughts.confirmDelete': '确认删除这条沉思笔记吗？',
+  'thoughts.confirmDelete': '确认删除这条沉淀笔记吗？',
   'thoughts.charCount': '{count} 字',
   'thoughts.itemCount': '{count} 条',
 
-  // --- Insights / Mingwu 页 (明悟) ---
-  'mingwu.title': '明悟',
+  // --- Insights / Mingwu 页 (洞察) ---
+  'mingwu.title': '洞察',
   'mingwu.mingwu': '明悟',
   'mingwu.insight': '洞察',
   'mingwu.noSummary': '暂无内容概要',
@@ -280,7 +280,7 @@ export const zh: TranslationDict = {
   'mingwu.stopReading': '停止',
   'mingwu.expand': '展开',
   'mingwu.collapse': '收起',
-  'mingwu.emptyTitle': '暂无明悟',
+  'mingwu.emptyTitle': '暂无洞察',
   'mingwu.emptyDesc': '选择时间范围生成深度洞察与明悟',
   'mingwu.confirmDelete': '确认删除这条记录吗？',
   'mingwu.rangeWeek': '本周',
@@ -293,12 +293,12 @@ export const zh: TranslationDict = {
   'mingwu.rangeCustomRange': '自选',
   'mingwu.rangeCustomError': '请选择完整的起止时间',
   'mingwu.editPlaceholder': '开始编辑{type}...',
-  'mingwu.generatingMingwu': '正在明悟中...',
-  'mingwu.generatingMingwuDesc': '观照碎屑与沉思，浮现生命脉络',
-  'mingwu.startTitle': '开启明悟之旅',
-  'mingwu.startDesc': '点击下方按钮，由 AI 观照你在这段时间内的碎屑与沉思，浮现明悟与洞察。',
-  'mingwu.generateMingwu': '生成明悟',
-  'mingwu.mingwuInProgress': '明悟中...',
+  'mingwu.generatingMingwu': '正在洞察中...',
+  'mingwu.generatingMingwuDesc': '观照拾微与沉淀，浮现生命脉络',
+  'mingwu.startTitle': '开启洞察之旅',
+  'mingwu.startDesc': '点击下方按钮，由 AI 观照你在这段时间内的拾微与沉淀，浮现明悟与洞察。',
+  'mingwu.generateMingwu': '生成洞察',
+  'mingwu.mingwuInProgress': '洞察中...',
   'mingwu.to': '至',
 
   // --- Settings 页 ---
@@ -333,9 +333,9 @@ export const zh: TranslationDict = {
   'settings.baseUrl': '自定义代理地址 (Base URL)',
   'settings.modelName': '模型名称 (Model)',
   'settings.multimediaSummary': '多媒体摘要提交',
-  'settings.multimediaDesc': '生成回顾/明悟时，是否将图片/视频附件的 AI 摘要一并提交给模型。关闭后仅提交文本内容。',
+  'settings.multimediaDesc': '生成回顾/洞察时，是否将图片/视频附件的 AI 摘要一并提交给模型。关闭后仅提交文本内容。',
   'settings.tts': '语音朗读 (TTS)',
-  'settings.ttsDesc': '为回顾、明悟、洞察的 AI 产出与 AI 对话回复提供朗读功能。碎屑与沉思不支持朗读。',
+  'settings.ttsDesc': '为回顾、明悟、洞察的 AI 产出与 AI 对话回复提供朗读功能。拾微与沉淀不支持朗读。',
   'settings.ttsService': '朗读服务',
   'settings.ttsWebspeech': '浏览器内置 (Web Speech)',
   'settings.ttsExternal': '外部 TTS API',
@@ -463,7 +463,7 @@ export const zh: TranslationDict = {
   'settings.aiStop': '🛑 停止并清空',
   'settings.aiScan30': '🪄 扫描并补全过去 30 天的日记与回顾',
   'settings.dataExport': '数据导出',
-  'settings.exportLogs': '原始碎屑记录',
+  'settings.exportLogs': '原始拾微记录',
   'settings.exportLogsDesc': '导出所有时间线上的打点记录，包含语音数据。',
   'settings.exportDiaries': '生成的日记与回顾',
   'settings.exportDiariesDesc': '导出由 AI 汇总的日记文本及对应的日期戳。',
@@ -558,7 +558,7 @@ export const zh: TranslationDict = {
   'copilot.noHistoryTitle': '暂无历史对话',
   'copilot.noHistoryDesc': '开启一次新对话，Copilot 会根据您的提问自动生成会话记录。',
   'copilot.semanticOff': '语义检索未开启',
-  'copilot.semanticOffDesc': 'Copilot 依赖本地向量检索你的碎屑、日记与回顾。请先在设置中配置并开启向量模型。',
+  'copilot.semanticOffDesc': 'Copilot 依赖本地向量检索你的拾微、日记与回顾。请先在设置中配置并开启向量模型。',
   'copilot.goSettings': '前往设置',
   'copilot.ragPlaceholder': '问 Copilot 任何关于你记录的问题…',
   'copilot.chatPlaceholder': '和 AI 聊聊任何话题…',
@@ -583,7 +583,7 @@ export const zh: TranslationDict = {
   'tags.mergeTarget': '合并到（目标路径）',
   'tags.deleteConfirm': '确认删除标签「{name}」吗？关联记录中的此标签将被移除。',
   'tags.empty': '暂无标签',
-  'tags.emptyHint': '在碎屑中输入 #标签 即可自动创建',
+  'tags.emptyHint': '在拾微中输入 #标签 即可自动创建',
   'tags.renameDesc': '重命名将级联更新所有关联记录（含子标签）。输入完整路径以同时移动层级。',
   'tags.mergeTitleWith': '合并标签「{path}」',
   'tags.mergeDesc': '合并后，所有标记了「{path}」的记录将改为目标标签，并建立别名映射，未来输入「{path}」时自动纠正。',
@@ -604,10 +604,10 @@ export const zh: TranslationDict = {
   'provider.siliconflowShort': '硅基',
 
   // --- 数据类型标签 (导出) ---
-  'dataType.raw_logs': '碎屑',
+  'dataType.raw_logs': '拾微',
   'dataType.daily_reviews': '回顾',
-  'dataType.thoughts': '沉思',
-  'dataType.mingwu': '明悟',
+  'dataType.thoughts': '沉淀',
+  'dataType.mingwu': '洞察',
   'dataType.copilot_conversations': '聊天记录',
   'dataType.tags': '标签定义',
   'dataType.tag_aliases': '标签别名',
@@ -634,13 +634,13 @@ export const zh: TranslationDict = {
   'randomWalk.noTags': '暂无标签',
   'randomWalk.tagPlaceholder': '输入标签，如 工作/项目A',
   'randomWalk.addTag': '添加',
-  'randomWalk.thoughtsTagHint': '沉思标签来自正文中的 #标签，编辑正文即可修改。',
+  'randomWalk.thoughtsTagHint': '沉淀标签来自正文中的 #标签，编辑正文即可修改。',
   'randomWalk.unsupportedTags': '该记录类型暂不支持标签管理。',
   'randomWalk.confirmDelete': '确认删除这条记录吗？删除后不可恢复。',
   'randomWalk.editTitle': '编辑记录',
 
   // --- CalendarHeatmap (热力图) ---
-  'calendarHeatmap.record': '碎屑',
+  'calendarHeatmap.record': '拾微',
   'calendarHeatmap.diary': '日记',
   'calendarHeatmap.review': '回顾',
   'calendarHeatmap.days': '天',

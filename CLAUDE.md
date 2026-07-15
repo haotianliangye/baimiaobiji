@@ -2,7 +2,7 @@
 
 ## 项目概览
 
-白描笔记 (Baimiao Notes) 是一个隐私优先的 AI 语音日记 PWA：录语音碎屑、AI 转写、整理成日记/回顾/洞察，并基于本地归档做语义检索问答。
+白描笔记 (Baimiao Notes) 是一个隐私优先的 AI 语音日记 PWA：录语音拾微、AI 转写、整理成日记/回顾/洞察，并基于本地归档做语义检索问答。
 
 - 仓库：`https://github.com/haotianliangye/baimiaobiji`
 - 主技术栈：React 19 · TypeScript · Vite 6 · Tailwind CSS v4 · Zustand · Dexie.js (IndexedDB)

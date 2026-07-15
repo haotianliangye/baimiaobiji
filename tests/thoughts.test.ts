@@ -1,5 +1,5 @@
 /**
- * #7 沉思（Thoughts）模块 E2E 测试（Puppeteer）
+ * #7 沉淀（Thoughts）模块 E2E 测试（Puppeteer）
  *
  * 覆盖旅程：
  *   1. 点击底部快速输入框 -> 展开 Blinko 风格富文本编辑器，输入带 #标签 的 Markdown，
@@ -116,7 +116,7 @@ async function run() {
     await dialog.accept();
   });
 
-  // 导航到沉思页，等待快速输入框就绪
+  // 导航到沉淀页，等待快速输入框就绪
   await page.goto(`${BASE_URL}/thoughts`, { waitUntil: 'networkidle2' });
   await page.waitForSelector('[data-testid="thought-quick-input"]', { timeout: 15000 });
 
@@ -124,7 +124,7 @@ async function run() {
   await page.click('[data-testid="thought-quick-input"]');
   await page.waitForSelector('[data-testid="thought-create-textarea"]', { timeout: 5000 });
 
-  const noteContent = '## 沉思标题\n\n这是一条**沉思**笔记 #灵感';
+  const noteContent = '## 沉淀标题\n\n这是一条**沉淀**笔记 #灵感';
   await page.click('[data-testid="thought-create-textarea"]');
   await page.type('[data-testid="thought-create-textarea"]', noteContent);
 
@@ -137,8 +137,8 @@ async function run() {
   const cardText = await page.$eval('[data-testid="thought-card"]', (el) => el.textContent || '');
   assert(
     '1a 瀑布流显示新建卡片',
-    cardText.includes('沉思标题') && cardText.includes('沉思笔记'),
-    `cardText含沉思标题=${cardText.includes('沉思标题')}`
+    cardText.includes('沉淀标题') && cardText.includes('沉淀笔记'),
+    `cardText含沉淀标题=${cardText.includes('沉淀标题')}`
   );
 
   // 标签 chip 应出现（#灵感 -> 标签「灵感」）
@@ -166,7 +166,7 @@ async function run() {
   await page.waitForSelector('[data-testid="thought-edit-textarea"]', { timeout: 5000 });
 
   // 修改 content：用原生 setter 完全替换值（三击全选对多行 textarea 不可靠，会残留旧内容）
-  const editedContent = '## 已编辑标题\n\n编辑后的沉思内容 #灵感 #复盘';
+  const editedContent = '## 已编辑标题\n\n编辑后的沉淀内容 #灵感 #复盘';
   await page.$eval(
     '[data-testid="thought-edit-textarea"]',
     (el: any, val: string) => {
@@ -228,7 +228,7 @@ async function run() {
   const editedCardText = await page.$eval('[data-testid="thought-card"]', (el) => el.textContent || '');
   assert(
     '4b 卡片内容已更新',
-    editedCardText.includes('已编辑标题') && !editedCardText.includes('沉思标题'),
+    editedCardText.includes('已编辑标题') && !editedCardText.includes('沉淀标题'),
     `含已编辑标题=${editedCardText.includes('已编辑标题')}`
   );
 
@@ -266,7 +266,7 @@ async function run() {
   await page.close();
   await ctx.close();
 
-  // ---------- 6. 沉思工具栏按钮测试（upload/hyperlink/mic/tag/more） ----------
+  // ---------- 6. 沉淀工具栏按钮测试（upload/hyperlink/mic/tag/more） ----------
   const ctx2 = await browser.createBrowserContext();
   const page2 = await ctx2.newPage();
   await page2.setViewport({ width: 390, height: 844 });

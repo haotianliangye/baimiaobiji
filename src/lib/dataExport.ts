@@ -19,10 +19,10 @@ export interface ExportOptions {
 
 // 各类型在 Markdown 中的分节标题
 const TYPE_LABELS: Record<DataType, string> = {
-  raw_logs: '碎屑',
+  raw_logs: '拾微',
   daily_reviews: '回顾',
-  thoughts: '沉思',
-  mingwu: '明悟',
+  thoughts: '沉淀',
+  mingwu: '洞察',
   copilot_conversations: '聊天记录',
   tags: '标签定义',
   tag_aliases: '标签别名',

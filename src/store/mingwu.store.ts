@@ -1,5 +1,5 @@
 /**
- * #8 明悟（Mingwu）模块 -- Zustand store。
+ * #8 洞察（Mingwu）模块 -- Zustand store。
  *
  * 将原「洞察」升级为「明悟」：一次生成同时产出「明悟」(mingwu_type='mingwu')
  * 与「洞察」(mingwu_type='insight') 两类 AI 卡片。

@@ -86,7 +86,7 @@ interface WalkItem {
   type: SourceType;
   id: string;
   content: string; // 展示正文（Markdown）
-  title?: string; // 回顾/明悟的一句话摘要
+  title?: string; // 回顾/洞察的一句话摘要
   createdAt: number;
   tags: string[];
   reviewDate?: string; // daily_reviews 的 review_date
@@ -634,7 +634,7 @@ export default function RandomWalk() {
                     </span>
                   </div>
 
-                  {/* 摘要标题（回顾/明悟） */}
+                  {/* 摘要标题（回顾/洞察） */}
                   {item.title && (
                     <p className="text-[12.5px] font-semibold text-baimiao-mysteria/80 mb-2 font-serif baimiao-editorial-title shrink-0">
                       {item.title}

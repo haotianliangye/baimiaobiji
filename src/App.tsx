@@ -7,7 +7,7 @@ import Insights from './pages/Insights';
 import Settings from './pages/Settings';
 import TagManagement from './pages/TagManagement';
 
-// V2 信息架构：碎屑(/) · 回顾(/review) · 沉思(/thoughts) · 明悟(/mingwu)
+// V2 信息架构：拾微(/) · 回顾(/review) · 沉淀(/thoughts) · 洞察(/mingwu)
 // /diary、/insights 为旧链接，重定向到新路由（Copilot/LLM Chat 仍从 Header 进入）。
 const router = createBrowserRouter([
   {

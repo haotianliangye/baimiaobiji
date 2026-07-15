@@ -93,7 +93,7 @@ function setupApiMock(page: Page) {
 }
 
 /**
- * 在 IndexedDB 的 raw_logs 表中插入一条碎屑记录（当天）。
+ * 在 IndexedDB 的 raw_logs 表中插入一条拾微记录（当天）。
  */
 async function seedRawLog(page: Page) {
   await page.evaluate(
@@ -109,7 +109,7 @@ async function seedRawLog(page: Page) {
           const tx = idb.transaction('raw_logs', 'readwrite');
           tx.objectStore('raw_logs').put({
             id: 'test-log-1',
-            content: '测试碎屑内容',
+            content: '测试拾微内容',
             created_at: Date.now(),
             audioBlob: undefined,
           });
@@ -196,7 +196,7 @@ async function run() {
   await pageA.goto(`${BASE_URL}/`, { waitUntil: 'networkidle2' });
   await new Promise((r) => setTimeout(r, 1000));
 
-  // 插入一条碎屑
+  // 插入一条拾微
   await seedRawLog(pageA);
 
   // 导航到回顾页
@@ -275,7 +275,7 @@ async function run() {
   await pageB.goto(`${BASE_URL}/`, { waitUntil: 'networkidle2' });
   await new Promise((r) => setTimeout(r, 1000));
 
-  // 插入碎屑
+  // 插入拾微
   await seedRawLog(pageB);
 
   // 先进入设置页，配置自定义 1 名称为「知识」并填入内容
@@ -446,7 +446,7 @@ async function run() {
   await pageC.goto(`${BASE_URL}/`, { waitUntil: 'networkidle2' });
   await new Promise((r) => setTimeout(r, 1000));
 
-  // 插入昨天的碎屑
+  // 插入昨天的拾微
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayMs = yesterday.getTime();
@@ -465,7 +465,7 @@ async function run() {
           const tx = idb.transaction('raw_logs', 'readwrite');
           tx.objectStore('raw_logs').put({
             id: 'test-log-yesterday',
-            content: '昨天的碎屑',
+            content: '昨天的拾微',
             created_at: args.ts,
             audioBlob: undefined,
           });

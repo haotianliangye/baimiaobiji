@@ -22,17 +22,17 @@ supersedes: "docs/issues/001-ui-ux-restructure.md"
 
 ## Problem Statement
 
-白描笔记 UI/UX 存在 9 处体验断层：统计信息分散、随机漫步全屏覆盖层不适配、碎屑编辑不支持多媒体、卡片编辑路径长、明悟图标语义不准、顶部栏与次级导航堆叠（沉思/明悟缺下拉胶囊）、图片视频预览不适配、附件上传缺中间面板、设置页分栏不够紧凑。完整问题描述见 PRD。
+白描笔记 UI/UX 存在 9 处体验断层：统计信息分散、随机漫步全屏覆盖层不适配、拾微编辑不支持多媒体、卡片编辑路径长、明悟图标语义不准、顶部栏与次级导航堆叠（沉淀/明悟缺下拉胶囊）、图片视频预览不适配、附件上传缺中间面板、设置页分栏不够紧凑。完整问题描述见 PRD。
 
 ## Solution
 
-9 个解决方案：统计小字下移、随机漫步主内容区模式、碎屑编辑弹窗多媒体化、碎屑/回顾双击编辑、明悟图标改 Sun、顶部标题栏重构（含沉思/明悟下拉胶囊）、图片视频全屏预览、碎屑附件上传动画面板、设置页重构（抽屉+全页+横向导航，推翻 Seam 2 分栏）。完整方案见 PRD。
+9 个解决方案：统计小字下移、随机漫步主内容区模式、拾微编辑弹窗多媒体化、拾微/回顾双击编辑、明悟图标改 Sun、顶部标题栏重构（含沉淀/明悟下拉胶囊）、图片视频全屏预览、拾微附件上传动画面板、设置页重构（抽屉+全页+横向导航，推翻 Seam 2 分栏）。完整方案见 PRD。
 
 ## 关键决策
 
 - **需求 9 推翻 Seam 2**：之前实施的"左侧固定菜单+右侧分栏"被推翻，改抽屉+全页+横向导航。
 - **G3 冲突**：随机漫步保留 header 灯泡入口（不迁设置）；顶部栏移除标签图标（TagsIcon），标签管理在设置抽屉。
-- **跨需求约束**：移动端红线、图标库、v11->v12 migrate 协调、无障碍、性能、提示词字段名/默认值、混合媒体顺序、+N 详情内容、沉思展开不限高。详见 PRD Further Notes + Implementation Decisions。
+- **跨需求约束**：移动端红线、图标库、v11->v12 migrate 协调、无障碍、性能、提示词字段名/默认值、混合媒体顺序、+N 详情内容、沉淀展开不限高。详见 PRD Further Notes + Implementation Decisions。
 
 ## 测试 Seams
 
@@ -50,12 +50,12 @@ supersedes: "docs/issues/001-ui-ux-restructure.md"
 |---|---|---|
 | 101 | 需求 1：统计小字下移与统一 | `docs/issues/101-stats-relocate.md` |
 | 102 | 需求 2：随机漫步屏幕自适应 | `docs/issues/102-random-walk-adaptive.md` |
-| 103 | 需求 3：碎屑编辑弹窗多媒体化 | `docs/issues/103-record-edit-modal.md` |
-| 104 | 需求 4：碎屑/回顾双击编辑 | `docs/issues/104-double-click-edit.md` |
+| 103 | 需求 3：拾微编辑弹窗多媒体化 | `docs/issues/103-record-edit-modal.md` |
+| 104 | 需求 4：拾微/回顾双击编辑 | `docs/issues/104-double-click-edit.md` |
 | 105 | 需求 5：明悟 Tab 图标改 Sun | `docs/issues/105-mingwu-sun-icon.md` |
 | 106 | 需求 6：顶部标题栏重构 | `docs/issues/106-header-restructure.md` |
 | 107 | 需求 7：图片/视频全屏预览 | `docs/issues/107-media-fullscreen-preview.md` |
-| 108 | 需求 8：碎屑附件上传面板 | `docs/issues/108-attachment-panel.md` |
+| 108 | 需求 8：拾微附件上传面板 | `docs/issues/108-attachment-panel.md` |
 | 109 | 需求 9：设置页重构 | `docs/issues/109-settings-restructure.md` |
 
 ## Out of Scope

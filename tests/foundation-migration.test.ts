@@ -2,13 +2,14 @@
  * #3 Foundation E2E 测试（Puppeteer）
  *
  * 覆盖五个旅程：
- *   A. 导航：底部 4 Tab 为「碎屑/回顾/沉思/明悟」；/diary 重定向到 /review、/insights 重定向到 /mingwu。
+ *   A. 导航：底部 4 Tab 为「拾微/回顾/沉淀/洞察」；/diary 重定向到 /review、/insights 重定向到 /mingwu。
  *   B. 迁移：构造旧版 v7 IndexedDB（daily_diaries + insights + daily_reviews），启动应用触发 v8 升级，
  *      验证数据迁移到 daily_reviews(entry_type) / mingwu、旧表删除、migration_backups 写入。
  *   C. 回顾合并：迁移后 /review 同列展示「日记」与「回顾」卡片。
- *   D. 明悟图标：TabBar 明悟 tab / 明悟卡片 header / 生成按钮均渲染为 Phosphor Sun 图标（需求 5）。
+ *   D. 洞察图标：TabBar 洞察 tab / 洞察卡片 header / 生成按钮均渲染为 Phosphor Sun 图标（需求 5）。
  *   E. 设置页：点 ≡ 滑出抽屉（菜单 + 所有标签区块）、点项跳全页、横向导航切换 + 胶囊高亮、
- *      标签区块独立滚动、抽屉「管理标签」双入口、全页直接关闭、桌面端同模式（需求 9）。
+ *      标签区块独立滚动/展开收起、抽屉「管理标签」图标入口、毛玻璃遮罩可关闭、
+ *      语言入口平铺到对话模型上方、全页直接关闭、桌面端同模式（需求 9 / task-111）。
  *
  * 运行：先 `npm run build`，再 `npm run test:e2e`。
  * 通过退出码 0/1 反映结果，便于 CI。
@@ -166,7 +167,7 @@ async function run() {
   const navText = tabLabels.join('|');
   assert(
     'A1 底部导航 4 Tab',
-    ['碎屑', '回顾', '沉思', '明悟'].every((t) => navText.includes(t)) && !navText.includes('日记'),
+    ['拾微', '回顾', '沉淀', '洞察'].every((t) => navText.includes(t)) && !navText.includes('日记'),
     `nav=${navText}`
   );
   // /diary -> /review 重定向
@@ -175,10 +176,10 @@ async function run() {
   // /insights -> /mingwu 重定向
   await pageA.goto(`${BASE_URL}/insights`, { waitUntil: 'networkidle2' });
   assert('A3 /insights 重定向到 /mingwu', pageA.url().includes('/mingwu'), `url=${pageA.url()}`);
-  // 沉思占位页可达
+  // 沉淀占位页可达
   await pageA.goto(`${BASE_URL}/thoughts`, { waitUntil: 'networkidle2' });
   const thoughtsText = await pageA.evaluate(() => document.body.textContent || '');
-  assert('A4 沉思占位页可达', thoughtsText.includes('沉思'), `body含沉思=${thoughtsText.includes('沉思')}`);
+  assert('A4 沉淀占位页可达', thoughtsText.includes('沉淀'), `body含沉淀=${thoughtsText.includes('沉淀')}`);
   await pageA.close();
 
   // ---------- 旅程 B：迁移 ----------
@@ -251,17 +252,17 @@ async function run() {
     `含日记摘要=${reviewPageText.includes('日记摘要')}, 含回顾摘要=${reviewPageText.includes('回顾摘要')}`
   );
 
-  // ---------- 旅程 D：明悟 Sun 图标（需求 5 / issue 105） ----------
-  // PRD 测试重点：底部 TabBar 明悟 tab 渲染为 Sun、明悟页 header 渲染为 Sun、
-  // 全局旧明悟图标处（生成按钮等）均替换为 Sun 无遗漏。
+  // ---------- 旅程 D：洞察 Sun 图标（需求 5 / issue 105） ----------
+  // PRD 测试重点：底部 TabBar 洞察 tab 渲染为 Sun、洞察页 header 渲染为 Sun、
+  // 全局旧洞察图标处（生成按钮等）均替换为 Sun 无遗漏。
   // pageB 已含迁移后的 mingwu 记录（i1），可直接验证卡片 header 图标。
   await pageB.goto(`${BASE_URL}/mingwu`, { waitUntil: 'networkidle2' });
   await new Promise((r) => setTimeout(r, 800));
 
-  // D1：底部 TabBar 明悟 tab 渲染为 Phosphor Sun 图标
+  // D1：底部 TabBar 洞察 tab 渲染为 Phosphor Sun 图标
   const d1TabSun = await pageB.evaluate((prefix) => {
     for (const link of document.querySelectorAll('nav a')) {
-      if ((link.textContent || '').includes('明悟')) {
+      if ((link.textContent || '').includes('洞察')) {
         for (const svg of link.querySelectorAll('svg')) {
           for (const p of svg.querySelectorAll('path')) {
             if ((p.getAttribute('d') || '').startsWith(prefix)) return true;
@@ -272,12 +273,12 @@ async function run() {
     return false;
   }, SUN_PATH_PREFIX);
   assert(
-    'D1 TabBar 明悟 tab 渲染为 Sun 图标',
+    'D1 TabBar 洞察 tab 渲染为 Sun 图标',
     d1TabSun,
-    d1TabSun ? 'nav 明悟 tab 含 Sun SVG' : 'nav 明悟 tab 未找到 Sun SVG'
+    d1TabSun ? 'nav 洞察 tab 含 Sun SVG' : 'nav 洞察 tab 未找到 Sun SVG'
   );
 
-  // D2：明悟页卡片 header 渲染为 Phosphor Sun 图标（明悟页内部 header）
+  // D2：洞察页卡片 header 渲染为 Phosphor Sun 图标（洞察页内部 header）
   let d2CardSun = false;
   try {
     await pageB.waitForSelector('[data-testid="mingwu-card"]', { timeout: 10000 });
@@ -297,12 +298,12 @@ async function run() {
     d2CardSun = false;
   }
   assert(
-    'D2 明悟卡片 header 渲染为 Sun 图标',
+    'D2 洞察卡片 header 渲染为 Sun 图标',
     d2CardSun,
     d2CardSun ? '卡片 header 含 Sun SVG' : '卡片 header 未找到 Sun SVG'
   );
 
-  // D3：明悟生成按钮渲染为 Phosphor Sun 图标（全局旧明悟图标处无遗漏）
+  // D3：洞察生成按钮渲染为 Phosphor Sun 图标（全局旧洞察图标处无遗漏）
   const d3GenSun = await pageB.evaluate((prefix) => {
     const btn = document.querySelector('[data-testid="mingwu-generate-btn"]');
     if (!btn) return false;
@@ -314,7 +315,7 @@ async function run() {
     return false;
   }, SUN_PATH_PREFIX);
   assert(
-    'D3 明悟生成按钮渲染为 Sun 图标',
+    'D3 洞察生成按钮渲染为 Sun 图标',
     d3GenSun,
     d3GenSun ? '生成按钮含 Sun SVG' : '生成按钮未找到 Sun SVG'
   );
@@ -422,6 +423,40 @@ async function run() {
     `对话模型=${e2.hasModel}, 所有标签=${e2.hasAllTags}, 区块=${e2.hasAllTagsBox}`
   );
 
+  // task-111 E2.1：抽屉遮罩为毛玻璃透底效果（非纯黑/灰色实底）
+  const e21BackdropClasses = await pageE.evaluate(() => {
+    const el = document.querySelector('[data-testid="settings-drawer-backdrop"]');
+    return el ? el.className : '';
+  });
+  assert(
+    'E2.1 抽屉遮罩为毛玻璃透底',
+    e21BackdropClasses.includes('backdrop-blur') && !e21BackdropClasses.includes('bg-black') && e21BackdropClasses.includes('bg-white/30'),
+    `classes=${e21BackdropClasses}`
+  );
+
+  // task-111 E2.2：点击遮罩可关闭抽屉
+  await pageE.evaluate(() => {
+    const backdrop = document.querySelector('[data-testid="settings-drawer-backdrop"]') as HTMLElement | null;
+    if (backdrop) backdrop.click();
+  });
+  await new Promise((r) => setTimeout(r, 600));
+  const e22DrawerClosed = await pageE.$('[data-testid="settings-drawer"]') === null;
+  assert('E2.2 点击遮罩关闭抽屉', e22DrawerClosed, `抽屉存在=${!e22DrawerClosed}`);
+
+  // 重新打开抽屉，继续测标签区交互
+  const e22ReopenOk = await openDrawer(pageE);
+  if (e22ReopenOk) {
+    await pageE
+      .waitForFunction(
+        () => {
+          const d = document.querySelector('[data-testid="settings-drawer"]');
+          return !d || d.getBoundingClientRect().left >= -1;
+        },
+        { timeout: 5000 }
+      )
+      .catch(() => {});
+  }
+
   // 等待标签数据渲染（liveQuery 异步读取 40 个标签）
   await pageE
     .waitForFunction(() => document.querySelectorAll('[data-testid="drawer-all-tags"] button').length > 10, { timeout: 5000 })
@@ -443,13 +478,29 @@ async function run() {
     `标签区可滚=${e6.tagsScrollable}(共${e6.tagsCount}标签), 菜单区可滚=${e6.navScrollable}`
   );
 
-  // E8：抽屉「所有标签」快捷入口「管理标签」-> 全页标签设置（双入口之一）
+  // task-111 E6.1：点击标题行可收起/展开所有标签
   await pageE.evaluate(() => {
-    const drawer = document.querySelector('[data-testid="settings-drawer"]');
-    if (!drawer) return;
-    for (const b of Array.from(drawer.querySelectorAll('button'))) {
-      if ((b.textContent || '').includes('管理标签')) { (b as HTMLElement).click(); return; }
-    }
+    const btn = document.querySelector('[data-testid="drawer-all-tags-toggle"]') as HTMLElement | null;
+    if (btn) btn.click();
+  });
+  await new Promise((r) => setTimeout(r, 400));
+  const e61Collapsed = await pageE.evaluate(() => document.querySelector('[data-testid="drawer-all-tags"]') === null);
+  assert('E6.1 点击标题行收起所有标签', e61Collapsed, `收起后标签列表存在=${!e61Collapsed}`);
+
+  await pageE.evaluate(() => {
+    const btn = document.querySelector('[data-testid="drawer-all-tags-toggle"]') as HTMLElement | null;
+    if (btn) btn.click();
+  });
+  await new Promise((r) => setTimeout(r, 400));
+  const e61Expanded = await pageE.evaluate(() => document.querySelector('[data-testid="drawer-all-tags"]') !== null);
+  assert('E6.2 再次点击标题行展开所有标签', e61Expanded, `展开后标签列表存在=${e61Expanded}`);
+
+  // task-111 E8：抽屉「所有标签」快捷入口改为设置图标 -> 全页标签设置
+  const e8ManageIcon = await pageE.evaluate(() => document.querySelector('[data-testid="drawer-manage-tags"]') !== null);
+  assert('E8.1 管理标签入口为图标', e8ManageIcon, `图标入口存在=${e8ManageIcon}`);
+  await pageE.evaluate(() => {
+    const btn = document.querySelector('[data-testid="drawer-manage-tags"]') as HTMLElement | null;
+    if (btn) btn.click();
   });
   try {
     await pageE.waitForSelector('[data-testid="settings-horizontal-nav"]', { timeout: 5000 });
@@ -469,7 +520,7 @@ async function run() {
     return { hasTagsContent: !!document.querySelector('[data-testid^="tag-node-"]'), tagsHi };
   });
   assert(
-    'E8 抽屉管理标签快捷入口达标签设置全页',
+    'E8.2 抽屉管理标签图标入口达标签设置全页',
     e8.hasTagsContent && e8.tagsHi,
     `标签内容=${e8.hasTagsContent}, 标签设置高亮=${e8.tagsHi}`
   );
@@ -498,6 +549,47 @@ async function run() {
     e3Detail && e3DrawerGone,
     `横向导航=${e3Detail}, 抽屉已隐藏=${e3DrawerGone}`
   );
+
+  // task-111 E3.1：语言胶囊平铺在对话模型模块上方，且无独立 language-section
+  const e31 = await pageE.evaluate(() => {
+    const switcher = document.querySelector('[data-testid="language-switcher"]');
+    const section = document.querySelector('[data-testid="language-section"]');
+    const firstContentSection = document.querySelector('section');
+    return {
+      hasSwitcher: !!switcher,
+      hasSection: !!section,
+      switcherBeforeContent: switcher && firstContentSection
+        ? (switcher.compareDocumentPosition(firstContentSection) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+        : false,
+    };
+  });
+  assert(
+    'E3.1 语言胶囊平铺且无独立 language-section',
+    e31.hasSwitcher && !e31.hasSection && e31.switcherBeforeContent,
+    `switcher=${e31.hasSwitcher}, section=${e31.hasSection}, 在内容section前=${e31.switcherBeforeContent}`
+  );
+
+  // task-111 E3.2：切换语言立即生效（中文 -> English）
+  await pageE.evaluate(() => {
+    const btn = document.querySelector('[data-testid="language-en"]') as HTMLElement | null;
+    if (btn) btn.click();
+  });
+  await new Promise((r) => setTimeout(r, 400));
+  const e32 = await pageE.evaluate(() => {
+    const text = document.body.textContent || '';
+    return {
+      hasEnglish: text.includes('Chat Model') || text.includes('Read Aloud'),
+      noZhModel: !text.includes('对话模型'),
+    };
+  });
+  assert('E3.2 切换语言立即生效', e32.hasEnglish && e32.noZhModel, `含英文=${e32.hasEnglish}, 无中文对话模型=${e32.noZhModel}`);
+
+  // 切回中文，避免影响后续断言
+  await pageE.evaluate(() => {
+    const btn = document.querySelector('[data-testid="language-zh"]') as HTMLElement | null;
+    if (btn) btn.click();
+  });
+  await new Promise((r) => setTimeout(r, 400));
 
   // E4：横向导航栏点击切换设置项 + 胶囊高亮当前
   // 点「标签设置」tab

@@ -145,7 +145,7 @@ html, body, #root {
   }
 }
 
-/* 碎屑自适应气泡卡片 (温润紫调渐变发光，文本绝无抖动) */
+/* 拾微自适应气泡卡片 (温润紫调渐变发光，文本绝无抖动) */
 .baimiao-card-bubble {
   background: rgba(253, 253, 252, 0.85) !important;
   border: 1px solid rgba(220, 215, 211, 0.6) !important;

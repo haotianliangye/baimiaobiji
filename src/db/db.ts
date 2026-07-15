@@ -102,7 +102,7 @@ export interface Mingwu {
   tags?: string[];            // #4 全局标签路径数组（AI 产出自动打标签，非索引）
 }
 
-// V2「沉思」笔记（flomo 式慢思考）。#3 仅建表，UI/CRUD 留给 #7。
+// V2「沉淀」笔记（flomo 式慢思考）。#3 仅建表，UI/CRUD 留给 #7。
 export interface Thought {
   id: string;
   content: string;            // Markdown 自由文本
@@ -234,7 +234,7 @@ export class WhitewashDiaryDB extends dexie {
     // Version 8: V2 信息架构重构。
     // - daily_diaries 合并进 daily_reviews（entry_type='diary'），旧表删除。
     // - insights 改名为 mingwu（加 mingwu_type），旧表删除。
-    // - 新增 thoughts（沉思，#7 用）、migration_backups（迁移前快照）。
+    // - 新增 thoughts（沉淀，#7 用）、migration_backups（迁移前快照）。
     // - daily_reviews 统一 prompt_index/prompt_name（原 review_prompt_*）+ entry_type 索引。
     this.version(8).stores({
       raw_logs: 'id, created_at',

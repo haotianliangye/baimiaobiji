@@ -1,5 +1,5 @@
 /**
- * #7 沉思（Thoughts）笔记模块 -- Zustand store。
+ * #7 沉淀（Thoughts）笔记模块 -- Zustand store。
  *
  * 数据单元 Thought：Markdown 文本(content) + 标签数组(tags) + 附件数组(attachments)
  * + created_at(可被用户修改的展示时间) + original_created_at(首次创建时间，用于溯源)。
@@ -30,7 +30,7 @@ interface UpdateThoughtParams {
 }
 
 interface ThoughtsState {
-  /** 创建一条沉思笔记。返回新记录 id。 */
+  /** 创建一条沉淀笔记。返回新记录 id。 */
   createThought: (params: CreateThoughtParams) => Promise<string>;
   /** 更新笔记。改 content 会重新解析标签；改 created_at 不影响 original_created_at。 */
   updateThought: (id: string, updates: UpdateThoughtParams) => Promise<void>;

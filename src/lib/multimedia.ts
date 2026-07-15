@@ -8,7 +8,7 @@
  * - 链接附件仅存 URL，不做摘要。
  *
  * 摘要文本后续由 embedding.ts 的 multimedia 钩子做向量索引（attachment_embedding 字段），
- * 供语义检索使用。submitMultimedia 设置控制生成回顾/明悟时是否向模型提交这些摘要。
+ * 供语义检索使用。submitMultimedia 设置控制生成回顾/洞察时是否向模型提交这些摘要。
  */
 import { db, type AttachmentMeta } from '../db/db';
 import { useSettingsStore } from '../store/settings.store';

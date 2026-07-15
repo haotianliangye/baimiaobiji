@@ -1,8 +1,8 @@
 /**
- * #8 明悟（Mingwu）模块 E2E 测试（Puppeteer）
+ * #8 洞察（Mingwu）模块 E2E 测试（Puppeteer）
  *
  * 旅程：
- *   A. 生成：mock /api/generate-mingwu -> 选时间范围生成明悟 -> 卡片含碎屑与沉思内容。
+ *   A. 生成：mock /api/generate-mingwu -> 选时间范围生成洞察 -> 卡片含拾微与沉淀内容。
  *   B. 双卡片：同时存在「明悟」与「洞察」两类卡片（data-mingwu-type 区分）。
  *   C. 自动打标签：AI 产出文本中的 #标签 被解析、落库到全局 tags 表、存入 mingwu.tags。
  *
@@ -48,14 +48,14 @@ function waitForServer(url: string, timeoutMs = 30000): Promise<void> {
   });
 }
 
-/** mock /api/generate-mingwu 的固定响应。报告文本内含碎屑/沉思内容与 #标签。 */
+/** mock /api/generate-mingwu 的固定响应。报告文本内含拾微/沉淀内容与 #标签。 */
 const MOCK_MINGWU_RESPONSE = {
   mingwu_report:
-    '# 本周明悟\n\n从「碎屑测试内容」中，我看到了坚持的力量——每日跑步与阅读，是用户重建掌控感的微习惯。而「沉思测试内容」让我感受到孤独背后的自由渴望。\\n\n明悟之语：孤独不是缺憾，而是自由的代价。\n\n#孤独 #自由',
-  mingwu_summary: '碎屑与沉思交织出孤独与自由的脉络',
+    '# 本周明悟\n\n从「拾微测试内容」中，我看到了坚持的力量——每日跑步与阅读，是用户重建掌控感的微习惯。而「沉淀测试内容」让我感受到孤独背后的自由渴望。\\n\n明悟之语：孤独不是缺憾，而是自由的代价。\n\n#孤独 #自由',
+  mingwu_summary: '拾微与沉淀交织出孤独与自由的脉络',
   insight_report:
-    '# 本周洞察\n\n「碎屑测试内容」显示规律运动的习惯回路正在形成。「沉思测试内容」揭示了情绪与独处的关系。\n\n建议：保持当前运动频率，尝试在独处时记录感受。\n\n#习惯 #运动',
-  insight_summary: '碎屑与沉思揭示规律运动与情绪模式',
+    '# 本周洞察\n\n「拾微测试内容」显示规律运动的习惯回路正在形成。「沉淀测试内容」揭示了情绪与独处的关系。\n\n建议：保持当前运动频率，尝试在独处时记录感受。\n\n#习惯 #运动',
+  insight_summary: '拾微与沉淀揭示规律运动与情绪模式',
 };
 
 /**
@@ -74,14 +74,14 @@ async function seedRecords(page: Page) {
           const tx = idb.transaction(['raw_logs', 'thoughts'], 'readwrite');
           tx.objectStore('raw_logs').put({
             id: 'test-log-1',
-            content: '碎屑测试内容：今天跑步五公里，读了半小时书',
+            content: '拾微测试内容：今天跑步五公里，读了半小时书',
             created_at: oneDayAgo,
             timezone: 'Asia/Shanghai',
             tags: [],
           });
           tx.objectStore('thoughts').put({
             id: 'test-thought-1',
-            content: '沉思测试内容：关于孤独与自由的思考',
+            content: '沉淀测试内容：关于孤独与自由的思考',
             tags: [],
             created_at: oneDayAgo,
             original_created_at: oneDayAgo,
@@ -172,18 +172,18 @@ async function run() {
   await page.waitForSelector('[data-testid="mingwu-card"]', { timeout: 15000 });
   await new Promise((r) => setTimeout(r, 1000));
 
-  // ---------- 断言 A：卡片含碎屑与沉思内容 ----------
+  // ---------- 断言 A：卡片含拾微与沉淀内容 ----------
   const mingwuRecords = await readStore(page, 'mingwu');
   const allContent = mingwuRecords.map((m) => m.content || '').join('\n');
   assert(
-    'A1 卡片内容含碎屑内容',
-    allContent.includes('碎屑测试内容'),
-    `content含碎屑测试内容=${allContent.includes('碎屑测试内容')}`
+    'A1 卡片内容含拾微内容',
+    allContent.includes('拾微测试内容'),
+    `content含拾微测试内容=${allContent.includes('拾微测试内容')}`
   );
   assert(
-    'A2 卡片内容含沉思内容',
-    allContent.includes('沉思测试内容'),
-    `content含沉思测试内容=${allContent.includes('沉思测试内容')}`
+    'A2 卡片内容含沉淀内容',
+    allContent.includes('沉淀测试内容'),
+    `content含沉淀测试内容=${allContent.includes('沉淀测试内容')}`
   );
 
   // ---------- 断言 B：同时存在明悟与洞察两类卡片 ----------

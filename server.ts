@@ -467,7 +467,7 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
       const { logs, thoughts, timeRangeLabel, settings } = req.body;
       const { provider = 'gemini', apiKey, baseUrl, model, mingwuPrompt, insightPrompt, insightSummaryPrompt } = settings || {};
 
-      const defaultMingwuPrompt = `你是一位兼具东方哲学智慧与现代心理学素养的「明悟」导师。请审视用户一段时间内的记录与沉思，超越表层行为与情绪，直抵生命深层脉络，产出一份通透、克制、富有启悟力量的明悟报告。`;
+      const defaultMingwuPrompt = `你是一位兼具东方哲学智慧与现代心理学素养的「明悟」导师。请审视用户一段时间内的记录与沉淀，超越表层行为与情绪，直抵生命深层脉络，产出一份通透、克制、富有启悟力量的明悟报告。`;
       const defaultInsightPrompt = `You are a productivity and life coach assistant. Based on the user's activity logs and diaries, provide deep insights into their routines, highlighting positive trends, areas for potential improvement, and actionable suggestions to enhance well-being and productivity.`;
 
       const logsSection = (logs || []).map((l: any) => `- [${l.date}] (ID: ${l.id}): ${l.content}${l.attachment_summary ? `\n  [附件摘要] ${l.attachment_summary}` : ''}`).join('\n');
@@ -482,10 +482,10 @@ Context:
 - Thoughts count: ${(thoughts || []).length}
 
 Raw Logs:
-${logsSection || '（无碎屑记录）'}
+${logsSection || '（无拾微记录）'}
 
-Thoughts (沉思):
-${thoughtsSection || '（无沉思笔记）'}
+Thoughts (沉淀):
+${thoughtsSection || '（无沉淀笔记）'}
 
 请用清晰克制的 Markdown 格式输出你的明悟报告。可在文中以 #标签 形式标注浮现的关键生命主题。`;
 
@@ -498,10 +498,10 @@ Context:
 - Thoughts count: ${(thoughts || []).length}
 
 Raw Logs:
-${logsSection || '（无碎屑记录）'}
+${logsSection || '（无拾微记录）'}
 
-Thoughts (沉思):
-${thoughtsSection || '（无沉思笔记）'}
+Thoughts (沉淀):
+${thoughtsSection || '（无沉淀笔记）'}
 
 Output your insights in a clear, well-structured Markdown format. Group your insights logically (e.g., Summary, Key Trends, Actionable Advice).
 `;

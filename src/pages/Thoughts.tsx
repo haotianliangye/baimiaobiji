@@ -1,5 +1,5 @@
 /**
- * #7 沉思（Thoughts）笔记模块 -- flomo/Blinko 式慢思考沉淀空间。
+ * #7 沉淀（Thoughts）笔记模块 -- flomo/Blinko 式慢思考沉淀空间。
  *
  * 功能：
  * - 列表默认瀑布流（CSS columns masonry），顶部可切换「瀑布流 / 时间线」。
@@ -168,7 +168,7 @@ export default function Thoughts() {
     closeEdit();
   };
 
-  // 需求 1：真实今日沉思统计（按 created_at），用于底部输入框左上方小字
+  // 需求 1：真实今日沉淀统计（按 created_at），用于底部输入框左上方小字
   const todayThoughts = useMemo(
     () => thoughts.filter((t) => isSameDay(new Date(t.created_at), new Date())),
     [thoughts]
@@ -398,7 +398,7 @@ function EmptyState() {
   );
 }
 
-/** 单条沉思卡片 */
+/** 单条沉淀卡片 */
 interface ThoughtCardProps {
   thought: Thought;
   view: ViewMode;

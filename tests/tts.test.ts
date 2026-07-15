@@ -5,7 +5,7 @@
  *   A. 回顾 AI 输出朗读：mock window.speechSynthesis -> 回顾卡片有播放按钮 ->
  *      点击调用 speechSynthesis.speak -> 再次点击停止（cancel 被调用）。
  *   B. 设置切换 TTS 服务：从 Web Speech 切换到外部 API。
- *   C. 碎屑与沉思无朗读按钮：Record(/) 与 Thoughts(/thoughts) 页面均不出现 TTS 按钮。
+ *   C. 拾微与沉淀无朗读按钮：Record(/) 与 Thoughts(/thoughts) 页面均不出现 TTS 按钮。
  *
  * 运行：先 `npm run build`，再 `tsx tests/tts.test.ts`。
  * 通过退出码 0/1 反映结果，便于 CI。
@@ -234,23 +234,23 @@ async function run() {
     `webspeech button active=${webspeechActive}`
   );
 
-  // ---------- 旅程 C：碎屑与沉思无朗读按钮 ----------
-  // C1: 碎屑页（/）无 TTS 按钮
+  // ---------- 旅程 C：拾微与沉淀无朗读按钮 ----------
+  // C1: 拾微页（/）无 TTS 按钮
   await page.goto(`${BASE_URL}/`, { waitUntil: 'networkidle2' });
   await new Promise((r) => setTimeout(r, 800));
   const ttsOnRecord = await page.$$eval('[data-testid*="tts"]', (els) => els.length);
   assert(
-    'C1 碎屑页无朗读按钮',
+    'C1 拾微页无朗读按钮',
     ttsOnRecord === 0,
     `tts elements on record page=${ttsOnRecord}`
   );
 
-  // C2: 沉思页（/thoughts）无 TTS 按钮
+  // C2: 沉淀页（/thoughts）无 TTS 按钮
   await page.goto(`${BASE_URL}/thoughts`, { waitUntil: 'networkidle2' });
   await new Promise((r) => setTimeout(r, 800));
   const ttsOnThoughts = await page.$$eval('[data-testid*="tts"]', (els) => els.length);
   assert(
-    'C2 沉思页无朗读按钮',
+    'C2 沉淀页无朗读按钮',
     ttsOnThoughts === 0,
     `tts elements on thoughts page=${ttsOnThoughts}`
   );

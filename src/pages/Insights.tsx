@@ -392,7 +392,7 @@ export default function Insights() {
   const [showFloatBtn, setShowFloatBtn] = useState(false);
   const floatBtnTimeoutRef = useRef<any>(null);
 
-  // Edit state lifted to the page so the floating "生成明悟" button can
+  // Edit state lifted to the page so the floating "生成洞察" button can
   // hide whenever any card is being edited/saved - otherwise its
   // pointer-events-auto overlay can intercept clicks on the Save/Cancel
   // buttons, making the save button look unresponsive.

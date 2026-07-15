@@ -135,7 +135,7 @@ export const useTagsStore = create<TagsState>((set, get) => ({
       await db.daily_reviews.update(review.id, { tags: newTags });
     }
 
-    // 3b. 级联更新 thoughts（沉思笔记也带全局标签）
+    // 3b. 级联更新 thoughts（沉淀笔记也带全局标签）
     const thoughts = await db.thoughts.toArray();
     for (const th of thoughts) {
       if (!th.tags || th.tags.length === 0) continue;
