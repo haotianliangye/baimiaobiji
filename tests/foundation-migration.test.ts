@@ -403,7 +403,7 @@ async function run() {
   });
   assert(
     'E1 点 ≡ 从左侧滑出抽屉',
-    e1Ok && e1Rect !== null && e1Rect.left === 0 && e1Rect.top === 0,
+    e1Ok && e1Rect !== null && Math.abs(e1Rect.left) < 1 && e1Rect.top === 0,
     e1Rect ? `left=${e1Rect.left}, top=${e1Rect.top}` : 'settings-drawer 未出现'
   );
 

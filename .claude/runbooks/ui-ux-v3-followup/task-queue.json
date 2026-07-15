@@ -15,7 +15,7 @@
       "title": "设置页结构整理：语言入口平铺 + 抽屉毛玻璃 + 标签区收纳",
       "depends_on": [],
       "prompt": "在 D:\\baimiaobiji 仓库中实现 issue docs/issues/111-settings-page-cleanup.md 与 PRD docs/prd-ui-ux-v3-2026-07-15.md 的需求 2/3/4。\n\n具体改动：\n1. 移除 Settings.tsx 中独立的 data-testid=\"language-section\" 区域。\n2. 在“对话模型”模块上方平铺横向胶囊切换器：中文 / English，切换后立即生效，复用 settingsStore.setLanguage。\n3. 设置抽屉的遮罩层改为毛玻璃透底效果（约 70% 可见后方），保留点击遮罩关闭抽屉。\n4. “所有标签”区块支持点击标题行展开/收起；收起时只显示标题行与图标，展开时显示完整标签列表且内部滚动保留。\n5. “管理标签”入口由文字改为设置图标（Settings2 / SlidersHorizontal），点击仍进入标签设置全屏详情页。\n\n约束：\n- 全局 html/body 必须保持 overflow-hidden + overscroll-behavior-none；所有滚动用局部容器。\n- 图标优先用 lucide-react。\n- 不 push。\n\n验收后必须运行：npm run lint && npm run build && npx vitest run tests/foundation-migration.test.ts。\n\nRETRY/BLOCKED/STUCK 规则：\n- lint/build/测试失败属于 RETRY，根据错误信息修复，最多重试 3 次。\n- 若某依赖缺失导致无法安装属于 BLOCKED，标记失败并继续。\n- 同一错误连续 3 次或修复后失败集合不变 → STUCK，停止并通知用户。\n\n完成后把 task-queue.json 中 id=\"task-111\" 的 status 改为 completed，result 写一句摘要。",
-      "result": "已完成：Settings.tsx 移除独立 language-section，在对话模型模块上方平铺中文/English 胶囊切换器（data-testid=language-switcher，复用 setLanguage）；设置抽屉遮罩改为 bg-white/30 backdrop-blur-md 毛玻璃透底并保留点击关闭；「所有标签」支持标题行展开/收起，管理标签入口改为 Settings2 图标；foundation-migration E2E 29/29 通过，lint/build 通过。"
+      "result": "已完成：Settings.tsx 移除独立 language-section，在对话模型模块上方平铺中文/English 胶囊切换器（data-testid=language-switcher，复用 setLanguage）；设置抽屉遮罩改为 bg-white/30 backdrop-blur-md 毛玻璃透底并保留点击关闭；「所有标签」支持标题行展开/收起，管理标签入口改为 Settings2 图标；foundation-migration E2E 29/29 通过（修复 E1 抽屉 left 断言为 subpixel 容差），lint/build 通过。"
     },
     {
       "id": "task-112",
