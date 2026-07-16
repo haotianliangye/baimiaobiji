@@ -60,16 +60,18 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, ac
   };
 
   const allLogs = useLiveQuery(() => db.raw_logs.toArray());
-  const allDiaries = useLiveQuery(() => db.daily_reviews.filter(d => d.entry_type === 'diary').toArray());
-  const allReviews = useLiveQuery(() => db.daily_reviews.filter(r => r.entry_type === 'review').toArray());
+  // v2 数据合并后，日记与回顾统一在 daily_reviews 表（entry_type='diary' | 'review'）
+  const allDailyReviews = useLiveQuery(() => db.daily_reviews.toArray());
 
   const totalLogsAllTime = allLogs?.length || 0;
-  const middleCount = activeSection === 'review' ? (allReviews?.length || 0) : (allDiaries?.length || 0);
-  const middleLabel = activeSection === 'review' ? t('calendarHeatmap.review') : t('calendarHeatmap.diary');
+  // 中间统计项固定显示「回顾」，数量取 daily_reviews 全表
+  const middleCount = allDailyReviews?.length || 0;
+  const middleLabel = t('calendarHeatmap.review');
 
   const sectionNameMap: Record<HeatmapSection, string> = {
     record: t('calendarHeatmap.record'),
-    diary: t('calendarHeatmap.diary'),
+    // 日记与回顾已合并，标签统一用「回顾」
+    diary: t('calendarHeatmap.review'),
     review: t('calendarHeatmap.review'),
   };
   const sectionName = sectionNameMap[activeSection];
@@ -84,29 +86,23 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, ac
       const total = (allLogs || []).reduce((sum, log) => sum + countChars(log.content), 0);
       return { daily, total };
     }
-    if (activeSection === 'diary') {
-      const daily = (allDiaries || [])
-        .filter(diary => diary.review_date === currentDateStr)
-        .reduce((sum, diary) => sum + countChars(diary.ai_editorial || ''), 0);
-      const total = (allDiaries || []).reduce((sum, diary) => sum + countChars(diary.ai_editorial || ''), 0);
-      return { daily, total };
-    }
-    // review
-    const daily = (allReviews || [])
-      .filter(review => review.review_date === currentDateStr)
-      .reduce((sum, review) => sum + countChars(review.ai_review), 0);
-    const total = (allReviews || []).reduce((sum, review) => sum + countChars(review.ai_review), 0);
+    // 日记与回顾已合并：字数为 ai_editorial（旧日记）+ ai_review（旧回顾）之和
+    const daily = (allDailyReviews || [])
+      .filter(r => r.review_date === currentDateStr)
+      .reduce((sum, r) => sum + countChars(r.ai_review || '') + countChars(r.ai_editorial || ''), 0);
+    const total = (allDailyReviews || [])
+      .reduce((sum, r) => sum + countChars(r.ai_review || '') + countChars(r.ai_editorial || ''), 0);
     return { daily, total };
-  }, [activeSection, allLogs, allDiaries, allReviews, currentDateStr]);
-  
+  }, [activeSection, allLogs, allDailyReviews, currentDateStr]);
+
   const firstLogMs = allLogs && allLogs.length > 0 ? allLogs.reduce((acc, log) => Math.min(acc, log.created_at), Date.now()) : Date.now();
-  const firstDiaryMs = allDiaries && allDiaries.length > 0 ? allDiaries.reduce((acc, diary) => {
-    const time = parse(diary.review_date, 'yyyy-MM-dd', new Date()).getTime();
+  const firstReviewMs = allDailyReviews && allDailyReviews.length > 0 ? allDailyReviews.reduce((acc, r) => {
+    const time = parse(r.review_date, 'yyyy-MM-dd', new Date()).getTime();
     return isNaN(time) ? acc : Math.min(acc, time);
   }, Date.now()) : Date.now();
-  
-  const earliestEntryMs = Math.min(firstLogMs, firstDiaryMs);
-  const daysSinceEpoch = (allLogs?.length || allDiaries?.length) ? Math.max(1, Math.round((today.getTime() - earliestEntryMs) / (1000 * 60 * 60 * 24)) + 1) : 0;
+
+  const earliestEntryMs = Math.min(firstLogMs, firstReviewMs);
+  const daysSinceEpoch = (allLogs?.length || allDailyReviews?.length) ? Math.max(1, Math.round((today.getTime() - earliestEntryMs) / (1000 * 60 * 60 * 24)) + 1) : 0;
 
   return (
     <div className="fixed inset-x-0 top-[52px] bottom-0 z-50 flex flex-col items-center p-4 bg-black/20 backdrop-blur-sm transition-all animate-in fade-in duration-200" onClick={onClose}>
