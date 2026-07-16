@@ -17,6 +17,8 @@
 import puppeteer, { type Browser, type Page } from 'puppeteer';
 import { spawn, type ChildProcess } from 'child_process';
 import http from 'http';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const BASE_URL = 'http://localhost:4173';
 const DB_NAME = 'whitewash_diary';
@@ -318,6 +320,76 @@ async function run() {
     'D3 洞察生成按钮渲染为 Sun 图标',
     d3GenSun,
     d3GenSun ? '生成按钮含 Sun SVG' : '生成按钮未找到 Sun SVG'
+  );
+
+  // ===========================================================================
+  // F: Copilot RAG 选择器文案对齐 + 历史页日期筛选（issue #115）
+  // ===========================================================================
+
+  // F-1/2/3: 静态验证 i18n 改文案（不需要打开 Copilot 面板）。
+  // 注：项目为 ESM（package.json "type":"module"），__dirname 不可用，用 process.cwd()
+  // （与上方 spawn vite preview 的 cwd 一致，E2E 约定从项目根目录运行）。
+  const zhI18n = fs.readFileSync(path.join(process.cwd(), 'src', 'i18n', 'zh.ts'), 'utf-8');
+  const enI18n = fs.readFileSync(path.join(process.cwd(), 'src', 'i18n', 'en.ts'), 'utf-8');
+  assert(
+    'F-1 copilot.moduleRecord 文案改为「识微」',
+    /copilot\.moduleRecord':\s*'识微'/.test(zhI18n),
+    '已改'
+  );
+  assert(
+    'F-2 copilot.moduleThoughts 新增「沉淀」',
+    /copilot\.moduleThoughts':\s*'沉淀'/.test(zhI18n) && /copilot\.moduleThoughts':\s*'Thoughts'/.test(enI18n),
+    '已加（zh+en 同步）'
+  );
+  assert(
+    'F-3 copilot.moduleDiary 已移除（合并到 review）',
+    !/copilot\.moduleDiary/.test(zhI18n) && !/copilot\.moduleDiary/.test(enI18n),
+    '已删'
+  );
+
+  // F-4: 进入 Copilot 切到历史视图，验证顶部日期选择器存在。
+  await pageB.goto(`${BASE_URL}/`, { waitUntil: 'networkidle2' });
+  await pageB.waitForSelector('button[title="白描 Copilot"]', { timeout: 5000 });
+  await pageB.click('button[title="白描 Copilot"]');
+  await pageB.waitForSelector('button[title="新对话"]', { timeout: 5000 });
+  // Puppeteer 不支持 Playwright 的 :has-text() 伪类，改用 evaluate 遍历点击
+  // （与 E 旅程点「语音朗读/对话模型」等按钮的写法一致）。
+  await pageB.evaluate(() => {
+    for (const b of Array.from(document.querySelectorAll('button'))) {
+      if ((b.textContent || '').includes('历史')) { (b as HTMLElement).click(); return; }
+    }
+  });
+  await pageB.waitForSelector('[data-testid="history-date-picker"]', { timeout: 3000 });
+  const dateBtnText = await pageB.$eval('[data-testid="history-date-picker"]', (el) => (el.textContent || '').trim());
+  assert(
+    'F-4 历史页顶部日期选择器默认显示「全部日期」',
+    dateBtnText.includes('全部'),
+    `buttonText="${dateBtnText}"`
+  );
+
+  // F-5: 点日期选择器弹 MiniCalendar（含月份标签）
+  await pageB.click('[data-testid="history-date-picker"]');
+  await new Promise((r) => setTimeout(r, 300));
+  const calendarOpened = await pageB.evaluate(() => {
+    const text = document.body.textContent || '';
+    // MiniCalendar 标题 + 月份；中英文都能识别
+    return /[1-9]\s*月/.test(text) || /January|February|March|April|May|June|July|August|September|October|November|December/i.test(text);
+  });
+  assert(
+    'F-5 点日期选择器弹 MiniCalendar（含月份标签）',
+    calendarOpened,
+    calendarOpened ? '日历已显示' : '日历未出现'
+  );
+
+  // F-6: 关闭日历（点 backdrop 关闭）后选择器仍可见
+  const backdrop = await pageB.$('div.fixed.inset-0');
+  if (backdrop) await pageB.click('div.fixed.inset-0');
+  await new Promise((r) => setTimeout(r, 200));
+  const datePickerStillThere = await pageB.$('[data-testid="history-date-picker"]');
+  assert(
+    'F-6 关闭日历后日期选择器仍存在',
+    !!datePickerStillThere,
+    datePickerStillThere ? '选择器存在' : '选择器丢失'
   );
 
   await pageB.close();

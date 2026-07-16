@@ -24,16 +24,17 @@ import {
 import { format, parseISO } from 'date-fns';
 
 export interface CopilotRetrievalFilters {
-  modules: Array<'record' | 'diary' | 'review' | 'insight'>;
+  // #115 需求 2：移除独立 `diary` 分支，日记与回顾合并到 `review`；新增 `thoughts` 沉淀模块。
+  modules: Array<'record' | 'review' | 'thoughts' | 'insight'>;
   dateRange: string; // '全部' | '本周' | '本月' | '本季度' | '自定义'
   customStartDate?: string;
   customEndDate?: string;
-  diaryPromptIndex?: number; // multi-template isolation (PRD §4.3.2)
+  // diaryPromptIndex 已移除：合并后 review 概念无法再用 prompt_index 区分日记/回顾模板。
 }
 
 export interface CopilotCitation {
   date: string; // yyyy-MM-dd — used for in-app navigation
-  type: 'record' | 'diary' | 'review' | 'insight';
+  type: 'record' | 'review' | 'thoughts' | 'insight';
 }
 
 export interface CopilotRetrievalResult {
@@ -47,7 +48,7 @@ const COPILOT_TOP_K = 10;
 const MAX_FRAGMENT_CHARS = 800;
 
 interface CandidateMeta {
-  type: 'record' | 'diary' | 'review' | 'insight';
+  type: 'record' | 'review' | 'thoughts' | 'insight';
   id: string;
   navDate: string; // yyyy-MM-dd
   displayDate: string;
@@ -94,42 +95,44 @@ export async function retrieveCopilotContext(
     }
   }
 
-  if (filters.modules.includes('diary')) {
-    // V2: 日记已合并进 daily_reviews（entry_type='diary'）
-    const diaries = (await db.daily_reviews.filter(d => d.entry_type === 'diary').toArray()).slice(0, MAX_SEMANTIC_CANDIDATES);
-    for (const d of diaries) {
-      if (!d.embedding || d.embedding.length === 0) continue;
-      if (!isDateInFilter(parseISO(d.review_date), filters.dateRange, filters.customStartDate, filters.customEndDate)) continue;
-      // Multi-template isolation (PRD §4.3.2).
-      if (filters.diaryPromptIndex !== undefined && d.prompt_index !== filters.diaryPromptIndex) continue;
-      const key = `diary:${d.id}`;
-      meta.set(key, {
-        type: 'diary',
-        id: d.id,
-        navDate: d.review_date,
-        displayDate: d.review_date,
-        content: d.ai_editorial || '',
-        label: '整合日记',
-      });
-      candidates.push({ key, embedding: d.embedding });
-    }
-  }
-
   if (filters.modules.includes('review')) {
-    const reviews = (await db.daily_reviews.filter(r => r.entry_type === 'review').toArray()).slice(0, MAX_SEMANTIC_CANDIDATES);
+    // #115 需求 2：合并旧 `entry_type='diary'`，检索 `daily_reviews` 全表。
+    // 内部按 entry_type 选择正文：diary 取 ai_editorial，review 取 ai_review；
+    // label 同步区分显示，但 citation.type 统一为 'review'，保持模块联合类型稳定。
+    const reviews = (await db.daily_reviews.toArray()).slice(0, MAX_SEMANTIC_CANDIDATES);
     for (const r of reviews) {
       if (!r.embedding || r.embedding.length === 0) continue;
       if (!isDateInFilter(parseISO(r.review_date), filters.dateRange, filters.customStartDate, filters.customEndDate)) continue;
+      const isDiary = r.entry_type === 'diary';
       const key = `review:${r.id}`;
       meta.set(key, {
         type: 'review',
         id: r.id,
         navDate: r.review_date,
         displayDate: r.review_date,
-        content: r.ai_review || '',
-        label: '反思回顾',
+        content: isDiary ? (r.ai_editorial || '') : (r.ai_review || ''),
+        label: isDiary ? '整合日记' : '反思回顾',
       });
       candidates.push({ key, embedding: r.embedding });
+    }
+  }
+
+  if (filters.modules.includes('thoughts')) {
+    // #115 需求 3：新增沉淀（thoughts）模块，直接检索 thoughts 表。
+    const thoughts = (await db.thoughts.toArray()).slice(0, MAX_SEMANTIC_CANDIDATES);
+    for (const t of thoughts) {
+      if (!t.embedding || t.embedding.length === 0) continue;
+      if (!isDateInFilter(t.created_at, filters.dateRange, filters.customStartDate, filters.customEndDate)) continue;
+      const key = `thoughts:${t.id}`;
+      meta.set(key, {
+        type: 'thoughts',
+        id: t.id,
+        navDate: format(new Date(t.created_at), 'yyyy-MM-dd'),
+        displayDate: format(new Date(t.created_at), 'yyyy-MM-dd HH:mm'),
+        content: t.content,
+        label: '沉淀',
+      });
+      candidates.push({ key, embedding: t.embedding });
     }
   }
 

@@ -21,16 +21,15 @@ const DATE_PRESET_KEY: Record<string, string> = {
   '本季度': 'search.thisQuarter',
   '自定义': 'search.custom',
 };
-// #12: MODULE_LABELS 改为 key 映射，显示时用 t()
+// #115 需求 1：模块联合类型由 'record' | 'diary' | 'review' | 'insight'
+// 调整为 'record' | 'review' | 'thoughts' | 'insight'，对应显示文案
+// 「识微 / 回顾 / 沉淀 / 洞察」。diary 已合并到 review（内部按 entry_type 选正文）。
 const MODULE_LABEL_KEY: Record<string, string> = {
   record: 'copilot.moduleRecord',
-  diary: 'copilot.moduleDiary',
   review: 'copilot.moduleReview',
+  thoughts: 'copilot.moduleThoughts',
   insight: 'copilot.moduleInsight',
 };
-// Mirrors the diary generation menu so users can identify which prompt is
-// selected without opening Settings. The index aligns with diaryPrompts[].
-const DIARY_PROMPT_LABEL_KEYS = ['copilot.promptDefault', 'copilot.promptCustom1', 'copilot.promptCustom2', 'copilot.promptCustom3'];
 
 export default function Copilot() {
   const { t } = useTranslation();
@@ -57,15 +56,17 @@ export default function Copilot() {
   // #9 LLM Chat: 'rag' = RAG 问答（检索本地数据），'chat' = 通用 Chat（纯 LLM 对话）
   const [chatMode, setChatMode] = useState<'rag' | 'chat'>('rag');
   const [showDateDropdown, setShowDateDropdown] = useState(false);
-  const [showPromptDropdown, setShowPromptDropdown] = useState(false);
+  // #115 需求 4：历史页（navView === 'history'）顶部日期选择器
+  const [historyDate, setHistoryDate] = useState<string>('');
+  const [showHistoryDatePicker, setShowHistoryDatePicker] = useState(false);
 
   // Local filter state — independent of the search panel's global searchFilters.
-  const [modules, setModules] = useState<Array<'record' | 'diary' | 'review' | 'insight'>>(['record', 'diary', 'review', 'insight']);
+  // #115 需求 1：模块类型由 'diary' 改 'thoughts'，默认全选新四类。
+  const [modules, setModules] = useState<Array<'record' | 'review' | 'thoughts' | 'insight'>>(['record', 'review', 'thoughts', 'insight']);
   const [dateRange, setDateRange] = useState<string>('全部');
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
   const [calendarTarget, setCalendarTarget] = useState<'none' | 'start' | 'end'>('none');
-  const [diaryPromptIndex, setDiaryPromptIndex] = useState<number | undefined>(undefined);
 
   // Citations accumulate across questions in the current session so older
   // citation links in the scroll history stay clickable. Reset on conversation switch.
@@ -90,8 +91,8 @@ export default function Copilot() {
 
   const closeDropdowns = () => {
     setShowDateDropdown(false);
-    setShowPromptDropdown(false);
     setCalendarTarget('none');
+    setShowHistoryDatePicker(false);
   };
 
   const handleNewConversation = () => {
@@ -171,7 +172,6 @@ export default function Copilot() {
     dateRange,
     customStartDate,
     customEndDate,
-    diaryPromptIndex,
   };
 
   const getDynamicContext = async (userMessage: string): Promise<string> => {
@@ -186,10 +186,12 @@ export default function Copilot() {
     if (!cite) return;
     if (cite.type === 'record') {
       navigate(`/?date=${cite.date}&logId=${logId}`);
-    } else if (cite.type === 'diary') {
-      navigate(`/diary?date=${cite.date}`);
     } else if (cite.type === 'review') {
+      // #115 需求 2：diary 已合并到 review，原 diary citation 也走 review 路由。
       navigate(`/review?date=${cite.date}`);
+    } else if (cite.type === 'thoughts') {
+      // #115 需求 3：新增沉淀模块，跳转 /thoughts 页。
+      navigate(`/thoughts?date=${cite.date}`);
     } else {
       // 洞察不需要日期维度，直接定位到大板块
       navigate('/insights');
@@ -257,9 +259,12 @@ export default function Copilot() {
     return t(DATE_PRESET_KEY[dateRange] || 'search.allDates');
   }, [dateRange, customStartDate, customEndDate, t]);
 
-  const templateLabel = diaryPromptIndex === undefined
-    ? t('copilot.allTemplates')
-    : t(DIARY_PROMPT_LABEL_KEYS[diaryPromptIndex]) || t('copilot.templateN', { n: diaryPromptIndex });
+  // #115 需求 4：历史页按 historyDate（yyyy-MM-dd）过滤；空字符串 = 全部。
+  const filteredConversations = useMemo(() => {
+    if (!conversations) return [];
+    if (!historyDate) return conversations;
+    return conversations.filter(c => format(new Date(c.updated_at), 'yyyy-MM-dd') === historyDate);
+  }, [conversations, historyDate]);
 
   return (
     <div className="absolute inset-0 bg-[#f0eef5] flex flex-col overflow-hidden animate-in fade-in duration-200">
@@ -313,9 +318,30 @@ export default function Copilot() {
 
       {navView === 'history' ? (
         <div className="flex-1 overflow-hidden flex flex-col bg-white">
+          {/* #115 需求 4：历史页顶部日期筛选区（仅保留日期选择器，复用 RAG 页样式）。 */}
+          <div className="px-4 py-2 bg-white border-b border-stone-200/50 flex items-center gap-2 shrink-0 select-none">
+            <span className="text-[11.5px] font-semibold text-stone-500">{t('copilot.historyDateLabel')}:</span>
+            <button
+              data-testid="history-date-picker"
+              onClick={() => { setShowHistoryDatePicker((v) => !v); setShowDateDropdown(false); }}
+              className="flex items-center gap-1 bg-stone-100 hover:bg-stone-200/80 text-stone-750 px-2.5 py-1 rounded-xl text-[12px] font-medium border border-stone-200/40 outline-none transition-colors cursor-pointer active:scale-95"
+            >
+              <span className="whitespace-nowrap font-mono">{historyDate || t('search.allDates')}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
+            </button>
+            {historyDate && (
+              <button
+                data-testid="history-date-clear"
+                onClick={() => { setHistoryDate(''); setShowHistoryDatePicker(false); }}
+                className="text-[10.5px] text-stone-400 hover:text-baimiao-mysteria px-2 py-1 transition-colors"
+              >
+                {t('copilot.clearDate')}
+              </button>
+            )}
+          </div>
           <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3 thin-scrollbar">
-            {conversations && conversations.length > 0 ? (
-              conversations.map(c => (
+            {filteredConversations.length > 0 ? (
+              filteredConversations.map(c => (
                 <div
                   key={c.id}
                   onClick={() => handleSelectConversation(c.id)}
@@ -381,7 +407,7 @@ export default function Copilot() {
           {navView === 'rag' && embedReady && (
             <div className="flex items-center px-4 py-2 bg-white border-b border-stone-200/50 shrink-0 relative justify-between select-none">
               {/* Module chips */}
-              {(['record', 'diary', 'review', 'insight'] as const).map(mod => {
+              {(['record', 'review', 'thoughts', 'insight'] as const).map(mod => {
                 const isSelected = modules.includes(mod);
                 return (
                   <button
@@ -409,26 +435,13 @@ export default function Copilot() {
               {/* Date range button */}
               <div className="relative shrink-0">
                 <button
-                  onClick={() => { setShowDateDropdown(!showDateDropdown); setShowPromptDropdown(false); setCalendarTarget('none'); }}
+                  onClick={() => { setShowDateDropdown(!showDateDropdown); setCalendarTarget('none'); }}
                   className="flex items-center gap-1 bg-stone-100 hover:bg-stone-200/80 text-stone-750 px-2.5 py-1 rounded-xl text-[12px] font-medium border border-stone-200/40 outline-none transition-colors cursor-pointer active:scale-95"
                 >
                   <span className="whitespace-nowrap">{dateLabel}</span>
                   <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
                 </button>
               </div>
-
-              {/* Diary template filter button (PRD §4.3.2) */}
-              {modules.includes('diary') && (
-                <div className="relative shrink-0">
-                  <button
-                    onClick={() => { setShowPromptDropdown(!showPromptDropdown); setShowDateDropdown(false); }}
-                    className="flex items-center gap-1 bg-stone-100 hover:bg-stone-200/80 text-stone-750 px-2.5 py-1 rounded-xl text-[12px] font-medium border border-stone-200/40 outline-none transition-colors cursor-pointer active:scale-95"
-                  >
-                    <span className="whitespace-nowrap">{templateLabel}</span>
-                    <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
-                  </button>
-                </div>
-              )}
             </div>
           )}
 
@@ -555,34 +568,16 @@ export default function Copilot() {
         </>
       )}
 
-      {showPromptDropdown && (
+      {showHistoryDatePicker && (
         <>
           <div className="fixed inset-0 z-[85]" onClick={closeDropdowns} />
-          <div className="absolute top-[142px] right-4 w-52 bg-white border border-stone-200 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-1.5 z-[90] animate-in fade-in zoom-in-95 duration-100 text-stone-800">
-            <button
-              onClick={() => { setDiaryPromptIndex(undefined); setShowPromptDropdown(false); }}
-              className={`w-full text-left px-3 py-1.5 text-[12px] font-medium rounded-xl transition-colors ${
-                diaryPromptIndex === undefined
-                  ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria'
-                  : 'text-stone-600 hover:text-stone-800 hover:bg-stone-100'
-              }`}
-            >
-              {t('copilot.allTemplates')}
-            </button>
-            {diaryPrompts.map((p: string, i: number) => p.trim() && (
-              <button
-                key={i}
-                onClick={() => { setDiaryPromptIndex(i); setShowPromptDropdown(false); }}
-                className={`w-full text-left px-3 py-2 text-[12px] rounded-xl transition-colors ${
-                  diaryPromptIndex === i
-                    ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria font-medium'
-                    : 'text-stone-600 hover:text-stone-800 hover:bg-stone-100'
-                }`}
-              >
-                <div className="font-semibold text-[12px]">{t(DIARY_PROMPT_LABEL_KEYS[i]) || t('copilot.templateN', { n: i })}</div>
-                <div className="text-[10px] text-stone-400 truncate mt-0.5">{p.trim().slice(0, 18)}…</div>
-              </button>
-            ))}
+          <div className="absolute top-[130px] right-4 w-72 bg-white border border-stone-200 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-1.5 z-[90] animate-in fade-in zoom-in-95 duration-100 text-stone-800">
+            <MiniCalendar
+              value={historyDate}
+              onChange={(val) => { setHistoryDate(val); setShowHistoryDatePicker(false); }}
+              onBack={() => setShowHistoryDatePicker(false)}
+              title={t('copilot.historySelectDate')}
+            />
           </div>
         </>
       )}
