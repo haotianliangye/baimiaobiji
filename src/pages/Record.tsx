@@ -329,6 +329,14 @@ function AudioAttachmentItem({
  * - 摘要区：媒体下方，次要文本色，最多3行截断。
  *   生成中 "AI 摘要生成中…"，失败 "摘要生成失败·重新生成"。
  */
+/** #113 估算纯文本渲染行数：按换行分段，每段按 ~20 字/行折算（移动端卡片宽度）。
+ *  用于判断纯文本是否超 12 行需折叠；多媒体占位不计入。 */
+function estimateTextLines(text: string): number {
+  if (!text) return 0;
+  return text.split('\n').reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / 20)), 0);
+}
+const FOLD_LINE_THRESHOLD = 12;
+
 function MultimediaAttachments({
   log,
   isGenerating,
@@ -337,6 +345,7 @@ function MultimediaAttachments({
   onRetryAudio,
   onOpenPreview,
   onOpenDetail,
+  collapsed = false,
 }: {
   log: any;
   isGenerating: boolean;
@@ -345,6 +354,8 @@ function MultimediaAttachments({
   onRetryAudio: (logId: string, originalIndex: number) => void;
   onOpenPreview: (items: AttachmentMeta[], initialIndex: number) => void;
   onOpenDetail: (log: any) => void;
+  /** #113 卡片折叠态：多媒体仅保留一行缩略（图片/视频最多 2 个 + "+N"），隐藏音频/链接/AI 摘要。 */
+  collapsed?: boolean;
 }) {
   const { t } = useTranslation();
   const attachments: AttachmentMeta[] = log.attachments || [];
@@ -376,8 +387,10 @@ function MultimediaAttachments({
     });
   };
 
-  const visibleMedia = mediaItems.slice(0, 4);
-  const overflowCount = mediaItems.length - 4;
+  // #113 折叠态：多媒体仅保留一行缩略（最多 2 个 + "+N"）；展开态：最多 4 个。
+  const maxMedia = collapsed ? 2 : 4;
+  const visibleMedia = mediaItems.slice(0, maxMedia);
+  const overflowCount = mediaItems.length - maxMedia;
   const isSingle = visibleMedia.length === 1;
   const hasAudio = audioItems.length > 0;
   const hasLink = linkItems.length > 0;
@@ -391,7 +404,7 @@ function MultimediaAttachments({
       {visibleMedia.length > 0 && (
         <div className={isSingle ? 'w-full' : 'grid grid-cols-2 gap-1'}>
           {visibleMedia.map(({ att, originalIndex }, i) => {
-            const showOverflow = i === 3 && overflowCount > 0;
+            const showOverflow = i === maxMedia - 1 && overflowCount > 0;
             return (
               <div key={originalIndex} className="relative">
                 <MediaThumb
@@ -417,8 +430,8 @@ function MultimediaAttachments({
         </div>
       )}
 
-      {/* 音频列表 */}
-      {hasAudio && (
+      {/* 音频列表（折叠态隐藏） */}
+      {!collapsed && hasAudio && (
         <div className={`flex flex-col gap-2 ${visibleMedia.length > 0 ? 'mt-2' : ''}`}>
           {audioItems.map(({ att, originalIndex }) => (
             <AudioAttachmentItem
@@ -434,8 +447,8 @@ function MultimediaAttachments({
         </div>
       )}
 
-      {/* 链接附件 */}
-      {hasLink && (
+      {/* 链接附件（折叠态隐藏） */}
+      {!collapsed && hasLink && (
         <div className={`flex flex-col gap-1 ${visibleMedia.length > 0 || hasAudio ? 'mt-2' : ''}`}>
           {linkItems.map((att, i) => (
             <a
@@ -452,13 +465,13 @@ function MultimediaAttachments({
         </div>
       )}
 
-      {/* AI 摘要区 */}
-      {showSummary && summaryState === 'ready' && log.attachment_summary && (
+      {/* AI 摘要区（折叠态隐藏） */}
+      {!collapsed && showSummary && summaryState === 'ready' && log.attachment_summary && (
         <p className="mt-2 text-[15.5px] leading-relaxed text-stone-500 line-clamp-3 break-words">
           {log.attachment_summary}
         </p>
       )}
-      {showSummary && summaryState === 'generating' && (
+      {!collapsed && showSummary && summaryState === 'generating' && (
         <div className="mt-2 flex items-center gap-1.5 text-[12px] text-stone-400">
           <Loader2 className="w-3 h-3 animate-spin" />
           <span>{t('record.aiSummaryGenerating')}</span>
@@ -518,6 +531,10 @@ export default function Record() {
   // New multi-select & context menu states
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
   const [selectedLogIds, setSelectedLogIds] = useState<Set<string>>(new Set());
+  // #113 卡片折叠：展开的 log id 集合（仅纯文本超 12 行的卡片可折叠）
+  const [expandedLogIds, setExpandedLogIds] = useState<Set<string>>(new Set());
+  // #113 单击/双击互斥：延迟单击折叠/展开，双击时取消延迟（与回顾页 #104 一致）
+  const clickTimeoutsRef = useRef<Record<string, NodeJS.Timeout | null>>({});
   const [contextMenuState, setContextMenuState] = useState<{
     isOpen: boolean;
     log: any;
@@ -1477,17 +1494,41 @@ export default function Record() {
                   id={`log-${log.id}`}
                   data-testid="log-card"
                   className={`flex gap-3 group items-start px-2 py-1 rounded-lg relative ${isMultiSelectMode ? "cursor-pointer" : ""} animate-in fade-in slide-in-from-bottom-2 duration-300`}
-                  onClick={() => {
+                  onClick={(e) => {
                     if (isMultiSelectMode) {
                       const newSelected = new Set(selectedLogIds);
                       if (newSelected.has(log.id)) newSelected.delete(log.id);
                       else newSelected.add(log.id);
                       setSelectedLogIds(newSelected);
+                      return;
                     }
+                    // #113 附件区单击保留打开灯箱/详情，不触发折叠
+                    const target = e.target as HTMLElement;
+                    if (target.closest('[data-attachment-region]') || target.closest('button, audio, video, img, a')) return;
+                    // #113 仅可折叠卡片响应单击折叠/展开；单击/双击互斥（延迟 250ms，双击取消，与回顾页一致）
+                    if (estimateTextLines(log.content) <= FOLD_LINE_THRESHOLD) return;
+                    if (clickTimeoutsRef.current[log.id]) {
+                      clearTimeout(clickTimeoutsRef.current[log.id]!);
+                      clickTimeoutsRef.current[log.id] = null;
+                    }
+                    clickTimeoutsRef.current[log.id] = setTimeout(() => {
+                      setExpandedLogIds(prev => {
+                        const next = new Set(prev);
+                        if (next.has(log.id)) next.delete(log.id);
+                        else next.add(log.id);
+                        return next;
+                      });
+                      clickTimeoutsRef.current[log.id] = null;
+                    }, 250);
                   }}
                   onDoubleClick={(e) => {
                     // #104 多选模式下双击不触发编辑
                     if (isMultiSelectMode) return;
+                    // #113 取消延迟的单击折叠/展开
+                    if (clickTimeoutsRef.current[log.id]) {
+                      clearTimeout(clickTimeoutsRef.current[log.id]!);
+                      clickTimeoutsRef.current[log.id] = null;
+                    }
                     const target = e.target as HTMLElement;
                     // 附件区单击保留打开灯箱/详情，双击只在非附件区触发编辑
                     if (target.closest('[data-attachment-region]') || target.closest('button, audio, video, img, a')) {
@@ -1531,9 +1572,26 @@ export default function Record() {
                 </span>
                 <div className="flex-1 min-w-0">
                   <div className="inline-block baimiao-card-bubble px-4 py-3 pb-2 max-w-full text-left relative">
-                    <p className="text-[15.5px] leading-relaxed text-baimiao-ink font-sans tracking-tight break-all">
+                    <p className={`text-[15.5px] leading-relaxed text-baimiao-ink font-sans tracking-tight break-all ${estimateTextLines(log.content) > FOLD_LINE_THRESHOLD && !expandedLogIds.has(log.id) ? 'line-clamp-12' : ''}`}>
                       {log.content}
                     </p>
+                    {estimateTextLines(log.content) > FOLD_LINE_THRESHOLD && (
+                      <button
+                        data-testid={`log-fold-toggle-${log.id}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedLogIds(prev => {
+                            const next = new Set(prev);
+                            if (next.has(log.id)) next.delete(log.id);
+                            else next.add(log.id);
+                            return next;
+                          });
+                        }}
+                        className="mt-1 text-[11.5px] text-baimiao-mysteria font-medium select-none hover:underline"
+                      >
+                        {expandedLogIds.has(log.id) ? t('record.collapse') : t('record.expand')}
+                      </button>
+                    )}
                     {log.audioBlob && (
                       <div className="mt-2.5 w-full max-w-[220px] pb-1">
                         <AudioPlayer blob={log.audioBlob} />
@@ -1553,6 +1611,7 @@ export default function Record() {
                         onRetryAudio={handleRetryAudioAttachment}
                         onOpenPreview={(items: AttachmentMeta[], initialIndex: number) => setMediaPreview({ items, initialIndex })}
                         onOpenDetail={(l: any) => setDetailLog(l)}
+                        collapsed={estimateTextLines(log.content) > FOLD_LINE_THRESHOLD && !expandedLogIds.has(log.id)}
                       />
                     )}
                   </div>

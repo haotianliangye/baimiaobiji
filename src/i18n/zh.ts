@@ -135,6 +135,8 @@ export const zh: TranslationDict = {
   'record.regenerateSummary': '重新生成',
   'record.retranscribe': '重新转写',
   'record.moreCount': '+{count}',
+  'record.expand': '展开',
+  'record.collapse': '收起',
   'record.saveFailed': '保存失败：{msg}',
   'record.file': '文件',
   'record.album': '相册',

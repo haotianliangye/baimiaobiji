@@ -134,6 +134,8 @@ export const en: TranslationDict = {
   'record.regenerateSummary': 'Regenerate',
   'record.retranscribe': 'Re-transcribe',
   'record.moreCount': '+{count}',
+  'record.expand': 'Expand',
+  'record.collapse': 'Collapse',
   'record.saveFailed': 'Save failed: {msg}',
   'record.file': 'File',
   'record.album': 'Album',
