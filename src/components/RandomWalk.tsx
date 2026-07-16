@@ -31,7 +31,6 @@ import 'swiper/css/effect-cards';
 import {
   Lightbulb,
   Shuffle,
-  Eye,
   Hash,
   Pencil,
   Copy,
@@ -73,7 +72,8 @@ const LS_COOLDOWN = 'random-walk-cooldown-days';
 
 const DEFAULT_SOURCES: SourceType[] = ['thoughts', 'daily_reviews'];
 const DEFAULT_COOLDOWN_DAYS = 7;
-const DRAW_COUNT = 3;
+// #116 需求 1：单次抽取卡片数 3 → 7
+const DRAW_COUNT = 7;
 
 interface ShownRecord {
   shownAt: number;
@@ -498,20 +498,12 @@ export default function RandomWalk() {
       data-testid="random-walk-overlay"
       className="flex flex-col h-full bg-[#faf9fc] animate-in fade-in duration-200 overflow-hidden"
     >
-      {/* 顶部细栏：计数 + 数据源设置（标题与 × 关闭在全局 header） */}
-      <div className="flex h-[40px] shrink-0 items-center px-4 bg-white/85 backdrop-blur border-b border-baimiao-border/40 z-20 justify-between">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <Lightbulb className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-          {items.length > 0 && !ended ? (
-            <span className="text-[11.5px] font-medium text-stone-500 font-mono">
-              {currentIndex + 1}/{items.length}
-            </span>
-          ) : (
-            <span className="text-[11.5px] font-medium text-stone-400">{t('randomWalk.title')}</span>
-          )}
-        </div>
+      {/* 顶部细栏：数据源设置（标题与 × 关闭在全局 header）。
+          #116 需求 2/3/4：移除 1/N 计数 + 移除顶部 Lightbulb + Settings2 移到左上角。 */}
+      <div className="flex h-[40px] shrink-0 items-center px-4 bg-white/85 backdrop-blur border-b border-baimiao-border/40 z-20 gap-2">
         <button
           data-testid="walk-settings"
+          data-walk-settings-position="top-left"
           onClick={() => setShowSettings((v) => !v)}
           className={`p-1.5 rounded-full transition-colors ${
             showSettings
@@ -523,6 +515,7 @@ export default function RandomWalk() {
         >
           <Settings2 className="w-4 h-4" />
         </button>
+        <span className="text-[11.5px] font-medium text-stone-400">{t('randomWalk.title')}</span>
       </div>
 
       {/* 设置面板 */}
@@ -607,7 +600,7 @@ export default function RandomWalk() {
             effect="cards"
             modules={[EffectCards]}
             grabCursor
-            className="walk-swiper w-full h-full max-w-md"
+            className="walk-swiper w-full h-full max-w-[23rem]"
             onSwiper={(sw) => { swiperRef.current = sw; }}
             onSlideChange={(sw) => setCurrentIndex(sw.activeIndex)}
           >
@@ -618,7 +611,10 @@ export default function RandomWalk() {
                   data-active={index === currentIndex ? 'true' : 'false'}
                   data-walk-type={item.type}
                   data-walk-key={item.key}
-                  className="w-full h-full baimiao-card-bubble p-5 flex flex-col"
+                  data-walk-opacity={index === currentIndex ? '1' : '0.4'}
+                  className={`w-full h-full baimiao-card-bubble p-5 flex flex-col transition-opacity duration-200 ${
+                    index === currentIndex ? 'opacity-100' : 'opacity-40'
+                  }`}
                 >
                   {/* 类型徽章 + 时间 */}
                   <div className="flex items-center justify-between shrink-0 mb-3">
@@ -685,57 +681,50 @@ export default function RandomWalk() {
       {!ended && current && !showTagSheet && (
         <div className="shrink-0 border-t border-baimiao-border/40 bg-white/90 backdrop-blur px-2 py-2">
           <div className="flex items-center justify-around max-w-md mx-auto">
-            <button
-              data-testid="walk-read"
-              onClick={handleRead}
-              className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl text-stone-500 hover:bg-stone-100 hover:text-baimiao-mysteria transition-colors"
-            >
-              <Eye className="w-5 h-5" />
-              <span className="text-[10.5px] font-medium">{t('randomWalk.read')}</span>
-            </button>
+            {/* #116 需求 7：移除底部「已阅」按钮（handleRead 与 read 过滤逻辑保留供后续复用）。 */}
             <button
               data-testid="walk-tags"
               onClick={() => setShowTagSheet(true)}
-              className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl text-stone-500 hover:bg-stone-100 hover:text-baimiao-mysteria transition-colors"
+              className="flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xl text-stone-500 hover:bg-stone-100 hover:text-baimiao-mysteria transition-colors"
             >
-              <Hash className="w-5 h-5" />
-              <span className="text-[10.5px] font-medium">{t('randomWalk.tags')}</span>
+              <Hash className="w-4 h-4" />
+              <span className="text-[10px] font-medium">{t('randomWalk.tags')}</span>
             </button>
             <button
               data-testid="walk-edit"
               onClick={() => openEdit(current)}
-              className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl text-stone-500 hover:bg-stone-100 hover:text-baimiao-mysteria transition-colors"
+              className="flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xl text-stone-500 hover:bg-stone-100 hover:text-baimiao-mysteria transition-colors"
             >
-              <Pencil className="w-5 h-5" />
-              <span className="text-[10.5px] font-medium">{t('randomWalk.edit')}</span>
+              <Pencil className="w-4 h-4" />
+              <span className="text-[10px] font-medium">{t('randomWalk.edit')}</span>
             </button>
             <button
               data-testid="walk-copy"
               onClick={handleCopy}
-              className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl transition-colors ${
+              className={`flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xl transition-colors ${
                 copied
                   ? 'text-emerald-600 bg-emerald-50'
                   : 'text-stone-500 hover:bg-stone-100 hover:text-baimiao-mysteria'
               }`}
             >
-              {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
-              <span className="text-[10.5px] font-medium">{copied ? t('record.copied') : t('record.copyContent')}</span>
+              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              <span className="text-[10px] font-medium">{copied ? t('record.copied') : t('record.copyContent')}</span>
             </button>
             <button
               data-testid="walk-delete"
               onClick={handleDelete}
-              className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl text-stone-500 hover:bg-rose-50 hover:text-rose-500 transition-colors"
+              className="flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xl text-stone-500 hover:bg-rose-50 hover:text-rose-500 transition-colors"
             >
-              <Trash2 className="w-5 h-5" />
-              <span className="text-[10.5px] font-medium">{t('randomWalk.delete')}</span>
+              <Trash2 className="w-4 h-4" />
+              <span className="text-[10px] font-medium">{t('randomWalk.delete')}</span>
             </button>
             <button
               data-testid="walk-shuffle"
               onClick={draw}
-              className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl text-baimiao-mysteria hover:bg-baimiao-mysteria/8 transition-colors"
+              className="flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xl text-baimiao-mysteria hover:bg-baimiao-mysteria/8 transition-colors"
             >
-              <Shuffle className="w-5 h-5" />
-              <span className="text-[10.5px] font-medium">{t('randomWalk.shuffle')}</span>
+              <Shuffle className="w-4 h-4" />
+              <span className="text-[10px] font-medium">{t('randomWalk.shuffle')}</span>
             </button>
           </div>
         </div>

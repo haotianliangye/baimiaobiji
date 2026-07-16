@@ -175,24 +175,32 @@ async function run() {
   await page.goto(`${BASE_URL}/thoughts`, { waitUntil: 'networkidle2' });
   await page.waitForSelector('[data-testid="thought-quick-input"]', { timeout: 15000 });
 
-  // ---------- 准备：创建 3 条沉淀笔记（内容确定，便于断言） ----------
+  // ---------- 准备：创建 7 条沉淀笔记（#116 需求 1：单次抽取 3 → 7） ----------
   const NOTE_A = '随机漫步测试内容甲';
   const NOTE_B = '随机漫步测试内容乙';
   const NOTE_C = '随机漫步测试内容丙';
+  const NOTE_D = '随机漫步测试内容丁';
+  const NOTE_E = '随机漫步测试内容戊';
+  const NOTE_F = '随机漫步测试内容己';
+  const NOTE_G = '随机漫步测试内容庚';
   await createThought(page, NOTE_A, 1);
   await createThought(page, NOTE_B, 2);
   await createThought(page, NOTE_C, 3);
+  await createThought(page, NOTE_D, 4);
+  await createThought(page, NOTE_E, 5);
+  await createThought(page, NOTE_F, 6);
+  await createThought(page, NOTE_G, 7);
 
-  // ---------- 1. 灯泡入口 -> 展示 3 条 ----------
+  // ---------- 1. 灯泡入口 -> 展示 7 条 ----------
   await page.click('[data-testid="walk-open"]');
   await page.waitForSelector('[data-testid="random-walk-overlay"]', { timeout: 5000 });
-  // 首次抽取：3 条全部可漫步（无展示历史），等待 3 张卡片
-  await waitForCardCount(page, 3);
+  // 首次抽取：7 条全部可漫步（无展示历史），等待 7 张卡片
+  await waitForCardCount(page, 7);
   const cardCountInitial = await page.$$eval(
     '[data-testid="walk-card"]',
     (els) => els.length
   );
-  assert('1 随机漫步展示 3 条卡片', cardCountInitial === 3, `卡片数=${cardCountInitial}`);
+  assert('1 随机漫步展示 7 条卡片', cardCountInitial === 7, `卡片数=${cardCountInitial}`);
 
   // ---------- 2. 滑动/下一张浏览 ----------
   const firstContent = await getActiveCardContent(page);
@@ -205,7 +213,7 @@ async function run() {
     `首=${firstContent.slice(0, 8)}, 次=${secondContent.slice(0, 8)}`
   );
 
-  // 再下一张到第 3 张
+  // 切到第 3 张后继续往后切到第 7 张（#116 需求 1：验证 7 张都可浏览）
   await slideToNext(page);
   await new Promise((r) => setTimeout(r, 350));
   const thirdContent = await getActiveCardContent(page);
@@ -216,9 +224,24 @@ async function run() {
       thirdContent !== secondContent,
     `第3张=${thirdContent.slice(0, 8)}`
   );
+  await slideToNext(page);
+  await new Promise((r) => setTimeout(r, 350));
+  await slideToNext(page);
+  await new Promise((r) => setTimeout(r, 350));
+  await slideToNext(page);
+  await new Promise((r) => setTimeout(r, 350));
+  const seventhContent = await getActiveCardContent(page);
+  assert(
+    '2c 浏览到第 7 张',
+    seventhContent.length > 0 &&
+      seventhContent !== firstContent &&
+      seventhContent !== secondContent &&
+      seventhContent !== thirdContent,
+    `第7张=${seventhContent.slice(0, 8)}`
+  );
 
   // ---------- 3. 去重过滤：换一批 -> 冷却期内已展示 -> 空态 ----------
-  // 默认冷却期 7 天：3 条都已展示 -> 全部被过滤 -> 无可漫步记录
+  // 默认冷却期 7 天：7 条都已展示 -> 全部被过滤 -> 无可漫步记录
   await page.click('[data-testid="walk-shuffle"]');
   await page.waitForSelector('[data-testid="walk-empty"]', { timeout: 5000 });
   const emptyVisible = await page.$('[data-testid="walk-empty"]');
@@ -226,11 +249,12 @@ async function run() {
 
   // 重置历史 -> 清空展示记录 -> 重新可漫步
   await page.click('[data-testid="walk-reset"]');
-  await waitForCardCount(page, 3);
+  await waitForCardCount(page, 7);
   const afterResetCount = await page.$$eval('[data-testid="walk-card"]', (els) => els.length);
-  assert('3b 重置历史后恢复 3 条', afterResetCount === 3, `卡片数=${afterResetCount}`);
+  assert('3b 重置历史后恢复 7 条', afterResetCount === 7, `卡片数=${afterResetCount}`);
 
   // ---------- 4. 已阅后不再出现（冷却期设 0 隔离已阅效果） ----------
+  // #116 需求 7：UI 上已移除「已阅」按钮；改用 localStorage 直接标记模拟已阅。
   // 打开设置面板，把冷却期改为 0（已展示记录不再被冷却期过滤，仅已阅永久排除）
   await page.click('[data-testid="walk-settings"]');
   await page.waitForSelector('[data-testid="walk-cooldown-input"]', { timeout: 3000 });
@@ -253,24 +277,31 @@ async function run() {
   await page.click('[data-testid="walk-settings"]');
   await new Promise((r) => setTimeout(r, 200));
 
-  // 换一批（冷却期 0：已展示记录重新可抽取）
+  // 换一批（冷却期 0：7 张已展示记录重新可抽取）
   await page.click('[data-testid="walk-shuffle"]');
-  await waitForCardCount(page, 3);
+  await waitForCardCount(page, 7);
 
-  // 记下当前激活卡片内容 C1，点击「已阅」
+  // 记下当前激活卡片 C1，通过 localStorage 模拟已阅（UI 已移除已阅按钮）
   const c1 = await getActiveCardContent(page);
   assert('4a 已阅前捕获激活卡片内容', c1.length > 0, `C1=${c1.slice(0, 8)}`);
-  await page.click('[data-testid="walk-read"]');
-  await new Promise((r) => setTimeout(r, 300));
+  await page.evaluate(() => {
+    const card = document.querySelector('[data-testid="walk-card"][data-active="true"]') as HTMLElement | null;
+    const key = card?.getAttribute('data-walk-key');
+    if (!key) throw new Error('未找到激活卡片 data-walk-key');
+    const raw = localStorage.getItem('random-walk-shown') || '{}';
+    const shown = JSON.parse(raw) as Record<string, { shownAt: number; read: boolean }>;
+    shown[key] = { shownAt: Date.now(), read: true };
+    localStorage.setItem('random-walk-shown', JSON.stringify(shown));
+  });
 
-  // 换一批：C1 已阅 -> 永久排除；其余 2 条冷却期 0 仍可抽取 -> 2 张卡片
+  // 换一批：C1 已阅 -> 永久排除；其余 6 条冷却期 0 仍可抽取 -> 6 张卡片
   await page.click('[data-testid="walk-shuffle"]');
-  await waitForCardCount(page, 2);
+  await waitForCardCount(page, 6);
   const contentsAfterRead = await getAllCardContents(page);
   const c1Absent = !contentsAfterRead.some((c) => c === c1);
   assert(
     '4b 已阅后不再出现',
-    c1Absent && contentsAfterRead.length === 2,
+    c1Absent && contentsAfterRead.length === 6,
     `C1缺席=${c1Absent}, 卡片数=${contentsAfterRead.length}`
   );
 
@@ -308,7 +339,7 @@ async function run() {
   );
 
   // ---------- 6. 删除 ----------
-  // 删除前 DB 中应有 3 条 thoughts
+  // 删除前 DB 中应有 7 条 thoughts
   const thoughtsBefore = await readStore(page, 'thoughts');
   const beforeCount = thoughtsBefore ? thoughtsBefore.length : 0;
   await page.click('[data-testid="walk-delete"]');
@@ -341,11 +372,11 @@ async function run() {
   // G3: 编辑弹窗（RichEditor，US10）E2E 断言
   // issue 102 Testing Decisions「编辑按钮弹 RichEditor 编辑弹窗」测试重点未落实。
   // 此前 walk-edit -> walk-edit-modal/walk-edit-textarea 零断言。
-  // 当前状态：C1 已阅排除、C2 已删除，剩 1 张可漫步卡片（第三条）。
+  // 当前状态：C1 已阅排除、C2 已删除，剩 5 张可漫步卡片（第 3-7 条减去已删的 C2）。
   // ===========================================================================
   await page.click('[data-testid="walk-open"]');
   await page.waitForSelector('[data-testid="random-walk-overlay"]', { timeout: 5000 });
-  await waitForCardCount(page, 1);
+  await waitForCardCount(page, 5);
 
   const beforeEdit = await getActiveCardContent(page);
   assert('G3a 编辑前捕获激活卡片内容', beforeEdit.length > 0, `before=${beforeEdit.slice(0, 8)}`);
@@ -427,7 +458,7 @@ async function run() {
   // ---------- G4a: 容器内渲染（非 fixed 全屏覆盖） ----------
   await page.click('[data-testid="walk-open"]');
   await page.waitForSelector('[data-testid="random-walk-overlay"]', { timeout: 5000 });
-  await waitForCardCount(page, 1);
+  await waitForCardCount(page, 5);
   const overlayPos = await page.$eval('[data-testid="random-walk-overlay"]', (el) =>
     window.getComputedStyle(el as Element).position
   );
@@ -460,7 +491,7 @@ async function run() {
   // ---------- G4c: 底部 Tab 退出（重新打开后点击 TabBar 任意 Tab） ----------
   await page.click('[data-testid="walk-open"]');
   await page.waitForSelector('[data-testid="random-walk-overlay"]', { timeout: 5000 });
-  await waitForCardCount(page, 1);
+  await waitForCardCount(page, 5);
   // 点击底部「回顾」Tab（NavLink 渲染为 a[href="/review"]，onClick 重置 isRandomWalkMode）
   await page.click('nav a[href="/review"]');
   await page.waitForFunction(
@@ -484,10 +515,99 @@ async function run() {
     const r = (el as Element).getBoundingClientRect();
     return { width: r.width, vw: window.innerWidth };
   });
+  // #116 需求 6 改的是 .walk-swiper 内部宽度（max-w-[23rem] = 368px），
+  // G4d 测的是 overlay 容器本身（继承父 max-w-md = 448px）—— 维持 <= 480 阈值。
   assert(
     'G4d 桌面宽屏 overlay 受容器约束（宽度 < 视口且 <= 480）',
     overlayDims.width < overlayDims.vw && overlayDims.width <= 480,
     `overlayWidth=${overlayDims.width.toFixed(0)}, vw=${overlayDims.vw}`
+  );
+
+  // ===========================================================================
+  // #116 验收断言（UI 精简：1/N 计数 / Lightbulb / 已阅按钮移除 + Settings 位置 + 卡片透明度）
+  // ===========================================================================
+
+  // ---------- #116-1: 顶部无 1/N 计数 ----------
+  const counterPresent = await page.evaluate(() => {
+    // 1/N 计数格式：currentIndex+1}/{items.length}；检查 overlay 顶层是否含 "数字/数字"
+    const overlay = document.querySelector('[data-testid="random-walk-overlay"]') as HTMLElement | null;
+    if (!overlay) return false;
+    const text = (overlay.textContent || '');
+    return /\d+\s*\/\s*\d+/.test(text);
+  });
+  assert('#116-1 顶部无 1/N 计数', !counterPresent, counterPresent ? '仍含 1/N 样式' : '已移除');
+
+  // ---------- #116-2: 顶部细栏无 Lightbulb 装饰图标 ----------
+  // 顶部细栏的特征：overlay 内的第一个 .border-b 元素（且高度 ~40px）
+  const topLightbulb = await page.evaluate(() => {
+    const overlay = document.querySelector('[data-testid="random-walk-overlay"]') as HTMLElement | null;
+    if (!overlay) return false;
+    const topBar = overlay.querySelector('.border-b') as HTMLElement | null;
+    if (!topBar) return false;
+    // lucide-react 渲染 SVG 时带 lucide-xxx class
+    const svgs = topBar.querySelectorAll('svg');
+    for (const svg of Array.from(svgs)) {
+      const cls = svg.getAttribute('class') || '';
+      if (cls.includes('lucide-lightbulb')) return true;
+    }
+    return false;
+  });
+  assert('#116-2 顶部细栏无 Lightbulb 图标', !topLightbulb, topLightbulb ? 'Lightbulb 仍存在' : '已移除');
+
+  // ---------- #116-3: 底部无「已阅」按钮 ----------
+  const readButton = await page.$('[data-testid="walk-read"]');
+  assert('#116-3 底部无已阅按钮', !readButton, readButton ? '已阅按钮仍存在' : '已移除');
+
+  // ---------- #116-4: Settings2 位于左上角 ----------
+  const settingsPos = await page.evaluate(() => {
+    const btn = document.querySelector('[data-testid="walk-settings"]') as HTMLElement | null;
+    const overlay = document.querySelector('[data-testid="random-walk-overlay"]') as HTMLElement | null;
+    if (!btn || !overlay) return null;
+    const br = btn.getBoundingClientRect();
+    const or = overlay.getBoundingClientRect();
+    const leftOffset = br.left - or.left;
+    const topRatio = (br.top - or.top) / or.height;
+    return {
+      leftOffset,
+      topRatio,
+      position: btn.getAttribute('data-walk-settings-position'),
+    };
+  });
+  assert(
+    '#116-4 Settings2 位于左上角',
+    !!settingsPos && settingsPos.leftOffset < 24 && settingsPos.topRatio < 0.3,
+    settingsPos
+      ? `leftOffset=${settingsPos.leftOffset.toFixed(0)}, topRatio=${settingsPos.topRatio.toFixed(2)}, pos=${settingsPos.position}`
+      : '未找到 settings 按钮'
+  );
+
+  // ---------- #116-5: 后方非当前卡片透明度降低 ----------
+  const opacityInfo = await page.evaluate(() => {
+    const cards = document.querySelectorAll('[data-testid="walk-card"]');
+    const list: { active: boolean; opacity: string }[] = [];
+    cards.forEach((c) => {
+      list.push({
+        active: c.getAttribute('data-active') === 'true',
+        opacity: window.getComputedStyle(c as Element).opacity,
+      });
+    });
+    return list;
+  });
+  const activeOpacity = parseFloat(opacityInfo.find((o) => o.active)?.opacity || '0');
+  const otherOpacities = opacityInfo.filter((o) => !o.active).map((o) => parseFloat(o.opacity));
+  const minOther = otherOpacities.length ? Math.min(...otherOpacities) : 1;
+  assert(
+    '#116-5 后方非当前卡片透明度降低',
+    activeOpacity >= 0.9 && otherOpacities.length > 0 && minOther < 0.8,
+    `active=${activeOpacity}, otherMin=${minOther}, otherCount=${otherOpacities.length}`
+  );
+
+  // ---------- #116-6: 卡片区域宽度缩小（< 400px，反映 1.2x 缩小） ----------
+  const swiperWidth = await page.$eval('.walk-swiper', (el) => (el as Element).getBoundingClientRect().width);
+  assert(
+    '#116-6 卡片区域宽度 < 400px（原 max-w-md=448，缩小 1.2x 后 ~373）',
+    swiperWidth < 400,
+    `swiperWidth=${swiperWidth.toFixed(0)}`
   );
 
   await page.close();
