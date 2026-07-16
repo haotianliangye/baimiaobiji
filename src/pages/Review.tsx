@@ -19,6 +19,13 @@ import { normalizeTagPath, resolveAlias } from '../lib/tags';
 import { useTagsStore } from '../store/tags.store';
 import { useTranslation } from '../lib/i18n';
 
+/** #113 估算纯文本渲染行数（与拾微页一致，用于回顾正文 12 行折叠判断）。 */
+function estimateTextLines(text: string): number {
+  if (!text) return 0;
+  return text.split('\n').reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / 20)), 0);
+}
+const FOLD_LINE_THRESHOLD = 12;
+
 const generateUUID = () => {
   return self.crypto?.randomUUID?.() || Math.random().toString(36).substring(2);
 };
@@ -434,6 +441,8 @@ export default function Review() {
                 const isEditing = editingReviewId === review.id;
                 const entryLabel = review.entry_type === 'diary' ? t('review.diary') : t('review.review');
                 const entryContent = review.ai_editorial || review.ai_review;
+                // #113 回顾正文超 12 行折叠（line-clamp-12），与拾微页一致
+                const canFold = estimateTextLines(entryContent) > FOLD_LINE_THRESHOLD;
 
                 return (
                   <div
@@ -563,8 +572,7 @@ export default function Review() {
                       )}
                     </div>
 
-                    {/* Expanded content */}
-                    {isReviewExpanded && (
+                    {/* 正文区：折叠态正文 line-clamp-12，展开态完整（#113 需求 1） */}
                       <div className="px-4 pb-4 pt-2 border-t border-stone-100/60 bg-white">
                         {isGenerating ? (
                           <div className="flex flex-col items-center justify-center py-6 text-stone-400 text-[12px] gap-2 font-medium">
@@ -604,17 +612,17 @@ export default function Review() {
                         ) : entryContent ? (
                           <>
                             <div
-                              className="markdown-body prose prose-stone baimiao-editorial-body prose-h1:text-[19px] prose-h2:text-[17px] prose-h3:text-[16px] prose-h1:leading-snug prose-headings:font-medium prose-headings:font-serif baimiao-editorial-title max-w-none text-[15.5px] leading-relaxed select-text pointer-events-auto cursor-pointer"
+                              className={`markdown-body prose prose-stone baimiao-editorial-body prose-h1:text-[19px] prose-h2:text-[17px] prose-h3:text-[16px] prose-h1:leading-snug prose-headings:font-medium prose-headings:font-serif baimiao-editorial-title max-w-none text-[15.5px] leading-relaxed select-text pointer-events-auto cursor-pointer ${!isReviewExpanded && canFold ? 'line-clamp-12' : ''}`}
                               onClick={(e) => {
-                                // 避免点击内部链接时触发收起
+                                // 避免点击内部链接时触发折叠/展开
                                 if ((e.target as HTMLElement).tagName.toLowerCase() === 'a') return;
-                                // #104 单击/双击互斥：延迟收起，双击时取消
+                                // #104 单击/双击互斥：延迟 toggle 折叠/展开，双击时取消
                                 if (clickTimeoutsRef.current[review.id]) {
                                   clearTimeout(clickTimeoutsRef.current[review.id]!);
                                   clickTimeoutsRef.current[review.id] = null;
                                 }
                                 clickTimeoutsRef.current[review.id] = setTimeout(() => {
-                                  setExpandedReviewId(null);
+                                  setExpandedReviewId(isReviewExpanded ? null : review.id);
                                   clickTimeoutsRef.current[review.id] = null;
                                 }, 250);
                               }}
@@ -653,6 +661,7 @@ export default function Review() {
                               </div>
                             )}
 
+                            {isReviewExpanded && (<>
                             <div className="flex flex-col gap-3 mt-4 pt-3 border-t border-stone-200/40 select-none px-2">
                               <div className="flex justify-between w-full">
                                 <button
@@ -755,6 +764,7 @@ export default function Review() {
                                 />
                               </div>
                             )}
+                            </>)}
                           </>
                         ) : (
                           <div className="flex flex-col items-center justify-center py-6 px-3 text-center border border-dashed border-stone-200 rounded-lg bg-stone-50/50">
@@ -774,7 +784,6 @@ export default function Review() {
                           </div>
                         )}
                       </div>
-                    )}
                   </div>
                 );
               })}

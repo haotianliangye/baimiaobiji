@@ -244,24 +244,36 @@ async function run() {
   await pageV.waitForSelector('[data-testid="review-card"]', { timeout: 10000 });
   await new Promise((r) => setTimeout(r, 500));
 
-  // RV1：折叠态显示 ai_summary（header line-clamp-2）
-  const rv1 = await pageV.evaluate(() => {
-    const text = document.body.textContent || '';
-    return { hasSummary: text.includes('这是一条回顾摘要内容') };
+  // RV1：单击 header 收起 -> 折叠态正文 line-clamp-12（#113 需求 1，与拾微一致）
+  // Review 默认自动展开首个，故先单击收起再验证折叠态
+  await pageV.evaluate(() => {
+    const h = document.querySelector('[data-testid="review-card-header"]') as HTMLElement | null;
+    if (h) h.click();
   });
-  assert('RV1 折叠态显示回顾摘要', rv1.hasSummary, `含摘要=${rv1.hasSummary}`);
+  await new Promise((r) => setTimeout(r, 800));
+  const rv1 = await pageV.evaluate(() => {
+    const card = document.querySelector('[data-testid="review-card"]');
+    const body = card?.querySelector('.baimiao-editorial-body');
+    const text = document.body.textContent || '';
+    return {
+      hasBody: !!body,
+      hasLineClamp: body ? (body.className || '').includes('line-clamp-12') : false,
+      hasSummary: text.includes('这是一条回顾摘要内容'),
+    };
+  });
+  assert('RV1 折叠态正文 line-clamp-12 + 摘要', rv1.hasLineClamp && rv1.hasSummary, `正文区=${rv1.hasBody}, clamp=${rv1.hasLineClamp}, 摘要=${rv1.hasSummary}`);
 
-  // RV2：单击 header 切换展开/收起（#104 单击延迟 250ms toggle expandedReviewId）。
-  // Review 卡片可能初始自动展开，故验证 toggle（before != after）而非定向展开。
-  const rv2Before = await pageV.evaluate(
-    () => !!document.querySelector('[data-testid="review-card"] .baimiao-editorial-body')
-  );
-  await pageV.click('[data-testid="review-card-header"]');
-  await new Promise((r) => setTimeout(r, 1000));
-  const rv2After = await pageV.evaluate(
-    () => !!document.querySelector('[data-testid="review-card"] .baimiao-editorial-body')
-  );
-  assert('RV2 单击 header 切换展开/收起', rv2Before !== rv2After, `before=${rv2Before}, after=${rv2After}`);
+  // RV2：单击 header 展开 -> 正文完整（无 line-clamp-12）
+  await pageV.evaluate(() => {
+    const h = document.querySelector('[data-testid="review-card-header"]') as HTMLElement | null;
+    if (h) h.click();
+  });
+  await new Promise((r) => setTimeout(r, 800));
+  const rv2 = await pageV.evaluate(() => {
+    const body = document.querySelector('[data-testid="review-card"] .baimiao-editorial-body');
+    return { hasLineClamp: body ? (body.className || '').includes('line-clamp-12') : false };
+  });
+  assert('RV2 展开正文无 line-clamp', !rv2.hasLineClamp, `clamp=${rv2.hasLineClamp}`);
 
   // RV3：双击 header - 进入 inline 编辑（textarea 出现）
   await pageV.evaluate(() => {

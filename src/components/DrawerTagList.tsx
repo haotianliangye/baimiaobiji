@@ -513,12 +513,11 @@ const TagActionMenu = React.forwardRef<HTMLDivElement, {
       style={style}
       className="bg-white rounded-xl shadow-xl border border-stone-100 py-1 flex flex-col"
       data-testid="drawer-tag-action-menu"
-      onClick={() => console.log('[menu div click]')}
     >
       {items.map(item => (
         <button
           key={item.key}
-          onClick={() => { console.log('[menu item click]', item.key); item.onClick(); }}
+          onClick={() => item.onClick()}
           className={cn(
             'flex items-center gap-2 px-3 py-2 text-[12.5px] font-medium text-left transition-colors',
             item.danger
