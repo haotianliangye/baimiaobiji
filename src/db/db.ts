@@ -160,6 +160,9 @@ export interface TagDef {
   path: string;               // 完整路径，主键
   name: string;               // 末级名（如 '项目A'）
   created_at: number;
+  pinned?: boolean;           // 是否置顶
+  sort_order?: number;        // 排序权重：置顶标签数值更小，排在同层级前面
+  icon?: string;              // 标签图标（可选，如 emoji 或 lucide 图标名）
 }
 
 // #4 标签别名：被合并的旧路径 -> 合并目标路径。
@@ -390,6 +393,35 @@ export class WhitewashDiaryDB extends dexie {
       tag_aliases: 'alias, target',
       attachments: 'id, type, created_at',
       chunks: 'id, source_id, [source_type+source_id+field], *tags',
+    });
+    // Version 13: task-112 标签快捷操作菜单。
+    // - TagDef 新增 pinned / sort_order / icon 字段。
+    // - tags 表加 sort_order 索引，用于置顶排序。
+    // - upgrade：旧标签补 pinned=false、sort_order=created_at+BASE（置顶区间 0..1e9，未置顶 1e9+）。
+    this.version(13).stores({
+      raw_logs: 'id, created_at, *tags',
+      daily_reviews: 'id, review_date, entry_type, *tags',
+      thoughts: 'id, created_at',
+      mingwu: 'id, range_type, created_at',
+      copilot_conversations: 'id, updated_at',
+      migration_backups: 'key',
+      tags: 'path, name, created_at, sort_order',
+      tag_aliases: 'alias, target',
+      attachments: 'id, type, created_at',
+      chunks: 'id, source_id, [source_type+source_id+field], *tags',
+    }).upgrade(async (tx) => {
+      const PINNED_ORDER_BASE = 1_000_000_000;
+      const allTags = await tx.table('tags').toArray();
+      for (const tag of allTags) {
+        if (tag.pinned === undefined || tag.sort_order === undefined) {
+          await tx.table('tags').put({
+            ...tag,
+            pinned: tag.pinned ?? false,
+            sort_order: tag.sort_order ?? (tag.created_at + PINNED_ORDER_BASE),
+            icon: tag.icon ?? '',
+          });
+        }
+      }
     });
   }
 }

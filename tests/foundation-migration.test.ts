@@ -567,6 +567,173 @@ async function run() {
   const e61Expanded = await pageE.evaluate(() => document.querySelector('[data-testid="drawer-all-tags"]') !== null);
   assert('E6.2 再次点击标题行展开所有标签', e61Expanded, `展开后标签列表存在=${e61Expanded}`);
 
+  // task-112: 标签快捷操作菜单
+  // 等待标签节点渲染（注入的 40 个标签构成一个根「测试分类」+ 40 个子标签）
+  await pageE
+    .waitForFunction(() => document.querySelector('[data-testid^="drawer-tag-node-"]') !== null, { timeout: 5000 })
+    .catch(() => {});
+
+  // E9：每个标签节点右侧有展开/收起按钮与三个点「更多」菜单图标
+  const e9 = await pageE.evaluate(() => {
+    const rootExpand = document.querySelector('[data-testid="drawer-tag-expand-测试分类"]') !== null;
+    const rootMore = document.querySelector('[data-testid="drawer-tag-more-测试分类"]') !== null;
+    const childMore = document.querySelector('[data-testid="drawer-tag-more-测试分类/标签00"]') !== null;
+    return { rootExpand, rootMore, childMore };
+  });
+  assert(
+    'E9 标签节点有展开/更多按钮',
+    e9.rootExpand && e9.rootMore && e9.childMore,
+    `根展开=${e9.rootExpand}, 根更多=${e9.rootMore}, 子更多=${e9.childMore}`
+  );
+
+  // E10：点击「更多」弹出菜单，含置顶、编辑、仅移除标签、删除标签和笔记四项
+  await pageE.evaluate(() => {
+    const btn = document.querySelector('[data-testid="drawer-tag-more-测试分类"]') as HTMLElement | null;
+    if (btn) btn.click();
+  });
+  await pageE.waitForSelector('[data-testid="drawer-tag-action-menu"]', { timeout: 5000 }).catch(() => {});
+  const e10 = await pageE.evaluate(() => {
+    const menu = document.querySelector('[data-testid="drawer-tag-action-menu"]');
+    if (!menu) return { hasMenu: false, items: {} as Record<string, boolean> };
+    return {
+      hasMenu: true,
+      items: {
+        pin: !!menu.querySelector('[data-testid="tag-menu-pin"]'),
+        edit: !!menu.querySelector('[data-testid="tag-menu-edit"]'),
+        remove: !!menu.querySelector('[data-testid="tag-menu-remove"]'),
+        delete: !!menu.querySelector('[data-testid="tag-menu-delete"]'),
+      },
+    };
+  });
+  assert(
+    'E10 更多菜单含四项',
+    e10.hasMenu && e10.items.pin && e10.items.edit && e10.items.remove && e10.items.delete,
+    `菜单=${e10.hasMenu}, 四项=${JSON.stringify(e10.items)}`
+  );
+
+  // E11：危险操作项在菜单中以警示色区分（class 含 text-rose-600）
+  const e11 = await pageE.evaluate(() => {
+    const menu = document.querySelector('[data-testid="drawer-tag-action-menu"]');
+    if (!menu) return { removeDanger: false, deleteDanger: false };
+    const removeBtn = menu.querySelector('[data-testid="tag-menu-remove"]');
+    const deleteBtn = menu.querySelector('[data-testid="tag-menu-delete"]');
+    return {
+      removeDanger: removeBtn?.className.includes('text-rose-600') ?? false,
+      deleteDanger: deleteBtn?.className.includes('text-rose-600') ?? false,
+    };
+  });
+  assert(
+    'E11 危险操作项有红色警示',
+    e11.removeDanger && e11.deleteDanger,
+    `移除红=${e11.removeDanger}, 删除红=${e11.deleteDanger}`
+  );
+
+  // E12：置顶后标签显示置顶图标
+  await pageE.evaluate(() => {
+    const btn = document.querySelector('[data-testid="tag-menu-pin"]') as HTMLElement | null;
+    if (btn) btn.click();
+  });
+  await new Promise((r) => setTimeout(r, 400));
+  const e12Pinned = await pageE.evaluate(() => document.querySelector('[data-testid="drawer-tag-pinned-测试分类"]') !== null);
+  assert('E12 置顶后显示置顶图标', e12Pinned, `置顶图标存在=${e12Pinned}`);
+
+  // E13：点击菜单外部关闭菜单
+  await pageE.evaluate(() => {
+    const backdrop = document.querySelector('[data-testid="settings-drawer-backdrop"]') as HTMLElement | null;
+    if (backdrop) backdrop.click();
+  });
+  await new Promise((r) => setTimeout(r, 400));
+  const e13MenuClosed = await pageE.evaluate(() => document.querySelector('[data-testid="drawer-tag-action-menu"]') === null);
+  assert('E13 点击菜单外部关闭菜单', e13MenuClosed, `菜单关闭=${e13MenuClosed}`);
+
+  // 重新打开菜单以测试「仅移除标签」确认
+  await pageE.evaluate(() => {
+    const btn = document.querySelector('[data-testid="drawer-tag-more-测试分类"]') as HTMLElement | null;
+    if (btn) btn.click();
+  });
+  await pageE.waitForSelector('[data-testid="drawer-tag-action-menu"]', { timeout: 5000 }).catch(() => {});
+  await pageE.evaluate(() => {
+    const btn = document.querySelector('[data-testid="tag-menu-remove"]') as HTMLElement | null;
+    if (btn) btn.click();
+  });
+  await pageE.waitForSelector('[data-testid="tag-modal-overlay"]', { timeout: 5000 }).catch(() => {});
+  const e14 = await pageE.evaluate(() => {
+    const overlay = document.querySelector('[data-testid="tag-modal-overlay"]');
+    return {
+      hasOverlay: overlay !== null,
+      text: overlay ? (overlay.textContent || '') : '',
+    };
+  });
+  assert(
+    'E14 仅移除标签弹出确认弹窗',
+    e14.hasOverlay && e14.text.includes('仅移除标签'),
+    `弹窗=${e14.hasOverlay}, 文案=${e14.text.slice(0, 40)}`
+  );
+
+  // 取消移除
+  await pageE.evaluate(() => {
+    const overlay = document.querySelector('[data-testid="tag-modal-overlay"]') as HTMLElement | null;
+    if (!overlay) return;
+    for (const b of Array.from(overlay.querySelectorAll('button'))) {
+      const text = b.textContent || '';
+      if (text.includes('取消') || text.includes('Cancel')) { (b as HTMLElement).click(); return; }
+    }
+  });
+  await new Promise((r) => setTimeout(r, 300));
+
+  // 测试「删除标签和笔记」二次确认
+  await pageE.evaluate(() => {
+    const btn = document.querySelector('[data-testid="drawer-tag-more-测试分类"]') as HTMLElement | null;
+    if (btn) btn.click();
+  });
+  await pageE.waitForSelector('[data-testid="drawer-tag-action-menu"]', { timeout: 5000 }).catch(() => {});
+  await pageE.evaluate(() => {
+    const btn = document.querySelector('[data-testid="tag-menu-delete"]') as HTMLElement | null;
+    if (btn) btn.click();
+  });
+  await pageE.waitForSelector('[data-testid="tag-modal-overlay"]', { timeout: 5000 }).catch(() => {});
+  const e15a = await pageE.evaluate(() => {
+    const overlay = document.querySelector('[data-testid="tag-modal-overlay"]');
+    return {
+      hasOverlay: overlay !== null,
+      text: overlay ? (overlay.textContent || '') : '',
+      hasNextBtn: !!overlay?.querySelector('[data-testid="tag-delete-next-btn"]'),
+    };
+  });
+  assert(
+    'E15.1 删除标签和笔记弹出首次确认',
+    e15a.hasOverlay && e15a.text.includes('删除标签和笔记') && e15a.hasNextBtn,
+    `弹窗=${e15a.hasOverlay}, 文案=${e15a.text.slice(0, 40)}, 下一步按钮=${e15a.hasNextBtn}`
+  );
+  await pageE.evaluate(() => {
+    const btn = document.querySelector('[data-testid="tag-delete-next-btn"]') as HTMLElement | null;
+    if (btn) btn.click();
+  });
+  await new Promise((r) => setTimeout(r, 300));
+  const e15b = await pageE.evaluate(() => {
+    const overlay = document.querySelector('[data-testid="tag-modal-overlay"]');
+    return {
+      hasOverlay: overlay !== null,
+      text: overlay ? (overlay.textContent || '') : '',
+      hasFinalBtn: !!overlay?.querySelector('[data-testid="tag-delete-final-btn"]'),
+    };
+  });
+  assert(
+    'E15.2 删除标签和笔记进入二次确认',
+    e15b.hasOverlay && (e15b.text.includes('无法恢复') || e15b.text.includes('cannot be undone')) && e15b.hasFinalBtn,
+    `弹窗=${e15b.hasOverlay}, 文案=${e15b.text.slice(0, 60)}, 最终按钮=${e15b.hasFinalBtn}`
+  );
+  // 取消删除
+  await pageE.evaluate(() => {
+    const overlay = document.querySelector('[data-testid="tag-modal-overlay"]') as HTMLElement | null;
+    if (!overlay) return;
+    for (const b of Array.from(overlay.querySelectorAll('button'))) {
+      const text = b.textContent || '';
+      if (text.includes('取消') || text.includes('Cancel')) { (b as HTMLElement).click(); return; }
+    }
+  });
+  await new Promise((r) => setTimeout(r, 300));
+
   // task-111 E8：抽屉「所有标签」快捷入口改为设置图标 -> 全页标签设置
   const e8ManageIcon = await pageE.evaluate(() => document.querySelector('[data-testid="drawer-manage-tags"]') !== null);
   assert('E8.1 管理标签入口为图标', e8ManageIcon, `图标入口存在=${e8ManageIcon}`);

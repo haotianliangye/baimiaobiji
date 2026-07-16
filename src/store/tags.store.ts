@@ -9,6 +9,9 @@ import { create } from 'zustand';
 import { db, type TagDef } from '../db/db';
 import { normalizeTagPath } from '../lib/tags';
 
+/** 置顶标签与未置顶标签的分界线：置顶 sort_order < BASE，未置顶 >= BASE。 */
+const PINNED_ORDER_BASE = 1_000_000_000;
+
 interface TagsState {
   /** 别名缓存（alias -> target），供同步 resolveAlias 使用。 */
   aliases: Record<string, string>;
@@ -31,6 +34,24 @@ interface TagsState {
    * 标签定义本身也删除；alias 中 target 为 path 的也清理。
    */
   deleteTag: (path: string) => Promise<void>;
+  /** 置顶标签：排在同层级最前。 */
+  pinTag: (path: string) => Promise<void>;
+  /** 取消置顶。 */
+  unpinTag: (path: string) => Promise<void>;
+  /**
+   * 编辑标签名称（路径）与图标。
+   * 若路径变化则级联更新所有关联记录；图标更新写入 TagDef。
+   */
+  updateTag: (oldPath: string, newPath: string, icon?: string) => Promise<void>;
+  /**
+   * 仅移除标签：从所有关联记录中移除该标签（及子路径），保留记录本身；
+   * 同时删除标签定义与相关别名。
+   */
+  removeTagOnly: (path: string) => Promise<void>;
+  /**
+   * 删除标签和笔记：级联删除标签定义及所有带该标签（含子路径）的记录。
+   */
+  deleteTagAndNotes: (path: string) => Promise<void>;
 }
 
 /**
@@ -83,6 +104,9 @@ export const useTagsStore = create<TagsState>((set, get) => ({
       path: normalized,
       name,
       created_at: Date.now(),
+      pinned: false,
+      sort_order: Date.now() + PINNED_ORDER_BASE,
+      icon: '',
     };
     await db.tags.put(tagDef);
   },
@@ -317,6 +341,113 @@ export const useTagsStore = create<TagsState>((set, get) => ({
     }
 
     // 4. 清理 aliases：alias 或 target 引用了 p（及子路径）的条目
+    const aliases = await db.tag_aliases.toArray();
+    for (const a of aliases) {
+      if (isPathOrChild(a.alias, p) || isPathOrChild(a.target, p)) {
+        await db.tag_aliases.delete(a.alias);
+      }
+    }
+
+    await get().refreshAliases();
+  },
+
+  pinTag: async (path: string) => {
+    const p = normalizeTagPath(path);
+    if (!p) return;
+    let tag = await db.tags.get(p);
+    if (!tag) {
+      // 标签不存在（如树形推断的父级）—— 自动创建，保证置顶可作用于 UI 可见的任何标签
+      const parts = p.split('/');
+      tag = {
+        path: p,
+        name: parts[parts.length - 1],
+        created_at: Date.now(),
+        pinned: false,
+        sort_order: Date.now() + PINNED_ORDER_BASE,
+        icon: '',
+      };
+      await db.tags.put(tag);
+    }
+    if (tag.pinned) return;
+
+    const allTags = await db.tags.toArray();
+    const pinnedTags = allTags.filter(t => t.pinned && t.sort_order !== undefined);
+    const minOrder = pinnedTags.length > 0
+      ? Math.min(...pinnedTags.map(t => t.sort_order ?? 0))
+      : PINNED_ORDER_BASE - 1;
+    await db.tags.put({ ...tag, pinned: true, sort_order: minOrder - 1 });
+  },
+
+  unpinTag: async (path: string) => {
+    const p = normalizeTagPath(path);
+    if (!p) return;
+    const tag = await db.tags.get(p);
+    if (!tag || !tag.pinned) return;
+    await db.tags.put({
+      ...tag,
+      pinned: false,
+      sort_order: Date.now() + PINNED_ORDER_BASE,
+    });
+  },
+
+  updateTag: async (oldPath: string, newPath: string, icon?: string) => {
+    const op = normalizeTagPath(oldPath);
+    const np = normalizeTagPath(newPath);
+    if (!op || !np) return;
+    const existing = await db.tags.get(op);
+    if (!existing) return;
+
+    if (op !== np) {
+      await get().renameTag(op, np);
+    }
+
+    const targetPath = op === np ? op : np;
+    const target = await db.tags.get(targetPath);
+    if (!target) return;
+    const parts = np.split('/');
+    await db.tags.put({
+      ...target,
+      path: targetPath,
+      name: parts[parts.length - 1],
+      icon: icon !== undefined ? icon : (target.icon ?? ''),
+    });
+  },
+
+  removeTagOnly: async (path: string) => {
+    await get().deleteTag(path);
+  },
+
+  deleteTagAndNotes: async (path: string) => {
+    const p = normalizeTagPath(path);
+    if (!p) return;
+
+    const matches = (tags?: string[]) => tags?.some(t => isPathOrChild(t, p));
+
+    const rawLogs = await db.raw_logs.toArray();
+    for (const log of rawLogs) {
+      if (matches(log.tags)) await db.raw_logs.delete(log.id);
+    }
+
+    const reviews = await db.daily_reviews.toArray();
+    for (const review of reviews) {
+      if (matches(review.tags)) await db.daily_reviews.delete(review.id);
+    }
+
+    const thoughts = await db.thoughts.toArray();
+    for (const th of thoughts) {
+      if (matches(th.tags)) await db.thoughts.delete(th.id);
+    }
+
+    const mingwu = await db.mingwu.toArray();
+    for (const m of mingwu) {
+      if (matches(m.tags)) await db.mingwu.delete(m.id);
+    }
+
+    const allTags = await db.tags.toArray();
+    for (const tag of allTags) {
+      if (isPathOrChild(tag.path, p)) await db.tags.delete(tag.path);
+    }
+
     const aliases = await db.tag_aliases.toArray();
     for (const a of aliases) {
       if (isPathOrChild(a.alias, p) || isPathOrChild(a.target, p)) {

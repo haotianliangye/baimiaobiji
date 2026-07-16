@@ -599,6 +599,21 @@ export const en: TranslationDict = {
   'tags.noTagsTitle': 'No tags yet',
   'tags.renamePlaceholder': 'Enter new name',
   'tags.mergePlaceholder': 'Enter target tag path',
+  // task-112: tag quick action menu
+  'tags.pinTop': 'Pin to top',
+  'tags.unpin': 'Unpin',
+  'tags.editNameAndIcon': 'Edit name & icon',
+  'tags.removeTagOnly': 'Remove tag only',
+  'tags.deleteTagAndNotes': 'Delete tag & notes',
+  'tags.iconPlaceholder': 'Icon (emoji or lucide name, optional)',
+  'tags.save': 'Save',
+  'tags.removeTagOnlyConfirm': 'Remove tag "{path}" from all associated records? The records themselves will not be deleted.',
+  'tags.confirmRemoveBtn': 'Confirm remove',
+  'tags.deleteTagAndNotesConfirm': 'Delete tag "{path}" and all associated records?',
+  'tags.deleteTagAndNotesConfirmTitle': 'Confirm deletion',
+  'tags.deleteTagAndNotesFinal': 'Final confirmation: this will permanently delete tag "{path}" and all records tagged with it. This cannot be undone.',
+  'tags.deleteTagAndNotesWarning': 'Warning: this will cascade delete related records in Gleanings, Reviews, Distillations, and Insights.',
+  'tags.confirmDeleteFinalBtn': 'Confirm and delete',
 
   // --- Provider labels (partial Chinese) ---
   'provider.volcengine': 'Volcengine',

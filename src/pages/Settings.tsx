@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning, Download, FileJson, FileText, MessageSquare, Volume2, Tags, Info, Database, X, Hash, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning, Download, FileJson, FileText, MessageSquare, Volume2, Tags, Info, Database, X, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useLiveQuery } from 'dexie-react-hooks';
 import TagManagement from './TagManagement';
+import DrawerTagList from '../components/DrawerTagList';
 import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_MINGWU_PROMPT, DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT, DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT, DEFAULT_PROMPTS_BY_LANG, DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG, DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG, type Language } from '../store/settings.store';
 import { db, normalizeLegacyDiary, normalizeLegacyInsight } from '../db/db';
 import { enqueueAllMissingEmbeddings } from '../lib/embedding';
@@ -108,8 +108,6 @@ export default function Settings() {
   const [view, setView] = useState<'drawer' | 'detail'>(
     (location.state as any)?.drawer ? 'drawer' : 'detail'
   );
-  // Issue 109: 抽屉「所有标签」区块 -- 实时查询标签列表
-  const allTags = useLiveQuery(() => db.tags.orderBy('path').toArray(), []);
   // task-111: 抽屉「所有标签」默认展开，点击标题行可展开/收起
   const [tagsExpanded, setTagsExpanded] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -851,24 +849,7 @@ export default function Settings() {
               </button>
             </div>
             {tagsExpanded && (
-              <div className="flex-1 overflow-y-auto thin-scrollbar overscroll-contain px-2 pb-3" data-testid="drawer-all-tags">
-                {allTags && allTags.length > 0 ? (
-                  <div className="flex flex-col gap-0.5">
-                    {allTags.map(tag => (
-                      <button
-                        key={tag.path}
-                        onClick={() => { setActiveTab('tags'); setView('detail'); }}
-                        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[13px] text-stone-600 hover:bg-stone-100/60 transition-colors text-left"
-                      >
-                        <Hash className="w-3 h-3 text-baimiao-mysteria/50 shrink-0" />
-                        <span className="truncate">{tag.path}</span>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="px-2 py-8 text-center text-[12px] text-stone-400">{t('tags.noTagsTitle')}</div>
-                )}
-              </div>
+              <DrawerTagList />
             )}
           </div>
         </motion.aside>

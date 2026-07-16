@@ -600,6 +600,21 @@ export const zh: TranslationDict = {
   'tags.noTagsTitle': '还没有标签',
   'tags.renamePlaceholder': '输入新名称',
   'tags.mergePlaceholder': '输入目标标签路径',
+  // task-112: 标签快捷操作菜单
+  'tags.pinTop': '置顶',
+  'tags.unpin': '取消置顶',
+  'tags.editNameAndIcon': '编辑名称和图标',
+  'tags.removeTagOnly': '仅移除标签',
+  'tags.deleteTagAndNotes': '删除标签和笔记',
+  'tags.iconPlaceholder': '图标（如 emoji 或 lucide 名，可选）',
+  'tags.save': '保存',
+  'tags.removeTagOnlyConfirm': '确认从所有关联记录中移除标签「{path}」？记录本身不会被删除。',
+  'tags.confirmRemoveBtn': '确认移除',
+  'tags.deleteTagAndNotesConfirm': '确认删除标签「{path}」及其所有关联记录？',
+  'tags.deleteTagAndNotesConfirmTitle': '确认删除',
+  'tags.deleteTagAndNotesFinal': '这是最后确认：将永久删除标签「{path}」及所有带该标签的记录，无法恢复。',
+  'tags.deleteTagAndNotesWarning': '警告：此操作会级联删除拾微、回顾、沉淀、洞察中的相关记录。',
+  'tags.confirmDeleteFinalBtn': '确认并删除',
 
   // --- Provider labels (部分中文) ---
   'provider.volcengine': '火山引擎',
