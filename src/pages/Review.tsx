@@ -19,13 +19,6 @@ import { normalizeTagPath, resolveAlias } from '../lib/tags';
 import { useTagsStore } from '../store/tags.store';
 import { useTranslation } from '../lib/i18n';
 
-/** #113 估算纯文本渲染行数（与拾微页一致，用于回顾正文 12 行折叠判断）。 */
-function estimateTextLines(text: string): number {
-  if (!text) return 0;
-  return text.split('\n').reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / 20)), 0);
-}
-const FOLD_LINE_THRESHOLD = 12;
-
 const generateUUID = () => {
   return self.crypto?.randomUUID?.() || Math.random().toString(36).substring(2);
 };
@@ -68,7 +61,8 @@ export default function Review() {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
-  const [expandedReviewId, setExpandedReviewId] = useState<string | null>(null);
+  // 摘要独立折叠：仅 ai_summary 可通过 card header 展开/收起，正文始终完整显示
+  const [expandedSummaryId, setExpandedSummaryId] = useState<string | null>(null);
   const [chatReviewId, setChatReviewId] = useState<string | null>(null);
   const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
   const [editText, setEditText] = useState<string>('');
@@ -149,6 +143,13 @@ export default function Review() {
   const holdTimeoutRef = useRef<any>(null);
   // #104 单击/双击互斥：延迟单击折叠/展开，双击取消延迟并触发 inline 编辑
   const clickTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout> | null>>({});
+  // 移动端双击（double-tap）编辑：记录上次 tap 的时间与坐标
+  const lastTapRef = useRef<{ reviewId: string | null; time: number; x: number; y: number }>({
+    reviewId: null,
+    time: 0,
+    x: 0,
+    y: 0,
+  });
   const dateParam = searchParams.get('date');
   const [showPromptMenu, setShowPromptMenu] = useState(false);
   // Stores the DOMRect of the triggering button (viewport-relative, for fixed positioning)
@@ -356,11 +357,11 @@ export default function Review() {
   useEffect(() => {
     if (reviewsForDate.length > 0 && lastAutoExpandedDateRef.current !== dateStr) {
       setExpandedDate(dateStr);
-      setExpandedReviewId(reviewsForDate[0].id);
+      setExpandedSummaryId(reviewsForDate[0].id);
       lastAutoExpandedDateRef.current = dateStr;
     } else if (reviewsForDate.length === 0) {
       setExpandedDate(null);
-      setExpandedReviewId(null);
+      setExpandedSummaryId(null);
       lastAutoExpandedDateRef.current = dateStr;
     }
   }, [dateStr, reviewsForDate]);
@@ -435,14 +436,12 @@ export default function Review() {
 
               {/* Reviews list */}
               {reviewsForDate.map((review) => {
-                const isReviewExpanded = expandedReviewId === review.id;
+                const isSummaryExpanded = expandedSummaryId === review.id;
                 const isGenerating = isProcessingReviewMap[review.id] || (review.entry_type === 'diary' && isProcessingDiary);
                 const errorMsg = diaryErrorMap[dateStr];
                 const isEditing = editingReviewId === review.id;
                 const entryLabel = review.entry_type === 'diary' ? t('review.diary') : t('review.review');
                 const entryContent = review.ai_editorial || review.ai_review;
-                // #113 回顾正文超 12 行折叠（line-clamp-12），与拾微页一致
-                const canFold = estimateTextLines(entryContent) > FOLD_LINE_THRESHOLD;
 
                 return (
                   <div
@@ -466,21 +465,33 @@ export default function Review() {
                       if (target.closest('a, input, textarea')) return;
                       setEditText(entryContent || '');
                       setEditingReviewId(review.id);
-                      setExpandedReviewId(review.id);
+                      setExpandedSummaryId(review.id);
                     }}
                     onTouchStart={(e) => {
-                      if (isEditing) return;
+                      if (isEditing || isGenerating || isMultiSelectMode) return;
                       const touch = e.touches[0];
                       const x = touch.clientX;
                       const y = touch.clientY;
-                      holdTimeoutRef.current = setTimeout(() => {
-                        if (window.navigator?.vibrate) window.navigator.vibrate(50);
-                        setActiveReview(review);
-                        setContextMenuState({ isOpen: true, x, y });
-                      }, 500);
+                      const now = Date.now();
+                      const last = lastTapRef.current;
+                      const isDoubleTap =
+                        last.reviewId === review.id &&
+                        now - last.time < 300 &&
+                        Math.abs(last.x - x) < 10 &&
+                        Math.abs(last.y - y) < 10;
+                      if (isDoubleTap) {
+                        lastTapRef.current = { reviewId: null, time: 0, x: 0, y: 0 };
+                        // 双击进入 inline 编辑（与桌面 onDoubleClick 同效）
+                        const target = e.target as HTMLElement;
+                        if (target.closest('button') && !target.closest('[data-card-header]')) return;
+                        if (target.closest('a, input, textarea')) return;
+                        setEditText(entryContent || '');
+                        setEditingReviewId(review.id);
+                        setExpandedSummaryId(review.id);
+                        return;
+                      }
+                      lastTapRef.current = { reviewId: review.id, time: now, x, y };
                     }}
-                    onTouchEnd={() => clearTimeout(holdTimeoutRef.current)}
-                    onTouchMove={() => clearTimeout(holdTimeoutRef.current)}
                     onContextMenu={(e) => {
                       if (isEditing) return;
                       e.preventDefault();
@@ -501,7 +512,7 @@ export default function Review() {
                           clickTimeoutsRef.current[review.id] = null;
                         }
                         clickTimeoutsRef.current[review.id] = setTimeout(() => {
-                          setExpandedReviewId(isReviewExpanded ? null : review.id);
+                          setExpandedSummaryId(isSummaryExpanded ? null : review.id);
                           clickTimeoutsRef.current[review.id] = null;
                         }, 250);
                       }}
@@ -511,13 +522,13 @@ export default function Review() {
                         <span className="text-[15px] font-semibold text-stone-800 font-mono tracking-tight leading-none">
                           {review.review_date}
                         </span>
-                        {isReviewExpanded ? (
+                        {isSummaryExpanded ? (
                           <ChevronUp className="w-4 h-4 text-stone-400" />
                         ) : (
                           <ChevronDown className="w-4 h-4 text-stone-400" />
                         )}
                       </div>
-                      <span className="text-[13px] text-stone-500 line-clamp-2 leading-relaxed pr-6 select-none">
+                      <span className={`text-[13px] text-stone-500 leading-relaxed pr-6 select-none ${isSummaryExpanded ? '' : 'line-clamp-2'}`}>
                         {review.ai_summary || t('review.noSummary')}
                       </span>
                     </button>
@@ -572,7 +583,7 @@ export default function Review() {
                       )}
                     </div>
 
-                    {/* 正文区：折叠态正文 line-clamp-12，展开态完整（#113 需求 1） */}
+                    {/* 正文区：始终完整显示，仅摘要可折叠 */}
                       <div className="px-4 pb-4 pt-2 border-t border-stone-100/60 bg-white">
                         {isGenerating ? (
                           <div className="flex flex-col items-center justify-center py-6 text-stone-400 text-[12px] gap-2 font-medium">
@@ -612,20 +623,7 @@ export default function Review() {
                         ) : entryContent ? (
                           <>
                             <div
-                              className={`markdown-body prose prose-stone baimiao-editorial-body prose-h1:text-[19px] prose-h2:text-[17px] prose-h3:text-[16px] prose-h1:leading-snug prose-headings:font-medium prose-headings:font-serif baimiao-editorial-title max-w-none text-[15.5px] leading-relaxed select-text pointer-events-auto cursor-pointer ${!isReviewExpanded && canFold ? 'line-clamp-12' : ''}`}
-                              onClick={(e) => {
-                                // 避免点击内部链接时触发折叠/展开
-                                if ((e.target as HTMLElement).tagName.toLowerCase() === 'a') return;
-                                // #104 单击/双击互斥：延迟 toggle 折叠/展开，双击时取消
-                                if (clickTimeoutsRef.current[review.id]) {
-                                  clearTimeout(clickTimeoutsRef.current[review.id]!);
-                                  clickTimeoutsRef.current[review.id] = null;
-                                }
-                                clickTimeoutsRef.current[review.id] = setTimeout(() => {
-                                  setExpandedReviewId(isReviewExpanded ? null : review.id);
-                                  clickTimeoutsRef.current[review.id] = null;
-                                }, 250);
-                              }}
+                              className="markdown-body prose prose-stone baimiao-editorial-body prose-h1:text-[19px] prose-h2:text-[17px] prose-h3:text-[16px] prose-h1:leading-snug prose-headings:font-medium prose-headings:font-serif baimiao-editorial-title max-w-none text-[15.5px] leading-relaxed select-text pointer-events-auto"
                             >
                               <ReactMarkdown
                                 components={{
@@ -661,7 +659,7 @@ export default function Review() {
                               </div>
                             )}
 
-                            {isReviewExpanded && (<>
+                            {isSummaryExpanded && (<>
                             <div className="flex flex-col gap-3 mt-4 pt-3 border-t border-stone-200/40 select-none px-2">
                               <div className="flex justify-between w-full">
                                 <button
@@ -731,7 +729,7 @@ export default function Review() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setExpandedReviewId(null);
+                                    setExpandedSummaryId(null);
                                   }}
                                   className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
                                 >
@@ -911,7 +909,7 @@ export default function Review() {
                 if (activeReview) {
                   setEditText(activeReview.ai_editorial || activeReview.ai_review || '');
                   setEditingReviewId(activeReview.id);
-                  setExpandedReviewId(activeReview.id);
+                  setExpandedSummaryId(activeReview.id);
                 }
                 setContextMenuState({ ...contextMenuState, isOpen: false });
               }}
