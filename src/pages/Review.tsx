@@ -436,7 +436,7 @@ export default function Review() {
 
               {/* Reviews list */}
               {reviewsForDate.map((review) => {
-                const isSummaryExpanded = expandedSummaryId === review.id;
+                const isExpanded = expandedSummaryId === review.id;
                 const isGenerating = isProcessingReviewMap[review.id] || (review.entry_type === 'diary' && isProcessingDiary);
                 const errorMsg = diaryErrorMap[dateStr];
                 const isEditing = editingReviewId === review.id;
@@ -448,6 +448,25 @@ export default function Review() {
                     key={review.id}
                     data-testid="review-card"
                     className="w-full overflow-hidden baimiao-card-review"
+                    onClick={(e) => {
+                      if (isEditing || isGenerating) return;
+                      const target = e.target as HTMLElement;
+                      const closestButton = target.closest('button');
+                      if (closestButton && !closestButton.hasAttribute('data-card-header')) return;
+                      if (target.closest('a, input, textarea')) return;
+                      // 选中文本时不触发折叠/展开
+                      const selection = typeof window !== 'undefined' && window.getSelection();
+                      if (selection && !selection.isCollapsed) return;
+                      // 单击/双击互斥：延迟折叠/展开，双击时取消
+                      if (clickTimeoutsRef.current[review.id]) {
+                        clearTimeout(clickTimeoutsRef.current[review.id]!);
+                        clickTimeoutsRef.current[review.id] = null;
+                      }
+                      clickTimeoutsRef.current[review.id] = setTimeout(() => {
+                        setExpandedSummaryId(isExpanded ? null : review.id);
+                        clickTimeoutsRef.current[review.id] = null;
+                      }, 250);
+                    }}
                     onDoubleClick={(e) => {
                       // #104 双击触发 inline 编辑（textarea 获得焦点）
                       // #104 多选模式下双击不触发编辑（与拾微页一致）
@@ -481,6 +500,11 @@ export default function Review() {
                         Math.abs(last.y - y) < 10;
                       if (isDoubleTap) {
                         lastTapRef.current = { reviewId: null, time: 0, x: 0, y: 0 };
+                        // 取消延迟的单击折叠/展开，避免进入编辑后又触发收起
+                        if (clickTimeoutsRef.current[review.id]) {
+                          clearTimeout(clickTimeoutsRef.current[review.id]!);
+                          clickTimeoutsRef.current[review.id] = null;
+                        }
                         // 双击进入 inline 编辑（与桌面 onDoubleClick 同效）
                         const target = e.target as HTMLElement;
                         if (target.closest('button') && !target.closest('[data-card-header]')) return;
@@ -504,43 +528,31 @@ export default function Review() {
                     <button
                       data-card-header
                       data-testid="review-card-header"
-                      onClick={() => {
-                        if (isEditing) return;
-                        // #104 单击/双击互斥：延迟折叠/展开，双击时取消
-                        if (clickTimeoutsRef.current[review.id]) {
-                          clearTimeout(clickTimeoutsRef.current[review.id]!);
-                          clickTimeoutsRef.current[review.id] = null;
-                        }
-                        clickTimeoutsRef.current[review.id] = setTimeout(() => {
-                          setExpandedSummaryId(isSummaryExpanded ? null : review.id);
-                          clickTimeoutsRef.current[review.id] = null;
-                        }, 250);
-                      }}
                       className="p-4 text-left hover:bg-stone-50 active:bg-stone-100 transition-colors flex flex-col gap-1.5 w-full relative"
                     >
                       <div className="flex justify-between items-center w-full">
                         <span className="text-[15px] font-semibold text-stone-800 font-mono tracking-tight leading-none">
                           {review.review_date}
                         </span>
-                        {isSummaryExpanded ? (
+                        {isExpanded ? (
                           <ChevronUp className="w-4 h-4 text-stone-400" />
                         ) : (
                           <ChevronDown className="w-4 h-4 text-stone-400" />
                         )}
                       </div>
-                      <span className={`text-[13px] text-stone-500 leading-relaxed pr-6 select-none ${isSummaryExpanded ? '' : 'line-clamp-2'}`}>
+                      <span className={`text-[13px] text-stone-500 leading-relaxed pr-6 select-none ${isExpanded ? '' : 'line-clamp-2'}`}>
                         {review.ai_summary || t('review.noSummary')}
                       </span>
                     </button>
 
-                    {/* Prompt label sub-header */}
-                    <div className="px-4 py-1.5 border-t border-black/[0.03] bg-stone-50/60">
+                    {/* Prompt label sub-header：收起时也显示 */}
+                    <div data-testid="review-card-meta" className="px-4 py-1.5 border-t border-black/[0.03] bg-stone-50/60">
                       <span className="text-[11px] text-stone-400 font-medium">
                         {entryLabel} ({review.prompt_name || t('settings.promptDefault')}) · {format(new Date(review.updated_at), 'HH:mm')}
                       </span>
                     </div>
 
-                    {/* #4 标签显示区（最小实现，卡片角落 chip 行） */}
+                    {/* #4 标签显示区（最小实现，卡片角落 chip 行）：收起时也显示添加按钮 */}
                     <div className="px-4 py-1.5 border-t border-black/[0.02] bg-stone-50/30 flex items-center gap-1 flex-wrap min-h-[28px]">
                       {(review.tags || []).map(tag => (
                         <span
@@ -583,83 +595,85 @@ export default function Review() {
                       )}
                     </div>
 
-                    {/* 正文区：始终完整显示，仅摘要可折叠 */}
-                      <div className="px-4 pb-4 pt-2 border-t border-stone-100/60 bg-white">
-                        {isGenerating ? (
-                          <div className="flex flex-col items-center justify-center py-6 text-stone-400 text-[12px] gap-2 font-medium">
-                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-stone-400 border-t-transparent" />
-                            <span>{t('review.aiGeneratingStatsReflection')}</span>
-                          </div>
-                        ) : isEditing ? (
-                          <div className="flex flex-col gap-3 relative z-10 w-full animate-in fade-in zoom-in-95 duration-200">
-                            <textarea
-                              ref={editTextareaRef}
-                              value={editText}
-                              onChange={e => setEditText(e.target.value)}
-                              className="w-full bg-white p-4 rounded-xl border border-stone-200 shadow-sm focus:outline-none focus:border-stone-300 focus:ring-2 focus:ring-stone-100 resize-none font-sans text-[15px] leading-relaxed text-stone-900 overflow-hidden min-h-[200px]"
-                              placeholder={t('review.editPlaceholder')}
-                              autoFocus
-                            />
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-[12px] text-stone-500 pl-1">{t('record.totalChars', { count: countChars(editText) })}</span>
-                              <div className="flex gap-2 pr-1">
-                                <button
-                                  onClick={() => setEditingReviewId(null)}
-                                  className="px-4 py-2 rounded-full text-[13px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors shadow-sm select-none"
-                                >
-                                  {t('review.cancel')}
-                                </button>
-                                <button
-                                  onClick={() => handleSaveEdit(review.id)}
-                                  disabled={isSavingEdit}
-                                  className="flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] border border-white/10 hover:brightness-110 transition-all shadow-sm select-none disabled:opacity-60"
-                                >
-                                  {isSavingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                                  {isSavingEdit ? t('review.saving') : t('review.save')}
-                                </button>
+                    {isExpanded && (
+                      <>
+                        {/* 正文区：展开后显示完整内容与操作按钮 */}
+                        <div className="px-4 pb-4 pt-2 border-t border-stone-100/60 bg-white">
+                          {isGenerating ? (
+                            <div className="flex flex-col items-center justify-center py-6 text-stone-400 text-[12px] gap-2 font-medium">
+                              <div className="animate-spin rounded-full h-4 w-4 border-2 border-stone-400 border-t-transparent" />
+                              <span>{t('review.aiGeneratingStatsReflection')}</span>
+                            </div>
+                          ) : isEditing ? (
+                            <div className="flex flex-col gap-3 relative z-10 w-full animate-in fade-in zoom-in-95 duration-200">
+                              <textarea
+                                ref={editTextareaRef}
+                                value={editText}
+                                onChange={e => setEditText(e.target.value)}
+                                className="w-full bg-white p-4 rounded-xl border border-stone-200 shadow-sm focus:outline-none focus:border-stone-300 focus:ring-2 focus:ring-stone-100 resize-none font-sans text-[15px] leading-relaxed text-stone-900 overflow-hidden min-h-[200px]"
+                                placeholder={t('review.editPlaceholder')}
+                                autoFocus
+                              />
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-[12px] text-stone-500 pl-1">{t('record.totalChars', { count: countChars(editText) })}</span>
+                                <div className="flex gap-2 pr-1">
+                                  <button
+                                    onClick={() => setEditingReviewId(null)}
+                                    className="px-4 py-2 rounded-full text-[13px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors shadow-sm select-none"
+                                  >
+                                    {t('review.cancel')}
+                                  </button>
+                                  <button
+                                    onClick={() => handleSaveEdit(review.id)}
+                                    disabled={isSavingEdit}
+                                    className="flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] border border-white/10 hover:brightness-110 transition-all shadow-sm select-none disabled:opacity-60"
+                                  >
+                                    {isSavingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                                    {isSavingEdit ? t('review.saving') : t('review.save')}
+                                  </button>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ) : entryContent ? (
-                          <>
-                            <div
-                              className="markdown-body prose prose-stone baimiao-editorial-body prose-h1:text-[19px] prose-h2:text-[17px] prose-h3:text-[16px] prose-h1:leading-snug prose-headings:font-medium prose-headings:font-serif baimiao-editorial-title max-w-none text-[15.5px] leading-relaxed select-text pointer-events-auto"
-                            >
-                              <ReactMarkdown
-                                components={{
-                                  a: ({ node, href, children, ...props }) => {
-                                      const handleClick = (e: React.MouseEvent) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        if (href?.startsWith('#log_id_')) {
-                                        const logId = href.replace('#log_id_', '');
-                                        navigate(`/?date=${review.review_date}&logId=${logId}`);
-                                      }
-                                    };
-                                    return (
-                                      <a
-                                        href={href}
-                                        onClick={handleClick}
-                                        className="text-stone-500 bg-stone-200/50 hover:bg-stone-200 hover:text-stone-900 px-1.5 py-0.5 rounded cursor-pointer no-underline transition-colors border border-black/5"
-                                        {...props}
-                                      >
-                                        {children}
-                                      </a>
-                                    );
-                                  }
-                                }}
+                          ) : entryContent ? (
+                            <>
+                              <div
+                                className="markdown-body prose prose-stone baimiao-editorial-body prose-h1:text-[19px] prose-h2:text-[17px] prose-h3:text-[16px] prose-h1:leading-snug prose-headings:font-medium prose-headings:font-serif baimiao-editorial-title max-w-none text-[15.5px] leading-relaxed select-text pointer-events-auto"
                               >
-                                {washCitations(formatDiaryMarkdown(entryContent))}
-                              </ReactMarkdown>
-                            </div>
-
-                            {errorMsg && (
-                              <div className="mt-3 text-[11px] text-rose-500 bg-rose-50 border border-rose-100 rounded-md py-1 px-2.5 leading-relaxed">
-                                {errorMsg}
+                                <ReactMarkdown
+                                  components={{
+                                    a: ({ node, href, children, ...props }) => {
+                                        const handleClick = (e: React.MouseEvent) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          if (href?.startsWith('#log_id_')) {
+                                          const logId = href.replace('#log_id_', '');
+                                          navigate(`/?date=${review.review_date}&logId=${logId}`);
+                                        }
+                                      };
+                                      return (
+                                        <a
+                                          href={href}
+                                          onClick={handleClick}
+                                          className="text-stone-500 bg-stone-200/50 hover:bg-stone-200 hover:text-stone-900 px-1.5 py-0.5 rounded cursor-pointer no-underline transition-colors border border-black/5"
+                                          {...props}
+                                        >
+                                          {children}
+                                        </a>
+                                      );
+                                    }
+                                  }}
+                                >
+                                  {washCitations(formatDiaryMarkdown(entryContent))}
+                                </ReactMarkdown>
                               </div>
-                            )}
 
-                            {isSummaryExpanded && (<>
+                              {errorMsg && (
+                                <div className="mt-3 text-[11px] text-rose-500 bg-rose-50 border border-rose-100 rounded-md py-1 px-2.5 leading-relaxed">
+                                  {errorMsg}
+                                </div>
+                              )}
+
+                              {isExpanded && (<>
                             <div className="flex flex-col gap-3 mt-4 pt-3 border-t border-stone-200/40 select-none px-2">
                               <div className="flex justify-between w-full">
                                 <button
@@ -782,6 +796,8 @@ export default function Review() {
                           </div>
                         )}
                       </div>
+                      </>
+                    )}
                   </div>
                 );
               })}

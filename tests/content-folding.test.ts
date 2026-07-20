@@ -244,7 +244,7 @@ async function run() {
   await pageV.waitForSelector('[data-testid="review-card"]', { timeout: 10000 });
   await new Promise((r) => setTimeout(r, 500));
 
-  // RV1：单击 header 收起 -> 摘要 line-clamp-2，正文始终完整（无线 line-clamp-12）
+  // RV1：单击 header 收起 -> 只显示摘要（line-clamp-2），正文区隐藏
   // Review 默认自动展开首个，故先单击收起再验证折叠态
   await pageV.evaluate(() => {
     const h = document.querySelector('[data-testid="review-card-header"]') as HTMLElement | null;
@@ -255,18 +255,21 @@ async function run() {
     const card = document.querySelector('[data-testid="review-card"]');
     const body = card?.querySelector('.baimiao-editorial-body');
     const summary = card?.querySelector('[data-testid="review-card-header"] span:last-child');
+    const meta = card?.querySelector('[data-testid="review-card-meta"]');
+    const tagAddBtn = card?.querySelector('[data-testid="tag-add-btn"]');
     const text = document.body.textContent || '';
     return {
       hasBody: !!body,
-      bodyHasLineClamp: body ? (body.className || '').includes('line-clamp-12') : false,
       summaryHasLineClamp: summary ? (summary.className || '').includes('line-clamp-2') : false,
       hasSummary: text.includes('这是一条回顾摘要内容'),
+      hasMeta: !!meta,
+      hasTagAddBtn: !!tagAddBtn,
     };
   });
   assert(
-    'RV1 折叠态摘要 line-clamp-2 + 正文无折叠',
-    rv1.summaryHasLineClamp && !rv1.bodyHasLineClamp && rv1.hasSummary,
-    `正文区=${rv1.hasBody}, 正文clamp=${rv1.bodyHasLineClamp}, 摘要clamp=${rv1.summaryHasLineClamp}, 摘要=${rv1.hasSummary}`
+    'RV1 折叠态显示摘要、元信息与标签添加按钮，正文隐藏',
+    rv1.summaryHasLineClamp && !rv1.hasBody && rv1.hasSummary && rv1.hasMeta && rv1.hasTagAddBtn,
+    `正文区=${rv1.hasBody}, 摘要clamp=${rv1.summaryHasLineClamp}, 摘要=${rv1.hasSummary}, 元信息=${rv1.hasMeta}, 标签加号=${rv1.hasTagAddBtn}`
   );
 
   // RV2：单击 header 展开 -> 摘要去 clamp，正文仍完整
