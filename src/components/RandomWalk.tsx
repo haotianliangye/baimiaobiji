@@ -708,12 +708,6 @@ export default function RandomWalk() {
       data-testid="random-walk-overlay"
       className="flex flex-col h-full bg-[#faf9fc] animate-in fade-in duration-200 overflow-hidden"
     >
-      {/* 顶部细栏：仅标题（关闭按钮在 Layout 全局 header；设置入口已搬到底部操作栏）。
-          Issue 002：移除顶部设置图标。 */}
-      <div className="flex h-[40px] shrink-0 items-center justify-center px-4 bg-white/85 backdrop-blur border-b border-baimiao-border/40 z-20">
-        <span className="text-[11.5px] font-medium text-stone-400">{t('randomWalk.title')}</span>
-      </div>
-
       {/* 设置面板（底部 sheet，设置入口在底部操作栏） */}
       {showSettings && (
         <div
@@ -785,8 +779,9 @@ export default function RandomWalk() {
         </div>
       )}
 
-      {/* 卡片堆叠区（Swiper + EffectCards 扇形堆叠） */}
-      <div className="flex-1 overflow-hidden relative px-5 py-4 flex items-center justify-center min-h-0">
+      {/* 卡片堆叠区（Swiper + EffectCards 扇形堆叠）。
+          顶部细栏已移除，卡片整体在剩余空间中居中（略上移）。 */}
+      <div className="flex-1 overflow-hidden relative px-5 pt-1 pb-5 flex items-start justify-center min-h-0">
         {loading ? (
           <div className="text-[13px] text-stone-400">{t('randomWalk.loading')}</div>
         ) : ended ? (
