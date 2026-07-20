@@ -636,6 +636,7 @@ export const en: TranslationDict = {
   // --- RandomWalk ---
   'randomWalk.title': 'Random Walk',
   'randomWalk.settingsTitle': 'Data sources & cooldown',
+  'randomWalk.settings': 'Settings',
   'randomWalk.dataSources': 'Data sources',
   'randomWalk.cooldown': 'Cooldown',
   'randomWalk.cooldownUnit': 'days (shown records won\'t reappear during this period)',
