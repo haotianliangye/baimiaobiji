@@ -367,27 +367,43 @@ async function run() {
     `buttonText="${dateBtnText}"`
   );
 
-  // F-5: 点日期选择器弹 MiniCalendar（含月份标签）
+  // F-5: 点日期选择器弹出 RagDatePopover 下拉（含全部/本周/本月/本季度/自定义时间）
   await pageB.click('[data-testid="history-date-picker"]');
   await new Promise((r) => setTimeout(r, 300));
-  const calendarOpened = await pageB.evaluate(() => {
+  const dropdownOpened = await pageB.evaluate(() => {
     const text = document.body.textContent || '';
-    // MiniCalendar 标题 + 月份；中英文都能识别
-    return /[1-9]\s*月/.test(text) || /January|February|March|April|May|June|July|August|September|October|November|December/i.test(text);
+    const hasAllDates = text.includes('全部日期') || text.includes('All dates');
+    const hasThisWeek = text.includes('本周') || text.includes('This week');
+    const hasThisMonth = text.includes('本月') || text.includes('This month');
+    const hasThisQuarter = text.includes('本季度') || text.includes('This quarter');
+    const hasCustom = text.includes('自定义时间') || text.includes('Custom time');
+    return hasAllDates && hasThisWeek && hasThisMonth && hasThisQuarter && hasCustom;
   });
   assert(
-    'F-5 点日期选择器弹 MiniCalendar（含月份标签）',
-    calendarOpened,
-    calendarOpened ? '日历已显示' : '日历未出现'
+    'F-5 点日期选择器弹出预设下拉',
+    dropdownOpened,
+    dropdownOpened ? '下拉已显示' : '下拉未出现'
   );
 
-  // F-6: 关闭日历（点 backdrop 关闭）后选择器仍可见
-  const backdrop = await pageB.$('div.fixed.inset-0');
-  if (backdrop) await pageB.click('div.fixed.inset-0');
+  // F-6: 点外部关闭下拉后日期选择器仍可见
+  await pageB.evaluate(() => {
+    const backdrop = document.querySelector('[data-testid="settings-drawer-backdrop"]')
+      || document.querySelector('div.fixed.inset-0');
+    if (backdrop) (backdrop as HTMLElement).click();
+    else {
+      // 无遮罩时点击选择器外部任意空白处
+      const picker = document.querySelector('[data-testid="history-date-picker"]');
+      if (picker) {
+        const rect = picker.getBoundingClientRect();
+        const evt = new MouseEvent('mousedown', { bubbles: true, clientX: rect.left - 10, clientY: rect.top - 10 });
+        document.body.dispatchEvent(evt);
+      }
+    }
+  });
   await new Promise((r) => setTimeout(r, 200));
   const datePickerStillThere = await pageB.$('[data-testid="history-date-picker"]');
   assert(
-    'F-6 关闭日历后日期选择器仍存在',
+    'F-6 关闭下拉后日期选择器仍存在',
     !!datePickerStillThere,
     datePickerStillThere ? '选择器存在' : '选择器丢失'
   );

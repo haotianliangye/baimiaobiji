@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Plus, ChevronDown, Sparkles, Trash2, Calendar as CalendarIcon, MessageSquare, Download } from 'lucide-react';
+import { X, Plus, Sparkles, Trash2, MessageSquare, Download } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { format } from 'date-fns';
 import { db, type CopilotConversation, type InsightMessage } from '../db/db';
@@ -8,7 +8,7 @@ import { useAppStore } from '../store/app.store';
 import { useSettingsStore } from '../store/settings.store';
 import { generateUUID } from '../lib/utils';
 import ContextChat from '../components/ContextChat';
-import MiniCalendar from '../components/MiniCalendar';
+import RagDatePopover from '../components/RagDatePopover';
 import { retrieveCopilotContext, type CopilotRetrievalFilters, type CopilotCitation } from '../lib/copilotRetrieval';
 import { useTranslation } from '../lib/i18n';
 
@@ -55,10 +55,12 @@ export default function Copilot() {
   const [navView, setNavView] = useState<'rag' | 'chat' | 'history'>('rag');
   // #9 LLM Chat: 'rag' = RAG 问答（检索本地数据），'chat' = 通用 Chat（纯 LLM 对话）
   const [chatMode, setChatMode] = useState<'rag' | 'chat'>('rag');
-  const [showDateDropdown, setShowDateDropdown] = useState(false);
-  // #115 需求 4：历史页（navView === 'history'）顶部日期选择器
-  const [historyDate, setHistoryDate] = useState<string>('');
-  const [showHistoryDatePicker, setShowHistoryDatePicker] = useState(false);
+  // Issue 001: 历史页日期预设 + 自定义区间；'全部' = 不过滤日期
+  const [historyDatePreset, setHistoryDatePreset] = useState<'全部' | '本周' | '本月' | '本季度' | '自定义'>('全部');
+  const [historyCustomStart, setHistoryCustomStart] = useState('');
+  const [historyCustomEnd, setHistoryCustomEnd] = useState('');
+  // Issue 001: 历史页 RAG/CHAT 来源筛选（多选，空集 = 全部）
+  const [historySources, setHistorySources] = useState<Set<'rag' | 'chat'>>(new Set());
 
   // Local filter state — independent of the search panel's global searchFilters.
   // #115 需求 1：模块类型由 'diary' 改 'thoughts'，默认全选新四类。
@@ -66,7 +68,6 @@ export default function Copilot() {
   const [dateRange, setDateRange] = useState<string>('全部');
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
-  const [calendarTarget, setCalendarTarget] = useState<'none' | 'start' | 'end'>('none');
 
   // Citations accumulate across questions in the current session so older
   // citation links in the scroll history stay clickable. Reset on conversation switch.
@@ -90,9 +91,7 @@ export default function Copilot() {
   const embedReady = embedEnabled && (embedProvider === 'custom' || !!embedApiKey || !!apiKey);
 
   const closeDropdowns = () => {
-    setShowDateDropdown(false);
-    setCalendarTarget('none');
-    setShowHistoryDatePicker(false);
+    // Issue 001: 日期下拉 open 状态已下沉到 RagDatePopover 内部；本函数保留为空以兼容现有调用点
   };
 
   const handleNewConversation = () => {
@@ -259,12 +258,49 @@ export default function Copilot() {
     return t(DATE_PRESET_KEY[dateRange] || 'search.allDates');
   }, [dateRange, customStartDate, customEndDate, t]);
 
-  // #115 需求 4：历史页按 historyDate（yyyy-MM-dd）过滤；空字符串 = 全部。
+  // Issue 001: 历史页日期区间（由预设计算）
+  const historyRange = useMemo(() => {
+    if (historyDatePreset === '全部') return null;
+    if (historyDatePreset === '自定义') {
+      if (!historyCustomStart || !historyCustomEnd) return null;
+      return { start: historyCustomStart, end: historyCustomEnd };
+    }
+    const now = new Date();
+    const end = format(now, 'yyyy-MM-dd');
+    let start = end;
+    if (historyDatePreset === '本周') {
+      const day = now.getDay() || 7; // 周日=7，周一=1
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - day + 1);
+      monday.setHours(0, 0, 0, 0);
+      start = format(monday, 'yyyy-MM-dd');
+    } else if (historyDatePreset === '本月') {
+      start = format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd');
+    } else if (historyDatePreset === '本季度') {
+      const quarter = Math.floor(now.getMonth() / 3);
+      start = format(new Date(now.getFullYear(), quarter * 3, 1), 'yyyy-MM-dd');
+    }
+    return { start, end };
+  }, [historyDatePreset, historyCustomStart, historyCustomEnd]);
+
+  // Issue 001: 历史页过滤 = 来源 (RAG/CHAT 多选) ∩ 日期区间；空 = 全部
   const filteredConversations = useMemo(() => {
     if (!conversations) return [];
-    if (!historyDate) return conversations;
-    return conversations.filter(c => format(new Date(c.updated_at), 'yyyy-MM-dd') === historyDate);
-  }, [conversations, historyDate]);
+    let result = conversations;
+    // 来源筛选（多选，空集 = 全部）
+    if (historySources.size > 0) {
+      result = result.filter(c => historySources.has((c.mode || 'rag') as 'rag' | 'chat'));
+    }
+    // 日期区间筛选（null = 全部；区间闭合含 [start, end]）
+    if (historyRange) {
+      const { start, end } = historyRange;
+      result = result.filter(c => {
+        const d = format(new Date(c.updated_at), 'yyyy-MM-dd');
+        return d >= start && d <= end;
+      });
+    }
+    return result;
+  }, [conversations, historySources, historyRange]);
 
   return (
     <div className="absolute inset-0 bg-[#f0eef5] flex flex-col overflow-hidden animate-in fade-in duration-200">
@@ -318,26 +354,70 @@ export default function Copilot() {
 
       {navView === 'history' ? (
         <div className="flex-1 overflow-hidden flex flex-col bg-white">
-          {/* #115 需求 4：历史页顶部日期筛选区（仅保留日期选择器，复用 RAG 页样式）。 */}
-          <div className="px-4 py-2 bg-white border-b border-stone-200/50 flex items-center gap-2 shrink-0 select-none">
-            <span className="text-[11.5px] font-semibold text-stone-500">{t('copilot.historyDateLabel')}:</span>
+          {/* Issue 001: 历史页顶部筛选区 = RAG / CHAT / 全部日期，与上方 RAG/CHAT/历史 tab 垂直对齐 */}
+          <div className="px-4 py-2 bg-white border-b border-stone-200/50 flex gap-2 shrink-0 select-none">
             <button
-              data-testid="history-date-picker"
-              onClick={() => { setShowHistoryDatePicker((v) => !v); setShowDateDropdown(false); }}
-              className="flex items-center gap-1 bg-stone-100 hover:bg-stone-200/80 text-stone-750 px-2.5 py-1 rounded-xl text-[12px] font-medium border border-stone-200/40 outline-none transition-colors cursor-pointer active:scale-95"
+              data-testid="history-source-rag"
+              onClick={() => {
+                const next = new Set(historySources);
+                if (next.has('rag')) next.delete('rag');
+                else next.add('rag');
+                setHistorySources(next);
+              }}
+              className={`flex-1 text-center py-2 rounded-xl text-[12.5px] font-semibold tracking-wide transition-all active:scale-[0.98] ${
+                historySources.has('rag')
+                  ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-md shadow-baimiao-mysteria/10'
+                  : 'bg-stone-50 text-stone-600 hover:bg-stone-100 border border-stone-200/60'
+              }`}
             >
-              <span className="whitespace-nowrap font-mono">{historyDate || t('search.allDates')}</span>
-              <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
+              RAG
             </button>
-            {historyDate && (
-              <button
-                data-testid="history-date-clear"
-                onClick={() => { setHistoryDate(''); setShowHistoryDatePicker(false); }}
-                className="text-[10.5px] text-stone-400 hover:text-baimiao-mysteria px-2 py-1 transition-colors"
-              >
-                {t('copilot.clearDate')}
-              </button>
-            )}
+            <button
+              data-testid="history-source-chat"
+              onClick={() => {
+                const next = new Set(historySources);
+                if (next.has('chat')) next.delete('chat');
+                else next.add('chat');
+                setHistorySources(next);
+              }}
+              className={`flex-1 text-center py-2 rounded-xl text-[12.5px] font-semibold tracking-wide transition-all active:scale-[0.98] ${
+                historySources.has('chat')
+                  ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-md shadow-baimiao-mysteria/10'
+                  : 'bg-stone-50 text-stone-600 hover:bg-stone-100 border border-stone-200/60'
+              }`}
+            >
+              CHAT
+            </button>
+            <div className="flex-1">
+              <RagDatePopover
+                dateRange={historyDatePreset}
+                customStartDate={historyCustomStart}
+                customEndDate={historyCustomEnd}
+                onDateRangeChange={(range) => {
+                  setHistoryDatePreset(range as typeof historyDatePreset);
+                  if (range !== '自定义') {
+                    setHistoryCustomStart('');
+                    setHistoryCustomEnd('');
+                  }
+                }}
+                onCustomStartDateChange={setHistoryCustomStart}
+                onCustomEndDateChange={setHistoryCustomEnd}
+                displayLabel={
+                  historyDatePreset === '自定义' && historyCustomStart && historyCustomEnd
+                    ? (() => {
+                        const fmt = (s: string) => {
+                          const [_, m, d] = s.split('-');
+                          return `${parseInt(m, 10)}.${parseInt(d, 10)}`;
+                        };
+                        return `${fmt(historyCustomStart)}~${fmt(historyCustomEnd)}`;
+                      })()
+                    : t(DATE_PRESET_KEY[historyDatePreset] || 'search.allDates')
+                }
+                testId="history-date-picker"
+                className="w-full"
+                buttonClassName="w-full justify-center py-2 rounded-xl text-[12.5px] font-semibold tracking-wide bg-stone-50 text-stone-600 hover:bg-stone-100 border border-stone-200/60 px-3"
+              />
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3 thin-scrollbar">
             {filteredConversations.length > 0 ? (
@@ -432,16 +512,17 @@ export default function Copilot() {
                 );
               })}
 
-              {/* Date range button */}
-              <div className="relative shrink-0">
-                <button
-                  onClick={() => { setShowDateDropdown(!showDateDropdown); setCalendarTarget('none'); }}
-                  className="flex items-center gap-1 bg-stone-100 hover:bg-stone-200/80 text-stone-750 px-2.5 py-1 rounded-xl text-[12px] font-medium border border-stone-200/40 outline-none transition-colors cursor-pointer active:scale-95"
-                >
-                  <span className="whitespace-nowrap">{dateLabel}</span>
-                  <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
-                </button>
-              </div>
+              {/* Date range button — Issue 001: 复用 RagDatePopover 组件（RAG 模块同款） */}
+              <RagDatePopover
+                dateRange={dateRange}
+                customStartDate={customStartDate}
+                customEndDate={customEndDate}
+                onDateRangeChange={setDateRange}
+                onCustomStartDateChange={setCustomStartDate}
+                onCustomEndDateChange={setCustomEndDate}
+                displayLabel={dateLabel}
+                testId="rag-date-picker"
+              />
             </div>
           )}
 
@@ -480,107 +561,7 @@ export default function Copilot() {
         </>
       )}
 
-      {/* Dropdowns rendered outside the overflow-x-auto container, using absolute positioning relative to root container */}
-      {showDateDropdown && (
-        <>
-          <div className="fixed inset-0 z-[85]" onClick={closeDropdowns} />
-          <div className="absolute top-[142px] right-4 w-52 bg-white border border-stone-200 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-1.5 z-[90] animate-in fade-in zoom-in-95 duration-100 text-stone-800">
-            {calendarTarget === 'none' ? (
-              <>
-                {DATE_PRESETS.map(range => (
-                  <button
-                    key={range}
-                    onClick={() => {
-                      setDateRange(range);
-                      setCustomStartDate('');
-                      setCustomEndDate('');
-                      setShowDateDropdown(false);
-                    }}
-                    className={`w-full text-left px-3 py-1.5 text-[12px] font-medium rounded-xl transition-colors ${
-                      dateRange === range
-                        ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria'
-                        : 'text-stone-600 hover:text-stone-800 hover:bg-stone-100'
-                    }`}
-                  >
-                    {t(DATE_PRESET_KEY[range] || 'search.allDates')}
-                  </button>
-                ))}
-                <div className="border-t border-stone-100 my-1" />
-                <div className="px-3 py-1.5 flex flex-col gap-2">
-                  <span className="text-[10.5px] font-semibold text-stone-400 uppercase tracking-wider">{t('search.customTime')}</span>
-                  <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11.5px] text-stone-500 shrink-0">{t('search.startDate')}</span>
-                      <button
-                        onClick={() => setCalendarTarget('start')}
-                        className="bg-stone-50 border border-stone-200 text-stone-700 rounded-lg px-2 py-1 text-[11px] font-mono text-left w-32 outline-none hover:border-baimiao-mysteria/40 active:bg-stone-100 transition-colors"
-                      >
-                        {customStartDate || t('copilot.selectDate')}
-                      </button>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11.5px] text-stone-500 shrink-0">{t('search.endDate')}</span>
-                      <button
-                        onClick={() => setCalendarTarget('end')}
-                        className="bg-stone-50 border border-stone-200 text-stone-700 rounded-lg px-2 py-1 text-[11px] font-mono text-left w-32 outline-none hover:border-baimiao-mysteria/40 active:bg-stone-100 transition-colors"
-                      >
-                        {customEndDate || t('copilot.selectDate')}
-                      </button>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      if (!customStartDate || !customEndDate) {
-                        alert(t('search.alertSelectDates'));
-                        return;
-                      }
-                      if (customStartDate > customEndDate) {
-                        alert(t('search.alertStartAfterEnd'));
-                        return;
-                      }
-                      setDateRange('自定义');
-                      setShowDateDropdown(false);
-                      setCalendarTarget('none');
-                    }}
-                    disabled={!customStartDate || !customEndDate}
-                    className="w-full mt-1.5 py-1.5 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white rounded-xl text-[11.5px] font-semibold flex items-center justify-center gap-1 active:scale-[0.98] disabled:opacity-40"
-                  >
-                    <CalendarIcon className="w-3 h-3" />
-                    {t('search.confirm')}
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="p-1">
-                <MiniCalendar
-                  value={calendarTarget === 'start' ? customStartDate : customEndDate}
-                  onChange={(val) => {
-                    if (calendarTarget === 'start') setCustomStartDate(val);
-                    else setCustomEndDate(val);
-                    setCalendarTarget('none');
-                  }}
-                  onBack={() => setCalendarTarget('none')}
-                  title={calendarTarget === 'start' ? t('search.selectStart') : t('search.selectEnd')}
-                />
-              </div>
-            )}
-          </div>
-        </>
-      )}
-
-      {showHistoryDatePicker && (
-        <>
-          <div className="fixed inset-0 z-[85]" onClick={closeDropdowns} />
-          <div className="absolute top-[130px] right-4 w-72 bg-white border border-stone-200 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-1.5 z-[90] animate-in fade-in zoom-in-95 duration-100 text-stone-800">
-            <MiniCalendar
-              value={historyDate}
-              onChange={(val) => { setHistoryDate(val); setShowHistoryDatePicker(false); }}
-              onBack={() => setShowHistoryDatePicker(false)}
-              title={t('copilot.historySelectDate')}
-            />
-          </div>
-        </>
-      )}
+      {/* Issue 001: 日期下拉已下沉到 RagDatePopover 组件内部，根容器不再需要内联弹窗 */}
     </div>
   );
 }
