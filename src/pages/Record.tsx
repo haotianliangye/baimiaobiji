@@ -1530,10 +1530,8 @@ export default function Record() {
                       clickTimeoutsRef.current[log.id] = null;
                     }
                     const target = e.target as HTMLElement;
-                    // 附件区单击保留打开灯箱/详情，双击只在非附件区触发编辑
-                    if (target.closest('[data-attachment-region]') || target.closest('button, audio, video, img, a')) {
-                      return;
-                    }
+                    // 按钮（重新生成、AI 摘要等）有自身双击语义，跳过；其它区域（含附件 / 缩略图）双击均进入编辑
+                    if (target.closest('button')) return;
                     handleOpenEditModal(log);
                   }}
                 onTouchStart={(e) => {
