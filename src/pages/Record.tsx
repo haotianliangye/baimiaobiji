@@ -552,6 +552,10 @@ export default function Record() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
   const holdTimeoutRef = useRef<any>(null);
+  // #104 手机端双击卡片进入编辑：记录上一次轻触坐标与时间
+  const lastCardTapRef = useRef<{ logId: string; time: number; x: number; y: number } | null>(null);
+  // 双击后第一次触摸的延迟 click 会落在弹窗遮罩上导致弹窗一闪关闭，用此标记屏蔽一次遮罩点击
+  const suppressBackdropClickRef = useRef(false);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isMicInitializingRef = useRef(false);
   const isCancelledRef = useRef(false);
@@ -1536,9 +1540,27 @@ export default function Record() {
                   }}
                 onTouchStart={(e) => {
                   if (isMultiSelectMode) return;
+                  // 按钮有自身触摸语义，跳过双击与长按菜单
+                  const target = e.target as HTMLElement;
+                  if (target.closest('button')) return;
                   const touch = e.touches[0];
                   const x = touch.clientX;
                   const y = touch.clientY;
+                  const now = Date.now();
+                  const last = lastCardTapRef.current;
+                  // #104 手机端双击（300ms 内、位移 <10px）进入编辑弹窗
+                  if (last && last.logId === log.id && now - last.time < 300 && Math.hypot(x - last.x, y - last.y) < 10) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    clearTimeout(holdTimeoutRef.current);
+                    lastCardTapRef.current = null;
+                    // 屏蔽第一次触摸延迟触发的 click，防止它落在弹窗遮罩上把弹窗关掉
+                    suppressBackdropClickRef.current = true;
+                    setTimeout(() => { suppressBackdropClickRef.current = false; }, 400);
+                    handleOpenEditModal(log);
+                    return;
+                  }
+                  lastCardTapRef.current = { logId: log.id, time: now, x, y };
                   holdTimeoutRef.current = setTimeout(() => {
                     if (window.navigator?.vibrate) window.navigator.vibrate(50);
                     setContextMenuState({ isOpen: true, log, x, y });
@@ -2004,8 +2026,14 @@ export default function Record() {
       {isEditingModalOpen && (
         <div
           data-testid="record-edit-modal"
-          className="fixed inset-0 z-[110] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 animate-in fade-in duration-200"
-          onClick={() => setIsEditingModalOpen(false)}
+          className="fixed inset-0 z-[110] bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 animate-in fade-in duration-200"
+          onClick={() => {
+            if (suppressBackdropClickRef.current) {
+              suppressBackdropClickRef.current = false;
+              return;
+            }
+            setIsEditingModalOpen(false);
+          }}
         >
           <div
             className="bg-white rounded-2xl w-full max-w-md max-h-[88vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-200"
@@ -2035,6 +2063,8 @@ export default function Record() {
                 minHeightClass="min-h-[160px]"
                 textareaTestId="record-edit-textarea"
                 placeholder={t('record.contentPlaceholder')}
+                onAttachmentPreview={(items, initialIndex) => setMediaPreview({ items, initialIndex })}
+                attachmentSummary={activeLog?.attachment_summary}
               />
             </div>
 

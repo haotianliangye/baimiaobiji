@@ -175,6 +175,8 @@ export const en: TranslationDict = {
   'editor.noPreviewContent': 'No content to preview',
   'editor.tagHint': 'Type #tag to auto-categorize',
   'editor.attachment': 'Attachment',
+  'editor.previewAttachment': 'Preview attachment',
+  'editor.noSummary': 'No AI summary',
   'editor.col': 'Col',
   'editor.codePlaceholder': 'code',
 

@@ -176,6 +176,8 @@ export const zh: TranslationDict = {
   'editor.noPreviewContent': '暂无内容可预览',
   'editor.tagHint': '输入 #标签 自动归类',
   'editor.attachment': '附件',
+  'editor.previewAttachment': '预览附件',
+  'editor.noSummary': '暂无 AI 摘要',
   'editor.col': '列',
   'editor.codePlaceholder': '代码',
 

@@ -256,7 +256,7 @@ export default function Layout() {
 
   return (
     <div className="flex flex-col h-full bg-[#f0eef5] font-sans text-stone-900 overflow-hidden items-center justify-center">
-      <div className="w-full max-w-md h-full bg-white shadow-sm ring-1 ring-black/5 flex flex-col relative overflow-hidden">
+      <div className="w-full sm:w-1/3 h-full bg-white shadow-sm ring-1 ring-black/5 flex flex-col relative overflow-hidden">
         {/* Global Nav —— Seam 1 统一顶部栏：左 [≡]标题·副标题 / 中 <日期> / 右 搜索->RAG+CHAT->灯泡 */}
         {!isCopilotMode && (
           <header className="relative flex h-[54px] shrink-0 items-center justify-between px-3 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white/95 border-b border-white/5">
@@ -539,7 +539,7 @@ export default function Layout() {
 
       {/* Global Search Panel */}
       {isSearchMode && (
-        <div className="absolute inset-0 w-full max-w-md mx-auto left-0 right-0 bg-white z-[80] flex flex-col overflow-hidden animate-in fade-in duration-200">
+        <div className="absolute inset-0 w-full sm:w-1/3 mx-auto left-0 right-0 bg-white z-[80] flex flex-col overflow-hidden animate-in fade-in duration-200">
           {/* Search Header */}
           <div className="flex h-[54px] shrink-0 items-center px-4 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white gap-3 select-none border-b border-white/5">
             <div className="flex-1 bg-white/10 rounded-xl px-3 py-1 flex items-center gap-2 border border-white/5">

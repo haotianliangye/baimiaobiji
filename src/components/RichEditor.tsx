@@ -10,6 +10,7 @@
  * + resolveAlias + createTag 落库，保证口径一致。
  */
 import React, { useRef, useState, useMemo, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Bold,
   Italic,
@@ -48,6 +49,10 @@ export interface RichEditorProps {
   minHeightClass?: string;
   /** 透传给 textarea 的 data-testid，供 E2E 定位（创建/编辑两个编辑器需区分）。 */
   textareaTestId?: string;
+  /** 点击附件缩略图时打开预览（拾微编辑弹窗传入 MediaPreview）。 */
+  onAttachmentPreview?: (items: AttachmentMeta[], initialIndex: number) => void;
+  /** 当前记录的多媒体合并摘要（单附件无单独 summary 时作悬浮提示兜底）。 */
+  attachmentSummary?: string;
 }
 
 /** 工具栏按钮定义。wrap=行内包裹(如 **bold**)；linePrefix=行首前缀(如 "- ")。 */
@@ -108,10 +113,26 @@ function isDirectUrl(ref?: string): boolean {
  * 附件缩略图：支持 data URL（新附件，上传时由 FileReader 读取）与 store id
  * （已存附件，ref 指向 IndexedDB attachments store 的 id）两种 ref。
  * 已存附件从 store 加载 Blob 转 object URL 渲染，组件卸载时自动 revoke。
+ *
+ * 在传入 onPreview 的场景（拾微编辑弹窗）下：
+ * - 点击缩略图打开 MediaPreview；
+ * - 桌面端鼠标悬停显示 AI 摘要悬浮提示；
+ * - 手机端长按显示 AI 摘要悬浮提示。
  */
-function EditorAttachmentThumb({ att }: { att: AttachmentMeta }) {
+interface EditorAttachmentItemProps {
+  att: AttachmentMeta;
+  idx: number;
+  attachments: AttachmentMeta[];
+  onPreview?: (items: AttachmentMeta[], initialIndex: number) => void;
+  attachmentSummary?: string;
+}
+
+function EditorAttachmentItem({ att, idx, attachments, onPreview, attachmentSummary }: EditorAttachmentItemProps) {
   const { t } = useTranslation();
   const [storeUrl, setStoreUrl] = useState<string | undefined>(undefined);
+  const [showTooltip, setShowTooltip] = useState(false);
+  const tooltipTimeoutRef = useRef<any>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const direct = isDirectUrl(att.ref);
 
   useEffect(() => {
@@ -135,19 +156,106 @@ function EditorAttachmentThumb({ att }: { att: AttachmentMeta }) {
   }, [att.ref, direct]);
 
   const displayUrl = direct ? att.ref : storeUrl;
+  const summaryText = att.summary?.trim() || attachmentSummary?.trim();
+  const hasSummary = !!summaryText;
+  const tooltipText = summaryText || att.name || t('editor.noSummary');
+  const isMedia = att.kind === 'image' || att.kind === 'video';
+  const clickable = !!onPreview && isMedia;
 
-  if (att.kind === 'image' && displayUrl) {
-    return (
-      <img
-        src={displayUrl}
-        alt={att.name || t('editor.attachment')}
-        className="w-14 h-14 object-cover rounded-lg border border-stone-200"
-      />
-    );
-  }
-  return (
+  const thumb = att.kind === 'image' && displayUrl ? (
+    <img
+      src={displayUrl}
+      alt={att.name || t('editor.attachment')}
+      className="w-14 h-14 object-cover rounded-lg border border-stone-200"
+      draggable={false}
+    />
+  ) : (
     <div className="w-14 h-14 flex items-center justify-center rounded-lg border border-stone-200 bg-stone-100 text-stone-400">
       <ImageIcon className="w-5 h-5" />
+    </div>
+  );
+
+  // 摘要浮层：以正方形卡片形式显示在缩略图旁边，避免被编辑框 overflow 裁切
+  const [summaryPos, setSummaryPos] = useState<{ top: number; left: number } | null>(null);
+  const SUMMARY_SIZE = 152; // 正方形边长（px），约 w-38
+  const SUMMARY_MARGIN = 8;
+
+  const computeSummaryPosition = () => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return null;
+    const rect = wrapper.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    let left = rect.right + SUMMARY_MARGIN;
+    let top = rect.top;
+    if (left + SUMMARY_SIZE > vw - 12) {
+      left = rect.left - SUMMARY_MARGIN - SUMMARY_SIZE;
+    }
+    if (top + SUMMARY_SIZE > vh - 12) {
+      top = vh - 12 - SUMMARY_SIZE;
+    }
+    if (top < 12) top = 12;
+    if (left < 12) left = 12;
+    return { top, left };
+  };
+
+  const startHoverSummary = () => {
+    if (!clickable || !hasSummary) return;
+    const pos = computeSummaryPosition();
+    if (pos) setSummaryPos(pos);
+    setShowTooltip(true);
+  };
+
+  const startPressSummary = () => {
+    if (!clickable || !hasSummary) return;
+    const pos = computeSummaryPosition();
+    if (pos) setSummaryPos(pos);
+    tooltipTimeoutRef.current = setTimeout(() => setShowTooltip(true), 500);
+  };
+
+  const summaryCard = showTooltip && summaryPos && (
+    <div
+      className="fixed z-[200] w-[152px] h-[152px] rounded-xl bg-stone-800/95 text-white text-[11px] leading-relaxed shadow-2xl p-3 flex flex-col animate-in fade-in zoom-in-95 duration-100 pointer-events-none"
+      style={{ top: summaryPos.top, left: summaryPos.left }}
+    >
+      <div className="flex-1 min-h-0 overflow-hidden line-clamp-[9] break-words">
+        {tooltipText}
+      </div>
+    </div>
+  );
+
+  return (
+    <div
+      ref={wrapperRef}
+      className="relative group"
+      onMouseEnter={startHoverSummary}
+      onMouseLeave={() => setShowTooltip(false)}
+      onTouchStart={startPressSummary}
+      onTouchEnd={() => {
+        clearTimeout(tooltipTimeoutRef.current);
+        setShowTooltip(false);
+      }}
+      onTouchMove={() => {
+        clearTimeout(tooltipTimeoutRef.current);
+        setShowTooltip(false);
+      }}
+    >
+      {clickable ? (
+        <button
+          type="button"
+          data-testid={`editor-attachment-thumb-${idx}`}
+          onClick={() => onPreview?.(attachments, idx)}
+          className="relative w-14 h-14 flex items-center justify-center rounded-lg overflow-hidden hover:ring-2 hover:ring-baimiao-mysteria/30 transition-all"
+          aria-label={t('editor.previewAttachment')}
+        >
+          {thumb}
+        </button>
+      ) : (
+        <div data-testid={`editor-attachment-thumb-${idx}`} className="w-14 h-14">
+          {thumb}
+        </div>
+      )}
+      {summaryCard && createPortal(summaryCard, document.body)}
     </div>
   );
 }
@@ -161,6 +269,8 @@ export default function RichEditor({
   autoFocus = false,
   minHeightClass = 'min-h-[120px]',
   textareaTestId,
+  onAttachmentPreview,
+  attachmentSummary,
 }: RichEditorProps) {
   const { t } = useTranslation();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -615,11 +725,17 @@ export default function RichEditor({
         <div className="flex flex-wrap gap-2 px-3 py-2 border-t border-stone-100 bg-stone-50/40">
           {attachments.map((att, idx) => (
             <div key={idx} className="relative group">
-              <EditorAttachmentThumb att={att} />
+              <EditorAttachmentItem
+                att={att}
+                idx={idx}
+                attachments={attachments}
+                onPreview={onAttachmentPreview}
+                attachmentSummary={attachmentSummary}
+              />
               <button
                 type="button"
                 onClick={() => removeAttachment(idx)}
-                className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-stone-800 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-stone-800 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
               >
                 <X className="w-2.5 h-2.5" />
               </button>
