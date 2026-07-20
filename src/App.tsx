@@ -7,8 +7,8 @@ import Insights from './pages/Insights';
 import Settings from './pages/Settings';
 import TagManagement from './pages/TagManagement';
 
-// V2 信息架构：拾微(/) · 回顾(/review) · 沉淀(/thoughts) · 洞察(/mingwu)
-// /diary、/insights 为旧链接，重定向到新路由（Copilot/LLM Chat 仍从 Header 进入）。
+// V2 信息架构：拾微(/) · 回顾(/review) · 沉淀(/thoughts) · 洞察(/insight)
+// /diary、/mingwu、/insights 为旧链接，重定向到新路由（Copilot/LLM Chat 仍从 Header 进入）。
 const router = createBrowserRouter([
   {
     path: '/',
@@ -27,7 +27,7 @@ const router = createBrowserRouter([
         element: <Thoughts />
       },
       {
-        path: 'mingwu',
+        path: 'insight',
         element: <Insights />
       },
       {
@@ -35,8 +35,12 @@ const router = createBrowserRouter([
         element: <Navigate to="/review" replace />
       },
       {
+        path: 'mingwu',
+        element: <Navigate to="/insight" replace />
+      },
+      {
         path: 'insights',
-        element: <Navigate to="/mingwu" replace />
+        element: <Navigate to="/insight" replace />
       },
       {
         path: 'tags',

@@ -63,14 +63,14 @@ export default function Layout() {
   const showDateNav = currentPath === '/' || currentPath === '/review';
   // 需求 6：沉淀中间为瀑布流/时间线胶囊；洞察中间为时间范围胶囊
   const showThoughtsCapsule = currentPath === '/thoughts';
-  const showMingwuCapsule = currentPath === '/mingwu';
+  const showMingwuCapsule = currentPath === '/insight';
 
   // 页面标题映射：拾微=白描 / 回顾 / 沉淀 / 洞察（标题不可点击）
   const routeTitleKey: Record<string, string> = {
     '/': 'layout.titleBaimiao',
     '/review': 'tab.review',
     '/thoughts': 'tab.thoughts',
-    '/mingwu': 'tab.mingwu',
+    '/insight': 'tab.mingwu',
   };
   const headerTitleKey = routeTitleKey[currentPath] || 'layout.titleBaimiao';
 
@@ -228,7 +228,7 @@ export default function Layout() {
       navigate(`/review?date=${item.date}`);
     } else if (item.type === 'insight') {
       // 洞察页不需要日期，直接导航到洞察大板块
-      navigate('/mingwu');
+      navigate('/insight');
     }
   };
 
@@ -522,7 +522,7 @@ export default function Layout() {
             <TabItem to="/" end icon={<ChatCircleDots weight="regular" />} label={t('tab.record')} />
             <TabItem to="/review" icon={<Clock weight="regular" />} label={t('tab.review')} />
             <TabItem to="/thoughts" icon={<HeadCircuit weight="regular" />} label={t('tab.thoughts')} />
-            <TabItem to="/mingwu" icon={<Sun weight="regular" />} label={t('tab.mingwu')} />
+            <TabItem to="/insight" icon={<Sun weight="regular" />} label={t('tab.mingwu')} />
           </div>
         </nav>
       </div>
@@ -858,7 +858,7 @@ export default function Layout() {
               <TabItem to="/" end icon={<ChatCircleDots weight="regular" />} label={t('tab.record')} onNavigate={() => setSearchMode(false)} />
               <TabItem to="/review" icon={<Clock weight="regular" />} label={t('tab.review')} onNavigate={() => setSearchMode(false)} />
               <TabItem to="/thoughts" icon={<HeadCircuit weight="regular" />} label={t('tab.thoughts')} onNavigate={() => setSearchMode(false)} />
-              <TabItem to="/mingwu" icon={<Sun weight="regular" />} label={t('tab.mingwu')} onNavigate={() => setSearchMode(false)} />
+              <TabItem to="/insight" icon={<Sun weight="regular" />} label={t('tab.mingwu')} onNavigate={() => setSearchMode(false)} />
             </div>
           </nav>
         </div>
