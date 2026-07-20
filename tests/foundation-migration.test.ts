@@ -770,6 +770,46 @@ async function run() {
 
   // E3：点击抽屉菜单项跳转全屏设置详情页（不再右侧展开）
   await openDrawer(pageE);
+
+  // Issue 003 E3.0：语言选择模块位于抽屉 header 下方
+  const e30 = await pageE.evaluate(() => {
+    const drawer = document.querySelector('[data-testid="settings-drawer"]');
+    const switcher = document.querySelector('[data-testid="drawer-language-switcher"]');
+    const section = document.querySelector('[data-testid="language-section"]');
+    return {
+      hasSwitcher: !!switcher,
+      hasSection: !!section,
+      insideDrawer: drawer && switcher ? drawer.contains(switcher) : false,
+    };
+  });
+  assert(
+    'E3.0 语言选择模块在抽屉 header 下方',
+    e30.hasSwitcher && !e30.hasSection && e30.insideDrawer,
+    `switcher=${e30.hasSwitcher}, section=${e30.hasSection}, 在抽屉内=${e30.insideDrawer}`
+  );
+
+  // Issue 003 E3.1：切换语言立即生效（中文 -> English）
+  await pageE.evaluate(() => {
+    const btn = document.querySelector('[data-testid="language-en"]') as HTMLElement | null;
+    if (btn) btn.click();
+  });
+  await new Promise((r) => setTimeout(r, 400));
+  const e31 = await pageE.evaluate(() => {
+    const text = document.body.textContent || '';
+    return {
+      hasEnglish: text.includes('Chat Model') || text.includes('Read Aloud'),
+      noZhModel: !text.includes('对话模型'),
+    };
+  });
+  assert('E3.1 切换语言立即生效', e31.hasEnglish && e31.noZhModel, `含英文=${e31.hasEnglish}, 无中文对话模型=${e31.noZhModel}`);
+
+  // 切回中文，避免影响后续断言
+  await pageE.evaluate(() => {
+    const btn = document.querySelector('[data-testid="language-zh"]') as HTMLElement | null;
+    if (btn) btn.click();
+  });
+  await new Promise((r) => setTimeout(r, 400));
+
   await pageE.evaluate(() => {
     const drawer = document.querySelector('[data-testid="settings-drawer"]');
     if (!drawer) return;
@@ -788,47 +828,6 @@ async function run() {
     e3Detail && e3DrawerGone,
     `横向导航=${e3Detail}, 抽屉已隐藏=${e3DrawerGone}`
   );
-
-  // task-111 E3.1：语言胶囊平铺在对话模型模块上方，且无独立 language-section
-  const e31 = await pageE.evaluate(() => {
-    const switcher = document.querySelector('[data-testid="language-switcher"]');
-    const section = document.querySelector('[data-testid="language-section"]');
-    const firstContentSection = document.querySelector('section');
-    return {
-      hasSwitcher: !!switcher,
-      hasSection: !!section,
-      switcherBeforeContent: switcher && firstContentSection
-        ? (switcher.compareDocumentPosition(firstContentSection) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
-        : false,
-    };
-  });
-  assert(
-    'E3.1 语言胶囊平铺且无独立 language-section',
-    e31.hasSwitcher && !e31.hasSection && e31.switcherBeforeContent,
-    `switcher=${e31.hasSwitcher}, section=${e31.hasSection}, 在内容section前=${e31.switcherBeforeContent}`
-  );
-
-  // task-111 E3.2：切换语言立即生效（中文 -> English）
-  await pageE.evaluate(() => {
-    const btn = document.querySelector('[data-testid="language-en"]') as HTMLElement | null;
-    if (btn) btn.click();
-  });
-  await new Promise((r) => setTimeout(r, 400));
-  const e32 = await pageE.evaluate(() => {
-    const text = document.body.textContent || '';
-    return {
-      hasEnglish: text.includes('Chat Model') || text.includes('Read Aloud'),
-      noZhModel: !text.includes('对话模型'),
-    };
-  });
-  assert('E3.2 切换语言立即生效', e32.hasEnglish && e32.noZhModel, `含英文=${e32.hasEnglish}, 无中文对话模型=${e32.noZhModel}`);
-
-  // 切回中文，避免影响后续断言
-  await pageE.evaluate(() => {
-    const btn = document.querySelector('[data-testid="language-zh"]') as HTMLElement | null;
-    if (btn) btn.click();
-  });
-  await new Promise((r) => setTimeout(r, 400));
 
   // E4：横向导航栏点击切换设置项 + 胶囊高亮当前
   // 点「标签设置」tab
