@@ -400,29 +400,18 @@ export default function Layout() {
               </div>
             )}
 
-            {/* 右：随机漫步模式下显示灯泡(toggle退出)+×关闭；否则显示 同步/搜索/RAG/灯泡 */}
+            {/* 右：随机漫步模式下只显示×关闭；否则显示 同步/搜索/RAG/灯泡入口 */}
             <div className="flex items-center gap-2 shrink-0 flex-1 justify-end z-10">
               {isRandomWalkMode ? (
-                <>
-                  <button
-                    data-testid="walk-toggle"
-                    onClick={() => setRandomWalkMode(false)}
-                    title={t('thoughts.randomWalk')}
-                    aria-label={t('thoughts.randomWalk')}
-                    className="p-1.5 hover:opacity-70 transition-opacity active:scale-95 shrink-0"
-                  >
-                    <Lightbulb className="w-[18px] h-[18px]" />
-                  </button>
-                  <button
-                    data-testid="walk-close"
-                    onClick={() => setRandomWalkMode(false)}
-                    title={t('about.close')}
-                    aria-label={t('about.close')}
-                    className="p-1.5 hover:opacity-70 transition-opacity active:scale-95 shrink-0"
-                  >
-                    <X className="w-[18px] h-[18px]" />
-                  </button>
-                </>
+                <button
+                  data-testid="walk-close"
+                  onClick={() => setRandomWalkMode(false)}
+                  title={t('about.close')}
+                  aria-label={t('about.close')}
+                  className="p-1.5 hover:opacity-70 transition-opacity active:scale-95 shrink-0"
+                >
+                  <X className="w-[18px] h-[18px]" />
+                </button>
               ) : (
                 <>
                   {syncEnabled && (

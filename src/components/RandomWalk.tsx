@@ -38,7 +38,6 @@ import {
   Trash2,
   Settings2,
   Plus,
-  Clock,
   RotateCcw,
   ChevronRight,
   X,
@@ -262,6 +261,10 @@ export default function RandomWalk() {
   // --- Swiper 实例 ---
   const swiperRef = useRef<SwiperClass | null>(null);
 
+  // Issue 002：当前卡片正文溢出检测（用于显示底部渐变遮罩）
+  const contentRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const [contentOverflow, setContentOverflow] = useState(false);
+
   // --- 编辑弹窗状态 ---
   const [editingItem, setEditingItem] = useState<WalkItem | null>(null);
   const [editContent, setEditContent] = useState('');
@@ -324,6 +327,19 @@ export default function RandomWalk() {
   }, [ready, draw]);
 
   const current = items[currentIndex];
+
+  // Issue 002：检测当前卡片正文是否溢出，决定是否显示底部渐变遮罩
+  useEffect(() => {
+    const el = contentRefs.current[currentIndex];
+    if (!el) {
+      setContentOverflow(false);
+      return;
+    }
+    const check = () => setContentOverflow(el.scrollHeight > el.clientHeight + 2);
+    check();
+    el.addEventListener('scroll', check);
+    return () => el.removeEventListener('scroll', check);
+  }, [currentIndex, items]);
 
   /** 前进到下一张；已到最后则进入结束态。 */
   const advance = useCallback(() => {
@@ -498,62 +514,79 @@ export default function RandomWalk() {
       data-testid="random-walk-overlay"
       className="flex flex-col h-full bg-[#faf9fc] animate-in fade-in duration-200 overflow-hidden"
     >
-      {/* 顶部细栏：数据源设置（标题与 × 关闭在全局 header）。
-          #116 需求 2/3/4：移除 1/N 计数 + 移除顶部 Lightbulb + Settings2 移到左上角。 */}
-      <div className="flex h-[40px] shrink-0 items-center px-4 bg-white/85 backdrop-blur border-b border-baimiao-border/40 z-20 gap-2">
-        <button
-          data-testid="walk-settings"
-          data-walk-settings-position="top-left"
-          onClick={() => setShowSettings((v) => !v)}
-          className={`p-1.5 rounded-full transition-colors ${
-            showSettings
-              ? 'text-baimiao-mysteria bg-baimiao-mysteria/8'
-              : 'text-stone-400 hover:text-stone-700 hover:bg-stone-100'
-          }`}
-          title={t('randomWalk.settingsTitle')}
-          aria-label={t('randomWalk.settingsTitle')}
-        >
-          <Settings2 className="w-4 h-4" />
-        </button>
+      {/* 顶部细栏：仅标题（关闭按钮在 Layout 全局 header；设置入口已搬到底部操作栏）。
+          Issue 002：移除顶部设置图标。 */}
+      <div className="flex h-[40px] shrink-0 items-center justify-center px-4 bg-white/85 backdrop-blur border-b border-baimiao-border/40 z-20">
         <span className="text-[11.5px] font-medium text-stone-400">{t('randomWalk.title')}</span>
       </div>
 
-      {/* 设置面板 */}
+      {/* 设置面板（底部 sheet，设置入口在底部操作栏） */}
       {showSettings && (
-        <div className="shrink-0 bg-white/90 backdrop-blur border-b border-baimiao-border/40 px-4 py-3 flex flex-col gap-3 animate-in slide-in-from-top-2 duration-200">
-          <div>
-            <p className="text-[11.5px] font-semibold text-stone-500 mb-1.5">{t('randomWalk.dataSources')}</p>
-            <div className="flex flex-wrap gap-1.5">
-              {ALL_SOURCES.map((src) => {
-                const on = sources.includes(src);
-                return (
-                  <button
-                    key={src}
-                    data-testid={`walk-source-${src}`}
-                    onClick={() => toggleSource(src)}
-                    className={`px-3 py-1 rounded-full text-[12px] font-medium transition-all ${
-                      on
-                        ? 'bg-baimiao-mysteria text-white'
-                        : 'bg-stone-100 text-stone-500'
-                    }`}
-                  >
-                    {t(SOURCE_LABEL_KEYS[src])}
-                  </button>
-                );
-              })}
+        <div
+          className="fixed inset-0 z-[135] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 animate-in fade-in duration-200"
+          onClick={() => setShowSettings(false)}
+        >
+          <div
+            data-testid="walk-settings-sheet"
+            className="bg-white rounded-2xl w-full max-w-md max-h-[70vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-stone-100 shrink-0">
+              <span className="text-[13.5px] font-semibold text-baimiao-mysteria font-serif baimiao-editorial-title">
+                {t('randomWalk.settingsTitle')}
+              </span>
+              <button
+                onClick={() => setShowSettings(false)}
+                className="p-1 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-full transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <p className="text-[11.5px] font-semibold text-stone-500 shrink-0">{t('randomWalk.cooldown')}</p>
-            <input
-              data-testid="walk-cooldown-input"
-              type="number"
-              min={0}
-              value={cooldownDays}
-              onChange={(e) => changeCooldown(Number(e.target.value))}
-              className="w-16 bg-stone-50 border border-stone-200 rounded-lg px-2 py-1 text-[12px] text-stone-700 outline-none focus:border-baimiao-mysteria/40"
-            />
-            <span className="text-[11px] text-stone-400">{t('randomWalk.cooldownUnit')}</span>
+            <div className="flex-1 overflow-y-auto thin-scrollbar p-4 flex flex-col gap-4">
+              <div>
+                <p className="text-[11.5px] font-semibold text-stone-500 mb-1.5">{t('randomWalk.dataSources')}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {ALL_SOURCES.map((src) => {
+                    const on = sources.includes(src);
+                    return (
+                      <button
+                        key={src}
+                        data-testid={`walk-source-${src}`}
+                        onClick={() => toggleSource(src)}
+                        className={`px-3 py-1 rounded-full text-[12px] font-medium transition-all ${
+                          on
+                            ? 'bg-baimiao-mysteria text-white'
+                            : 'bg-stone-100 text-stone-500'
+                        }`}
+                      >
+                        {t(SOURCE_LABEL_KEYS[src])}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <p className="text-[11.5px] font-semibold text-stone-500 shrink-0">{t('randomWalk.cooldown')}</p>
+                <input
+                  data-testid="walk-cooldown-input"
+                  type="number"
+                  min={0}
+                  value={cooldownDays}
+                  onChange={(e) => changeCooldown(Number(e.target.value))}
+                  className="w-16 bg-stone-50 border border-stone-200 rounded-lg px-2 py-1 text-[12px] text-stone-700 outline-none focus:border-baimiao-mysteria/40"
+                />
+                <span className="text-[11px] text-stone-400">{t('randomWalk.cooldownUnit')}</span>
+              </div>
+              {/* Issue 002：换一批按钮从底部栏移到设置面板底部 */}
+              <button
+                data-testid="walk-shuffle"
+                onClick={() => { setShowSettings(false); draw(); }}
+                className="flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl text-[12.5px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 transition-all active:scale-[0.98]"
+              >
+                <Shuffle className="w-3.5 h-3.5" />
+                {t('randomWalk.shuffle')}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -612,23 +645,11 @@ export default function RandomWalk() {
                   data-walk-type={item.type}
                   data-walk-key={item.key}
                   data-walk-opacity={index === currentIndex ? '1' : '0.4'}
-                  className={`w-full h-full baimiao-card-bubble p-5 flex flex-col transition-opacity duration-200 ${
+                  className={`w-full h-full baimiao-card-bubble p-5 flex flex-col transition-opacity duration-200 relative ${
                     index === currentIndex ? 'opacity-100' : 'opacity-40'
                   }`}
                 >
-                  {/* 类型徽章 + 时间 */}
-                  <div className="flex items-center justify-between shrink-0 mb-3">
-                    <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-baimiao-mysteria bg-baimiao-mysteria/8 px-2 py-0.5 rounded-full">
-                      <Hash className="w-2.5 h-2.5 opacity-60" />
-                      {item.typeLabel}
-                    </span>
-                    <span className="text-[10.5px] text-stone-400 font-mono flex items-center gap-1">
-                      <Clock className="w-2.5 h-2.5" />
-                      {item.reviewDate
-                        ? item.reviewDate
-                        : format(new Date(item.createdAt), 'MM-dd HH:mm')}
-                    </span>
-                  </div>
+                  {/* Issue 002：移除 chip 行（类型徽章 + 时间戳），减少视觉干扰。 */}
 
                   {/* 摘要标题（回顾/洞察） */}
                   {item.title && (
@@ -637,12 +658,18 @@ export default function RandomWalk() {
                     </p>
                   )}
 
-                  {/* 正文（局部滚动，移动端红线） */}
-                  <div
-                    data-testid="walk-card-content"
-                    className="flex-1 overflow-y-auto thin-scrollbar markdown-body prose prose-stone baimiao-editorial-body prose-headings:font-serif baimiao-editorial-title max-w-none text-[13.5px] leading-relaxed prose-h1:text-[16px] prose-h2:text-[15px] prose-h3:text-[14px] min-h-0"
-                  >
-                    <ReactMarkdown>{item.content}</ReactMarkdown>
+                  {/* 正文（局部滚动 + 底部渐变遮罩） */}
+                  <div className="flex-1 relative min-h-0">
+                    <div
+                      ref={(el) => { contentRefs.current[index] = el; }}
+                      data-testid="walk-card-content"
+                      className="w-full h-full overflow-y-auto thin-scrollbar markdown-body prose prose-stone baimiao-editorial-body prose-headings:font-serif baimiao-editorial-title max-w-none text-[13.5px] leading-relaxed prose-h1:text-[16px] prose-h2:text-[15px] prose-h3:text-[14px]"
+                    >
+                      <ReactMarkdown>{item.content}</ReactMarkdown>
+                    </div>
+                    {index === currentIndex && contentOverflow && (
+                      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-white via-white/80 to-transparent rounded-b-lg" />
+                    )}
                   </div>
 
                   {/* 标签 */}
@@ -719,12 +746,18 @@ export default function RandomWalk() {
               <span className="text-[10px] font-medium">{t('randomWalk.delete')}</span>
             </button>
             <button
-              data-testid="walk-shuffle"
-              onClick={draw}
-              className="flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xl text-baimiao-mysteria hover:bg-baimiao-mysteria/8 transition-colors"
+              data-testid="walk-settings"
+              onClick={() => setShowSettings((v) => !v)}
+              className={`flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xl transition-colors ${
+                showSettings
+                  ? 'text-baimiao-mysteria bg-baimiao-mysteria/8'
+                  : 'text-stone-500 hover:bg-stone-100 hover:text-baimiao-mysteria'
+              }`}
+              title={t('randomWalk.settingsTitle')}
+              aria-label={t('randomWalk.settingsTitle')}
             >
-              <Shuffle className="w-4 h-4" />
-              <span className="text-[10px] font-medium">{t('randomWalk.shuffle')}</span>
+              <Settings2 className="w-4 h-4" />
+              <span className="text-[10px] font-medium">{t('randomWalk.settings')}</span>
             </button>
           </div>
         </div>

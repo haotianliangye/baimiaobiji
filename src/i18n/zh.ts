@@ -636,6 +636,7 @@ export const zh: TranslationDict = {
   // --- RandomWalk (随机漫步) ---
   'randomWalk.title': '随机漫步',
   'randomWalk.settingsTitle': '数据源与冷却期',
+  'randomWalk.settings': '设置',
   'randomWalk.dataSources': '数据源',
   'randomWalk.cooldown': '冷却期',
   'randomWalk.cooldownUnit': '天（已展示记录在此期内不重复出现）',
