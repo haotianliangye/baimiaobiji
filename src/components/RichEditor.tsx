@@ -159,7 +159,7 @@ function EditorAttachmentItem({ att, idx, attachments, onPreview, attachmentSumm
   const summaryText = att.summary?.trim() || attachmentSummary?.trim();
   const hasSummary = !!summaryText;
   const tooltipText = summaryText || att.name || t('editor.noSummary');
-  const isMedia = att.kind === 'image' || att.kind === 'video';
+  const isMedia = att.kind === 'image' || att.kind === 'video' || att.kind === 'audio';
   const clickable = !!onPreview && isMedia;
 
   const thumb = att.kind === 'image' && displayUrl ? (

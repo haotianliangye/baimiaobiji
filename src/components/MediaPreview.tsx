@@ -77,6 +77,8 @@ export default function MediaPreview({ items, initialIndex, onClose }: MediaPrev
   const currentItem = items[currentIndex];
   const url = useResolvedUrl(currentItem?.ref);
   const isImage = currentItem?.kind === 'image';
+  const isVideo = currentItem?.kind === 'video';
+  const isAudio = currentItem?.kind === 'audio';
 
   // 触摸状态（用 ref 避免闭包陈旧）
   const touchRef = useRef({
@@ -248,7 +250,7 @@ export default function MediaPreview({ items, initialIndex, onClose }: MediaPrev
             draggable={false}
             onClick={(e) => e.stopPropagation()}
           />
-        ) : (
+        ) : isVideo ? (
           <video
             key={currentIndex}
             src={url}
@@ -259,6 +261,14 @@ export default function MediaPreview({ items, initialIndex, onClose }: MediaPrev
             className="max-w-full max-h-full object-contain"
             aria-label={currentItem?.name || t('record.video')}
             onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <audio
+            key={currentIndex}
+            src={url}
+            controls
+            className="w-full max-w-[calc(100%-2rem)]"
+            aria-label={currentItem?.name || t('record.audio')}
           />
         )}
 

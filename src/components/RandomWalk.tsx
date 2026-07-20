@@ -1101,6 +1101,8 @@ export default function RandomWalk() {
                 onAttachmentsChange={canEditAttachments ? setEditAttachments : undefined}
                 minHeightClass="min-h-[160px]"
                 textareaTestId="walk-edit-textarea"
+                onAttachmentPreview={(items, initialIndex) => setMediaPreview({ items, initialIndex })}
+                attachmentSummary={editingItem.type === 'raw_logs' ? editingItem.attachmentSummary : undefined}
               />
             </div>
 
