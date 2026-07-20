@@ -845,7 +845,7 @@ export default function Settings() {
           </div>
 
           {/* Issue 003: 语言选择模块平铺到抽屉 header 下方 */}
-          <div className="flex items-center justify-between px-4 py-2.5 shrink-0" data-testid="drawer-language-switcher">
+          <div className="flex items-center justify-between px-3 py-2.5 shrink-0" data-testid="drawer-language-switcher">
             <span className="text-[13px] font-medium text-stone-700">{t('settings.languageLabel')}</span>
             <div className="inline-flex items-center bg-stone-100/80 rounded-full p-0.5">
               <button
