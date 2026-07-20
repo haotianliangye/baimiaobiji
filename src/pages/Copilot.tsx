@@ -355,68 +355,75 @@ export default function Copilot() {
       {navView === 'history' ? (
         <div className="flex-1 overflow-hidden flex flex-col bg-white">
           {/* Issue 001: 历史页顶部筛选区 = RAG / CHAT / 全部日期，与上方 RAG/CHAT/历史 tab 垂直对齐 */}
-          <div className="px-4 py-2 bg-white border-b border-stone-200/50 flex gap-2 shrink-0 select-none">
-            <button
-              data-testid="history-source-rag"
-              onClick={() => {
-                const next = new Set(historySources);
-                if (next.has('rag')) next.delete('rag');
-                else next.add('rag');
-                setHistorySources(next);
-              }}
-              className={`flex-1 text-center py-2 rounded-xl text-[12.5px] font-semibold tracking-wide transition-all active:scale-[0.98] ${
-                historySources.has('rag')
-                  ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-md shadow-baimiao-mysteria/10'
-                  : 'bg-stone-50 text-stone-600 hover:bg-stone-100 border border-stone-200/60'
-              }`}
-            >
-              RAG
-            </button>
-            <button
-              data-testid="history-source-chat"
-              onClick={() => {
-                const next = new Set(historySources);
-                if (next.has('chat')) next.delete('chat');
-                else next.add('chat');
-                setHistorySources(next);
-              }}
-              className={`flex-1 text-center py-2 rounded-xl text-[12.5px] font-semibold tracking-wide transition-all active:scale-[0.98] ${
-                historySources.has('chat')
-                  ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-md shadow-baimiao-mysteria/10'
-                  : 'bg-stone-50 text-stone-600 hover:bg-stone-100 border border-stone-200/60'
-              }`}
-            >
-              CHAT
-            </button>
-            <div className="flex-1">
-              <RagDatePopover
-                dateRange={historyDatePreset}
-                customStartDate={historyCustomStart}
-                customEndDate={historyCustomEnd}
-                onDateRangeChange={(range) => {
-                  setHistoryDatePreset(range as typeof historyDatePreset);
-                  if (range !== '自定义') {
-                    setHistoryCustomStart('');
-                    setHistoryCustomEnd('');
-                  }
+          {/* 用分段控制器（segmented control）样式，与上方主导航的独立胶囊做出层级区分 */}
+          <div className="px-4 py-2 bg-white border-b border-stone-200/50 shrink-0 select-none">
+            <div className="flex items-center gap-1 p-1 bg-stone-100 rounded-xl">
+              <button
+                data-testid="history-source-rag"
+                onClick={() => {
+                  const next = new Set(historySources);
+                  if (next.has('rag')) next.delete('rag');
+                  else next.add('rag');
+                  setHistorySources(next);
                 }}
-                onCustomStartDateChange={setHistoryCustomStart}
-                onCustomEndDateChange={setHistoryCustomEnd}
-                displayLabel={
-                  historyDatePreset === '自定义' && historyCustomStart && historyCustomEnd
-                    ? (() => {
-                        const fmt = (s: string) => {
-                          const [_, m, d] = s.split('-');
-                          return `${parseInt(m, 10)}.${parseInt(d, 10)}`;
-                        };
-                        return `${fmt(historyCustomStart)}~${fmt(historyCustomEnd)}`;
-                      })()
-                    : t(DATE_PRESET_KEY[historyDatePreset] || 'search.allDates')
-                }
-                testId="history-date-picker"
-                className="w-full"
-                buttonClassName="w-full justify-center py-2 rounded-xl text-[12.5px] font-semibold tracking-wide bg-stone-50 text-stone-600 hover:bg-stone-100 border border-stone-200/60 px-3"
-              />
+                className={`flex-1 text-center py-1.5 rounded-lg text-[12px] font-medium transition-all active:scale-[0.98] ${
+                  historySources.has('rag')
+                    ? 'bg-white text-baimiao-mysteria shadow-sm'
+                    : 'text-stone-500 hover:text-stone-700'
+                }`}
+              >
+                RAG
+              </button>
+              <button
+                data-testid="history-source-chat"
+                onClick={() => {
+                  const next = new Set(historySources);
+                  if (next.has('chat')) next.delete('chat');
+                  else next.add('chat');
+                  setHistorySources(next);
+                }}
+                className={`flex-1 text-center py-1.5 rounded-lg text-[12px] font-medium transition-all active:scale-[0.98] ${
+                  historySources.has('chat')
+                    ? 'bg-white text-baimiao-mysteria shadow-sm'
+                    : 'text-stone-500 hover:text-stone-700'
+                }`}
+              >
+                CHAT
+              </button>
+              <div className="flex-1">
+                <RagDatePopover
+                  dateRange={historyDatePreset}
+                  customStartDate={historyCustomStart}
+                  customEndDate={historyCustomEnd}
+                  onDateRangeChange={(range) => {
+                    setHistoryDatePreset(range as typeof historyDatePreset);
+                    if (range !== '自定义') {
+                      setHistoryCustomStart('');
+                      setHistoryCustomEnd('');
+                    }
+                  }}
+                  onCustomStartDateChange={setHistoryCustomStart}
+                  onCustomEndDateChange={setHistoryCustomEnd}
+                  displayLabel={
+                    historyDatePreset === '自定义' && historyCustomStart && historyCustomEnd
+                      ? (() => {
+                          const fmt = (s: string) => {
+                            const [_, m, d] = s.split('-');
+                            return `${parseInt(m, 10)}.${parseInt(d, 10)}`;
+                          };
+                          return `${fmt(historyCustomStart)}~${fmt(historyCustomEnd)}`;
+                        })()
+                      : t(DATE_PRESET_KEY[historyDatePreset] || 'search.allDates')
+                  }
+                  testId="history-date-picker"
+                  className="w-full"
+                  buttonClassName={`w-full justify-center py-1.5 rounded-lg text-[12px] font-medium transition-all active:scale-[0.98] ${
+                    historyDatePreset !== '全部'
+                      ? 'bg-white text-baimiao-mysteria shadow-sm'
+                      : 'text-stone-500 hover:text-stone-700'
+                  }`}
+                />
+              </div>
             </div>
           </div>
           <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3 thin-scrollbar">
