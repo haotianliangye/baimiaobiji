@@ -1105,9 +1105,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
     }
 
-    // 4. 洞察搜索（mingwu 表）
+    // 4. 洞察搜索（insights 表）
     if (modules.includes('insight')) {
-      const insights = await db.mingwu.toArray();
+      const insights = await db.insights.toArray();
       const matchedInsights = insights.filter(ins => {
         const matchesQuery = ins.content.toLowerCase().includes(query.toLowerCase())
           || (!!queryTag && !!(ins.tags && ins.tags.some(t => matchesByPrefix(t, queryTag))));
@@ -1205,7 +1205,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
 
       if (modules.includes('insight')) {
-        const insights = (await db.mingwu.toArray()).slice(0, MAX_SEMANTIC_CANDIDATES);
+        const insights = (await db.insights.toArray()).slice(0, MAX_SEMANTIC_CANDIDATES);
         for (const ins of insights) {
           if (!ins.embedding || ins.embedding.length === 0) continue;
           if (!ins.id) continue;
@@ -1294,7 +1294,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const logCount = await db.raw_logs.filter(log => !!log.embedding && log.embedding.length > 0).count();
       const diaryCount = await db.daily_reviews.filter(d => d.entry_type === 'diary' && !!d.embedding && d.embedding.length > 0).count();
       const reviewCount = await db.daily_reviews.filter(r => r.entry_type === 'review' && !!r.embedding && r.embedding.length > 0).count();
-      const insightCount = await db.mingwu.filter(ins => !!ins.embedding && ins.embedding.length > 0).count();
+      const insightCount = await db.insights.filter(ins => !!ins.embedding && ins.embedding.length > 0).count();
       set({ totalVectorsCount: logCount + diaryCount + reviewCount + insightCount });
     } catch (e) {
       console.error('Failed to update vectors count:', e);
@@ -1389,7 +1389,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const localLogs = await db.raw_logs.toArray();
       const localDiaries = await db.daily_reviews.filter(d => d.entry_type === 'diary').toArray();
       const localReviews = await db.daily_reviews.filter(r => r.entry_type === 'review').toArray();
-      const localInsights = await db.mingwu.toArray();
+      const localInsights = await db.insights.toArray();
 
       // 4. 数据合并
       const policy = forcePolicy || settings.syncConflictPolicy || 'merge';
@@ -1399,7 +1399,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           // 清空本地数据，以云端为绝对基准
           await db.raw_logs.clear();
           await db.daily_reviews.clear();
-          await db.mingwu.clear();
+          await db.insights.clear();
         }
 
         // 合并 logs
@@ -1444,15 +1444,15 @@ export const useAppStore = create<AppState>((set, get) => ({
             }
           }
         }
-        // 合并 insights（-> mingwu，补 mingwu_type）
+        // 合并 insights（-> insights，补 insight_type）
         if (cloudData.insights && Array.isArray(cloudData.insights)) {
           for (const cInsight of cloudData.insights) {
             const mapped: any = normalizeLegacyInsight(cInsight);
-            const exist = await db.mingwu.get(mapped.id);
+            const exist = await db.insights.get(mapped.id);
             if (!exist) {
-              await db.mingwu.add(mapped);
+              await db.insights.add(mapped);
             } else if (policy === 'cloud_wins' || mapped.created_at > exist.created_at) {
-              await db.mingwu.put(mapped);
+              await db.insights.put(mapped);
             }
           }
         }
@@ -1462,7 +1462,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const mergedLogs = await db.raw_logs.toArray();
       const mergedDiaries = await db.daily_reviews.filter(d => d.entry_type === 'diary').toArray();
       const mergedReviews = await db.daily_reviews.filter(r => r.entry_type === 'review').toArray();
-      const mergedInsights = await db.mingwu.toArray();
+      const mergedInsights = await db.insights.toArray();
 
       const packedMergedLogs = await Promise.all(mergedLogs.map(async l => {
         if (l.audioBlob) {

@@ -82,9 +82,9 @@ export interface CopilotConversation {
   updated_at: number;
 }
 
-// V2「明悟」表：由原 `insights` 改名而来。`mingwu_type` 区分「明悟」与「洞察」两类
-// AI 产出（双产出 UI 留给 #8，#3 仅做表重命名 + 导航重命名，保持原洞察功能可用）。
-export interface Mingwu {
+// V2「洞察」表：存储「明悟」与「洞察」两类 AI 产出。
+// `insight_type` 区分「明悟」（mingwu）与「洞察」（insight）两类卡片。
+export interface Insight {
   id?: string;
   range_type: string;
   range_label: string;
@@ -93,7 +93,7 @@ export interface Mingwu {
   content: string;
   ai_summary?: string;        // one-line poetic summary (mirrors DailyReview)
   created_at: number;
-  mingwu_type: 'mingwu' | 'insight'; // 明悟 / 洞察 判别
+  insight_type: 'mingwu' | 'insight'; // 明悟 / 洞察 判别
   prompt_index?: number;
   prompt_name?: string;
   chat_history?: InsightMessage[];
@@ -137,7 +137,7 @@ export interface AttachmentBlob {
 // chunks 表是「全文按原文分块」的补充存储，供未来更精细的分块级语义检索。
 export interface TextChunk {
   id: string;                 // `${source_type}:${source_id}:${field}:${chunk_index}`，确定性主键
-  source_type: string;        // 源表名：'raw_logs' | 'daily_reviews' | 'thoughts' | 'mingwu'
+  source_type: string;        // 源表名：'raw_logs' | 'daily_reviews' | 'thoughts' | 'insights'
   source_id: string;          // 源记录 id
   field: string;              // 被分块的文本字段：'content' | 'ai_review' | 'ai_editorial' | 'attachment_summary'
   chunk_index: number;        // 分块序号（0-based）
@@ -174,7 +174,7 @@ export interface TagAlias {
 export class WhitewashDiaryDB extends dexie {
   raw_logs!: Table<RawLog>;
   daily_reviews!: Table<DailyReview>;
-  mingwu!: Table<Mingwu>;
+  insights!: Table<Insight>;
   thoughts!: Table<Thought>;
   copilot_conversations!: Table<CopilotConversation>;
   migration_backups!: Table<MigrationBackup>;
@@ -306,7 +306,7 @@ export class WhitewashDiaryDB extends dexie {
         await tx.table('mingwu').put({
           ...ins,
           mingwu_type: ins.mingwu_type || 'insight'
-        } as Mingwu);
+        } as any);
       }
       // daily_diaries 与 insights 在 v8 stores 中显式声明为 null，Dexie 据此删除旧表
       // （注意：Dexie 中省略一个 store 不会删除它，必须显式设 null）。
@@ -423,6 +423,43 @@ export class WhitewashDiaryDB extends dexie {
         }
       }
     });
+
+    // Version 14: 将内部表名由 mingwu 统一改为 insights。
+    // - 新建 insights 表，字段 mingwu_type 改名为 insight_type。
+    // - 迁移旧 mingwu 表数据；更新 chunks.source_type。
+    // - 删除旧 mingwu 表（Dexie 中省略不会删除，必须显式设 null）。
+    this.version(14).stores({
+      raw_logs: 'id, created_at, *tags',
+      daily_reviews: 'id, review_date, entry_type, *tags',
+      thoughts: 'id, created_at',
+      insights: 'id, range_type, created_at',
+      copilot_conversations: 'id, updated_at',
+      migration_backups: 'key',
+      tags: 'path, name, created_at, sort_order',
+      tag_aliases: 'alias, target',
+      attachments: 'id, type, created_at',
+      chunks: 'id, source_id, [source_type+source_id+field], *tags',
+      mingwu: null,
+    }).upgrade(async (tx) => {
+      const safeToArray = async (name: string) => {
+        try { return await tx.table(name).toArray(); } catch { return []; }
+      };
+
+      const oldRecords: any[] = await safeToArray('mingwu');
+      for (const old of oldRecords) {
+        await tx.table('insights').put({
+          ...old,
+          insight_type: old.insight_type || old.mingwu_type || 'insight',
+        } as Insight);
+      }
+
+      const chunks = await tx.table('chunks').toArray();
+      for (const c of chunks) {
+        if (c.source_type === 'mingwu') {
+          await tx.table('chunks').put({ ...c, source_type: 'insights' });
+        }
+      }
+    });
   }
 }
 
@@ -447,8 +484,8 @@ export function normalizeLegacyReview(r: any): DailyReview {
     prompt_name: rest.prompt_name || review_prompt_name || '回顾',
   } as DailyReview;
 }
-export function normalizeLegacyInsight(i: any): Mingwu {
-  return { ...i, mingwu_type: i.mingwu_type || 'insight' } as Mingwu;
+export function normalizeLegacyInsight(i: any): Insight {
+  return { ...i, insight_type: i.insight_type || i.mingwu_type || 'insight' } as Insight;
 }
 
 export const db = new WhitewashDiaryDB();

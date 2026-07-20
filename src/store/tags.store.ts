@@ -169,14 +169,14 @@ export const useTagsStore = create<TagsState>((set, get) => ({
       await db.thoughts.update(th.id, { tags: newTags });
     }
 
-    // 3c. 级联更新 mingwu（明悟/洞察卡片自动打标）
-    const mingwu = await db.mingwu.toArray();
-    for (const m of mingwu) {
+    // 3c. 级联更新 insights（明悟/洞察卡片自动打标）
+    const insights = await db.insights.toArray();
+    for (const m of insights) {
       if (!m.tags || m.tags.length === 0) continue;
       const hasMatch = m.tags.some(t => isPathOrChild(t, op));
       if (!hasMatch) continue;
       const newTags = m.tags.map(t => replacePathPrefix(t, op, np));
-      await db.mingwu.update(m.id, { tags: newTags });
+      await db.insights.update(m.id, { tags: newTags });
     }
 
     // 4. 更新 aliases 中引用了 oldPath 的条目
@@ -232,14 +232,14 @@ export const useTagsStore = create<TagsState>((set, get) => ({
       await db.thoughts.update(th.id, { tags: newTags });
     }
 
-    // 级联更新 mingwu
-    const mingwu = await db.mingwu.toArray();
+    // 级联更新 insights
+    const mingwu = await db.insights.toArray();
     for (const m of mingwu) {
       if (!m.tags || m.tags.length === 0) continue;
       const hasMatch = m.tags.some(t => isPathOrChild(t, sp));
       if (!hasMatch) continue;
       const newTags = m.tags.map(replaceTag);
-      await db.mingwu.update(m.id, { tags: newTags });
+      await db.insights.update(m.id, { tags: newTags });
     }
 
     // 3. 合并标签定义：sourcePath 的子标签也迁移到 targetPath 下
@@ -322,14 +322,14 @@ export const useTagsStore = create<TagsState>((set, get) => ({
       await db.thoughts.update(th.id, { tags: newTags });
     }
 
-    // 2c. 从 mingwu 移除 p 及其子路径
-    const mingwu = await db.mingwu.toArray();
+    // 2c. 从 insights 移除 p 及其子路径
+    const mingwu = await db.insights.toArray();
     for (const m of mingwu) {
       if (!m.tags || m.tags.length === 0) continue;
       const hasMatch = m.tags.some(t => isPathOrChild(t, p));
       if (!hasMatch) continue;
       const newTags = m.tags.filter(t => !isPathOrChild(t, p));
-      await db.mingwu.update(m.id, { tags: newTags });
+      await db.insights.update(m.id, { tags: newTags });
     }
 
     // 3. 删除标签定义（自身及子路径）
@@ -438,9 +438,9 @@ export const useTagsStore = create<TagsState>((set, get) => ({
       if (matches(th.tags)) await db.thoughts.delete(th.id);
     }
 
-    const mingwu = await db.mingwu.toArray();
-    for (const m of mingwu) {
-      if (matches(m.tags)) await db.mingwu.delete(m.id);
+    const insights = await db.insights.toArray();
+    for (const m of insights) {
+      if (matches(m.tags)) await db.insights.delete(m.id);
     }
 
     const allTags = await db.tags.toArray();

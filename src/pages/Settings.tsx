@@ -35,7 +35,7 @@ const DATA_TYPE_OPTIONS: { id: DataType; labelKey: string }[] = [
   { id: 'raw_logs', labelKey: 'dataType.raw_logs' },
   { id: 'daily_reviews', labelKey: 'dataType.daily_reviews' },
   { id: 'thoughts', labelKey: 'dataType.thoughts' },
-  { id: 'mingwu', labelKey: 'dataType.mingwu' },
+  { id: 'insights', labelKey: 'dataType.mingwu' },
   { id: 'copilot_conversations', labelKey: 'dataType.copilot_conversations' },
   { id: 'tags', labelKey: 'dataType.tags' },
   { id: 'tag_aliases', labelKey: 'dataType.tag_aliases' },
@@ -475,8 +475,8 @@ export default function Settings() {
          data.diaries = diaries;
       }
       if (exportOptions.insights) {
-         // V2: insights 改名为 mingwu
-         let insights = await db.mingwu.toArray();
+         // V2: insights 存储在 insights 表
+         let insights = await db.insights.toArray();
          if (exportDateRange === 'custom') {
            insights = insights.filter(i => i.created_at >= startMs && i.created_at <= endMs);
          }
@@ -497,7 +497,7 @@ export default function Settings() {
          const filteredReviews = exportDateRange === 'custom'
            ? allDailyReviews.filter(r => r.review_date >= startStr && r.review_date <= endStr)
            : allDailyReviews;
-         const allInsights = await db.mingwu.toArray();
+         const allInsights = await db.insights.toArray();
          const filteredInsights = exportDateRange === 'custom'
            ? allInsights.filter(i => i.created_at >= startMs && i.created_at <= endMs)
            : allInsights;
@@ -565,9 +565,9 @@ export default function Settings() {
         }
 
         if (data.insights && Array.isArray(data.insights)) {
-          // V2: insights -> mingwu
+          // V2: insights -> insights
           const insightsToPut = data.insights.map((i: any) => normalizeLegacyInsight(i));
-          await db.mingwu.bulkPut(insightsToPut);
+          await db.insights.bulkPut(insightsToPut);
           importedCount += insightsToPut.length;
         }
 

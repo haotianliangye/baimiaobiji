@@ -137,7 +137,7 @@ export async function retrieveCopilotContext(
   }
 
   if (filters.modules.includes('insight')) {
-    const insights = (await db.mingwu.toArray()).slice(0, MAX_SEMANTIC_CANDIDATES);
+    const insights = (await db.insights.toArray()).slice(0, MAX_SEMANTIC_CANDIDATES);
     for (const ins of insights) {
       if (!ins.embedding || ins.embedding.length === 0) continue;
       if (!ins.id) continue;

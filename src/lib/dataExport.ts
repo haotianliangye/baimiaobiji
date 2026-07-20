@@ -8,7 +8,7 @@
  */
 import { db } from '../db/db';
 
-export type DataType = 'raw_logs' | 'daily_reviews' | 'thoughts' | 'mingwu' | 'copilot_conversations' | 'tags' | 'tag_aliases' | 'attachments';
+export type DataType = 'raw_logs' | 'daily_reviews' | 'thoughts' | 'insights' | 'copilot_conversations' | 'tags' | 'tag_aliases' | 'attachments';
 
 export interface ExportOptions {
   dateStart?: number; // timestamp (ms)，可选
@@ -22,7 +22,7 @@ const TYPE_LABELS: Record<DataType, string> = {
   raw_logs: '拾微',
   daily_reviews: '回顾',
   thoughts: '沉淀',
-  mingwu: '洞察',
+  insights: '洞察',
   copilot_conversations: '聊天记录',
   tags: '标签定义',
   tag_aliases: '标签别名',
@@ -117,8 +117,8 @@ async function fetchRecords(
       }
       return records.map(cleanRecord);
     }
-    case 'mingwu': {
-      let records = await db.mingwu.toArray();
+    case 'insights': {
+      let records = await db.insights.toArray();
       if (hasFilter) {
         records = records.filter((r) => {
           if (dateStart !== undefined && r.created_at < dateStart) return false;
@@ -207,9 +207,9 @@ function recordsToMarkdown(type: DataType, records: any[]): string {
         lines.push(record.content || '');
         lines.push('');
         break;
-      case 'mingwu':
+      case 'insights':
         lines.push(
-          `### ${record.range_label || record.range_type} (${record.mingwu_type === 'mingwu' ? '明悟' : '洞察'})`
+          `### ${record.range_label || record.range_type} (${record.insight_type === 'mingwu' ? '明悟' : '洞察'})`
         );
         if (record.start_date && record.end_date) {
           lines.push(`*${record.start_date} ~ ${record.end_date}*`);

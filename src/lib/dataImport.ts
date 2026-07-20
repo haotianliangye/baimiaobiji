@@ -23,7 +23,7 @@ const TABLE_NAMES: DataType[] = [
   'raw_logs',
   'daily_reviews',
   'thoughts',
-  'mingwu',
+  'insights',
   'copilot_conversations',
   'tags',
   'tag_aliases',

@@ -45,7 +45,7 @@ import {
   Play,
   Link as LinkIcon,
 } from 'lucide-react';
-import { db, type Thought, type RawLog, type DailyReview, type Mingwu, type AttachmentMeta } from '../db/db';
+import { db, type Thought, type RawLog, type DailyReview, type Insight, type AttachmentMeta } from '../db/db';
 import { useTagsStore } from '../store/tags.store';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { normalizeTagPath } from '../lib/tags';
@@ -53,9 +53,9 @@ import { useTranslation } from '../lib/i18n';
 import RichEditor from './RichEditor';
 import MediaPreview from './MediaPreview';
 
-type SourceType = 'raw_logs' | 'thoughts' | 'daily_reviews' | 'mingwu';
+type SourceType = 'raw_logs' | 'thoughts' | 'daily_reviews' | 'insights';
 
-const ALL_SOURCES: SourceType[] = ['raw_logs', 'thoughts', 'daily_reviews', 'mingwu'];
+const ALL_SOURCES: SourceType[] = ['raw_logs', 'thoughts', 'daily_reviews', 'insights'];
 
 /** 翻译函数类型（与 i18n.ts 的 t 签名一致） */
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
@@ -65,7 +65,7 @@ const SOURCE_LABEL_KEYS: Record<SourceType, string> = {
   raw_logs: 'tab.record',
   thoughts: 'tab.thoughts',
   daily_reviews: 'tab.review',
-  mingwu: 'tab.mingwu',
+  insights: 'tab.mingwu',
 };
 
 const LS_SOURCES = 'random-walk-sources';
@@ -183,7 +183,7 @@ function toWalkItems(
   thoughts: Thought[],
   rawLogs: RawLog[],
   reviews: DailyReview[],
-  mingwu: Mingwu[],
+  mingwu: Insight[],
   sources: SourceType[],
   tf: TFunc
 ): WalkItem[] {
@@ -239,19 +239,19 @@ function toWalkItems(
       });
     }
   }
-  if (sources.includes('mingwu')) {
+  if (sources.includes('insights')) {
     for (const m of mingwu) {
       if (!m.id) continue;
       items.push({
-        key: `mingwu:${m.id}`,
-        type: 'mingwu',
+        key: `insights:${m.id}`,
+        type: 'insights',
         id: m.id,
         content: m.content,
         title: m.ai_summary,
         createdAt: m.created_at,
         tags: [],
         rawText: m.content,
-        typeLabel: m.mingwu_type === 'insight' ? tf('mingwu.insight') : tf('mingwu.mingwu'),
+        typeLabel: m.insight_type === 'insight' ? tf('mingwu.insight') : tf('mingwu.mingwu'),
       });
     }
   }
@@ -424,10 +424,10 @@ export default function RandomWalk() {
   const allThoughts = useLiveQuery(() => db.thoughts.toArray(), []);
   const allRawLogs = useLiveQuery(() => db.raw_logs.toArray(), []);
   const allReviews = useLiveQuery(() => db.daily_reviews.toArray(), []);
-  const allMingwu = useLiveQuery(() => db.mingwu.toArray(), []);
+  const allMingwu = useLiveQuery(() => db.insights.toArray(), []);
 
   // 用 ref 持有最新数据，draw 闭包始终读到最新值
-  const dataRef = useRef({ thoughts: [] as Thought[], rawLogs: [] as RawLog[], reviews: [] as DailyReview[], mingwu: [] as Mingwu[] });
+  const dataRef = useRef({ thoughts: [] as Thought[], rawLogs: [] as RawLog[], reviews: [] as DailyReview[], mingwu: [] as Insight[] });
   dataRef.current = {
     thoughts: allThoughts || [],
     rawLogs: allRawLogs || [],
@@ -569,8 +569,8 @@ export default function RandomWalk() {
       case 'daily_reviews':
         await db.daily_reviews.delete(current.id);
         break;
-      case 'mingwu':
-        await db.mingwu.delete(current.id);
+      case 'insights':
+        await db.insights.delete(current.id);
         break;
     }
     advance();
@@ -596,8 +596,8 @@ export default function RandomWalk() {
       const rec = await db.daily_reviews.get(item.id);
       const isDiary = rec?.entry_type === 'diary';
       setEditContent(isDiary ? (rec?.ai_editorial ?? '') : (rec?.ai_review ?? ''));
-    } else if (item.type === 'mingwu') {
-      const rec = await db.mingwu.get(item.id);
+    } else if (item.type === 'insights') {
+      const rec = await db.insights.get(item.id);
       setEditContent(rec?.content ?? item.content);
     }
   };
@@ -627,8 +627,8 @@ export default function RandomWalk() {
         } else {
           await db.daily_reviews.update(editingItem.id, { ai_review: editContent });
         }
-      } else if (editingItem.type === 'mingwu') {
-        await db.mingwu.update(editingItem.id, { content: editContent });
+      } else if (editingItem.type === 'insights') {
+        await db.insights.update(editingItem.id, { content: editContent });
       }
       // 同步更新当前批次中的卡片内容
       setItems((prev) =>

@@ -75,7 +75,7 @@ export interface EmbeddingTask {
 // V2: daily_diaries 已合并进 daily_reviews。diary 与 review 共享 daily_reviews 表，
 // 靠 `matches`（按 entry_type 过滤）确保每个 hook 只处理自己那一类行，避免日记行
 // 的 legacy `ai_review` 被 review hook 重复 embedding 并覆盖 `ai_editorial` 向量。
-// 队列 key 仍用 type 前缀，两类记录 id 不冲突。insight -> mingwu。
+// 队列 key 仍用 type 前缀，两类记录 id 不冲突。
 type EntityType = 'record' | 'diary' | 'review' | 'insight' | 'thought' | 'multimedia';
 const ENTITY_CONFIG: Record<EntityType, {
   table: any;
@@ -88,7 +88,7 @@ const ENTITY_CONFIG: Record<EntityType, {
   record: { table: db.raw_logs, textField: 'content', sourceType: 'raw_logs' },
   diary: { table: db.daily_reviews, textField: 'ai_editorial', matches: (o) => o.entry_type === 'diary', sourceType: 'daily_reviews' },
   review: { table: db.daily_reviews, textField: 'ai_review', matches: (o) => o.entry_type === 'review', sourceType: 'daily_reviews' },
-  insight: { table: db.mingwu, textField: 'content', sourceType: 'mingwu' },
+  insight: { table: db.insights, textField: 'content', sourceType: 'insights' },
   thought: { table: db.thoughts, textField: 'content', sourceType: 'thoughts' },
   // #6 多媒体摘要：对 raw_logs 的 attachment_summary 字段做 embedding，写入独立的
   // attachment_embedding 字段（避免与 content 的 embedding 互相覆盖）。

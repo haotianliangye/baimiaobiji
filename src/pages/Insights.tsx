@@ -5,7 +5,7 @@ import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useTTS } from '../lib/tts';
 import ReactMarkdown from 'react-markdown';
 import ContextChat from '../components/ContextChat';
-import { db, Mingwu } from '../db/db';
+import { db, Insight } from '../db/db';
 import { useAppStore } from '../store/app.store';
 import { useMingwuStore } from '../store/mingwu.store';
 import { format, subDays } from 'date-fns';
@@ -20,26 +20,26 @@ const MENU_SAFE_MARGIN = 296;
 
 // #12: range_type 值 -> i18n key 映射（range_type 存英文值作标识符）
 const RANGE_TYPE_KEY: Record<string, string> = {
-  'day': 'mingwu.rangeDay',
-  'week': 'mingwu.rangeWeek',
-  'month': 'mingwu.rangeMonth',
-  'quarter': 'mingwu.rangeQuarter',
-  'half-year': 'mingwu.rangeHalfYear',
-  'year': 'mingwu.rangeYear',
-  'custom': 'mingwu.rangeCustom',
+  'day': 'insight.rangeDay',
+  'week': 'insight.rangeWeek',
+  'month': 'insight.rangeMonth',
+  'quarter': 'insight.rangeQuarter',
+  'half-year': 'insight.rangeHalfYear',
+  'year': 'insight.rangeYear',
+  'custom': 'insight.rangeCustom',
 };
 
 
-interface MingwuCardProps {
-  mingwu: Mingwu;
+interface InsightCardProps {
+  insight: Insight;
   isEditing: boolean;
   onStartEdit: () => void;
   onEndEdit: () => void;
   onDelete: (id: string) => void;
-  onRegenerate: (mingwu: Mingwu) => void;
+  onRegenerate: (insight: Insight) => void;
 }
 
-const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onRegenerate }: MingwuCardProps) => {
+const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onRegenerate }: InsightCardProps) => {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const [showChat, setShowChat] = useState(false);
@@ -56,17 +56,17 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
   const { copied, copy } = useCopyToClipboard();
   const { play, isPlaying } = useTTS();
 
-  const [editText, setEditText] = useState(mingwu.content || '');
+  const [editText, setEditText] = useState(insight.content || '');
   const [isSaving, setIsSaving] = useState(false);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const isMingwuType = mingwu.mingwu_type === 'mingwu';
-  const typeLabel = isMingwuType ? t('mingwu.mingwu') : t('mingwu.insight');
-  const rangeTypeLabel = (range: string) => t(RANGE_TYPE_KEY[range] || 'mingwu.rangeCustom');
+  const isMingwuType = insight.insight_type === 'mingwu';
+  const typeLabel = isMingwuType ? t('insight.mingwu') : t('insight.insight');
+  const rangeTypeLabel = (range: string) => t(RANGE_TYPE_KEY[range] || 'insight.rangeCustom');
 
   useEffect(() => {
-     setEditText(mingwu.content || '');
-  }, [mingwu.content]);
+     setEditText(insight.content || '');
+  }, [insight.content]);
 
   useEffect(() => {
      if (isEditing && editTextareaRef.current) {
@@ -76,13 +76,13 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
   }, [editText, isEditing]);
 
   const handleSaveEdit = async () => {
-    if (!mingwu.id) return;
+    if (!insight.id) return;
     setIsSaving(true);
     try {
-      await db.mingwu.update(mingwu.id, { content: editText });
+      await db.insights.update(insight.id, { content: editText });
       onEndEdit();
     } catch (err: any) {
-      alert(t('mingwu.saveFailed', { msg: err?.message || '' }));
+      alert(t('insight.saveFailed', { msg: err?.message || '' }));
     } finally {
       setIsSaving(false);
     }
@@ -94,15 +94,15 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
     }
   }, [expanded]);
 
-  const summary = mingwu.ai_summary || t('mingwu.noSummary');
-  const title = mingwu.range_label;
-  const headerDate = format(new Date(mingwu.created_at), 'MM-dd HH:mm');
+  const summary = insight.ai_summary || t('insight.noSummary');
+  const title = insight.range_label;
+  const headerDate = format(new Date(insight.created_at), 'MM-dd HH:mm');
 
   return (
     <>
     <div
-      data-testid="mingwu-card"
-      data-mingwu-type={mingwu.mingwu_type}
+      data-testid="insight-card"
+      data-insight-type={insight.insight_type}
       className="w-full overflow-hidden baimiao-card-diary mb-4 relative"
       onTouchStart={(e) => {
          if (isEditing) return;
@@ -134,7 +134,7 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
             <Sun weight="regular" className={`w-4 h-4 shrink-0 ${isMingwuType ? 'text-baimiao-mysteria' : 'text-stone-400'}`} />
             <span className="text-[15px] font-semibold text-stone-800 truncate">{title}</span>
             <span
-              data-testid={`mingwu-type-badge-${mingwu.mingwu_type}`}
+              data-testid={`insight-type-badge-${insight.insight_type}`}
               className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
                 isMingwuType
                   ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria'
@@ -161,7 +161,7 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
             value={editText}
             onChange={e => setEditText(e.target.value)}
             className="w-full bg-white p-4 rounded-xl border border-stone-200 shadow-sm focus:outline-none focus:border-stone-300 focus:ring-2 focus:ring-stone-100 resize-none font-sans text-[15px] leading-relaxed text-stone-900 overflow-hidden min-h-[200px]"
-            placeholder={t('mingwu.editPlaceholder', { type: typeLabel })}
+            placeholder={t('insight.editPlaceholder', { type: typeLabel })}
             autoFocus
             onClick={(e) => e.stopPropagation()}
           />
@@ -170,7 +170,7 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
               onClick={(e) => { e.stopPropagation(); onEndEdit(); }}
               className="px-4 py-2 rounded-full text-[13px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors shadow-sm select-none"
             >
-              {t('mingwu.cancel')}
+              {t('insight.cancel')}
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); handleSaveEdit(); }}
@@ -178,7 +178,7 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
               className="flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] border border-white/10 hover:brightness-110 transition-all shadow-sm select-none disabled:opacity-60"
             >
               {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-              {isSaving ? t('mingwu.saving') : t('mingwu.save')}
+              {isSaving ? t('insight.saving') : t('insight.save')}
             </button>
           </div>
         </div>
@@ -187,7 +187,7 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
         {/* Prompt/range meta sub-header - mirrors Diary/Review's sub-header. */}
         <div className="px-4 py-1.5 border-t border-black/[0.03] bg-stone-50/60 text-[11px] text-stone-400 font-mono flex items-center justify-between select-none">
           <span>{typeLabel} · {headerDate}</span>
-          <span>{rangeTypeLabel(mingwu.range_type)}</span>
+          <span>{rangeTypeLabel(insight.range_type)}</span>
         </div>
         {expanded && (
           <div
@@ -199,7 +199,7 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
               setExpanded(!expanded);
             }}
           >
-             <ReactMarkdown>{washCitations(formatDiaryMarkdown(mingwu.content))}</ReactMarkdown>
+             <ReactMarkdown>{washCitations(formatDiaryMarkdown(insight.content))}</ReactMarkdown>
           </div>
         )}
         </>
@@ -211,20 +211,20 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
             <button
                onClick={(e) => {
                   e.stopPropagation();
-                  if (confirm(t('mingwu.confirmDelete')) && mingwu.id) {
-                     onDelete(mingwu.id);
+                  if (confirm(t('insight.confirmDelete')) && insight.id) {
+                     onDelete(insight.id);
                   }
                }}
                className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-rose-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
             >
                <Trash2 className="w-4 h-4" />
-               {t('mingwu.delete')}
+               {t('insight.delete')}
             </button>
             <button
                onClick={(e) => {
                   e.stopPropagation();
-                  if (mingwu.content) {
-                     copy(mingwu.content);
+                  if (insight.content) {
+                     copy(insight.content);
                   }
                }}
                className={`flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
@@ -234,47 +234,47 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
                }`}
             >
                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-               {copied ? t('mingwu.copied') : t('mingwu.copy')}
+               {copied ? t('insight.copied') : t('insight.copy')}
             </button>
             <button
                data-testid="mingwu-tts-btn"
                onClick={(e) => {
                   e.stopPropagation();
-                  play(mingwu.content);
+                  play(insight.content);
                }}
                className={`flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
-                  isPlaying(mingwu.content)
+                  isPlaying(insight.content)
                     ? 'text-baimiao-mysteria bg-baimiao-mysteria/5'
                     : 'text-stone-500 hover:text-stone-800 hover:bg-stone-100'
                }`}
             >
-               {isPlaying(mingwu.content) ? <Square className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-               {isPlaying(mingwu.content) ? t('mingwu.stopReading') : t('mingwu.readAloud')}
+               {isPlaying(insight.content) ? <Square className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+               {isPlaying(insight.content) ? t('insight.stopReading') : t('insight.readAloud')}
             </button>
             <button
                onClick={(e) => {
                   e.stopPropagation();
-                  setEditText(mingwu.content || '');
+                  setEditText(insight.content || '');
                   onStartEdit();
                }}
                className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
             >
                <Edit2 className="w-4 h-4" />
-               {t('mingwu.edit')}
+               {t('insight.edit')}
             </button>
             <button
-               onClick={(e) => { e.stopPropagation(); onRegenerate(mingwu); }}
+               onClick={(e) => { e.stopPropagation(); onRegenerate(insight); }}
                className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
             >
                <RefreshCw className="w-4 h-4" />
-               {t('mingwu.regenerate')}
+               {t('insight.regenerate')}
             </button>
             <button
                onClick={(e) => { e.stopPropagation(); setExpanded(false); }}
                className="flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors"
             >
                <ChevronUp className="w-4 h-4" />
-               {t('mingwu.collapse')}
+               {t('insight.collapse')}
             </button>
           </div>
 
@@ -283,7 +283,7 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
              className={`flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl text-[13px] font-medium transition-colors ${showChat ? 'bg-stone-800 text-white' : 'bg-stone-100 hover:bg-stone-200 text-stone-700'}`}
           >
              <MessageCircle className="w-4 h-4" />
-             {t('mingwu.chatWithAI')}
+             {t('insight.chatWithAI')}
           </button>
         </div>
       )}
@@ -291,12 +291,12 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
       {expanded && showChat && !isEditing && (
         <div className="border-t border-black/[0.03] p-4">
           <ContextChat
-            chatHistory={mingwu.chat_history || []}
-            contextContent={mingwu.content}
+            chatHistory={insight.chat_history || []}
+            contextContent={insight.content}
             apiEndpoint="/api/insight-chat"
             onUpdateHistory={async (newHistory) => {
-              if (mingwu.id) {
-                await db.mingwu.update(mingwu.id, { chat_history: newHistory });
+              if (insight.id) {
+                await db.insights.update(insight.id, { chat_history: newHistory });
               }
             }}
           />
@@ -323,8 +323,8 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
           >
             <button
               onClick={() => {
-                 if (mingwu.content) {
-                    copy(mingwu.content);
+                 if (insight.content) {
+                    copy(insight.content);
                  }
                  setContextMenuState({ ...contextMenuState, isOpen: false });
               }}
@@ -335,11 +335,11 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
               }`}
             >
               {copied ? <Check className="w-3.5 h-3.5 mb-1.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5 mb-1.5 text-white/80" />}
-              <span className="text-[10px] font-medium tracking-wide">{copied ? t('mingwu.copied') : t('mingwu.copy')}</span>
+              <span className="text-[10px] font-medium tracking-wide">{copied ? t('insight.copied') : t('insight.copy')}</span>
             </button>
             <button
               onClick={() => {
-                setEditText(mingwu.content || '');
+                setEditText(insight.content || '');
                 onStartEdit();
                 setExpanded(true);
                 setContextMenuState({ ...contextMenuState, isOpen: false });
@@ -351,23 +351,23 @@ const MingwuCard = ({ mingwu, isEditing, onStartEdit, onEndEdit, onDelete, onReg
             </button>
             <button
               onClick={() => {
-                onRegenerate(mingwu);
+                onRegenerate(insight);
                 setContextMenuState({ ...contextMenuState, isOpen: false });
               }}
               className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-white/90 hover:text-white transition-colors hover:bg-white/10 disabled:opacity-50"
             >
               <RefreshCw className="w-3.5 h-3.5 mb-1.5 text-white/80" />
-              <span className="text-[10px] font-medium tracking-wide">{t('mingwu.regenerate')}</span>
+              <span className="text-[10px] font-medium tracking-wide">{t('insight.regenerate')}</span>
             </button>
             <button
               onClick={() => {
-                 if (mingwu.id) onDelete(mingwu.id);
+                 if (insight.id) onDelete(insight.id);
                  setContextMenuState({ ...contextMenuState, isOpen: false });
               }}
               className="flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 text-rose-400 hover:text-rose-300 transition-colors hover:bg-white/10 rounded-r-lg disabled:opacity-50"
             >
               <Trash2 className="w-3.5 h-3.5 mb-1.5" />
-              <span className="text-[10px] font-medium tracking-wide">{t('mingwu.delete')}{typeLabel}</span>
+              <span className="text-[10px] font-medium tracking-wide">{t('insight.delete')}{typeLabel}</span>
             </button>
           </div>
         </div>
@@ -396,7 +396,7 @@ export default function Insights() {
   // hide whenever any card is being edited/saved - otherwise its
   // pointer-events-auto overlay can intercept clicks on the Save/Cancel
   // buttons, making the save button look unresponsive.
-  const [editingMingwuId, setEditingMingwuId] = useState<string | null>(null);
+  const [editingInsightId, setEditingInsightId] = useState<string | null>(null);
 
   const handleInteraction = useCallback(() => {
     setShowFloatBtn(true);
@@ -415,46 +415,46 @@ export default function Insights() {
     };
   }, [handleInteraction]);
 
-  const mingwuList = useLiveQuery(() => db.mingwu.orderBy('created_at').reverse().toArray());
+  const insightList = useLiveQuery(() => db.insights.orderBy('created_at').reverse().toArray());
 
   const computeRange = () => {
     const today = new Date();
     let startTime = today.getTime();
     let endTime = today.getTime();
-    let rangeLabel = t('mingwu.rangeWeek');
+    let rangeLabel = t('insight.rangeWeek');
 
     switch (timeRange) {
       case 'day':
         startTime = subDays(today, 1).getTime();
-        rangeLabel = t('mingwu.rangeDay');
+        rangeLabel = t('insight.rangeDay');
         break;
       case 'week':
         startTime = subDays(today, 7).getTime();
-        rangeLabel = t('mingwu.rangeWeek');
+        rangeLabel = t('insight.rangeWeek');
         break;
       case 'month':
         startTime = subDays(today, 30).getTime();
-        rangeLabel = t('mingwu.rangeMonth');
+        rangeLabel = t('insight.rangeMonth');
         break;
       case 'quarter':
         startTime = subDays(today, 90).getTime();
-        rangeLabel = t('mingwu.rangeQuarter');
+        rangeLabel = t('insight.rangeQuarter');
         break;
       case 'half-year':
         startTime = subDays(today, 180).getTime();
-        rangeLabel = t('mingwu.rangeHalfYear');
+        rangeLabel = t('insight.rangeHalfYear');
         break;
       case 'year':
         startTime = subDays(today, 365).getTime();
-        rangeLabel = t('mingwu.rangeYear');
+        rangeLabel = t('insight.rangeYear');
         break;
       case 'custom':
         if (!customStart || !customEnd) {
-           throw new Error(t('mingwu.rangeCustomError'));
+           throw new Error(t('insight.rangeCustomError'));
         }
         startTime = new Date(customStart).getTime();
         endTime = new Date(customEnd).getTime() + 86400000;
-        rangeLabel = `${customStart} ${t('mingwu.to')} ${customEnd}`;
+        rangeLabel = `${customStart} ${t('insight.to')} ${customEnd}`;
         break;
     }
     return { startTime, endTime, rangeLabel };
@@ -477,15 +477,15 @@ export default function Insights() {
     }
   };
 
-  const handleRegenerate = async (oldMingwu: Mingwu) => {
-    await regenerateMingwu(oldMingwu);
+  const handleRegenerate = async (oldInsight: Insight) => {
+    await regenerateMingwu(oldInsight);
     setTimeout(() => {
       scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     }, 100);
   };
 
   const handleDelete = async (id: string) => {
-    await db.mingwu.delete(id);
+    await db.insights.delete(id);
   };
 
   return (
@@ -498,7 +498,7 @@ export default function Insights() {
             placeholder={t('settings.startDate')}
             align="left"
           />
-          <span className="text-stone-400 text-[12px] font-medium shrink-0">{t('mingwu.to')}</span>
+          <span className="text-stone-400 text-[12px] font-medium shrink-0">{t('insight.to')}</span>
           <DatePickerPopover
             value={customEnd}
             onChange={setMingwuCustomEnd}
@@ -528,20 +528,20 @@ export default function Insights() {
                <div className="absolute inset-0 bg-stone-100/50 animate-pulse rounded-2xl"></div>
                <Loader2 className="w-8 h-8 text-stone-900 animate-spin relative z-10" />
             </div>
-            <h3 className="text-[15px] text-stone-900 font-medium tracking-tight mb-1">{t('mingwu.generatingMingwu')}</h3>
-            <p className="text-[13px] text-stone-500 font-mono">{t('mingwu.generatingMingwuDesc')}</p>
+            <h3 className="text-[15px] text-stone-900 font-medium tracking-tight mb-1">{t('insight.generatingMingwu')}</h3>
+            <p className="text-[13px] text-stone-500 font-mono">{t('insight.generatingMingwuDesc')}</p>
           </div>
         )}
 
-        {mingwuList && mingwuList.length > 0 ? (
+        {insightList && insightList.length > 0 ? (
           <div data-testid="mingwu-card-list" className="flex flex-col w-full animate-in slide-in-from-bottom-4 fade-in duration-700">
-            {mingwuList.map(mw => (
-              <MingwuCard
+            {insightList.map(mw => (
+              <InsightCard
                 key={mw.id}
-                mingwu={mw}
-                isEditing={editingMingwuId === mw.id}
-                onStartEdit={() => setEditingMingwuId(mw.id || null)}
-                onEndEdit={() => setEditingMingwuId(null)}
+                insight={mw}
+                isEditing={editingInsightId === mw.id}
+                onStartEdit={() => setEditingInsightId(mw.id || null)}
+                onEndEdit={() => setEditingInsightId(null)}
                 onDelete={handleDelete}
                 onRegenerate={handleRegenerate}
               />
@@ -553,9 +553,9 @@ export default function Insights() {
               <div className="w-20 h-20 bg-stone-100 rounded-full flex items-center justify-center mb-6">
                 <Calendar className="w-8 h-8 text-stone-400 stroke-[1.5px]" />
               </div>
-              <h3 className="text-[17px] text-stone-900 font-semibold tracking-tight mb-3">{t('mingwu.startTitle')}</h3>
+              <h3 className="text-[17px] text-stone-900 font-semibold tracking-tight mb-3">{t('insight.startTitle')}</h3>
               <p className="text-[14px] text-stone-500 mb-8 leading-relaxed max-w-[260px]">
-                 {t('mingwu.startDesc')}
+                 {t('insight.startDesc')}
               </p>
             </div>
           )
@@ -564,18 +564,18 @@ export default function Insights() {
 
       {/* Floating generate button - hidden while a card is being edited
           so it can't intercept the Save/Cancel clicks below it. */}
-      {!editingMingwuId && (
+      {!editingInsightId && (
       <div
-        className={`fixed bottom-24 left-0 w-full flex justify-center pointer-events-none z-20 transition-opacity duration-500 max-w-md mx-auto right-0 ${(showFloatBtn || isGeneratingMingwu || (!mingwuList || mingwuList.length === 0)) ? 'opacity-100' : 'opacity-0'}`}
+        className={`fixed bottom-24 left-0 w-full flex justify-center pointer-events-none z-20 transition-opacity duration-500 max-w-md mx-auto right-0 ${(showFloatBtn || isGeneratingMingwu || (!insightList || insightList.length === 0)) ? 'opacity-100' : 'opacity-0'}`}
       >
         <button
           data-testid="mingwu-generate-btn"
           onClick={handleGenerate}
           disabled={isGeneratingMingwu}
-          className={`bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-md border border-white/10 text-white px-6 py-2.5 rounded-full text-[13px] font-medium tracking-wide transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:active:scale-100 min-w-[160px] ${(showFloatBtn || isGeneratingMingwu || (!mingwuList || mingwuList.length === 0)) ? 'pointer-events-auto' : 'pointer-events-none'}`}
+          className={`bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-md border border-white/10 text-white px-6 py-2.5 rounded-full text-[13px] font-medium tracking-wide transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:active:scale-100 min-w-[160px] ${(showFloatBtn || isGeneratingMingwu || (!insightList || insightList.length === 0)) ? 'pointer-events-auto' : 'pointer-events-none'}`}
         >
           {isGeneratingMingwu ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sun weight="regular" className="w-4 h-4" />}
-          {isGeneratingMingwu ? t('mingwu.mingwuInProgress') : t('mingwu.generateMingwu')}
+          {isGeneratingMingwu ? t('insight.mingwuInProgress') : t('insight.generateMingwu')}
         </button>
       </div>
       )}
