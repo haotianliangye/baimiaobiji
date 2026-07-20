@@ -4,6 +4,7 @@ import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, 
 import { motion, AnimatePresence } from 'motion/react';
 import TagManagement from './TagManagement';
 import DrawerTagList from '../components/DrawerTagList';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_MINGWU_PROMPT, DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT, DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT, DEFAULT_PROMPTS_BY_LANG, DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG, DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG, type Language } from '../store/settings.store';
 import { db, normalizeLegacyDiary, normalizeLegacyInsight } from '../db/db';
 import { enqueueAllMissingEmbeddings } from '../lib/embedding';
@@ -108,6 +109,8 @@ export default function Settings() {
   const [view, setView] = useState<'drawer' | 'detail'>(
     (location.state as any)?.drawer ? 'drawer' : 'detail'
   );
+  // 设置页桌面/移动布局分流：桌面端（md: ≥768px）下抽屉与详情页左右分栏同时常驻显示，不滑入动画
+  const isDesktop = useMediaQuery('(min-width: 768px)');
   // task-111: 抽屉「所有标签」默认展开，点击标题行可展开/收起
   const [tagsExpanded, setTagsExpanded] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -724,7 +727,10 @@ export default function Settings() {
 
   const handleMenuSelect = (tab: typeof activeTab) => {
     setActiveTab(tab);
-    setView('detail');
+    // 桌面端下抽屉与详情页左右分栏常驻显示，点菜单项只切 tab、不切 view
+    if (!isDesktop) {
+      setView('detail');
+    }
   };
 
   // Issue 109: 横向导航栏左右滑动切换 tab
@@ -795,21 +801,35 @@ export default function Settings() {
     </div>
   );
 
-  // Issue 109: 抽屉模式 -- 点 ≡ 从左侧滑出，含菜单项 + 「所有标签」区块
-  if (view === 'drawer') {
-    return (
-      <div className="relative flex flex-col h-full bg-stone-100 font-sans text-stone-900 overflow-hidden items-center justify-center">
-        {/* task-111: 遮罩改为毛玻璃透底效果，约 70% 可见后方应用版面 */}
+  // 统一根容器 + 条件渲染：桌面端（isDesktop=true）下抽屉与详情页左右分栏同时常驻显示，抽屉不滑入、无遮罩
+  // Issue 004（方案 B）：桌面端整体区域 = 视口 1/3，靠左对齐，右侧 2/3 留空
+  return (
+    <div
+      className={`flex h-full bg-stone-100 font-sans text-stone-900 overflow-hidden ${
+        isDesktop ? 'flex-row w-1/3 mx-auto' : 'relative flex-col items-center justify-center'
+      }`}
+    >
+      {/* 移动端遮罩：仅 drawer view 显示，点击关闭设置 */}
+      {!isDesktop && view === 'drawer' && (
         <div
           className="absolute inset-0 bg-white/30 backdrop-blur-md z-40"
           onClick={() => navigate(-1)}
           data-testid="settings-drawer-backdrop"
         />
+      )}
+
+      {/* 抽屉：桌面端常驻显示 + 相对定位 + 无滑入动画；移动端绝对定位 + 滑入动画 */}
+      {/* Issue 004（方案 B）：桌面端抽屉 = 视口 1/9（=根容器 1/3 的 1/3），替代原 w-72 */}
+      {(isDesktop || view === 'drawer') && (
         <motion.aside
-          className="absolute top-0 left-0 bottom-0 w-72 bg-[#faf9fc] z-50 flex flex-col border-r border-baimiao-border/30 shadow-xl"
-          initial={{ x: '-100%' }}
-          animate={{ x: 0 }}
-          transition={{ duration: 0.3, ease: 'easeInOut' }}
+          className={`flex flex-col border-r border-baimiao-border/30 bg-[#faf9fc] shrink-0 ${
+            isDesktop
+              ? 'relative w-1/3 h-full shadow-none'
+              : 'absolute top-0 left-0 bottom-0 w-72 z-50 shadow-xl'
+          }`}
+          initial={isDesktop ? false : { x: '-100%' }}
+          animate={isDesktop ? undefined : { x: 0 }}
+          transition={isDesktop ? undefined : { duration: 0.3, ease: 'easeInOut' }}
           data-testid="settings-drawer"
         >
           {/* 抽屉头部 */}
@@ -822,35 +842,6 @@ export default function Settings() {
             >
               <X className="w-5 h-5" />
             </button>
-          </div>
-
-          {/* Issue 003: 语言选择模块迁移到抽屉顶部 */}
-          <div className="flex items-center justify-between px-4 py-2.5 shrink-0" data-testid="drawer-language-switcher">
-            <span className="text-[13px] font-medium text-stone-700">{t('settings.languageLabel')}</span>
-            <div className="inline-flex items-center bg-stone-100/80 rounded-full p-0.5">
-              <button
-                data-testid="language-zh"
-                onClick={() => setLanguage('zh')}
-                className={`w-16 py-1.5 rounded-full text-[12.5px] font-medium transition-all text-center ${
-                  language === 'zh'
-                    ? 'bg-white text-baimiao-mysteria shadow-sm font-bold'
-                    : 'text-stone-500 hover:text-stone-700'
-                }`}
-              >
-                {t('settings.languageZh')}
-              </button>
-              <button
-                data-testid="language-en"
-                onClick={() => setLanguage('en')}
-                className={`w-16 py-1.5 rounded-full text-[12.5px] font-medium transition-all text-center ${
-                  language === 'en'
-                    ? 'bg-white text-baimiao-mysteria shadow-sm font-bold'
-                    : 'text-stone-500 hover:text-stone-700'
-                }`}
-              >
-                {t('settings.languageEn')}
-              </button>
-            </div>
           </div>
 
           {/* 上半部分：设置菜单项（不滚动） */}
@@ -869,7 +860,11 @@ export default function Settings() {
                 {tagsExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
               </button>
               <button
-                onClick={() => { setActiveTab('tags'); setView('detail'); }}
+                onClick={() => {
+                  setActiveTab('tags');
+                  // 桌面端下抽屉与详情页左右分栏常驻显示，只切 tab、不切 view
+                  if (!isDesktop) setView('detail');
+                }}
                 className="p-1.5 -mr-1.5 text-baimiao-mysteria hover:bg-baimiao-mysteria/5 rounded-full transition-all active:scale-95"
                 aria-label={t('settings.manageTags')}
                 data-testid="drawer-manage-tags"
@@ -882,14 +877,18 @@ export default function Settings() {
             )}
           </div>
         </motion.aside>
-      </div>
-    );
-  }
+      )}
 
-  // Issue 109: 全屏详情模式 -- 横向导航栏 + 设置内容
-  return (
-    <div className="relative flex flex-col h-full bg-stone-100 font-sans text-stone-900 overflow-hidden items-center justify-center">
-      <div className="flex flex-col h-full overflow-hidden bg-white relative z-50 mx-auto w-full md:max-w-3xl shadow-sm ring-1 ring-black/5">
+      {/* 详情页：桌面端常驻显示 + 占满剩余宽度；移动端 view==='detail' 时居中卡片显示 */}
+      {/* Issue 004（方案 B）：桌面端主面板 = 根容器剩余空间（=视口 2/9，由 flex-1 自动计算） */}
+      {(isDesktop || view === 'detail') && (
+        <div
+          className={`flex flex-col h-full overflow-hidden bg-white ${
+            isDesktop
+              ? 'flex-1 ring-1 ring-black/5'
+              : 'relative z-50 mx-auto w-full md:max-w-3xl shadow-sm ring-1 ring-black/5'
+          }`}
+        >
         {/* Header -- 直接关闭设置（不返回抽屉） */}
         <div className="flex h-14 items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 shrink-0">
           <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-baimiao-mysteria/70 hover:text-baimiao-mysteria hover:bg-baimiao-mysteria/5 transition-all rounded-full active:scale-90" aria-label={t('settings.back')}>
@@ -904,7 +903,33 @@ export default function Settings() {
         {/* Content area */}
         <div className="flex-1 overflow-y-auto thin-scrollbar w-full p-3 space-y-3 pb-20">
 
-
+        {/* task-111: 语言入口平铺到对话模型模块上方（全局顶部，不随 tab 变化） */}
+        <div className="flex items-center justify-center" data-testid="language-switcher">
+          <div className="inline-flex items-center bg-stone-100/80 rounded-full p-0.5">
+            <button
+              data-testid="language-zh"
+              onClick={() => setLanguage('zh')}
+              className={`w-16 py-1.5 rounded-full text-[12.5px] font-medium transition-all text-center ${
+                language === 'zh'
+                  ? 'bg-white text-baimiao-mysteria shadow-sm font-bold'
+                  : 'text-stone-500 hover:text-stone-700'
+              }`}
+            >
+              {t('settings.languageZh')}
+            </button>
+            <button
+              data-testid="language-en"
+              onClick={() => setLanguage('en')}
+              className={`w-16 py-1.5 rounded-full text-[12.5px] font-medium transition-all text-center ${
+                language === 'en'
+                  ? 'bg-white text-baimiao-mysteria shadow-sm font-bold'
+                  : 'text-stone-500 hover:text-stone-700'
+              }`}
+            >
+              {t('settings.languageEn')}
+            </button>
+          </div>
+        </div>
 
         <AnimatePresence mode="wait">
         <motion.div
@@ -2733,7 +2758,8 @@ export default function Settings() {
           </button>
         </div>
 
-      </div>
+        </div>
+      )}
     </div>
   );
 }
