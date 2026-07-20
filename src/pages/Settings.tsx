@@ -824,6 +824,35 @@ export default function Settings() {
             </button>
           </div>
 
+          {/* Issue 003: 语言选择模块迁移到抽屉顶部 */}
+          <div className="flex items-center justify-between px-4 py-2.5 shrink-0" data-testid="drawer-language-switcher">
+            <span className="text-[13px] font-medium text-stone-700">{t('settings.languageLabel')}</span>
+            <div className="inline-flex items-center bg-stone-100/80 rounded-full p-0.5">
+              <button
+                data-testid="language-zh"
+                onClick={() => setLanguage('zh')}
+                className={`w-16 py-1.5 rounded-full text-[12.5px] font-medium transition-all text-center ${
+                  language === 'zh'
+                    ? 'bg-white text-baimiao-mysteria shadow-sm font-bold'
+                    : 'text-stone-500 hover:text-stone-700'
+                }`}
+              >
+                {t('settings.languageZh')}
+              </button>
+              <button
+                data-testid="language-en"
+                onClick={() => setLanguage('en')}
+                className={`w-16 py-1.5 rounded-full text-[12.5px] font-medium transition-all text-center ${
+                  language === 'en'
+                    ? 'bg-white text-baimiao-mysteria shadow-sm font-bold'
+                    : 'text-stone-500 hover:text-stone-700'
+                }`}
+              >
+                {t('settings.languageEn')}
+              </button>
+            </div>
+          </div>
+
           {/* 上半部分：设置菜单项（不滚动） */}
           {drawerNav}
 
@@ -875,33 +904,7 @@ export default function Settings() {
         {/* Content area */}
         <div className="flex-1 overflow-y-auto thin-scrollbar w-full p-3 space-y-3 pb-20">
 
-        {/* task-111: 语言入口平铺到对话模型模块上方（全局顶部，不随 tab 变化） */}
-        <div className="flex items-center justify-center" data-testid="language-switcher">
-          <div className="inline-flex items-center bg-stone-100/80 rounded-full p-0.5">
-            <button
-              data-testid="language-zh"
-              onClick={() => setLanguage('zh')}
-              className={`w-16 py-1.5 rounded-full text-[12.5px] font-medium transition-all text-center ${
-                language === 'zh'
-                  ? 'bg-white text-baimiao-mysteria shadow-sm font-bold'
-                  : 'text-stone-500 hover:text-stone-700'
-              }`}
-            >
-              {t('settings.languageZh')}
-            </button>
-            <button
-              data-testid="language-en"
-              onClick={() => setLanguage('en')}
-              className={`w-16 py-1.5 rounded-full text-[12.5px] font-medium transition-all text-center ${
-                language === 'en'
-                  ? 'bg-white text-baimiao-mysteria shadow-sm font-bold'
-                  : 'text-stone-500 hover:text-stone-700'
-              }`}
-            >
-              {t('settings.languageEn')}
-            </button>
-          </div>
-        </div>
+
 
         <AnimatePresence mode="wait">
         <motion.div

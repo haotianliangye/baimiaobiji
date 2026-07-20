@@ -320,6 +320,7 @@ export const en: TranslationDict = {
   'settings.languageZh': '中文',
   'settings.languageEn': 'English',
   'settings.languageHint': 'Switching will update UI text and default prompts to the selected language',
+  'settings.languageLabel': 'Language',
 
   // Settings - Model tab
   'settings.configDetails': 'Configuration',

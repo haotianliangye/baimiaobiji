@@ -321,6 +321,7 @@ export const zh: TranslationDict = {
   'settings.languageZh': '中文',
   'settings.languageEn': 'English',
   'settings.languageHint': '切换后界面文案与 Prompt 默认文案将切换到对应语言',
+  'settings.languageLabel': '语言选择',
 
   // Settings - Model tab
   'settings.configDetails': '配置详情',
