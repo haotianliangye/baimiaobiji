@@ -454,10 +454,10 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
     }
   });
 
-  // #8 明悟生成端点：一次调用同时产出「明悟」与「洞察」两类报告。
+  // #8 洞察生成端点：一次调用同时产出「明悟」与「洞察」两类报告。
   // 数据源 = raw_logs + thoughts；按 settings.submitMultimedia 决定是否提交多媒体摘要。
   // 返回 mingwu_report/mingwu_summary + insight_report/insight_summary。
-  app.post('/api/generate-mingwu', async (req, res) => {
+  app.post('/api/generate-insight', async (req, res) => {
     try {
       const { logs, thoughts, timeRangeLabel, settings } = req.body;
       const { provider = 'gemini', apiKey, baseUrl, model, mingwuPrompt, insightPrompt, insightSummaryPrompt } = settings || {};

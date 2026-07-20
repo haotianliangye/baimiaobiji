@@ -98,7 +98,7 @@ async function callMingwuApi(payload: {
   rangeLabel: string;
   settings: any;
 }) {
-  const res = await fetch('/api/generate-mingwu', {
+  const res = await fetch('/api/generate-insight', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
