@@ -12,7 +12,7 @@
 | #001 | 版本号与发布纪律 | ✅ 已合并 (commit `8fb380f`, tag `v0.1.0`) | feat/issue-001-versioning | bundle 含 `b6="0.1.0"` |
 | #002 | 服务端超时 + 降级 | ✅ 已合并 (commit `8b5f671`, tag `v0.1.1`) | feat/issue-002-server-timeout | 5/5 fetch + 8/8 health 通过 |
 | #003 | 任务队列指数退避 | ✅ 已合并 (commit `f08cef4`, tag `v0.1.2`) | feat/issue-003-backoff | 8/8 backoff 测试通过 |
-| #004 | 转写幻觉检测升级 | ⏳ 待开始 | — | — |
+| #004 | 转写幻觉检测升级 | ✅ 已合并 (commit `37a66bc`, tag `v0.2.0`) | feat/issue-004-hallucination-filters | 16/16 filter 测试通过 + db v15 |
 | #005 | 引用回溯验证 | ⏳ 待开始 | — | — |
 | #006 | 错误日志环形缓冲 | ⏳ 待开始 | — | — |
 | #007 | 存储预警 | ⏳ 待开始 | — | — |
