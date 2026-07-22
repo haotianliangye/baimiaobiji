@@ -510,7 +510,7 @@ export default function Insights() {
 
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto thin-scrollbar px-4 md:px-8 lg:px-12 py-6 pb-32 flex flex-col"
+        className="flex-1 overflow-y-auto thin-scrollbar px-4 md:px-8 lg:px-8 py-6 pb-32 flex flex-col"
         onClick={handleInteraction}
         onTouchStart={handleInteraction}
         onScroll={handleInteraction}
