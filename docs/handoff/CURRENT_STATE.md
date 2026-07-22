@@ -86,6 +86,13 @@
 - Issue #006 累积修正 0.1.0 → 0.2.2 的漂移（前 5 个 issue 没 bump）
 - vite.config.ts 通过 `import pkg` 注入 VITE_APP_VERSION 到 bundle
 
+### 存储压力检测
+- 用 `src/lib/storagePressure.ts`（Issue #007 引入）
+- 4 档判定：ok(<0.7) / warning(0.7-0.85) / critical(0.85-0.95) / danger(≥0.95)
+- `src/hooks/useStorageMonitor.ts` 5 分钟轮询
+- Settings 数据管理 tab 显示进度条（不挂全局 Toast — 改常驻）
+- 故意不复用 `src/lib/storage.ts` 的 StorageEstimateInfo（不同维度）
+
 ## 已知的坑（来自 Karpathy 评估）
 
 ### issue #004 转写黑名单外置
