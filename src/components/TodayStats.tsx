@@ -18,7 +18,7 @@ interface TodayStatsProps {
 export default function TodayStats({ count, chars, className }: TodayStatsProps) {
   const { t } = useTranslation();
   return (
-    <div className={cn('text-[11px] text-stone-400 font-medium mb-1.5', className)}>
+    <div className={cn('text-[11px] text-stone-400 font-medium mb-1.5 pl-[14px]', className)}>
       {t('common.todayStats', { count, chars })}
     </div>
   );
