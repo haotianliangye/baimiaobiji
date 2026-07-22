@@ -5,11 +5,15 @@
  */
 import type { TranslationDict } from '../lib/i18n';
 
+// 版本号从 package.json 注入的唯一来源派生，避免硬编码漂移。
+// 缺省 fallback 用于 vitest/jsdom 等无 define 注入的环境。
+const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string | undefined) ?? '0.0.0';
+
 export const zh: TranslationDict = {
   // --- App 通用 ---
   'app.title': '白描笔记',
   'app.logo': '白',
-  'app.version': 'v1.2.0',
+  'app.version': `v${APP_VERSION}`,
   'app.author': 'Bitoky',
   'app.authorLabel': '作者',
   'app.tagline': '隐私优先的极简 AI 记录与反思工具',

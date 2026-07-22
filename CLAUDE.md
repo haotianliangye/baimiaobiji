@@ -12,13 +12,24 @@
 
 ### 分支与提交
 
-- **小改动**（单文件或几行修复）：直接改 `main`，验证后 `git push origin main`。
-- **实验性/可能回滚的改动**：先切 `feat/<name>` 分支，推远程，合并后再清理分支。
+- **当前主分支**：`refactor/mingwu-to-insight`（取代早期约定的 main，所有 feat 分支从此切出）。
+- **小改动**（单文件或几行修复）：直接改主分支，验证后 `git push origin <base>`。
+- **实验性/可能回滚的改动**：先切 `feat/<name>` 或 `fix/<name>` 分支，推远程，合并后再清理分支。
 - 提交前必须跑：
   ```bash
   npm run lint    # tsc --noEmit
   npm run build   # vite build + esbuild server.ts
   ```
+
+### 版本号规则
+
+版本号管理遵循 semver（[package.json:4](file:///d:/baimiaobiji/package.json#L4)），并通过 Vite `define` 注入到前端 `import.meta.env.VITE_APP_VERSION`，由 `src/i18n/{zh,en}.ts` 的 `app.version` 文案唯一消费：
+
+- **patch**（0.1.x）：bug fix、不改 schema 的纯代码改动
+- **minor**（0.x.0）：新功能、可见的 schema 迁移（IndexedDB `db.version` 自增）
+- **major**（x.0.0）：架构级变更、breaking change
+
+每次合并主分支后立即 `git tag v<version> && git push origin v<version>`。版本号变更记录同时更新 `docs/handoff/CURRENT_STATE.md` 进度表。
 
 ### 代码风格
 
