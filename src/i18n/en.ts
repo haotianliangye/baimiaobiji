@@ -1,6 +1,6 @@
 /**
  * #12 English UI text dictionary
- * Covers all hardcoded Chinese text (Gleanings/Review/Distillations/Insights tabs, buttons, hints, settings, etc.)
+ * Covers all hardcoded Chinese text (Gleanings/Review/Thoughts/Insights tabs, buttons, hints, settings, etc.)
  */
 import type { TranslationDict } from '../lib/i18n';
 
@@ -15,13 +15,13 @@ export const en: TranslationDict = {
 
   // --- Common text ---
   'common.cancel': 'Cancel',
-  // Issue 1: stats subtitle relocated to module top-left (Gleanings/Review/Distillations)
+  // Issue 1: stats subtitle relocated to module top-left (Gleanings/Review/Thoughts)
   'common.todayStats': 'Today {count} notes · {chars} chars',
 
   // --- TabBar labels ---
   'tab.record': 'Gleanings',
   'tab.review': 'Review',
-  'tab.thoughts': 'Distillations',
+  'tab.thoughts': 'Thoughts',
   'tab.insight': 'Insights',
 
   // --- Layout Header ---
@@ -232,8 +232,8 @@ export const en: TranslationDict = {
   'review.generateNow': 'Generate review now',
   'review.generateNReviews': 'Generate {count}',
 
-  // --- Thoughts page (Distillations) ---
-  'thoughts.title': 'Distillations',
+  // --- Thoughts page ---
+  'thoughts.title': 'Thoughts',
   'thoughts.countChars': '{count} notes · {chars} chars',
   'thoughts.masonry': 'Masonry',
   'thoughts.timeline': 'Timeline',
@@ -241,11 +241,11 @@ export const en: TranslationDict = {
   'thoughts.quickInput': 'Write a distillation...',
   'thoughts.cancel': 'Cancel',
   'thoughts.save': 'Save',
-  'thoughts.editTitle': 'Edit Distillation',
+  'thoughts.editTitle': 'Edit Thought',
   'thoughts.displayTime': 'Display time',
   'thoughts.displayTimeHint': 'Changing display time does not affect the original creation time (original_created_at is preserved).',
   'thoughts.delete': 'Delete',
-  'thoughts.emptyTitle': 'Distillations',
+  'thoughts.emptyTitle': 'Thoughts',
   'thoughts.emptyDesc': 'A space for slow thinking — notes with Markdown, tags, and attachments.',
   'thoughts.emptyHint': 'Tap the input below to write your first distillation',
   'thoughts.doubleClickEdit': 'Double-click to edit',
@@ -615,7 +615,7 @@ export const en: TranslationDict = {
   'tags.deleteTagAndNotesConfirm': 'Delete tag "{path}" and all associated records?',
   'tags.deleteTagAndNotesConfirmTitle': 'Confirm deletion',
   'tags.deleteTagAndNotesFinal': 'Final confirmation: this will permanently delete tag "{path}" and all records tagged with it. This cannot be undone.',
-  'tags.deleteTagAndNotesWarning': 'Warning: this will cascade delete related records in Gleanings, Reviews, Distillations, and Insights.',
+  'tags.deleteTagAndNotesWarning': 'Warning: this will cascade delete related records in Gleanings, Reviews, Thoughts, and Insights.',
   'tags.confirmDeleteFinalBtn': 'Confirm and delete',
 
   // --- Provider labels (partial Chinese) ---
@@ -628,7 +628,7 @@ export const en: TranslationDict = {
   // --- Data type labels (export) ---
   'dataType.raw_logs': 'Gleanings',
   'dataType.daily_reviews': 'Reviews',
-  'dataType.thoughts': 'Distillations',
+  'dataType.thoughts': 'Thoughts',
   'dataType.insight': 'Insights',
   'dataType.copilot_conversations': 'Chat records',
   'dataType.tags': 'Tag definitions',
@@ -657,7 +657,7 @@ export const en: TranslationDict = {
   'randomWalk.noTags': 'No tags',
   'randomWalk.tagPlaceholder': 'Enter tag, e.g., Work/ProjectA',
   'randomWalk.addTag': 'Add',
-  'randomWalk.thoughtsTagHint': 'Distillation tags come from #tags in the body. Edit the body to modify.',
+  'randomWalk.thoughtsTagHint': 'Thought tags come from #tags in the body. Edit the body to modify.',
   'randomWalk.unsupportedTags': 'Tag management is not supported for this record type.',
   'randomWalk.confirmDelete': 'Delete this record? This cannot be undone.',
   'randomWalk.editTitle': 'Edit Record',
