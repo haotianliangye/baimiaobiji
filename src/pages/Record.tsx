@@ -37,6 +37,7 @@ import { UploadSimple } from "@phosphor-icons/react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { db } from "../db/db";
 import { generateUUID } from "../lib/utils";
+import { getPatternsForRequest } from "../lib/hallucinationPatterns";
 import { countChars } from "../lib/wordCount";
 import { useSettingsStore } from "../store/settings.store";
 import { useAppStore } from "../store/app.store";
@@ -103,6 +104,15 @@ const AudioPlayer = ({ blob }: { blob: Blob | any }) => {
 };
 
 async function fetchTranscriptionWithRetry(body: any, maxRetries = 3) {
+  // Issue #004: 自动注入 patterns 给后端，让后端用前端维护的黑名单过滤幻觉
+  // 失败时仍按旧行为（后端兜底默认 patterns），不阻塞转写请求
+  try {
+    const patterns = await getPatternsForRequest();
+    body = { ...body, patterns };
+  } catch (err) {
+    console.warn('[transcribe] failed to load hallucination patterns, server will fallback:', err);
+  }
+
   for (let i = 0; i < maxRetries; i++) {
     try {
       const res = await fetch("/api/transcribe", {

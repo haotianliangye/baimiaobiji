@@ -9,6 +9,7 @@ import fs from 'fs';
 import os from 'os';
 import { fetchWithTimeout, FETCH_TIMEOUTS } from './src/lib/fetchWithTimeout';
 import pkg from './package.json' with { type: 'json' };
+import { evaluateTranscript, getDefaultPatterns, type HallucinationPattern } from './src/lib/hallucinationFilter';
 
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
@@ -76,9 +77,9 @@ ${logs.map((l: any) => `- [${new Date(l.created_at).toLocaleTimeString('zh-CN', 
          if (!activeKey) {
             return res.status(500).json({ error: '请在设置页面中配置你的 Gemini API Key' });
          }
-         
+
          const ai = buildGeminiClient(activeKey, baseUrl);
-         
+
          let finalModel = model || 'gemini-3.1-flash-lite';
 
          const response = await ai.models.generateContent({
@@ -753,16 +754,21 @@ ${contextContent || '（本次未检索到相关片段）'}
            }
          });
          transcript = response.text || "";
-         const hallucinationKeywords = ["[EMPTY_AUDIO]", "EMPTY_AUDIO", "谢谢观看", "字幕提供", "请不吝赐教", "字幕", "Thank you", "空白", "空音频", "没有声音", "请把上面的语音文件", "转录为简体中文", "如果是静音", "[静音]"];
-         const tTrimmed = transcript.trim().replace(/[.,!?;:'"。，！？；：’”（）()]+/g, "");
-         
-         if (transcript && (tTrimmed.includes("谢谢观看") || tTrimmed === "EMPTY_AUDIO" || tTrimmed === "哎" || tTrimmed.length <= 1)) {
-           // Only drop if it's literally just the hallucination word, 
-           // don't drop if it includes EMPTY_AUDIO but has other text, 
-           // actually, for volcengine let's just let it pass through to debug what it's saying.
+         // Issue #004: 用 evaluateTranscript 替代硬编码黑名单
+         // 前端可在请求体里传 patterns；如果没传或为空，用金标准兜底
+         // medium/low 时也保留文本，由前端在 UI 层用本地 patterns 二次评估（不污染后端响应）
+         const requestPatterns: HallucinationPattern[] = Array.isArray(req.body?.patterns) && req.body.patterns.length > 0
+           ? req.body.patterns
+           : getDefaultPatterns().map((d, i) => ({ ...d, created_at: Date.now() + i } as HallucinationPattern));
+         const evalResult = evaluateTranscript(transcript, requestPatterns);
+         if (evalResult.dropped) {
            if (provider !== 'volcengine') {
-               transcript = "";
+             transcript = "";
+             console.log('[transcribe] dropped hallucination:', evalResult.reason);
            }
+         } else if (evalResult.confidence) {
+           // medium/low：保留文本，但服务端记录日志供调试
+           console.log('[transcribe] low-confidence transcript:', evalResult.confidence, evalResult.reason);
          }
        } else if (provider === 'volcengine') {
          const baseStr = baseUrl || 'https://ark.cn-beijing.volces.com/api/v3';

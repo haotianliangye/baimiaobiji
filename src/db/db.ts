@@ -155,6 +155,17 @@ export interface MigrationBackup {
   created_at: number;
 }
 
+/**
+ * Issue #004: 通用 KV 表，存配置型数据（当前只用于转写幻觉 patterns，
+ * 但保留一般化以支持未来 settings 迁出）。
+ * value 字段是任意 JSON-serializable 对象。
+ */
+export interface SettingsKVRecord {
+  key: string;                // 主键，如 'transcription.hallucinationPatterns'
+  value: unknown;             // 任意可序列化对象
+  updated_at: number;
+}
+
 // #4 全局标签定义。path 为完整路径（如 '工作/项目A'），name 为末级名。
 export interface TagDef {
   path: string;               // 完整路径，主键
@@ -182,6 +193,7 @@ export class WhitewashDiaryDB extends dexie {
   tag_aliases!: Table<TagAlias>;
   attachments!: Table<AttachmentBlob>;
   chunks!: Table<TextChunk>;
+  settings_kv!: Table<SettingsKVRecord>;
 
   constructor() {
     super('whitewash_diary');
@@ -461,6 +473,26 @@ export class WhitewashDiaryDB extends dexie {
           await tx.table('chunks').put({ ...c, source_type: 'insights' });
         }
       }
+    });
+    // Version 15: Issue #004 转写幻觉 patterns 外置到 IndexedDB。
+    // - 新增 settings_kv 表（主键 key），通用 KV 存储。
+    // - 首次启动时（首条写入），用 getDefaultPatterns 写入默认值。
+    // - upgrade 无需迁旧数据：patterns 初始为空数组，等首次读时再懒写入默认。
+    // - 旧用户在浏览器下次启动时，会自动通过 src/lib/hallucinationPatterns 的
+    //   ensurePatterns() 写入默认值（首次访问触发）。
+    // - 版本号取 v15 而非规格说的 v14（规格基于过时文件状态）。
+    this.version(15).stores({
+      raw_logs: 'id, created_at, *tags',
+      daily_reviews: 'id, review_date, entry_type, *tags',
+      thoughts: 'id, created_at',
+      insights: 'id, range_type, created_at',
+      copilot_conversations: 'id, updated_at',
+      migration_backups: 'key',
+      tags: 'path, name, created_at, sort_order',
+      tag_aliases: 'alias, target',
+      attachments: 'id, type, created_at',
+      chunks: 'id, source_id, [source_type+source_id+field], *tags',
+      settings_kv: 'key',
     });
   }
 }

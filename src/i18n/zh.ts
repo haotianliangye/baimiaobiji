@@ -326,6 +326,7 @@ export const zh: TranslationDict = {
   'settings.tabData': '数据管理',
   'settings.tabPrompt': '提示词配置',
   'settings.tabTags': '标签设置',
+  'settings.tabTranscription': '转写设置',
   'settings.tabAbout': '关于',
   'settings.menuToggle': '菜单',
   // 需求 9：设置抽屉 -- 所有标签区块 + 快捷入口
