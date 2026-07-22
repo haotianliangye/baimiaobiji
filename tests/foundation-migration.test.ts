@@ -2,9 +2,9 @@
  * #3 Foundation E2E 测试（Puppeteer）
  *
  * 覆盖五个旅程：
- *   A. 导航：底部 4 Tab 为「拾微/回顾/沉淀/洞察」；/diary 重定向到 /review、/insights 重定向到 /mingwu。
- *   B. 迁移：构造旧版 v7 IndexedDB（daily_diaries + insights + daily_reviews），启动应用触发 v8 升级，
- *      验证数据迁移到 daily_reviews(entry_type) / mingwu、旧表删除、migration_backups 写入。
+ *   A. 导航：底部 4 Tab 为「拾微/回顾/沉淀/洞察」；/diary 重定向到 /review、/insights 重定向到 /insight。
+ *   B. 迁移：构造旧版 v7 IndexedDB（daily_diaries + insights + daily_reviews），启动应用触发 v8/v14 升级，
+ *      验证数据迁移到 daily_reviews(entry_type) / insights、旧表删除、migration_backups 写入。
  *   C. 回顾合并：迁移后 /review 同列展示「日记」与「回顾」卡片。
  *   D. 洞察图标：TabBar 洞察 tab / 洞察卡片 header / 生成按钮均渲染为 Phosphor Sun 图标（需求 5）。
  *   E. 设置页：点 ≡ 滑出抽屉（菜单 + 所有标签区块）、点项跳全页、横向导航切换 + 胶囊高亮、
@@ -175,9 +175,9 @@ async function run() {
   // /diary -> /review 重定向
   await pageA.goto(`${BASE_URL}/diary`, { waitUntil: 'networkidle2' });
   assert('A2 /diary 重定向到 /review', pageA.url().includes('/review'), `url=${pageA.url()}`);
-  // /insights -> /mingwu 重定向
+  // /insights -> /insight 重定向
   await pageA.goto(`${BASE_URL}/insights`, { waitUntil: 'networkidle2' });
-  assert('A3 /insights 重定向到 /mingwu', pageA.url().includes('/mingwu'), `url=${pageA.url()}`);
+  assert('A3 /insights 重定向到 /insight', pageA.url().includes('/insight'), `url=${pageA.url()}`);
   // 沉淀占位页可达
   await pageA.goto(`${BASE_URL}/thoughts`, { waitUntil: 'networkidle2' });
   const thoughtsText = await pageA.evaluate(() => document.body.textContent || '');
@@ -207,10 +207,10 @@ async function run() {
   await new Promise((r) => setTimeout(r, 1500));
 
   const reviews = await readStore(pageB, 'daily_reviews');
-  const mingwu = await readStore(pageB, 'mingwu');
+  const insights = await readStore(pageB, 'insights');
   const backup = await readStore(pageB, 'migration_backups');
   const oldDiaries = await readStore(pageB, 'daily_diaries');
-  const oldInsights = await readStore(pageB, 'insights');
+  const oldMingwu = await readStore(pageB, 'mingwu');
 
   // daily_reviews 应含迁移后的日记（entry_type='diary', ai_editorial）与回顾（entry_type='review'）
   const migratedDiary = reviews?.find((r) => r.id === 'd1');
@@ -225,16 +225,16 @@ async function run() {
     !!migratedReview && migratedReview.entry_type === 'review',
     migratedReview ? `entry_type=${migratedReview.entry_type}` : '未找到 r1'
   );
-  // insights -> mingwu
-  const migratedInsight = mingwu?.find((m) => m.id === 'i1');
+  // insights -> insights (v7 -> v8 -> v14)
+  const migratedInsight = insights?.find((m) => m.id === 'i1');
   assert(
-    'B3 insights 迁移到 mingwu',
-    !!migratedInsight && migratedInsight.mingwu_type === 'insight' && migratedInsight.content === '洞察正文内容',
-    migratedInsight ? `mingwu_type=${migratedInsight.mingwu_type}` : '未找到 i1'
+    'B3 insights 迁移到 insights',
+    !!migratedInsight && (migratedInsight.insight_type ?? migratedInsight.mingwu_type) === 'insight' && migratedInsight.content === '洞察正文内容',
+    migratedInsight ? `type=${migratedInsight.insight_type ?? migratedInsight.mingwu_type}` : '未找到 i1'
   );
   // 旧表删除
   assert('B4 旧 daily_diaries 表已删除', oldDiaries === null, `daily_diaries=${oldDiaries}`);
-  assert('B5 旧 insights 表已删除', oldInsights === null, `insights=${oldInsights}`);
+  assert('B5 旧 mingwu 表已删除', oldMingwu === null, `mingwu=${oldMingwu}`);
   // 迁移备份写入
   const v8Backup = backup?.find((b) => b.key === 'v8');
   assert('B6 migration_backups 写入 v8 快照', !!v8Backup && !!v8Backup.payload, v8Backup ? '有 payload' : '无备份');
@@ -257,8 +257,8 @@ async function run() {
   // ---------- 旅程 D：洞察 Sun 图标（需求 5 / issue 105） ----------
   // PRD 测试重点：底部 TabBar 洞察 tab 渲染为 Sun、洞察页 header 渲染为 Sun、
   // 全局旧洞察图标处（生成按钮等）均替换为 Sun 无遗漏。
-  // pageB 已含迁移后的 mingwu 记录（i1），可直接验证卡片 header 图标。
-  await pageB.goto(`${BASE_URL}/mingwu`, { waitUntil: 'networkidle2' });
+  // pageB 已含迁移后的 insights 记录（i1），可直接验证卡片 header 图标。
+  await pageB.goto(`${BASE_URL}/insight`, { waitUntil: 'networkidle2' });
   await new Promise((r) => setTimeout(r, 800));
 
   // D1：底部 TabBar 洞察 tab 渲染为 Phosphor Sun 图标
@@ -283,9 +283,9 @@ async function run() {
   // D2：洞察页卡片 header 渲染为 Phosphor Sun 图标（洞察页内部 header）
   let d2CardSun = false;
   try {
-    await pageB.waitForSelector('[data-testid="mingwu-card"]', { timeout: 10000 });
+    await pageB.waitForSelector('[data-testid="insight-card"]', { timeout: 10000 });
     d2CardSun = await pageB.evaluate((prefix) => {
-      const card = document.querySelector('[data-testid="mingwu-card"]');
+      const card = document.querySelector('[data-testid="insight-card"]');
       if (!card) return false;
       const headerBtn = card.querySelector('button');
       if (!headerBtn) return false;

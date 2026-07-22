@@ -1,12 +1,12 @@
 /**
- * #8 洞察（Mingwu）模块 E2E 测试（Puppeteer）
+ * #8 洞察（Insight）模块 E2E 测试（Puppeteer）
  *
  * 旅程：
- *   A. 生成：mock /api/generate-mingwu -> 选时间范围生成洞察 -> 卡片含拾微与沉淀内容。
- *   B. 双卡片：同时存在「明悟」与「洞察」两类卡片（data-mingwu-type 区分）。
- *   C. 自动打标签：AI 产出文本中的 #标签 被解析、落库到全局 tags 表、存入 mingwu.tags。
+ *   A. 生成：mock /api/generate-insight -> 选时间范围生成洞察 -> 卡片含拾微与沉淀内容。
+ *   B. 双卡片：同时存在「明悟」与「洞察」两类卡片（data-insight-type 区分）。
+ *   C. 自动打标签：AI 产出文本中的 #标签 被解析、落库到全局 tags 表、存入 insights.tags。
  *
- * 运行：先 `npm run build`，再 `tsx tests/mingwu.test.ts`。
+ * 运行：先 `npm run build`，再 `tsx tests/insight.test.ts`。
  * 通过退出码 0/1 反映结果，便于 CI。
  *
  * 注：使用独立浏览器上下文 + 请求拦截（同源加载、mock API），避免与其它 E2E 的
@@ -48,8 +48,8 @@ function waitForServer(url: string, timeoutMs = 30000): Promise<void> {
   });
 }
 
-/** mock /api/generate-mingwu 的固定响应。报告文本内含拾微/沉淀内容与 #标签。 */
-const MOCK_MINGWU_RESPONSE = {
+/** mock /api/generate-insight 的固定响应。报告文本内含拾微/沉淀内容与 #标签。 */
+const MOCK_INSIGHT_RESPONSE = {
   mingwu_report:
     '# 本周明悟\n\n从「拾微测试内容」中，我看到了坚持的力量——每日跑步与阅读，是用户重建掌控感的微习惯。而「沉淀测试内容」让我感受到孤独背后的自由渴望。\\n\n明悟之语：孤独不是缺憾，而是自由的代价。\n\n#孤独 #自由',
   mingwu_summary: '拾微与沉淀交织出孤独与自由的脉络',
@@ -142,15 +142,15 @@ async function run() {
   const ctx = await browser.createBrowserContext();
   const page = await ctx.newPage();
 
-  // 请求拦截：mock /api/generate-mingwu，其余同源放行
+  // 请求拦截：mock /api/generate-insight，其余同源放行
   await page.setRequestInterception(true);
   page.on('request', (req) => {
     const url = req.url();
-    if (url.includes('/api/generate-mingwu')) {
+    if (url.includes('/api/generate-insight')) {
       req.respond({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(MOCK_MINGWU_RESPONSE),
+        body: JSON.stringify(MOCK_INSIGHT_RESPONSE),
       });
     } else {
       req.continue();
@@ -159,9 +159,9 @@ async function run() {
 
   // ---------- 旅程 A：生成 ----------
   // 首次加载 -> 应用创建 DB -> 插入样本数据 -> 重新加载使 useLiveQuery 生效
-  await page.goto(`${BASE_URL}/mingwu`, { waitUntil: 'networkidle2' });
+  await page.goto(`${BASE_URL}/insight`, { waitUntil: 'networkidle2' });
   await seedRecords(page);
-  await page.goto(`${BASE_URL}/mingwu`, { waitUntil: 'networkidle2' });
+  await page.goto(`${BASE_URL}/insight`, { waitUntil: 'networkidle2' });
   await new Promise((r) => setTimeout(r, 800));
 
   // 确认生成按钮存在并点击
@@ -169,12 +169,12 @@ async function run() {
   await page.click('[data-testid="mingwu-generate-btn"]');
 
   // 等待卡片渲染（mock 即时返回，store 创建两条记录后 useLiveQuery 更新）
-  await page.waitForSelector('[data-testid="mingwu-card"]', { timeout: 15000 });
+  await page.waitForSelector('[data-testid="insight-card"]', { timeout: 15000 });
   await new Promise((r) => setTimeout(r, 1000));
 
   // ---------- 断言 A：卡片含拾微与沉淀内容 ----------
-  const mingwuRecords = await readStore(page, 'mingwu');
-  const allContent = mingwuRecords.map((m) => m.content || '').join('\n');
+  const insightRecords = await readStore(page, 'insights');
+  const allContent = insightRecords.map((m) => m.content || '').join('\n');
   assert(
     'A1 卡片内容含拾微内容',
     allContent.includes('拾微测试内容'),
@@ -187,30 +187,30 @@ async function run() {
   );
 
   // ---------- 断言 B：同时存在明悟与洞察两类卡片 ----------
-  const mingwuTypeCards = await page.$$eval('[data-testid="mingwu-card"]', (els) =>
-    els.map((e) => e.getAttribute('data-mingwu-type') || '')
+  const insightTypeCards = await page.$$eval('[data-testid="insight-card"]', (els) =>
+    els.map((e) => e.getAttribute('data-insight-type') || '')
   );
-  const hasMingwu = mingwuTypeCards.includes('mingwu');
-  const hasInsight = mingwuTypeCards.includes('insight');
+  const hasMingwu = insightTypeCards.includes('mingwu');
+  const hasInsight = insightTypeCards.includes('insight');
   assert(
     'B1 同时存在明悟与洞察两类卡片',
     hasMingwu && hasInsight,
-    `mingwu=${hasMingwu}, insight=${hasInsight}, types=${mingwuTypeCards.join(',')}`
+    `mingwu=${hasMingwu}, insight=${hasInsight}, types=${insightTypeCards.join(',')}`
   );
 
   // 验证类型徽标存在
-  const mingwuBadge = await page.$('[data-testid="mingwu-type-badge-mingwu"]');
-  const insightBadge = await page.$('[data-testid="mingwu-type-badge-insight"]');
+  const mingwuBadge = await page.$('[data-testid="insight-type-badge-mingwu"]');
+  const insightBadge = await page.$('[data-testid="insight-type-badge-insight"]');
   assert('B2 明悟类型徽标存在', !!mingwuBadge, mingwuBadge ? '有徽标' : '无徽标');
   assert('B3 洞察类型徽标存在', !!insightBadge, insightBadge ? '有徽标' : '无徽标');
 
   // ---------- 断言 C：AI 产出自动打标签 ----------
-  // mingwu 记录的 tags 字段应非空
-  const mingwuWithTags = mingwuRecords.filter((m) => m.tags && m.tags.length > 0);
+  // insights 记录的 tags 字段应非空
+  const insightWithTags = insightRecords.filter((m) => m.tags && m.tags.length > 0);
   assert(
-    'C1 mingwu 记录含 tags 字段',
-    mingwuWithTags.length >= 2,
-    `有tags的记录数=${mingwuWithTags.length}/${mingwuRecords.length}`
+    'C1 insights 记录含 tags 字段',
+    insightWithTags.length >= 2,
+    `有tags的记录数=${insightWithTags.length}/${insightRecords.length}`
   );
 
   // 全局 tags 表应含 AI 产出的标签定义

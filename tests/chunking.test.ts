@@ -102,9 +102,9 @@ function longMingwuText(): string {
  * 构造 v11（IDB version 110）的 whitewash_diary 库并播种测试数据：
  *   - raw_logs: 一条带 content + attachment_summary + tags 的拾微（record + multimedia 两类任务）
  *   - daily_reviews: 一条 entry_type='review'、ai_review 长文本的回顾（多个分块）
- *   - mingwu: 一条 content 长文本的洞察（多个分块）
+ *   - mingwu: 一条 content 长文本的洞察（多个分块）。v14 升级时 mingwu -> insights（迁移数据 + 改 mingwu_type 为 insight_type）。
  * 同时预置 localStorage：开启 embedding（embedEnabled=true）+ 预填 embedding 队列。
- * Dexie 打开时识别 IDB 110 -> v11，升级到 v12（新增 chunks 表），种子数据原样保留。
+ * Dexie 打开时识别 IDB 110 -> v11，依次升级到 v12/v13/v14，种子数据由 v14 migrate 复制到 insights 表。
  */
 async function seedDb(page: Page) {
   await page.evaluate(
@@ -356,7 +356,7 @@ async function run() {
 
   // 明悟长文本
   const mingwuChunks = chunks
-    .filter((c) => c.source_type === 'mingwu' && c.source_id === 'mingwu-1' && c.field === 'content')
+    .filter((c) => c.source_type === 'insights' && c.source_id === 'mingwu-1' && c.field === 'content')
     .sort((a, b) => a.chunk_index - b.chunk_index);
   assert(
     'B5 明悟长文本按原文分块为多个 chunk',
@@ -410,12 +410,12 @@ async function run() {
     !!review1 && Array.isArray(review1.embedding) && review1.embedding.length > 0,
     `embedding=${!!review1?.embedding}`
   );
-  const mingwuRows = (await readStore(page, 'mingwu')) || [];
-  const mingwu1 = mingwuRows.find((m) => m.id === 'mingwu-1');
+  const insightRows = (await readStore(page, 'insights')) || [];
+  const insight1 = insightRows.find((m) => m.id === 'mingwu-1');
   assert(
-    'D4 mingwu.embedding（明悟首块）仍被写入',
-    !!mingwu1 && Array.isArray(mingwu1.embedding) && mingwu1.embedding.length > 0,
-    `embedding=${!!mingwu1?.embedding}`
+    'D4 insights.embedding（明悟首块）仍被写入',
+    !!insight1 && Array.isArray(insight1.embedding) && insight1.embedding.length > 0,
+    `embedding=${!!insight1?.embedding}`
   );
 
   await page.close();
