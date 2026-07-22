@@ -16,6 +16,8 @@ export const zh: TranslationDict = {
 
   // --- 通用文案 ---
   'common.cancel': '取消',
+  'common.confirm': '确认',
+  'common.preparingTts': '正在生成音频…',
   // 需求 1：统计小字下移与统一（拾微/回顾/沉淀 模块左上方）
   'common.todayStats': '今日 {count} 条 {chars} 字',
 
@@ -368,8 +370,13 @@ export const zh: TranslationDict = {
   'settings.ttsModelHintGemini': '填模型名（如 gemini-2.5-flash-preview-tts）',
   'settings.ttsModelHintVolcengine': '填发音人 ID（如 BV001_streaming）',
   'settings.ttsVoiceLabel': '语音 (Voice)',
-  'settings.ttsVoiceHintGemini': '预置音色（如 Kore、Puck）',
-  'settings.ttsVoiceHintVolcengine': '留空',
+  'settings.ttsVoicePlaceholder': '点击选择语音',
+  'settings.ttsVoiceUnmatched': '当前值「{value}」不在预置列表中，请重新选择',
+  'settings.ttsVoiceModalTitle': '选择语音',
+  'settings.ttsVoiceSearch': '搜索 ID / 名称 / 描述',
+  'settings.ttsVoiceEmpty': '未匹配到音色',
+  'settings.ttsVoiceCustom': '自定义…',
+  'settings.ttsVoiceCustomHint': '手填 voice id（高级）',
 
   // Settings - Embedding tab
   'settings.embeddingTitle': '本地向量与语义搜索',

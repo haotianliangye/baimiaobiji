@@ -16,6 +16,15 @@ async function startServer() {
   
   app.use(express.json({ limit: '50mb' }));
 
+  // DEBUG: TTS 请求观测中间件——只打日志、不改 body
+  app.use((req, _res, next) => {
+    if (req.path.startsWith('/api/tts')) {
+      const body = req.body || {};
+      console.log(`[TTS req] ${req.method} ${req.path} | text=${(body.text || '').length}ch provider=${body.settings?.provider} model=${body.settings?.model || 'default'} voice=${body.settings?.voice || ''} ua=${req.headers['user-agent']?.slice(0, 40)}`);
+    }
+    next();
+  });
+
   // Build a GoogleGenAI client with base-URL normalization. Shared by every
   // endpoint that calls Gemini to avoid repeating the config dance.
   function buildGeminiClient(apiKey: string, baseUrl?: string) {
@@ -1080,6 +1089,133 @@ ${contextContent || '（本次未检索到相关片段）'}
       console.error('TTS error:', err);
       res.status(500).json({ error: err.message });
     }
+  });
+
+  // #009-ext: 流式 TTS（SSE）。与 api/index.ts 同步双写（本地 dev/prod 跑的是 server.ts，Vercel 跑 api/index.ts）。
+  // 后端用 Gemini generateContentStream 逐 chunk 拿 PCM，前端用 AudioWorklet 边收边播。
+  // 协议：首条事件 { event: "config", sampleRate, channels, bitsPerSample }，
+  //      中间事件 { event: "audio", data: "<base64 PCM chunk>" }，
+  //      结束 { event: "end" } / 错误 { event: "error", message }。
+  // 仅 Gemini 支持流式；火山引擎走上面 /api/tts 整段方案。
+  app.post('/api/tts/stream', async (req, res) => {
+    const t0 = Date.now();
+    try {
+      const { text, settings } = req.body;
+      const { provider = 'gemini', apiKey, baseUrl, model, voice } = settings || {};
+
+      if (!text || !text.trim()) {
+        return res.status(400).json({ error: 'text is required and must not be empty' });
+      }
+      if (!apiKey) {
+        return res.status(400).json({ error: 'API Key 不能为空' });
+      }
+      if (provider !== 'gemini') {
+        return res.status(400).json({ error: `流式 TTS 暂不支持 ${provider}，请改用 Gemini 或非流式 /api/tts` });
+      }
+
+      // SSE headers
+      res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+      res.flushHeaders?.();
+
+      const writeEvent = (obj: any) => {
+        // 必须立即 flush，否则 Node 默认会 buffer SSE 数据，
+        // 浏览器端要等 buffer 满了才收到首字节 —— 这就是用户看到的"等很久"
+        const ok = res.write(`data: ${JSON.stringify(obj)}\n\n`);
+        if (typeof (res as any).flush === 'function') (res as any).flush();
+        return ok;
+      };
+
+      const ai = buildGeminiClient(apiKey, baseUrl);
+      const finalModel = model || 'gemini-2.5-flash-preview-tts';
+      const genConfig: any = { responseModalities: ['AUDIO'] };
+      if (voice) {
+        genConfig.speechConfig = {
+          voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } }
+        };
+      }
+
+      writeEvent({ event: 'config', sampleRate: 24000, channels: 1, bitsPerSample: 16 });
+
+      const stream = await ai.models.generateContentStream({
+        model: finalModel,
+        contents: [{ parts: [{ text }] }],
+        config: genConfig,
+      });
+
+      let chunkCount = 0;
+      let totalBytes = 0;
+      const t1 = Date.now();
+
+      for await (const chunk of stream as any) {
+        const parts = chunk?.candidates?.[0]?.content?.parts || [];
+        for (const p of parts) {
+          if (p?.inlineData?.data) {
+            chunkCount++;
+            totalBytes += p.inlineData.data.length;
+            writeEvent({ event: 'audio', data: p.inlineData.data });
+          }
+        }
+      }
+
+      const t2 = Date.now();
+      writeEvent({ event: 'end', stats: { chunks: chunkCount, totalBase64Chars: totalBytes, upstreamMs: t2 - t1, totalMs: t2 - t0 } });
+      res.end();
+      console.log(`[TTS stream gemini] text=${text.length}ch model=${finalModel} | upstream=${t2 - t1}ms total=${t2 - t0}ms | chunks=${chunkCount} base64Chars=${totalBytes}`);
+    } catch (err: any) {
+      console.error('TTS stream error:', err);
+      try {
+        res.write(`data: ${JSON.stringify({ event: 'error', message: err.message })}\n\n`);
+        res.end();
+      } catch {
+        /* connection already closed */
+      }
+    }
+  });
+
+  // DEBUG: 伪流式 TTS 端点（不调 Gemini）。发一个 440Hz 正弦波，分 20 段发出去，
+  // 用于验证前端 SSE + AudioWorklet 链路到底有没有问题。
+  // 如果这个能秒出声，就证明前端 OK，问题在 Gemini。
+  app.post('/api/tts/test-stream', async (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders?.();
+
+    const writeEvent = (obj: any) => {
+      const ok = res.write(`data: ${JSON.stringify(obj)}\n\n`);
+      if (typeof (res as any).flush === 'function') (res as any).flush();
+      return ok;
+    };
+
+    const sampleRate = 24000;
+    const durationSec = 3;
+    const totalSamples = sampleRate * durationSec;
+    const chunkCount = 20;
+    const samplesPerChunk = totalSamples / chunkCount;
+    const freq = 440;
+
+    writeEvent({ event: 'config', sampleRate, channels: 1, bitsPerSample: 16 });
+
+    for (let c = 0; c < chunkCount; c++) {
+      const pcm = Buffer.alloc(samplesPerChunk * 2);
+      for (let i = 0; i < samplesPerChunk; i++) {
+        const sampleIdx = c * samplesPerChunk + i;
+        const t = sampleIdx / sampleRate;
+        const v = Math.sin(2 * Math.PI * freq * t) * 0.3 * 32767;
+        pcm.writeInt16LE(Math.round(v), i * 2);
+      }
+      writeEvent({ event: 'audio', data: pcm.toString('base64') });
+      // 每段间隔 100ms，模拟 Gemini 流式节奏
+      await new Promise((r) => setTimeout(r, 100));
+    }
+
+    writeEvent({ event: 'end', stats: { chunks: chunkCount } });
+    res.end();
+    console.log('[TTS test-stream] done');
   });
 
   app.post('/api/webdav-proxy', async (req, res) => {

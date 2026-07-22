@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning, Download, FileJson, FileText, MessageSquare, Volume2, Tags, Info, Database, X, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning, Download, FileJson, FileText, MessageSquare, Volume2, Tags, Info, Database, X, ChevronRight, ChevronDown, ChevronUp, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import TagManagement from './TagManagement';
 import DrawerTagList from '../components/DrawerTagList';
@@ -10,7 +11,7 @@ import { db, normalizeLegacyDiary, normalizeLegacyInsight } from '../db/db';
 import { enqueueAllMissingEmbeddings } from '../lib/embedding';
 import { checkStorageStatus, requestStoragePersistence, StorageEstimateInfo } from '../lib/storage';
 import { useAppStore } from '../store/app.store';
-import { SYNC_CONSTANTS } from '../config/constants';
+import { SYNC_CONSTANTS, TTS_VOICES, findTtsVoiceLabel, type TtsVoiceOption } from '../config/constants';
 import DatePickerPopover from '../components/DatePickerPopover';
 import { exportData, exportConversations, downloadContent, getExportFilename } from '../lib/dataExport';
 import type { DataType, ExportOptions } from '../lib/dataExport';
@@ -30,6 +31,239 @@ const isVolcengineTtsKeyValid = (key: string): boolean => {
   if (sep <= 0) return false;
   return key.slice(0, sep).length > 0 && key.slice(sep + 1).length > 0;
 };
+
+// #009-ext: TTS 语音选择 Modal。
+// - 固定高度 280px 的滚动列表（按 group 分组），顶部实时搜索。
+// - 列表底部永远有「自定义…」入口，展开后变为文本输入（逃生口）。
+// - 用 createPortal 挂到 body，避免被父容器 transform/overflow 裁切。
+function TtsVoicePickerModal({
+  provider,
+  value,
+  onSelect,
+  onClose,
+  labelKey,
+  placeholderKey,
+  searchPlaceholderKey,
+  emptyKey,
+  customKey,
+  customHintKey,
+}: {
+  provider: 'gemini' | 'volcengine';
+  value: string;
+  onSelect: (id: string) => void;
+  onClose: () => void;
+  labelKey: string;
+  placeholderKey: string;
+  searchPlaceholderKey: string;
+  emptyKey: string;
+  customKey: string;
+  customHintKey: string;
+}) {
+  const { t } = useTranslation();
+  const [query, setQuery] = useState('');
+  const [showCustom, setShowCustom] = useState(false);
+  const [customValue, setCustomValue] = useState(value || '');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const voices = TTS_VOICES[provider] || [];
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return voices;
+    return voices.filter((v) =>
+      [v.id, v.label, v.desc, v.group].some((s) => s.toLowerCase().includes(q))
+    );
+  }, [voices, query]);
+
+  // 按 group 聚合，保留 group 顺序（按首次出现）
+  const grouped = useMemo(() => {
+    const order: string[] = [];
+    const map = new Map<string, TtsVoiceOption[]>();
+    filtered.forEach((v) => {
+      if (!map.has(v.group)) {
+        order.push(v.group);
+        map.set(v.group, []);
+      }
+      map.get(v.group)!.push(v);
+    });
+    return order.map((g) => ({ group: g, items: map.get(g)! }));
+  }, [filtered]);
+
+  useEffect(() => {
+    if (showCustom) {
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }, [showCustom]);
+
+  // ESC 关闭
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const handleCustomSubmit = () => {
+    const v = customValue.trim();
+    if (v) {
+      onSelect(v);
+      onClose();
+    }
+  };
+
+  const modalNode = (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.15 }}
+        className="fixed inset-0 z-[1000] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
+        onClick={onClose}
+        data-testid="tts-voice-modal-backdrop"
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 20, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 20, scale: 0.98 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+          className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col max-h-[85vh]"
+          onClick={(e) => e.stopPropagation()}
+          data-testid="tts-voice-modal"
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-stone-100 shrink-0">
+            <div className="flex items-center gap-2">
+              <Volume2 className="w-4 h-4 text-stone-400" />
+              <h3 className="text-[14px] font-medium text-stone-900">{t(labelKey)}</h3>
+              <span className="text-[11px] text-stone-400">({voices.length})</span>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Search */}
+          <div className="px-4 py-2 border-b border-stone-100 shrink-0">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400 pointer-events-none" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t(searchPlaceholderKey)}
+                className="w-full pl-8 pr-3 py-1.5 bg-stone-50 border border-stone-100 rounded-lg text-[13px] outline-none focus:bg-white focus:border-stone-300 transition-all"
+              />
+            </div>
+          </div>
+
+          {/* Voice list / Custom input */}
+          {showCustom ? (
+            <div className="px-4 py-4 space-y-3 shrink-0">
+              <p className="text-[11px] text-stone-500 leading-relaxed">{t(customHintKey)}</p>
+              <input
+                ref={inputRef}
+                type="text"
+                value={customValue}
+                onChange={(e) => setCustomValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCustomSubmit();
+                }}
+                placeholder={t(placeholderKey)}
+                className="w-full px-3 py-2 bg-white border border-stone-200 rounded-lg text-[13px] font-mono outline-none focus:border-stone-400"
+                data-testid="tts-voice-custom-input"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCustom(false)}
+                  className="flex-1 py-2 text-[12px] text-stone-600 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors"
+                >
+                  ←
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCustomSubmit}
+                  disabled={!customValue.trim()}
+                  className="flex-[2] py-2 text-[12px] text-white bg-stone-900 hover:bg-stone-700 disabled:bg-stone-300 disabled:cursor-not-allowed rounded-lg transition-colors"
+                  data-testid="tts-voice-custom-confirm"
+                >
+                  {t('common.confirm')}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="overflow-y-auto flex-1 overscroll-contain" style={{ maxHeight: 'min(280px, 50vh)' }}>
+              {grouped.length === 0 ? (
+                <div className="px-4 py-8 text-center text-[12px] text-stone-400">{t(emptyKey)}</div>
+              ) : (
+                grouped.map(({ group, items }) => (
+                  <div key={group}>
+                    <div className="sticky top-0 px-4 py-1.5 text-[10.5px] font-medium text-stone-400 bg-stone-50/95 backdrop-blur-sm border-b border-stone-100 uppercase tracking-wide">
+                      {group} · {items.length}
+                    </div>
+                    {items.map((v) => {
+                      const isSelected = v.id === value;
+                      return (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onClick={() => {
+                            onSelect(v.id);
+                            onClose();
+                          }}
+                          className={`w-full px-4 py-2 flex items-start gap-2 text-left hover:bg-stone-50 transition-colors ${
+                            isSelected ? 'bg-stone-100' : ''
+                          }`}
+                          data-testid={`tts-voice-option-${v.id}`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[13px] font-medium text-stone-900 truncate">{v.label}</span>
+                              {isSelected && (
+                                <span className="text-[10px] text-emerald-600 shrink-0">✓</span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-stone-500 leading-snug mt-0.5">{v.desc}</div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Footer: custom toggle */}
+          {!showCustom && (
+            <div className="border-t border-stone-100 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomValue(value || '');
+                  setShowCustom(true);
+                }}
+                className="w-full px-4 py-2.5 text-[12px] text-stone-500 hover:bg-stone-50 hover:text-stone-700 transition-colors text-left"
+                data-testid="tts-voice-custom-toggle"
+              >
+                {t(customKey)}
+              </button>
+            </div>
+          )}
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+
+  return createPortal(modalNode, document.body);
+}
 // #13 统一数据管理 -- 可导出的数据类型选项（labelKey 用于 i18n）
 const DATA_TYPE_OPTIONS: { id: DataType; labelKey: string }[] = [
   { id: 'raw_logs', labelKey: 'dataType.raw_logs' },
@@ -371,6 +605,8 @@ export default function Settings() {
   const [chatTestError, setChatTestError] = useState('');
   const [embedTestStatus, setEmbedTestStatus] = useState<'idle' | 'testing' | 'success' | 'fail'>('idle');
   const [embedTestError, setEmbedTestError] = useState('');
+  // #009-ext: TTS 语音选择 Modal 控制
+  const [ttsVoiceModalOpen, setTtsVoiceModalOpen] = useState(false);
 
   const handleTestChatConnection = async () => {
     if (!apiKey && provider !== 'custom') {
@@ -1284,16 +1520,41 @@ export default function Settings() {
                         <Volume2 className="w-3.5 h-3.5 text-stone-400" />
                         {t('settings.ttsVoiceLabel')}
                       </label>
-                      <input
-                        type="text"
-                        value={ttsVoice}
-                        onChange={e => setSettings({ ttsVoice: e.target.value })}
-                        data-testid="tts-voice"
-                        className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-900 transition-all font-mono"
-                      />
-                      <p className="text-[10.5px] text-stone-400 leading-tight">
-                        {ttsProvider === 'volcengine' ? t('settings.ttsVoiceHintVolcengine') : t('settings.ttsVoiceHintGemini')}
-                      </p>
+                      {(() => {
+                        const matched = ttsProvider === 'gemini' || ttsProvider === 'volcengine'
+                          ? findTtsVoiceLabel(ttsProvider, ttsVoice)
+                          : null;
+                        const unmatched = !matched && !!ttsVoice;
+                        return (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setTtsVoiceModalOpen(true)}
+                              data-testid="tts-voice"
+                              className={`w-full bg-white border shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-left transition-all flex items-center justify-between ${
+                                unmatched ? 'border-rose-300' : 'border-black/5'
+                              }`}
+                            >
+                              <span className={matched ? 'text-stone-900' : 'text-stone-400'}>
+                                {matched ? matched.label : ttsVoice || t('settings.ttsVoicePlaceholder')}
+                              </span>
+                              <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
+                            </button>
+                            {unmatched && (
+                              <p className="text-[10.5px] text-rose-500 leading-tight">
+                                {t('settings.ttsVoiceUnmatched', { value: ttsVoice })}
+                              </p>
+                            )}
+                            {!matched && !ttsVoice && (
+                              <p className="text-[10.5px] text-stone-400 leading-tight">
+                                {ttsProvider === 'gemini'
+                                  ? `${TTS_VOICES.gemini.length} 个预置音色可选`
+                                  : `${TTS_VOICES.volcengine.length} 个预置音色可选`}
+                              </p>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}
@@ -2760,6 +3021,22 @@ export default function Settings() {
         </div>
 
         </div>
+      )}
+
+      {/* #009-ext: TTS 语音选择 Modal（仅外部 TTS + 已选 Provider 时可用） */}
+      {ttsVoiceModalOpen && (ttsProvider === 'gemini' || ttsProvider === 'volcengine') && (
+        <TtsVoicePickerModal
+          provider={ttsProvider}
+          value={ttsVoice}
+          onSelect={(id) => setSettings({ ttsVoice: id })}
+          onClose={() => setTtsVoiceModalOpen(false)}
+          labelKey="settings.ttsVoiceModalTitle"
+          placeholderKey="settings.ttsVoicePlaceholder"
+          searchPlaceholderKey="settings.ttsVoiceSearch"
+          emptyKey="settings.ttsVoiceEmpty"
+          customKey="settings.ttsVoiceCustom"
+          customHintKey="settings.ttsVoiceCustomHint"
+        />
       )}
     </div>
   );

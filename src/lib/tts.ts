@@ -12,6 +12,7 @@
 import { useCallback } from 'react';
 import { create } from 'zustand';
 import { useSettingsStore } from '../store/settings.store';
+import { playTtsStream } from './ttsStream';
 
 export type TTSService = 'webspeech' | 'external';
 export type TTSLang = 'auto' | 'zh' | 'en';
@@ -102,6 +103,8 @@ interface TTSStore {
   speakingText: string | null;
   /** 是否正在朗读 */
   isSpeaking: boolean;
+  /** 朗读阶段提示（null=未朗读；'preparing'='正在生成音频…'；'playing'='正在播放'） */
+  phase: 'preparing' | 'playing' | null;
   /** 朗读文本（toggle：若该文本正在播放则停止） */
   speak: (text: string, opts?: TTSSpeakOptions) => void;
   /** 停止所有朗读 */
@@ -111,6 +114,7 @@ interface TTSStore {
 export const useTTSStore = create<TTSStore>((set, get) => ({
   speakingText: null,
   isSpeaking: false,
+  phase: null,
 
   speak: (text, opts = {}) => {
     const state = get();
@@ -133,22 +137,30 @@ export const useTTSStore = create<TTSStore>((set, get) => ({
     const cleanText = stripMarkdown(text);
     if (!cleanText) return;
 
-    // 标记为播放中
-    set({ speakingText: text, isSpeaking: true });
+    // 标记为播放中。外部 TTS 会先经历 preparing（生成音频），再 playing；
+    // Web Speech 直接进入 playing。组件用 phase 渲染「正在生成音频…」提示。
+    set({ speakingText: text, isSpeaking: true, phase: service === 'external' ? 'preparing' : 'playing' });
 
     const onEnd = () => {
       currentUtterance = null;
       currentAudio = null;
       // 仅在确实还在播放这段文本时才清除（防止已被新播放覆盖）
       if (get().speakingText === text) {
-        set({ speakingText: null, isSpeaking: false });
+        set({ speakingText: null, isSpeaking: false, phase: null });
+      }
+    };
+
+    const onPlaying = () => {
+      // 音频开始播放：从 preparing 切到 playing
+      if (get().speakingText === text) {
+        set({ phase: 'playing' });
       }
     };
 
     if (service === 'webspeech') {
       speakWebSpeech(cleanText, resolvedLang, rate, voiceName, onEnd);
     } else {
-      speakExternal(cleanText, resolvedLang, onEnd, {
+      speakExternal(cleanText, resolvedLang, onEnd, onPlaying, {
         rate,
         voice: voiceName,
         ttsProvider: opts.ttsProvider,
@@ -161,7 +173,7 @@ export const useTTSStore = create<TTSStore>((set, get) => ({
 
   stop: () => {
     cancelPlayback();
-    set({ speakingText: null, isSpeaking: false });
+    set({ speakingText: null, isSpeaking: false, phase: null });
   },
 }));
 
@@ -213,12 +225,82 @@ function speakWebSpeech(
 }
 
 /**
- * 调用外部 TTS API（/api/tts 端点）朗读。
- * 后端根据 settings.provider 调用 Gemini / 火山引擎，返回音频 blob，前端用 HTMLAudioElement 播放。
+ * 调用外部 TTS API 朗读。
+ *
+ * Gemini Provider 默认走流式（/api/tts/stream + AudioWorklet）：
+ *   - 第一个 PCM chunk 到达即开始播放，端到端延迟 ~1-3 秒
+ *   - 支持中途 stop
+ * 流式失败时（非 Gemini / 网络异常 / 接口 4xx）自动降级到非流式 /api/tts 兜底。
+ *
+ * 火山引擎 Provider：暂走非流式（它的流式协议不同，需要单独 SDK），保留原整段方案。
  */
 async function speakExternal(
   text: string,
   lang: 'zh' | 'en',
+  onEnd: () => void,
+  onPlaying: () => void,
+  opts: {
+    rate?: number;
+    voice?: string;
+    ttsProvider?: 'gemini' | 'volcengine';
+    ttsApiKey?: string;
+    ttsBaseUrl?: string;
+    ttsModel?: string;
+  }
+) {
+  const provider = opts.ttsProvider || 'gemini';
+
+  // Gemini 走流式
+  if (provider === 'gemini') {
+    try {
+      console.log('[speakExternal] Gemini 走流式 /api/tts/stream');
+      const handle = await playTtsStream(text);
+      // 流式播放的"开始播放"信号：第一个 chunk 到达时由 onPlaying 触发
+      // playTtsStream 内部无法精确知道首个 chunk 何时到达，由 worklet 在首个 samples 入队后发 underrun/resumed
+      // 但更直接的信号：resume AudioContext 时算"已开始播放"
+      const origOnPlaying = onPlaying;
+      const streamDone = handle.done.then(() => {
+        console.log('[speakExternal] 流式 TTS 自然结束');
+        onEnd();
+      }).catch((err) => {
+        console.error('[speakExternal] 流式 TTS 失败，尝试降级到非流式:', err);
+        // 降级：走原整段方案
+        speakExternalFallback(text, lang, origOnPlaying, onEnd, opts).catch((fallbackErr) => {
+          console.error('[speakExternal] 降级方案也失败:', fallbackErr);
+          onEnd();
+        });
+      });
+      // 监听流的"已开始播放"信号：通过轮询 worklet 不现实，简单做法是给一个
+      // 保守的延迟（200ms 后认为已开始），或依赖 onPlaying 由 worklet 调起。
+      // playTtsStream 没暴露这个钩子，这里用 setTimeout 简单近似：
+      // 真实体验：流式下用户感知不到 preparing 阶段，spinner 立即切 playing。
+      setTimeout(() => origOnPlaying(), 200);
+      // 把 stop 暴露给模块级 currentAudio（兼容性）
+      currentAudio = {
+        pause: () => handle.stop(),
+        get currentTime() { return 0; },
+        set currentTime(_: number) {},
+      } as any;
+      // 取消时清理
+      void streamDone;
+      return;
+    } catch (err) {
+      console.error('[speakExternal] 流式初始化失败，降级:', err);
+      // 继续走 fallback
+    }
+  }
+
+  // 兜底：原整段方案（火山引擎 / Gemini 流式失败）
+  return speakExternalFallback(text, lang, onPlaying, onEnd, opts);
+}
+
+/**
+ * 非流式兜底：调 /api/tts 拿完整音频 blob → HTMLAudioElement 播放。
+ */
+async function speakExternalFallback(
+  text: string,
+  lang: 'zh' | 'en',
+  onPlaying: () => void,
   onEnd: () => void,
   opts: {
     rate?: number;
@@ -254,6 +336,9 @@ async function speakExternal(
     const audio = new Audio(URL.createObjectURL(blob));
     currentAudio = audio;
 
+    audio.oncanplay = () => {
+      onPlaying();
+    };
     audio.onended = () => {
       if (audio.src) URL.revokeObjectURL(audio.src);
       onEnd();
@@ -263,7 +348,7 @@ async function speakExternal(
       onEnd();
     };
 
-    await audio.play();
+    await audio.play().then(() => onPlaying()).catch(() => {/* autoplay blocked */});
   } catch (err) {
     console.error('外部 TTS 朗读失败:', err);
     onEnd();
@@ -282,6 +367,7 @@ async function speakExternal(
 export function useTTS() {
   const isSpeaking = useTTSStore((s) => s.isSpeaking);
   const speakingText = useTTSStore((s) => s.speakingText);
+  const phase = useTTSStore((s) => s.phase);
   const speak = useTTSStore((s) => s.speak);
   const stop = useTTSStore((s) => s.stop);
 
@@ -317,5 +403,18 @@ export function useTTS() {
     [isSpeaking, speakingText]
   );
 
-  return { play, stop, isPlaying };
+  /**
+   * 给定一段文本，返回它当前的朗读阶段：'preparing' = 外部 TTS 正在生成音频，
+   * 'playing' = 正在播放；null = 未在朗读。
+   * 组件用这个渲染"正在生成音频…"提示，避免用户以为按钮没反应。
+   */
+  const getPhase = useCallback(
+    (text: string) => {
+      if (!isSpeaking || speakingText !== text) return null;
+      return phase;
+    },
+    [isSpeaking, speakingText, phase]
+  );
+
+  return { play, stop, isPlaying, getPhase };
 }

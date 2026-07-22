@@ -54,7 +54,7 @@ export default function Review() {
   const navigate = useNavigate();
   const { isProcessingReviewMap, isProcessingDiary, generateReview, generateDiaryTimeline, diaryErrorMap, batchProgress, generateSelected } = useAppStore();
   const { copied, copy } = useCopyToClipboard();
-  const { play, isPlaying } = useTTS();
+  const { play, isPlaying, getPhase } = useTTS();
   const { reviewPrompts, reviewPromptNames, reviewSelectedIndices, setSettings } = useSettingsStore();
   const WEEKS_TO_SHOW = 15;
   const today = new Date();
@@ -716,8 +716,17 @@ export default function Review() {
                                       : 'text-stone-500 hover:text-stone-800 hover:bg-stone-100'
                                   }`}
                                 >
-                                  {isPlaying(entryContent) ? <SquareIcon className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                                  {isPlaying(entryContent) ? t('review.stopReading') : t('review.readAloud')}
+                                  {(() => {
+                                    const phase = getPhase(entryContent);
+                                    if (phase === 'preparing') return <Loader2 className="w-4 h-4 animate-spin" />;
+                                    if (isPlaying(entryContent)) return <SquareIcon className="w-4 h-4" />;
+                                    return <Volume2 className="w-4 h-4" />;
+                                  })()}
+                                  {(() => {
+                                    const phase = getPhase(entryContent);
+                                    if (phase === 'preparing') return t('common.preparingTts');
+                                    return isPlaying(entryContent) ? t('review.stopReading') : t('review.readAloud');
+                                  })()}
                                 </button>
                                 <button
                                   onClick={(e) => {

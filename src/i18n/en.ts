@@ -15,6 +15,8 @@ export const en: TranslationDict = {
 
   // --- Common text ---
   'common.cancel': 'Cancel',
+  'common.confirm': 'Confirm',
+  'common.preparingTts': 'Generating audio…',
   // Issue 1: stats subtitle relocated to module top-left (Gleanings/Review/Thoughts)
   'common.todayStats': 'Today {count} notes · {chars} chars',
 
@@ -367,8 +369,13 @@ export const en: TranslationDict = {
   'settings.ttsModelHintGemini': 'Model name (e.g., gemini-2.5-flash-preview-tts)',
   'settings.ttsModelHintVolcengine': 'Voice type ID (e.g., BV001_streaming)',
   'settings.ttsVoiceLabel': 'Voice',
-  'settings.ttsVoiceHintGemini': 'Prebuilt voice (e.g., Kore, Puck)',
-  'settings.ttsVoiceHintVolcengine': 'Leave empty',
+  'settings.ttsVoicePlaceholder': 'Click to choose a voice',
+  'settings.ttsVoiceUnmatched': 'Current value "{value}" is not in the preset list. Please reselect.',
+  'settings.ttsVoiceModalTitle': 'Choose a voice',
+  'settings.ttsVoiceSearch': 'Search ID / name / description',
+  'settings.ttsVoiceEmpty': 'No voices match',
+  'settings.ttsVoiceCustom': 'Custom…',
+  'settings.ttsVoiceCustomHint': 'Enter voice id manually (advanced)',
 
   // Settings - Embedding tab
   'settings.embeddingTitle': 'Local vectors & semantic search',

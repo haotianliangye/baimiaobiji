@@ -54,7 +54,7 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
   });
   const holdTimeoutRef = useRef<any>(null);
   const { copied, copy } = useCopyToClipboard();
-  const { play, isPlaying } = useTTS();
+  const { play, isPlaying, getPhase } = useTTS();
 
   const [editText, setEditText] = useState(insight.content || '');
   const [isSaving, setIsSaving] = useState(false);

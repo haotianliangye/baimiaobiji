@@ -372,9 +372,10 @@ function CopyButton({ text }: { text: string }) {
 }
 
 function TTSButton({ text }: { text: string }) {
-  const { play, isPlaying } = useTTS();
+  const { play, isPlaying, getPhase } = useTTS();
   const { t } = useTranslation();
   const playing = isPlaying(text);
+  const phase = getPhase(text);
 
   return (
     <button
@@ -384,8 +385,8 @@ function TTSButton({ text }: { text: string }) {
         playing ? 'text-baimiao-mysteria' : 'hover:text-stone-700'
       }`}
     >
-      {playing ? <Square className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
-      {playing ? t('review.stopReading') : t('review.readAloud')}
+      {phase === 'preparing' ? <Loader2 className="w-3 h-3 animate-spin" /> : playing ? <Square className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
+      {phase === 'preparing' ? t('common.preparingTts') : playing ? t('review.stopReading') : t('review.readAloud')}
     </button>
   );
 }
