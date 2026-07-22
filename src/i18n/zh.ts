@@ -262,6 +262,12 @@ export const zh: TranslationDict = {
   'thoughts.confirmDelete': '确认删除这条沉淀笔记吗？',
   'thoughts.charCount': '{count} 字',
   'thoughts.itemCount': '{count} 条',
+  'thoughts.voiceRecord': '[语音记录]',
+  'thoughts.voiceUnrecognized': '[未识别到有效语音]',
+  'thoughts.voiceParseFailed': '[语音解析失败: {msg}]',
+  'thoughts.voiceParseFailedHtml': '[语音解析失败: 远端接口无响应或返回了网页内容]',
+  'thoughts.micAccessError': '无法访问麦克风，请检查权限设置。',
+  'thoughts.voiceButton': '语音录入',
 
   // --- Insights / Insight 页 (洞察) ---
   'insight.title': '洞察',

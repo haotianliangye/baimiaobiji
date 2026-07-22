@@ -261,6 +261,12 @@ export const en: TranslationDict = {
   'thoughts.confirmDelete': 'Delete this distillation?',
   'thoughts.charCount': '{count} chars',
   'thoughts.itemCount': '{count} notes',
+  'thoughts.voiceRecord': '[Voice recording]',
+  'thoughts.voiceUnrecognized': '[No valid speech recognized]',
+  'thoughts.voiceParseFailed': '[Speech parsing failed: {msg}]',
+  'thoughts.voiceParseFailedHtml': '[Speech parsing failed: remote API returned no response or HTML content]',
+  'thoughts.micAccessError': 'Cannot access microphone. Please check permissions.',
+  'thoughts.voiceButton': 'Voice input',
 
   // --- Insights / Insight page ---
   'insight.title': 'Insights',

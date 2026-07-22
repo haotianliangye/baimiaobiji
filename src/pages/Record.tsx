@@ -33,6 +33,7 @@ import {
   Link as LinkIcon,
   FileUp,
 } from "lucide-react";
+import { UploadSimple } from "@phosphor-icons/react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { db } from "../db/db";
 import { generateUUID } from "../lib/utils";
@@ -1766,7 +1767,7 @@ export default function Record() {
               className="w-[36px] h-[36px] flex items-center justify-center rounded-xl text-stone-400 hover:text-stone-900 hover:bg-stone-100/50 disabled:opacity-30 transition-colors shrink-0"
               title={t('record.addAttachment')}
             >
-              <Paperclip className="w-[19px] h-[19px]" />
+              <UploadSimple size={19} weight="regular" />
             </button>
           )}
 

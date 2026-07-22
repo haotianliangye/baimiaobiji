@@ -18,7 +18,6 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { format, isSameDay } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
 import {
-  Plus,
   X,
   Trash2,
   Save,
@@ -32,10 +31,14 @@ import {
   Film,
   Music,
   Play,
+  Mic,
+  Loader2,
+  Keyboard,
 } from 'lucide-react';
 import { db, type Thought, type AttachmentMeta } from '../db/db';
 import { useThoughtsStore } from '../store/thoughts.store';
 import { useTagsStore } from '../store/tags.store';
+import { useSettingsStore } from '../store/settings.store';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { countChars } from '../lib/wordCount';
 import RichEditor from '../components/RichEditor';
@@ -45,6 +48,63 @@ import { useAppStore } from '../store/app.store';
 import { useTranslation } from '../lib/i18n';
 
 type ViewMode = 'masonry' | 'timeline';
+
+/**
+ * 与 Record 页同款的后端转写调用：POST /api/transcribe，失败重试最多 3 次。
+ * 这里本地复刻以避免 Record.tsx 内部的非导出耦合。
+ */
+async function fetchTranscriptionWithRetry(body: any, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const res = await fetch("/api/transcribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (res.ok) {
+        return await res.json();
+      }
+
+      const errorText = await res.text();
+      let errorData: any = { error: errorText };
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (e) {}
+
+      const finalError = errorData.error || errorData.message || "Server Error";
+      const isHtmlFail = typeof finalError === "string" && (
+        finalError.includes("<!") ||
+        finalError.includes("JSON.parse") ||
+        finalError.includes("Unexpected token '<'") ||
+        finalError.includes("SyntaxError")
+      );
+      if (i === maxRetries - 1 || isHtmlFail) {
+        throw new Error(typeof finalError === "string" ? finalError : JSON.stringify(finalError));
+      }
+      await new Promise((r) => setTimeout(r, 500 * (i + 1)));
+    } catch (e: any) {
+      const msg = String(e?.message || "");
+      const isHtmlFail =
+        msg.includes("<!") ||
+        msg.includes("JSON.parse") ||
+        msg.includes("Unexpected token '<'") ||
+        msg.includes("SyntaxError");
+      if (i === maxRetries - 1 || isHtmlFail) {
+        throw e;
+      }
+      await new Promise((r) => setTimeout(r, 500 * (i + 1)));
+    }
+  }
+  throw new Error("Unreachable");
+}
+
+/** 与 Record 页同款：录音秒数显示为 m:ss。 */
+const formatRecordTime = (seconds: number) => {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+};
 
 /** 毫秒时间戳 -> datetime-local input 所需的 yyyy-MM-ddTHH:mm（本地时区）。 */
 function tsToDatetimeLocal(ts: number): string {
@@ -97,6 +157,16 @@ export default function Thoughts() {
     refreshAliases();
   }, [refreshAliases]);
 
+  // 卸载时清理录音定时器
+  useEffect(() => {
+    return () => {
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+        recordingIntervalRef.current = null;
+      }
+    };
+  }, []);
+
   // 需求 7：图片/视频全屏预览状态
   const [mediaPreview, setMediaPreview] = useState<{ items: AttachmentMeta[]; initialIndex: number } | null>(null);
 
@@ -115,6 +185,15 @@ export default function Thoughts() {
   const [createAttachments, setCreateAttachments] = useState<AttachmentMeta[]>([]);
   const createScrollRef = useRef<HTMLDivElement>(null);
 
+  // --- 录音状态（与拾微板块同款：getUserMedia + MediaRecorder + /api/transcribe） ---
+  const [isListening, setIsListening] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const recognitionRef = useRef<any>(null);
+  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isMicInitializingRef = useRef(false);
+  const isCancelledRef = useRef(false);
+
   const handleOpenCreate = () => {
     setCreateContent('');
     setCreateAttachments([]);
@@ -130,6 +209,180 @@ export default function Thoughts() {
     if (!text) return;
     await createThought({ content: text, attachments: createAttachments });
     handleCloseCreate();
+  };
+
+  /**
+   * 与拾微板块的 handleToggleListen 同款：
+   *   1) getUserMedia 拿麦克风流；
+   *   2) MediaRecorder 录音（最多 60 秒）；
+   *   3) 录音停止后 base64 编码并调用 /api/transcribe；
+   *   4) 把转写出的文字预填到 createContent，并展开 RichEditor 供用户继续编辑/保存。
+   */
+  const handleToggleListen = async () => {
+    if (isMicInitializingRef.current) return;
+
+    if (isListening && recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch (e) {}
+      return;
+    }
+
+    isMicInitializingRef.current = true;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+
+      const audioTrack = stream.getAudioTracks()[0];
+      if (
+        !audioTrack ||
+        audioTrack.readyState !== "live" ||
+        !audioTrack.enabled
+      ) {
+        throw new Error("麦克风流未激活或被禁用");
+      }
+
+      let mediaRecorder: MediaRecorder;
+      try {
+        mediaRecorder = new MediaRecorder(stream);
+      } catch (e) {
+        console.error("Failed to initialize MediaRecorder:", e);
+        throw e;
+      }
+      recognitionRef.current = mediaRecorder;
+      const audioChunks: BlobPart[] = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunks.push(event.data);
+        }
+      };
+
+      const startTime = Date.now();
+      let stopTime: number | null = null;
+      let hasPropagatedStop = false;
+
+      const safelyStopRecorder = () => {
+        if (!stopTime) stopTime = Date.now();
+        if (!hasPropagatedStop) {
+          hasPropagatedStop = true;
+          try {
+            if (mediaRecorder.state !== "inactive") {
+              mediaRecorder.stop();
+            }
+          } catch (e) {}
+        }
+        setIsListening(false);
+        if (recordingIntervalRef.current) {
+          clearInterval(recordingIntervalRef.current);
+          recordingIntervalRef.current = null;
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        safelyStopRecorder();
+
+        let mimeType = mediaRecorder.mimeType;
+        if (!mimeType) {
+          const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+          mimeType = isIOS ? "audio/mp4" : "audio/webm";
+        }
+        const audioBlob = new Blob(audioChunks, { type: mimeType });
+        stream.getTracks().forEach((track) => track.stop());
+
+        if (isCancelledRef.current) {
+          isCancelledRef.current = false;
+          return;
+        }
+
+        setIsTranscribing(true);
+        try {
+          const reader = new FileReader();
+          reader.readAsDataURL(audioBlob);
+          await new Promise<void>((resolve, reject) => {
+            reader.onloadend = async () => {
+              try {
+                const base64data = (reader.result as string).split(",")[1];
+                const settings = useSettingsStore.getState();
+
+                let transcribedText = t('thoughts.voiceRecord');
+                try {
+                  const data = await fetchTranscriptionWithRetry({
+                    audio_base64: base64data,
+                    mime_type: mimeType,
+                    settings,
+                  });
+                  if (data && data.text) {
+                    transcribedText = data.text;
+                  } else {
+                    transcribedText = t('thoughts.voiceUnrecognized');
+                  }
+                } catch (e: any) {
+                  console.error("Transcription API error:", e);
+                  const msg = String(e.message || "");
+                  if (
+                    msg.includes("Unexpected token '<'") ||
+                    msg.includes("is not valid JSON") ||
+                    msg.includes("JSON.parse: unexpected character") ||
+                    msg.includes("SyntaxError:")
+                  ) {
+                    transcribedText = t('thoughts.voiceParseFailedHtml');
+                  } else {
+                    transcribedText = t('thoughts.voiceParseFailed', { msg });
+                  }
+                }
+
+                // 把转写结果预填到沉淀输入框并展开编辑器
+                setCreateContent(transcribedText);
+                setCreateAttachments([]);
+                setIsCreating(true);
+              } catch (err) {
+                console.error("Error processing transcription:", err);
+              } finally {
+                setRecordingDuration(0);
+                setIsTranscribing(false);
+                resolve();
+              }
+            };
+            reader.onerror = () => {
+              setIsTranscribing(false);
+              setRecordingDuration(0);
+              reject(reader.error);
+            };
+          });
+        } catch (err) {
+          console.error(err);
+          setRecordingDuration(0);
+          setIsTranscribing(false);
+        }
+      };
+
+      mediaRecorder.start();
+      setRecordingDuration(0);
+      recordingIntervalRef.current = setInterval(() => {
+        const currentSeconds = Math.floor((Date.now() - startTime) / 1000);
+        setRecordingDuration(currentSeconds);
+        if (currentSeconds >= 60) {
+          if (recognitionRef.current && recognitionRef.current.state === "recording") {
+            recognitionRef.current.stop();
+          }
+          setIsListening(false);
+          if (recordingIntervalRef.current) {
+            clearInterval(recordingIntervalRef.current);
+            recordingIntervalRef.current = null;
+          }
+        }
+      }, 1000);
+      setIsListening(true);
+      isMicInitializingRef.current = false;
+    } catch (err) {
+      console.error("Error accessing microphone:", err);
+      alert(t('thoughts.micAccessError'));
+      isMicInitializingRef.current = false;
+    }
   };
 
   // --- 编辑弹窗 ---
@@ -273,14 +526,64 @@ export default function Thoughts() {
             </div>
           </div>
         ) : (
-          <button
+          <div
             data-testid="thought-quick-input"
-            onClick={handleOpenCreate}
-            className="w-full flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-stone-200/70 text-stone-400 hover:border-baimiao-mysteria/30 hover:text-stone-600 transition-colors text-[13px]"
+            className="flex items-center bg-white rounded-2xl p-1.5 border border-stone-200/70 hover:border-baimiao-mysteria/30 focus-within:border-baimiao-mysteria/30 transition-colors shadow-[0_2px_10px_rgb(0_0_0_/_0.03)]"
           >
-            <Plus className="w-4 h-4 text-baimiao-mysteria/60" />
-            {t('thoughts.quickInput')}
-          </button>
+            <div className="relative flex-1 mr-1.5 flex flex-col justify-center min-h-[36px]">
+              {isListening ? (
+                <button
+                  type="button"
+                  onClick={handleToggleListen}
+                  disabled={isTranscribing}
+                  className="w-full h-[36px] flex items-center justify-center gap-2 rounded-xl font-medium text-[14.5px] transition-all select-none bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 active:scale-[0.99] text-white shadow-md shadow-baimiao-mysteria/10 disabled:opacity-50"
+                >
+                  <div className="w-2 h-2 rounded-sm bg-red-500 animate-pulse" />
+                  <span className="font-mono">{formatRecordTime(recordingDuration)}</span>
+                  <span className="ml-[2px] opacity-90 font-normal">{t('record.clickToEnd')}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleOpenCreate}
+                  disabled={isTranscribing}
+                  className="w-full h-[36px] flex items-center px-2 text-[13px] text-stone-400 hover:text-stone-600 transition-colors text-left"
+                >
+                  <span className="truncate">{t('thoughts.quickInput')}</span>
+                </button>
+              )}
+            </div>
+
+            {!isListening ? (
+              <button
+                type="button"
+                onClick={handleToggleListen}
+                disabled={isTranscribing}
+                data-testid="thought-mic-button"
+                className="w-[36px] h-[36px] flex items-center justify-center rounded-xl text-stone-400 hover:text-stone-900 hover:bg-stone-100/50 disabled:opacity-30 transition-colors shrink-0"
+                title={t('thoughts.voiceButton')}
+              >
+                {isTranscribing ? (
+                  <Loader2 className="w-[20px] h-[20px] animate-spin" />
+                ) : (
+                  <Mic className="w-[22px] h-[22px]" />
+                )}
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={isTranscribing}
+                onClick={() => {
+                  isCancelledRef.current = true;
+                  handleToggleListen();
+                }}
+                className="w-[36px] h-[36px] flex items-center justify-center rounded-xl text-stone-400 hover:text-stone-900 hover:bg-stone-100/50 disabled:opacity-30 transition-colors shrink-0"
+                title={t('record.cancel')}
+              >
+                <Keyboard className="w-[22px] h-[22px]" />
+              </button>
+            )}
+          </div>
         )}
       </div>
 
