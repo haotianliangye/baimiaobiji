@@ -35,7 +35,7 @@ const DATA_TYPE_OPTIONS: { id: DataType; labelKey: string }[] = [
   { id: 'raw_logs', labelKey: 'dataType.raw_logs' },
   { id: 'daily_reviews', labelKey: 'dataType.daily_reviews' },
   { id: 'thoughts', labelKey: 'dataType.thoughts' },
-  { id: 'insights', labelKey: 'dataType.mingwu' },
+  { id: 'insights', labelKey: 'dataType.insight' },
   { id: 'copilot_conversations', labelKey: 'dataType.copilot_conversations' },
   { id: 'tags', labelKey: 'dataType.tags' },
   { id: 'tag_aliases', labelKey: 'dataType.tag_aliases' },

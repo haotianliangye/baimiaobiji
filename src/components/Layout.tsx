@@ -70,22 +70,22 @@ export default function Layout() {
     '/': 'layout.titleBaimiao',
     '/review': 'tab.review',
     '/thoughts': 'tab.thoughts',
-    '/insight': 'tab.mingwu',
+    '/insight': 'tab.insight',
   };
   const headerTitleKey = routeTitleKey[currentPath] || 'layout.titleBaimiao';
 
   // 需求 6：洞察时间范围胶囊选项（复用现有洞察下拉选项与语义）
   const mingwuRangeOptions = [
-    { value: 'day', label: t('mingwu.rangeDay') },
-    { value: 'week', label: t('mingwu.rangeWeek') },
-    { value: 'month', label: t('mingwu.rangeMonth') },
-    { value: 'quarter', label: t('mingwu.rangeQuarter') },
-    { value: 'half-year', label: t('mingwu.rangeHalfYear') },
-    { value: 'year', label: t('mingwu.rangeYear') },
-    { value: 'custom', label: t('mingwu.rangeCustomRange') },
+    { value: 'day', label: t('insight.rangeDay') },
+    { value: 'week', label: t('insight.rangeWeek') },
+    { value: 'month', label: t('insight.rangeMonth') },
+    { value: 'quarter', label: t('insight.rangeQuarter') },
+    { value: 'half-year', label: t('insight.rangeHalfYear') },
+    { value: 'year', label: t('insight.rangeYear') },
+    { value: 'custom', label: t('insight.rangeCustomRange') },
   ];
   const mingwuRangeLabel = (range: string) =>
-    mingwuRangeOptions.find((o) => o.value === range)?.label || t('mingwu.rangeWeek');
+    mingwuRangeOptions.find((o) => o.value === range)?.label || t('insight.rangeWeek');
 
   // 日期导航（与各页面共用 ?date= 查询参数）
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -522,7 +522,7 @@ export default function Layout() {
             <TabItem to="/" end icon={<ChatCircleDots weight="regular" />} label={t('tab.record')} />
             <TabItem to="/review" icon={<Clock weight="regular" />} label={t('tab.review')} />
             <TabItem to="/thoughts" icon={<HeadCircuit weight="regular" />} label={t('tab.thoughts')} />
-            <TabItem to="/insight" icon={<Sun weight="regular" />} label={t('tab.mingwu')} />
+            <TabItem to="/insight" icon={<Sun weight="regular" />} label={t('tab.insight')} />
           </div>
         </nav>
       </div>
@@ -858,7 +858,7 @@ export default function Layout() {
               <TabItem to="/" end icon={<ChatCircleDots weight="regular" />} label={t('tab.record')} onNavigate={() => setSearchMode(false)} />
               <TabItem to="/review" icon={<Clock weight="regular" />} label={t('tab.review')} onNavigate={() => setSearchMode(false)} />
               <TabItem to="/thoughts" icon={<HeadCircuit weight="regular" />} label={t('tab.thoughts')} onNavigate={() => setSearchMode(false)} />
-              <TabItem to="/insight" icon={<Sun weight="regular" />} label={t('tab.mingwu')} onNavigate={() => setSearchMode(false)} />
+              <TabItem to="/insight" icon={<Sun weight="regular" />} label={t('tab.insight')} onNavigate={() => setSearchMode(false)} />
             </div>
           </nav>
         </div>

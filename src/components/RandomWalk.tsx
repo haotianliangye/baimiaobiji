@@ -65,7 +65,7 @@ const SOURCE_LABEL_KEYS: Record<SourceType, string> = {
   raw_logs: 'tab.record',
   thoughts: 'tab.thoughts',
   daily_reviews: 'tab.review',
-  insights: 'tab.mingwu',
+  insights: 'tab.insight',
 };
 
 const LS_SOURCES = 'random-walk-sources';
@@ -251,7 +251,7 @@ function toWalkItems(
         createdAt: m.created_at,
         tags: [],
         rawText: m.content,
-        typeLabel: m.insight_type === 'insight' ? tf('mingwu.insight') : tf('mingwu.mingwu'),
+        typeLabel: m.insight_type === 'insight' ? tf('insight.insight') : tf('insight.mingwu'),
       });
     }
   }
