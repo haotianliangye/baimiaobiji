@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning, Download, FileJson, FileText, MessageSquare, Volume2, Tags, Info, Database, X, ChevronRight, ChevronDown, ChevronUp, Search } from 'lucide-react';
+import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning, Download, FileJson, FileText, MessageSquare, Volume2, Tags, Info, Database, X, ChevronRight, ChevronDown, ChevronUp, Search, Mic, Plus, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import TagManagement from './TagManagement';
 import DrawerTagList from '../components/DrawerTagList';
@@ -19,6 +19,8 @@ import { importData, importConversations } from '../lib/dataImport';
 import type { ImportStrategy, ImportResult } from '../lib/dataImport';
 import { cn } from '../lib/utils';
 import { useTranslation } from '../lib/i18n';
+import { getPatterns, addPattern, removePattern, resetPatterns } from '../lib/hallucinationPatterns';
+import type { HallucinationPattern } from '../lib/hallucinationFilter';
 
 const SYNC_START_DELAY_MS = 500;
 const OAUTH_CHECK_INTERVAL_MS = 50;
@@ -276,6 +278,186 @@ const DATA_TYPE_OPTIONS: { id: DataType; labelKey: string }[] = [
   { id: 'attachments', labelKey: 'dataType.attachments' },
 ];
 
+/**
+ * Issue #004: 转写幻觉过滤面板
+ *
+ * 让用户在 Settings 里增删转写黑名单 pattern。
+ * 数据存 db.settings_kv['transcription.hallucinationPatterns']。
+ */
+function TranscriptionFilterPanel() {
+  const [patterns, setPatterns] = useState<HallucinationPattern[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [newType, setNewType] = useState<'exact' | 'regex'>('exact');
+  const [newValue, setNewValue] = useState('');
+  const [newDesc, setNewDesc] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    getPatterns().then(p => {
+      setPatterns(p);
+      setLoading(false);
+    });
+  }, []);
+
+  const refresh = async () => {
+    setLoading(true);
+    setPatterns(await getPatterns());
+    setLoading(false);
+  };
+
+  const handleAdd = async () => {
+    if (!newValue.trim()) return;
+    setErr(null);
+    try {
+      await addPattern({
+        key: `custom-${Date.now().toString(36)}`,
+        type: newType,
+        value: newValue.trim(),
+        description: newDesc.trim() || undefined,
+      });
+      setNewValue('');
+      setNewDesc('');
+      setAdding(false);
+      await refresh();
+    } catch (e) {
+      setErr((e as Error).message);
+    }
+  };
+
+  const handleRemove = async (key: string) => {
+    await removePattern(key);
+    await refresh();
+  };
+
+  const handleReset = async () => {
+    if (!confirm('确定要恢复全部默认 patterns 吗？自定义内容会丢失。')) return;
+    await resetPatterns();
+    await refresh();
+  };
+
+  if (loading) {
+    return <div className="p-6 text-stone-500 text-center text-sm">加载中…</div>;
+  }
+
+  return (
+    <section className="baimiao-card-diary p-5 flex flex-col gap-4">
+      <div className="flex flex-col gap-1">
+        <h3 className="text-[15px] font-semibold text-stone-900">转写幻觉过滤</h3>
+        <p className="text-[12px] text-stone-500 leading-relaxed">
+          LLM 转写音频时可能输出固定的噪音片段（如「[EMPTY_AUDIO]」「谢谢观看」）。
+          这里配置的 patterns 会在每次转写时送给后端，被命中的转写会被丢弃或标记。
+        </p>
+        <p className="text-[12px] text-stone-500 leading-relaxed">
+          配置仅存于本设备的 IndexedDB（settings_kv 表），不参与云同步。
+        </p>
+      </div>
+
+      {err && (
+        <div className="px-3 py-2 bg-red-50 text-red-700 text-[12px] rounded-lg border border-red-200">
+          {err}
+        </div>
+      )}
+
+      <div className="space-y-2 max-h-[400px] overflow-y-auto">
+        {patterns.map(p => (
+          <div
+            key={p.key}
+            className="flex items-center gap-2 px-3 py-2 bg-stone-50 hover:bg-stone-100 rounded-lg text-[12px] group"
+          >
+            <span className={cn(
+              'shrink-0 px-1.5 py-0.5 rounded text-[10px] font-mono',
+              p.type === 'regex' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+            )}>
+              {p.type}
+            </span>
+            <code className="flex-1 truncate text-stone-800 font-mono">{p.value}</code>
+            {p.description && (
+              <span className="text-stone-400 text-[11px] truncate max-w-[120px]" title={p.description}>
+                {p.description}
+              </span>
+            )}
+            <button
+              onClick={() => handleRemove(p.key)}
+              className="shrink-0 p-1 text-stone-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+              title="删除"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ))}
+        {patterns.length === 0 && (
+          <div className="text-stone-400 text-center text-[12px] py-4">
+            还没有任何 pattern，点击下方按钮添加
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2 pt-2 border-t border-stone-200/40">
+        {!adding ? (
+          <>
+            <button
+              onClick={() => setAdding(true)}
+              className="flex items-center gap-1 px-3 py-1.5 bg-baimiao-mysteria text-white rounded-lg text-[12px] hover:brightness-110"
+            >
+              <Plus className="w-3.5 h-3.5" />添加 pattern
+            </button>
+            <button
+              onClick={handleReset}
+              className="flex items-center gap-1 px-3 py-1.5 text-stone-600 bg-stone-100 hover:bg-stone-200 rounded-lg text-[12px]"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />恢复默认
+            </button>
+          </>
+        ) : (
+          <div className="flex flex-col gap-2 w-full p-3 bg-stone-50 rounded-lg">
+            <div className="flex items-center gap-2">
+              <label className="text-[12px] text-stone-600">类型</label>
+              <select
+                value={newType}
+                onChange={e => setNewType(e.target.value as 'exact' | 'regex')}
+                className="px-2 py-1 text-[12px] border border-stone-200 rounded"
+              >
+                <option value="exact">精确匹配</option>
+                <option value="regex">正则表达式</option>
+              </select>
+            </div>
+            <input
+              type="text"
+              value={newValue}
+              onChange={e => setNewValue(e.target.value)}
+              placeholder={newType === 'regex' ? '例如：关注.*订阅' : '例如：[EMPTY_AUDIO]'}
+              className="w-full px-2 py-1.5 text-[12px] border border-stone-200 rounded font-mono"
+            />
+            <input
+              type="text"
+              value={newDesc}
+              onChange={e => setNewDesc(e.target.value)}
+              placeholder="备注（可选）"
+              className="w-full px-2 py-1.5 text-[12px] border border-stone-200 rounded"
+            />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleAdd}
+                disabled={!newValue.trim()}
+                className="px-3 py-1.5 bg-baimiao-mysteria text-white rounded-lg text-[12px] disabled:opacity-50"
+              >
+                保存
+              </button>
+              <button
+                onClick={() => { setAdding(false); setErr(null); }}
+                className="px-3 py-1.5 text-stone-600 bg-stone-200 rounded-lg text-[12px]"
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default function Settings() {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -336,7 +518,7 @@ export default function Settings() {
     updateVectorsCount
   } = useAppStore();
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState<'model' | 'tts' | 'embedding' | 'data' | 'prompt' | 'tags' | 'about'>(
+  const [activeTab, setActiveTab] = useState<'model' | 'tts' | 'embedding' | 'data' | 'prompt' | 'tags' | 'transcription' | 'about'>(
     (location.state as any)?.tab || 'model'
   );
   // Issue 109: 设置页抽屉 + 全页详情模式（推翻 Seam 2 左右分栏）
@@ -958,6 +1140,7 @@ export default function Settings() {
     { id: 'data', label: t('settings.tabData'), icon: <Database className="w-4 h-4" /> },
     { id: 'prompt', label: t('settings.tabPrompt'), icon: <Settings2 className="w-4 h-4" /> },
     { id: 'tags', label: t('settings.tabTags'), icon: <Tags className="w-4 h-4" /> },
+    { id: 'transcription', label: t('settings.tabTranscription'), icon: <Mic className="w-4 h-4" /> },
     { id: 'about', label: t('settings.tabAbout'), icon: <Info className="w-4 h-4" /> },
   ];
 
@@ -2924,6 +3107,10 @@ export default function Settings() {
 
           {activeTab === 'tags' && (
             <TagManagement embedded />
+          )}
+
+          {activeTab === 'transcription' && (
+            <TranscriptionFilterPanel />
           )}
 
           {activeTab === 'about' && (

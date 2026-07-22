@@ -325,6 +325,7 @@ export const en: TranslationDict = {
   'settings.tabData': 'Data Management',
   'settings.tabPrompt': 'Prompt Config',
   'settings.tabTags': 'Tags',
+  'settings.tabTranscription': 'Transcription',
   'settings.tabAbout': 'About',
   'settings.menuToggle': 'Menu',
   // Issue 109: Settings drawer -- all tags section + quick entry
