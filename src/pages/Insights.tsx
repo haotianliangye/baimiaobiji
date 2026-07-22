@@ -192,7 +192,7 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
         {expanded && (
           <div
             data-testid="mingwu-card-content"
-            className="px-4 pb-4 pt-3 border-t border-black/[0.03] markdown-body prose prose-stone baimiao-editorial-body prose-h1:text-[19px] prose-h2:text-[17px] prose-h3:text-[16px] prose-headings:font-medium prose-headings:font-serif baimiao-editorial-title prose-p:text-baimiao-ink prose-li:text-baimiao-ink text-[15.5px] leading-relaxed relative z-10 selection:bg-stone-200 cursor-pointer"
+            className="px-4 pb-4 pt-3 border-t border-black/[0.03] markdown-body prose prose-stone max-w-none baimiao-editorial-body prose-h1:text-[19px] prose-h2:text-[17px] prose-h3:text-[16px] prose-headings:font-medium prose-headings:font-serif baimiao-editorial-title prose-p:text-baimiao-ink prose-li:text-baimiao-ink text-[15.5px] leading-relaxed relative z-10 selection:bg-stone-200 cursor-pointer"
             onClick={(e) => {
               if (isEditing) return;
               if ((e.target as HTMLElement).tagName.toLowerCase() === 'a') return;
