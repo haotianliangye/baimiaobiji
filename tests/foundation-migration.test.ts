@@ -229,8 +229,8 @@ async function run() {
   const migratedInsight = insights?.find((m) => m.id === 'i1');
   assert(
     'B3 insights 迁移到 insights',
-    !!migratedInsight && (migratedInsight.insight_type ?? migratedInsight.mingwu_type) === 'insight' && migratedInsight.content === '洞察正文内容',
-    migratedInsight ? `type=${migratedInsight.insight_type ?? migratedInsight.mingwu_type}` : '未找到 i1'
+    !!migratedInsight && migratedInsight.insight_type === 'insight' && migratedInsight.content === '洞察正文内容',
+    migratedInsight ? `type=${migratedInsight.insight_type}` : '未找到 i1'
   );
   // 旧表删除
   assert('B4 旧 daily_diaries 表已删除', oldDiaries === null, `daily_diaries=${oldDiaries}`);

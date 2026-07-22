@@ -447,9 +447,11 @@ export class WhitewashDiaryDB extends dexie {
 
       const oldRecords: any[] = await safeToArray('mingwu');
       for (const old of oldRecords) {
+        // v14 干净重命名：剥离 mingwu_type 旧字段，不再作为运行时口径。
+        delete old.mingwu_type;
         await tx.table('insights').put({
           ...old,
-          insight_type: old.insight_type || old.mingwu_type || 'insight',
+          insight_type: old.insight_type || 'insight',
         } as Insight);
       }
 
@@ -485,7 +487,9 @@ export function normalizeLegacyReview(r: any): DailyReview {
   } as DailyReview;
 }
 export function normalizeLegacyInsight(i: any): Insight {
-  return { ...i, insight_type: i.insight_type || i.mingwu_type || 'insight' } as Insight;
+  // 干净重命名：从云备份/导入数据读取时剥离 mingwu_type 旧字段。
+  delete i.mingwu_type;
+  return { ...i, insight_type: i.insight_type || 'insight' } as Insight;
 }
 
 export const db = new WhitewashDiaryDB();
