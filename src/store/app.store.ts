@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { db, normalizeLegacyDiary, normalizeLegacyReview, normalizeLegacyInsight } from '../db/db';
 import { generateUUID } from '../lib/utils';
 import { SYNC_CONSTANTS } from '../config/constants';
+import { getBackoffMs, isRetryableError, getRetryLimit } from '../lib/backoff';
 import { useSettingsStore, isDiarySlot, getEntryTypeForSlot, getLegacyPromptIndices } from './settings.store';
 import type { ToastItem, ToastType } from '../components/Toast';
 import { cosineSimilarity, requestEmbedding, getEmbedSettings, registerQueueChangeListener } from '../lib/embedding';
@@ -740,6 +741,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (get().isProcessingQueue) return;
     set({ isProcessingQueue: true });
 
+    // Issue #003: 跟踪最近一次任务执行错误，用于判断重试上限（4xx 不重试）
+    let lastQueueError: any = null;
+
     const settings = { ...useSettingsStore.getState() };
     const promptNames = settings.reviewPromptNames || ['日记', '回顾', '自定义 1', '自定义 2', '自定义 3'];
 
@@ -909,6 +913,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
       } catch (err: any) {
         console.error("Queue task execution error:", err);
+        // Issue #003: 不重试的错误（4xx 等）→ 直接记下当前 err 供后续判断
+        // 把 err 挂到 task 上，让 catch 外的逻辑判断是否还能重试
+        // （注：catch 块作用域内不能直接修改 outer task 引用，所以我们在下方检查）
+        lastQueueError = err;
       }
 
       const latestTasks = [...get().autoGenTasks];
@@ -918,21 +926,33 @@ export const useAppStore = create<AppState>((set, get) => ({
         if (success) {
           latestTasks.splice(targetIdx, 1);
         } else {
-          latestTasks[targetIdx] = {
-            ...latestTasks[targetIdx],
-            status: 'failed',
-            retryCount: latestTasks[targetIdx].retryCount + 1
-          };
+          // Issue #003: 4xx 错误直接 drop（不再重试），网络错误累加 retryCount
+          if (lastQueueError && !isRetryableError(lastQueueError)) {
+            // 不重试：从队列移除，避免无限循环
+            latestTasks.splice(targetIdx, 1);
+          } else {
+            latestTasks[targetIdx] = {
+              ...latestTasks[targetIdx],
+              status: 'failed',
+              retryCount: latestTasks[targetIdx].retryCount + 1
+            };
+          }
         }
         set({ autoGenTasks: latestTasks });
         localStorage.setItem('baimiao_autogen_tasks', JSON.stringify(latestTasks));
       }
+      lastQueueError = null;
 
+      // Issue #003: 重试上限根据错误类型动态调整
+      const currentTask = latestTasks.find(t => t.id === task.id);
+      const taskRetryLimit = currentTask ? getRetryLimit(lastQueueError) : 3;
       const hasMore = get().autoGenTasks.some(
-        t => t.status === 'pending' || (t.status === 'failed' && t.retryCount < 3)
+        t => t.status === 'pending' ||
+          (t.status === 'failed' && t.retryCount < taskRetryLimit)
       );
       if (hasMore) {
-        await new Promise(r => setTimeout(r, SYNC_CONSTANTS.API_RATE_LIMIT_DELAY_MS));
+        // Issue #003: 用指数退避 + jitter 替代固定 3 秒延时
+        await new Promise(r => setTimeout(r, getBackoffMs(currentTask?.retryCount ?? 0)));
       }
     }
 
