@@ -14,7 +14,7 @@
 | #003 | 任务队列指数退避 | ✅ 已合并 (commit `f08cef4`, tag `v0.1.2`) | feat/issue-003-backoff | 8/8 backoff 测试通过 |
 | #004 | 转写幻觉检测升级 | ✅ 已合并 (commit `37a66bc`, tag `v0.2.0`) | feat/issue-004-hallucination-filters | 16/16 filter 测试通过 + db v15 |
 | #005 | 引用回溯验证 | ✅ 已合并 (commit `586ae56`, tag `v0.2.1`) | feat/issue-005-cite-verification | 10/10 verify 测试通过 + 100KB 2ms |
-| #006 | 错误日志环形缓冲 | ⏳ 待开始 | — | — |
+| #006 | 错误日志环形缓冲 | ✅ 已合并 (commit `98047e7`, tag `v0.2.2`) | feat/issue-006-error-buffer | 10/10 buffer 测试通过 + 累积版本号修正 |
 | #007 | 存储预警 | ⏳ 待开始 | — | — |
 | #008 | 自动备份 | ⏳ 待开始 | — | — |
 
@@ -73,6 +73,18 @@
 - key 命名约定：`'<domain>.<subKey>'`（如 `'transcription.hallucinationPatterns'`）
 - value 字段存 `{ data, updated_at }` 结构
 - 首次访问懒写入默认（避免 upgrade 长事务）
+
+### 错误诊断
+- 用 `src/lib/errorBuffer.ts`（Issue #006 引入）
+- 内存 100 条 FIFO，不持久化（隐私优先）
+- 自定义 JSON replacer 显式提取 Error.name/message/stack
+- Settings → About tab 有 ErrorInspector 面板（不需要隐藏入口）
+- 仍走 console.error（不破坏现有调试路径）
+
+### 包版本号管理
+- package.json 的 version 必须随每个 git tag 同步更新
+- Issue #006 累积修正 0.1.0 → 0.2.2 的漂移（前 5 个 issue 没 bump）
+- vite.config.ts 通过 `import pkg` 注入 VITE_APP_VERSION 到 bundle
 
 ## 已知的坑（来自 Karpathy 评估）
 
