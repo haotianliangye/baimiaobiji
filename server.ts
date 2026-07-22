@@ -7,12 +7,16 @@ import ffmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import fs from 'fs';
 import os from 'os';
+import { fetchWithTimeout, FETCH_TIMEOUTS } from './src/lib/fetchWithTimeout';
+import pkg from './package.json' with { type: 'json' };
 
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  // Issue #002: 读 PORT 环境变量，让测试（4178）和生产部署灵活切换端口。
+  // 缺省 3000 保持向后兼容。
+  const PORT = parseInt(process.env.PORT || '3000', 10);
   
   app.use(express.json({ limit: '50mb' }));
 
@@ -256,14 +260,14 @@ ${diaryContent || ""}
         const apiUrl = `${apiBase}/embeddings`;
         const actualModel = embeddingModel || def.model;
 
-        const response = await fetch(apiUrl, {
+        const response = await fetchWithTimeout(apiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`,
           },
           body: JSON.stringify({ input: text.trim(), model: actualModel }),
-        });
+        }, FETCH_TIMEOUTS.embedding);
 
         if (!response.ok) {
           const errBody = await response.text();
@@ -317,7 +321,7 @@ ${diaryContent || ""}
             headers['Authorization'] = `Bearer ${apiKey}`;
           }
           const apiBase = (baseUrl || '').replace(/\/$/, '');
-          const response = await fetch(`${apiBase}/chat/completions`, {
+          const response = await fetchWithTimeout(`${apiBase}/chat/completions`, {
             method: 'POST',
             headers,
             body: JSON.stringify({
@@ -325,7 +329,7 @@ ${diaryContent || ""}
               messages: [{ role: 'user', content: 'Say ok' }],
               max_tokens: 2
             })
-          });
+          }, FETCH_TIMEOUTS.testConnection);
           if (!response.ok) {
             const errText = await response.text();
             throw new Error(errText || `HTTP ${response.status}`);
@@ -354,14 +358,14 @@ ${diaryContent || ""}
             headers['Authorization'] = `Bearer ${apiKey}`;
           }
           const apiBase = (baseUrl || '').replace(/\/$/, '');
-          const response = await fetch(`${apiBase}/embeddings`, {
+          const response = await fetchWithTimeout(`${apiBase}/embeddings`, {
             method: 'POST',
             headers,
             body: JSON.stringify({
               model,
               input: 'test'
             })
-          });
+          }, FETCH_TIMEOUTS.testConnection);
           if (!response.ok) {
             const errText = await response.text();
             throw new Error(errText || `HTTP ${response.status}`);
@@ -795,7 +799,7 @@ ${contextContent || '（本次未检索到相关片段）'}
 
          const audioDataUrl = `data:${convertedMime};base64,${convertedBase64}`;
          
-         const fetchRes = await fetch(apiUrl, {
+         const fetchRes = await fetchWithTimeout(apiUrl, {
             method: 'POST',
             headers: {
                'Content-Type': 'application/json',
@@ -819,13 +823,13 @@ ${contextContent || '（本次未检索到相关片段）'}
                  }
                ]
             })
-         });
+         }, FETCH_TIMEOUTS.transcribe);
 
          if (!fetchRes.ok) {
             const errText = await fetchRes.text();
             throw new Error(`语音解析报错: ${errText}`);
          }
-         
+
          const data = await fetchRes.json();
          console.log("Volcengine Audio Transcript Response:", JSON.stringify(data, null, 2));
          
@@ -904,13 +908,13 @@ ${contextContent || '（本次未检索到相关片段）'}
          formData.append('temperature', '0');
          formData.append('prompt', '这是一段普通的中文语音。');
          
-         const fetchRes = await fetch(apiUrl, {
+         const fetchRes = await fetchWithTimeout(apiUrl, {
             method: 'POST',
             headers: {
                'Authorization': `Bearer ${apiKey}`
             },
             body: formData
-         });
+         }, FETCH_TIMEOUTS.transcribe);
 
          if (!fetchRes.ok) {
             const errText = await fetchRes.text();
@@ -1058,7 +1062,7 @@ ${contextContent || '（本次未检索到相关片段）'}
         const voiceType = model || 'BV001_streaming';
         const speedRatio = typeof rate === 'number' && rate > 0 ? rate : 1;
         const reqid = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-        const fetchRes = await fetch(apiUrl, {
+        const fetchRes = await fetchWithTimeout(apiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1070,7 +1074,7 @@ ${contextContent || '（本次未检索到相关片段）'}
             audio: { voice_type: voiceType, encoding: 'mp3', speed_ratio: speedRatio },
             request: { reqid, text, operation: 'query' },
           }),
-        });
+        }, FETCH_TIMEOUTS.tts);
         if (!fetchRes.ok) {
           const errText = await fetchRes.text();
           throw new Error(`火山引擎 TTS 错误: ${fetchRes.status} ${errText}`);
@@ -1243,11 +1247,11 @@ ${contextContent || '（本次未检索到相关片段）'}
         }
       }
 
-      const response = await fetch(url, {
+      const response = await fetchWithTimeout(url, {
         method,
         headers: requestHeaders,
         body: requestBody
-      });
+      }, FETCH_TIMEOUTS.webdav);
 
       if (method === 'GET') {
         if (response.status === 404) {
@@ -1269,6 +1273,18 @@ ${contextContent || '（本次未检索到相关片段）'}
   });
 
   // Vite middleware for development
+  // Health check endpoint — used by /api/health probes (e.g. uptime monitoring)
+  // and to detect whether the local Express proxy is reachable from mobile PWA.
+  // Issue #002: added alongside server timeout work.
+  app.get('/api/health', (_req, res) => {
+    res.json({
+      ok: true,
+      uptime: process.uptime(),
+      version: pkg.version,
+      timestamp: Date.now(),
+    });
+  });
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -1358,11 +1374,11 @@ async function sendLLMRequest(
       };
    }
 
-   const response = await fetch(apiUrl, {
+   const response = await fetchWithTimeout(apiUrl, {
       method: 'POST',
       headers,
       body: JSON.stringify(bodyPayload)
-   });
+   }, FETCH_TIMEOUTS.llm);
 
    if (!response.ok) {
       const errBody = await response.text();
