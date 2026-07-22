@@ -53,7 +53,23 @@
 
 | 主题 | 文件 |
 |---|---|
+| **项目状态总览（必读）** | `CONTEXT.md` |
+| **当前进度（重新接手时必读）** | `docs/handoff/CURRENT_STATE.md` |
+| **Karpathy 视角判断日志** | `docs/handoff/KARPATHY_SESSION_LOG.md` |
+| **P0 实施计划** | `docs/adr/0002-p0-implementation-plan.md` |
+| **P0 issue 规格** | `docs/issues/p0/` |
 | 系统架构、数据流、API、Runbook | `docs/architecture.md` |
 | 端侧 AI 迁移决策与调研 | `docs/on-device-ai-migration.md` |
 | 外部接入与快速开始 | `README.md` |
 | 端侧 AI 原始调研资料 | `D:\DProjects\bytenote\docs\前期调研\` |
+
+## 重新接手工作的流程
+
+如果是新 session 接手 P0 实施工作：
+
+1. 读 `CONTEXT.md`（5 分钟，了解项目状态）
+2. 读 `docs/handoff/CURRENT_STATE.md`（5 分钟，了解当前进度）
+3. 读 `docs/handoff/KARPATHY_SESSION_LOG.md`（如果需要延续 Karpathy 视角判断）
+4. 读对应 issue 文件 `docs/issues/p0/NNN-xxx.md`
+5. 切分支：`git checkout -b feat/issue-NNN-<short-name>`
+6. 跑 `/implement` 流程
