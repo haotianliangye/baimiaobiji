@@ -10,6 +10,7 @@ import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_
 import { db, normalizeLegacyDiary, normalizeLegacyInsight } from '../db/db';
 import { enqueueAllMissingEmbeddings } from '../lib/embedding';
 import { checkStorageStatus, requestStoragePersistence, StorageEstimateInfo } from '../lib/storage';
+import { getPressureLevel, type PressureLevel } from '../lib/storagePressure';
 import { useAppStore } from '../store/app.store';
 import { SYNC_CONSTANTS, TTS_VOICES, findTtsVoiceLabel, type TtsVoiceOption } from '../config/constants';
 import DatePickerPopover from '../components/DatePickerPopover';
@@ -2400,6 +2401,47 @@ export default function Settings() {
                         <span className="text-[11px] text-stone-500 mt-1">
                           {t('settings.storageUsed', { used: formatBytes(storageInfo.usedBytes), quota: formatBytes(storageInfo.quotaBytes) })}
                         </span>
+                        {(() => {
+                          // Issue #007: 存储压力进度条 + 警告
+                          const ratio = storageInfo.quotaBytes > 0
+                            ? storageInfo.usedBytes / storageInfo.quotaBytes
+                            : 0;
+                          const level: PressureLevel = getPressureLevel(ratio);
+                          const colorMap: Record<PressureLevel, string> = {
+                            ok: 'bg-emerald-500',
+                            warning: 'bg-amber-500',
+                            critical: 'bg-orange-500',
+                            danger: 'bg-rose-500',
+                          };
+                          const textColorMap: Record<PressureLevel, string> = {
+                            ok: 'text-emerald-700',
+                            warning: 'text-amber-700',
+                            critical: 'text-orange-700',
+                            danger: 'text-rose-700',
+                          };
+                          const pct = Math.round(ratio * 100);
+                          return (
+                            <div className="mt-2 space-y-1.5">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] text-stone-500">已使用</span>
+                                <span className={`text-[10px] font-mono font-semibold ${textColorMap[level]}`}>
+                                  {pct}%
+                                </span>
+                              </div>
+                              <div className="w-full h-1.5 bg-stone-200 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full ${colorMap[level]} transition-all duration-300`}
+                                  style={{ width: `${Math.min(100, pct)}%` }}
+                                />
+                              </div>
+                              {(level === 'critical' || level === 'danger') && (
+                                <div className={`text-[10.5px] leading-relaxed mt-1.5 ${textColorMap[level]} font-medium`}>
+                                  ⚠️ 存储空间紧张，建议立即导出备份（{pct}% ≥ 85%）。
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                     {!storageInfo.persisted && (
