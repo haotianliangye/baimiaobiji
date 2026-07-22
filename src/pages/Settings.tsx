@@ -21,6 +21,7 @@ import { cn } from '../lib/utils';
 import { useTranslation } from '../lib/i18n';
 import { getPatterns, addPattern, removePattern, resetPatterns } from '../lib/hallucinationPatterns';
 import type { HallucinationPattern } from '../lib/hallucinationFilter';
+import { getErrorCount, exportErrorLog, clearErrorLog, triggerTestError, ERROR_BUFFER_MAX_SIZE } from '../lib/errorBuffer';
 
 const SYNC_START_DELAY_MS = 500;
 const OAUTH_CHECK_INTERVAL_MS = 50;
@@ -455,6 +456,103 @@ function TranscriptionFilterPanel() {
         )}
       </div>
     </section>
+  );
+}
+
+/**
+ * Issue #006: 错误日志调试面板
+ *
+ * 让用户能导出本地错误环形缓冲（在崩溃 / 异常场景下发给开发者）。
+ * 设计：
+ *   - 放在 Settings → About tab（不需要 5 次连点）
+ *   - 显示当前缓冲大小（X / 100）
+ *   - 「导出 JSON」按钮 → 下载 error-log-<timestamp>.json
+ *   - 「清空」按钮（带确认）
+ *   - 「触发测试」按钮（演示用）
+ */
+function ErrorInspector() {
+  const [count, setCount] = useState(0);
+  const [isExporting, setIsExporting] = useState(false);
+  const [lastExport, setLastExport] = useState<string | null>(null);
+
+  // 每次激活 About tab 时 refresh 一次
+  useEffect(() => {
+    setCount(getErrorCount());
+    // 不挂 timer：用户切回 tab 时重读
+  }, []);
+
+  const refresh = () => setCount(getErrorCount());
+
+  const handleExport = () => {
+    if (count === 0) return;
+    setIsExporting(true);
+    try {
+      const content = exportErrorLog();
+      const blob = new Blob([content], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `error-log-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setLastExport(new Date().toLocaleTimeString('zh-CN'));
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleClear = () => {
+    if (!confirm('确定清空错误日志？')) return;
+    clearErrorLog();
+    refresh();
+  };
+
+  const handleTest = () => {
+    triggerTestError();
+    refresh();
+  };
+
+  return (
+    <div className="w-full mb-5 p-3 bg-stone-50 border border-stone-200/60 rounded-xl text-left">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[12px] font-semibold text-stone-700">错误日志（调试）</span>
+        <span className="text-[11px] text-stone-500 font-mono">
+          {count} / {ERROR_BUFFER_MAX_SIZE}
+        </span>
+      </div>
+      <p className="text-[11px] text-stone-500 mb-3 leading-relaxed">
+        本地环形缓冲，仅在本设备内存。导出 JSON 发给开发者辅助定位问题。
+      </p>
+      <div className="flex gap-2 flex-wrap">
+        <button
+          onClick={handleExport}
+          disabled={count === 0 || isExporting}
+          className="flex items-center gap-1 px-3 py-1.5 text-[11px] bg-stone-900 text-white rounded-lg hover:bg-black disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <Download className="w-3 h-3" />
+          导出 JSON
+        </button>
+        <button
+          onClick={handleClear}
+          disabled={count === 0}
+          className="flex items-center gap-1 px-3 py-1.5 text-[11px] bg-stone-200 text-stone-700 rounded-lg hover:bg-stone-300 disabled:opacity-30"
+        >
+          <Trash2 className="w-3 h-3" />
+          清空
+        </button>
+        <button
+          onClick={handleTest}
+          className="flex items-center gap-1 px-3 py-1.5 text-[11px] bg-white border border-stone-200 text-stone-600 rounded-lg hover:bg-stone-50"
+        >
+          触发测试
+        </button>
+      </div>
+      {lastExport && (
+        <p className="text-[10px] text-stone-400 mt-2">上次导出：{lastExport}</p>
+      )}
+    </div>
   );
 }
 
@@ -3120,6 +3218,8 @@ export default function Settings() {
               </div>
               <h3 className="text-[17px] font-semibold text-stone-900 mb-1">{t('app.title')}</h3>
               <p className="text-[11px] text-stone-400 font-mono mb-5">{t('app.version')}</p>
+
+              <ErrorInspector />
 
               <div className="space-y-2 mb-6 text-center w-full text-stone-600 text-[13px] border-t border-b border-stone-200/40 py-4 flex flex-col items-center justify-center">
                 <span className="text-stone-400 text-[11px] uppercase tracking-wider">{t('app.authorLabel')}</span>
