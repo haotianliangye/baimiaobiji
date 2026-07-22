@@ -183,7 +183,7 @@ export default function Thoughts() {
   return (
     <div className="flex flex-col h-full bg-transparent">
       {/* 列表区（局部滚动，遵循移动端红线） */}
-      <div ref={createScrollRef} className="flex-1 overflow-y-auto thin-scrollbar px-4 py-4">
+      <div ref={createScrollRef} className="flex-1 overflow-y-auto thin-scrollbar px-4 md:px-6 lg:px-8 py-4 md:py-6">
         {thoughts.length === 0 ? (
           <EmptyState />
         ) : view === 'masonry' ? (

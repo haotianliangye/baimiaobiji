@@ -374,13 +374,13 @@ export default function Review() {
   return (
     <div className="flex flex-col h-full bg-transparent relative">
       <div
-        className="flex-1 overflow-y-auto thin-scrollbar p-6 flex flex-col items-center"
+        className="flex-1 overflow-y-auto thin-scrollbar px-4 md:px-6 lg:px-8 py-4 md:py-6 flex flex-col"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
          {/* 批量生成进度浮动条 */}
          {batchProgress && batchProgress.type === 'review' && (
-           <div className="mb-4 w-full max-w-sm md:max-w-xl lg:max-w-3xl mx-auto animate-in fade-in">
+           <div className="mb-4 w-full animate-in fade-in">
              <div className="flex items-center gap-3 bg-gradient-to-r from-[#f6f3f9] to-[#ece7f4] border border-purple-200/30 rounded-xl px-4 py-3 shadow-sm">
                <div className="animate-spin rounded-full h-4 w-4 border-2 border-baimiao-mysteria border-t-transparent shrink-0" />
                <div className="flex-1 min-w-0">
@@ -396,7 +396,7 @@ export default function Review() {
            </div>
          )}
 
-        <div className="w-full max-w-sm md:max-w-xl lg:max-w-3xl mx-auto px-2 md:px-0 mb-20 flex flex-col gap-3">
+        <div className="flex-1 w-full mb-20 flex flex-col gap-3">
           {reviewsForDate.length === 0 && !hasPendingForDate ? (
             <div className="flex flex-col items-center justify-center py-8 w-full select-none">
               <p className="text-[13px] text-stone-400 mb-5 tracking-wider font-medium font-serif">{t('review.emptyTodayTitle')}</p>
