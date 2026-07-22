@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Loader2, RefreshCw, Copy, Check, Trash2, Maximize2, ChevronDown, Volume2, Square } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { VerifiedMarkdown } from './VerifiedMarkdown';
 import { InsightMessage } from '../db/db';
 import { useSettingsStore } from '../store/settings.store';
 import { useAppStore } from '../store/app.store';
@@ -200,31 +201,27 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
                 {msg.role === 'assistant' ? (
                   <div className="w-full flex flex-col">
                     <div className="markdown-body prose prose-sm prose-stone prose-p:my-1 prose-ul:my-1 prose-ol:my-1 w-full max-w-none">
-                      <ReactMarkdown
-                        components={
+                      <VerifiedMarkdown
+                        markdown={msg.content}
+                        linkRenderer={
                           onCitationClick
-                            ? {
-                                a: ({ node, href, children, ...props }) => (
-                                  <a
-                                    href={href}
-                                    onClick={(e) => {
-                                      if (href?.startsWith('#log_id_')) {
-                                        e.preventDefault();
-                                        onCitationClick(href.replace('#log_id_', ''));
-                                      }
-                                    }}
-                                    className="text-stone-500 bg-stone-200/50 hover:bg-stone-200 hover:text-stone-900 px-1.5 py-0.5 rounded cursor-pointer no-underline transition-colors border border-black/5"
-                                    {...props}
-                                  >
-                                    {children}
-                                  </a>
-                                ),
-                              }
+                            ? ({ href, children }) => (
+                                <a
+                                  href={href}
+                                  onClick={(e) => {
+                                    if (href?.startsWith('#log_id_')) {
+                                      e.preventDefault();
+                                      onCitationClick(href.replace('#log_id_', ''));
+                                    }
+                                  }}
+                                  className="text-stone-500 bg-stone-200/50 hover:bg-stone-200 hover:text-stone-900 px-1.5 py-0.5 rounded cursor-pointer no-underline transition-colors border border-black/5"
+                                >
+                                  {children}
+                                </a>
+                              )
                             : undefined
                         }
-                      >
-                        {washCitations(msg.content)}
-                      </ReactMarkdown>
+                      />
                     </div>
                     <div className="flex justify-between w-full mt-3 pt-2.5 border-t border-stone-100/80 text-[11px] text-stone-400 font-medium select-none">
                       <button

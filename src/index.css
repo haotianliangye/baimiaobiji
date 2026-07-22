@@ -185,6 +185,42 @@ html, body, #root {
 }
 
 /* ==========================================================================
+   Citation Verification - Issue #005
+   Issue #005: 引用回溯验证。broken 引用（#log_id_<UUID> 但 UUID 不在 db 里）
+   会被 VerifiedMarkdown 渲染为带 .citation-broken 样式的 span。
+   ========================================================================== */
+.citation-broken {
+  border-bottom: 2px dashed #f59e0b;
+  cursor: help;
+  position: relative;
+}
+.citation-broken:hover::after {
+  content: '此引用无法溯源，可能为 AI 编造';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1c1917;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  font-size: 12px;
+  z-index: 10;
+  margin-bottom: 4px;
+}
+.broken-citation-badge {
+  display: inline-block;
+  background: #f59e0b;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-bottom: 8px;
+  cursor: help;
+}
+
+/* ==========================================================================
    Tab Bar - Starlight Capsule Bounce Animation
    ========================================================================== */
 @keyframes tabBounce {

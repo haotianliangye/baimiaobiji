@@ -12,6 +12,7 @@ import { format, subDays } from 'date-fns';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { formatDiaryMarkdown } from '../lib/utils';
 import { washCitations } from '../lib/citationWash';
+import { VerifiedMarkdown } from '../components/VerifiedMarkdown';
 import DatePickerPopover from '../components/DatePickerPopover';
 import { useTranslation } from '../lib/i18n';
 
@@ -199,7 +200,7 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
               setExpanded(!expanded);
             }}
           >
-             <ReactMarkdown>{washCitations(formatDiaryMarkdown(insight.content))}</ReactMarkdown>
+             <VerifiedMarkdown markdown={formatDiaryMarkdown(insight.content)} />
           </div>
         )}
         </>

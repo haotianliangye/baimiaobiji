@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { format, startOfWeek, subDays, startOfDay, isSameDay, addDays, parse } from 'date-fns';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
+import { VerifiedMarkdown } from '../components/VerifiedMarkdown';
 import { db } from '../db/db';
 import TodayStats from '../components/TodayStats';
 import { countChars } from '../lib/wordCount';
@@ -639,32 +640,28 @@ export default function Review() {
                               <div
                                 className="markdown-body prose prose-stone baimiao-editorial-body prose-h1:text-[19px] prose-h2:text-[17px] prose-h3:text-[16px] prose-h1:leading-snug prose-headings:font-medium prose-headings:font-serif baimiao-editorial-title max-w-none text-[15.5px] leading-relaxed select-text pointer-events-auto"
                               >
-                                <ReactMarkdown
-                                  components={{
-                                    a: ({ node, href, children, ...props }) => {
-                                        const handleClick = (e: React.MouseEvent) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          if (href?.startsWith('#log_id_')) {
-                                          const logId = href.replace('#log_id_', '');
-                                          navigate(`/?date=${review.review_date}&logId=${logId}`);
-                                        }
-                                      };
-                                      return (
-                                        <a
-                                          href={href}
-                                          onClick={handleClick}
-                                          className="text-stone-500 bg-stone-200/50 hover:bg-stone-200 hover:text-stone-900 px-1.5 py-0.5 rounded cursor-pointer no-underline transition-colors border border-black/5"
-                                          {...props}
-                                        >
-                                          {children}
-                                        </a>
-                                      );
-                                    }
+                                <VerifiedMarkdown
+                                  markdown={formatDiaryMarkdown(entryContent)}
+                                  linkRenderer={({ href, children }) => {
+                                    const handleClick = (e: React.MouseEvent) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      if (href?.startsWith('#log_id_')) {
+                                        const logId = href.replace('#log_id_', '');
+                                        navigate(`/?date=${review.review_date}&logId=${logId}`);
+                                      }
+                                    };
+                                    return (
+                                      <a
+                                        href={href}
+                                        onClick={handleClick}
+                                        className="text-stone-500 bg-stone-200/50 hover:bg-stone-200 hover:text-stone-900 px-1.5 py-0.5 rounded cursor-pointer no-underline transition-colors border border-black/5"
+                                      >
+                                        {children}
+                                      </a>
+                                    );
                                   }}
-                                >
-                                  {washCitations(formatDiaryMarkdown(entryContent))}
-                                </ReactMarkdown>
+                                />
                               </div>
 
                               {errorMsg && (
