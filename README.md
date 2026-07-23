@@ -128,7 +128,7 @@
 
 | 项目 | 版本 | 说明 |
 |:-----|:-----|:-----|
-| 应用 | v0.1.0 | 首个公开预览版 |
+| 应用 | v0.3.0 | 与 `package.json:4` 同步 |
 | 数据 Schema | v17 | IndexedDB 当前最高迁移版本 |
 | Node 要求 | ≥ 18 | 后端运行时 |
 
@@ -136,14 +136,14 @@
 
 采用语义化版本号（SemVer）：`MAJOR.MINOR.PATCH`。
 
-- **PATCH**（如 v0.1.0 → v0.1.1）：仅修 bug，用户无需任何操作
-- **MINOR**（如 v0.1.x → v0.2.0）：新增模块或功能，向下兼容旧数据
+- **PATCH**（如 v0.3.0 → v0.3.1）：仅修 bug，用户无需任何操作
+- **MINOR**（如 v0.3.x → v0.4.0）：新增模块或功能，向下兼容旧数据
 - **MAJOR**（如 v0.x → v1.0）：可能涉及 schema 不兼容升级，启动时会提示数据迁移并自动备份
 
 ### 更新日志
 
 - **v0.3.0**（当前）
-  - 拾微 / 日记 / 回顾 / 洞察 / Copilot / Facts 六大模块上线
+  - 记录 / 回顾（含日记）/ 沉淀 / 洞察 / 标签 / Copilot / Facts 七大模块上线
   - 支持 10+ 家 LLM / Embedding 服务商
   - WebDAV / OneDrive / Google Drive / Dropbox 端到端加密同步
   - IndexedDB v17 schema，PWA 离线可用
