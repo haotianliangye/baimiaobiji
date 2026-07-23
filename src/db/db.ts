@@ -531,6 +531,16 @@ export class WhitewashDiaryDB extends dexie {
     this.version(16).stores({
       backups: 'id, created_at, type',
     });
+    // Version 17: Issue P1-004 (ADR-0004) 长期记忆 facts 表。
+    // - 新增 facts 表（主键 id），按 key/category/created_at 索引。
+    // - 记录"用户事实"：生日、偏好、习惯、背景。
+    // - 升级无需迁旧数据：纯新增表，初始为空。
+    // - 与 P0 #004 settings_kv 不同：facts 是结构化记录（key-value + category + confidence + source），
+    //   而 settings_kv 是无 schema KV 存储。
+    // - 备份策略（P0 #008 autoBackup）：默认不备份 facts，详见 src/lib/autoBackup.ts。
+    this.version(17).stores({
+      facts: 'id, key, category, created_at',
+    });
   }
 }
 
