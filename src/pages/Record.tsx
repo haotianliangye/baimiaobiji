@@ -334,7 +334,7 @@ function AudioAttachmentItem({
 }
 
 /**
- * #005 拾微卡片多媒体渲染区。
+ * #005 记录卡片多媒体渲染区。
  * - 图片/视频：2×2 网格(16:9, cover, 最多4张, 超出 +N)，单张 16:9 撑满。
  * - 音频：纵向列表播放器控件。
  * - 摘要区：媒体下方，次要文本色，最多3行截断。
@@ -1225,7 +1225,7 @@ export default function Record() {
   }, [t]);
 
   /**
-   * #104 打开拾微编辑弹窗（RichEditor）。
+   * #104 打开记录编辑弹窗（RichEditor）。
    * 供右键菜单"编辑记录"和双击卡片入口共用。
    */
   const handleOpenEditModal = useCallback((log: any) => {
@@ -1419,7 +1419,7 @@ export default function Record() {
     }
   };
 
-  /** 删除整条拾微记录（含 audioBlob 与附件 Blob），确认后执行并关闭弹窗。 */
+  /** 删除整条记录（含 audioBlob 与附件 Blob），确认后执行并关闭弹窗。 */
   const handleDeleteRecord = async () => {
     if (!activeLog) return;
     if (!window.confirm(t('record.confirmDelete'))) return;

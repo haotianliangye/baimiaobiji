@@ -35,7 +35,7 @@ export const DEFAULT_RETENTION_DAYS = 28; // 4 周
  * 选择标准：用户主动产生的内容 + 不易重建的内容。
  */
 export const TABLES_TO_BACKUP = [
-  'raw_logs',      // 拾微原始记录
+  'raw_logs',      // 记录原始数据
   'daily_reviews', // 日记/回顾合并表
   'thoughts',      // 沉淀
   'insights',      // 明悟/洞察（v14 后改名为 insights）

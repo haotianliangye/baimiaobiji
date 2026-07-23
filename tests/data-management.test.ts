@@ -82,13 +82,13 @@ async function seedDb(page: Page) {
           // raw_logs: one in range, one out of range
           tx.objectStore('raw_logs').put({
             id: 'test-log-in',
-            content: '范围内的拾微内容',
+            content: '范围内的记录内容',
             created_at: Date.UTC(2026, 6, 10, 10, 0, 0),
             timezone: 'Asia/Shanghai',
           });
           tx.objectStore('raw_logs').put({
             id: 'test-log-out',
-            content: '范围外的拾微内容',
+            content: '范围外的记录内容',
             created_at: Date.UTC(2026, 5, 1, 10, 0, 0),
             timezone: 'Asia/Shanghai',
           });
@@ -359,10 +359,10 @@ async function run() {
   });
 
   const mdContent = await waitForWindowHook(page, '__testExportData');
-  assert('E6 Markdown 含拾微分节', mdContent.includes('## 拾微'), `含拾微=${mdContent.includes('## 拾微')}`);
+  assert('E6 Markdown 含记录分节', mdContent.includes('## 记录'), `含记录=${mdContent.includes('## 记录')}`);
   assert('E7 Markdown 含回顾分节', mdContent.includes('## 回顾'), `含回顾=${mdContent.includes('## 回顾')}`);
-  assert('E8 Markdown 含范围内内容', mdContent.includes('范围内的拾微内容'), `含范围内内容=${mdContent.includes('范围内的拾微内容')}`);
-  assert('E9 Markdown 不含范围外内容', !mdContent.includes('范围外的拾微内容'), `含范围外内容=${mdContent.includes('范围外的拾微内容')}`);
+  assert('E8 Markdown 含范围内内容', mdContent.includes('范围内的记录内容'), `含范围内内容=${mdContent.includes('范围内的记录内容')}`);
+  assert('E9 Markdown 不含范围外内容', !mdContent.includes('范围外的记录内容'), `含范围外内容=${mdContent.includes('范围外的记录内容')}`);
 
   // ---------- 旅程 3：导入 JSON（overwrite）----------
 
@@ -419,7 +419,7 @@ async function run() {
   const restoredLog = logsAfterImport?.find((l) => l.id === 'test-log-in');
   assert(
     'E12 overwrite 导入后 test-log-in 已恢复',
-    !!restoredLog && restoredLog.content === '范围内的拾微内容',
+    !!restoredLog && restoredLog.content === '范围内的记录内容',
     restoredLog ? `content=${restoredLog.content}` : '未找到 test-log-in'
   );
 
@@ -464,7 +464,7 @@ async function run() {
   const unchangedLog = logsAfterSkip?.find((l) => l.id === 'test-log-in');
   assert(
     'E14 skip 导入后原数据不变',
-    !!unchangedLog && unchangedLog.content === '范围内的拾微内容',
+    !!unchangedLog && unchangedLog.content === '范围内的记录内容',
     unchangedLog ? `content=${unchangedLog.content}` : '未找到 test-log-in'
   );
 

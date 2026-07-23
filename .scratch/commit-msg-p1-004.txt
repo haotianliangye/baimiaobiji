@@ -1,0 +1,40 @@
+feat(memory): issue P1-004 (ADR-0004) 长期记忆 facts 表
+
+加 facts 表 + factsStore CRUD 函数，作为"长期记忆"层的基础设施。
+0 新产品功能 — UI / 自动抽取 / Copilot prompt 注入 全部留 follow-up。
+
+文件改动：
+  src/db/db.ts                    +19 行（Fact interface + facts class 字段 + v17 schema）
+  src/lib/factsStore.ts            新增 8 个 export（add/get/list/search/update/delete/count + FactCategory type）
+  src/lib/autoBackup.ts            +1 行（TABLES_TO_EXCLUDE 加 'facts'）
+  tests/factsStore.test.ts         新增 10 个静态 + 行为测试
+  docs/adr/0004-facts-table.md     新增决策记录
+  docs/issues/p1/004-facts-table.md  新增 spec
+
+schema 迁移 v16 → v17：
+  - 纯新增 facts 表（id 主键，key/category/created_at 索引）
+  - 旧用户升级无需迁数据（新表，初始空）
+  - 备份策略（与 P0 #008 一致）：facts 默认不备份（EXCLUDED_TABLES 显式列出）
+
+设计：
+  - 复用 P0 #004 dexie 模式
+  - UPSERT by key：同 key 二次 add 是覆盖（用户改生日时不新建第二条）
+  - 不引 localStorage/sessionStorage（保持后端 + 离线性质）
+  - 不接 AI 自动抽取（路径 B 留 P2）
+  - 不接 Copilot prompt 注入（路径 C 留 P2）
+  - 不加 UI（Settings → Facts tab 留 P1-004 follow-up）
+
+测试策略（Node 端没 IDB）：
+  - 静态检查：factsStore.ts 不调用 localStorage/sessionStorage
+  - 函数签名：8 个 export 存在
+  - 控制流：UPSERT 路径、CRUD 路径用 db.facts
+  - db.ts Fact interface 8 字段全有
+  - 集成测试（真 IDB）留 P2
+
+验收（本地全过，未 push）：
+  ✅ npx tsc --noEmit — 0 error
+  ✅ npm run build — 160.8kb server.cjs
+  ✅ npx tsx tests/factsStore.test.ts — 10/10
+  ✅ 18 个测试全过（15 个历史 + 3 个 P1 新加）
+
+不 push — 等用户决定 push 时机。

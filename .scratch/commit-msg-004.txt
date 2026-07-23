@@ -1,0 +1,59 @@
+feat(transcription): issue #004 转写幻觉 patterns 外置
+
+把 server.ts:757 的硬编码转写黑名单搬出代码，存到 IndexedDB，
+让用户在 Settings 里增删改 + 立刻生效。
+
+新增模块：
+
+1. src/lib/hallucinationFilter.ts（纯函数，零依赖，可独立测试）
+   - HallucinationPattern 数据结构（key/type/value/description/created_at）
+   - getDefaultPatterns()：从原硬编码数组搬出 16 个金标准 patterns
+     （静音占位、视频结尾、YouTuber 订阅引导、Gemini prompt 回声等）
+   - matchPattern(text, patterns)：exact + regex 统一入口
+   - computeConfidence(text, matched)：长度阈值 < 5=high, > 50=low, 其他=medium
+   - shouldDropTranscript：high=drop, medium/low=保留但 return reason
+   - evaluateTranscript：match+confidence+drop 三合一 server helper
+   - invalid regex 吞错不抛（脏 pattern 不能让生产崩）
+
+2. src/lib/hallucinationPatterns.ts（IndexedDB 持久层）
+   - getPatterns / setPatterns / addPattern / removePattern / resetPatterns
+   - 存 db.settings_kv['transcription.hallucinationPatterns']
+   - 首次访问懒写入默认（旧用户无需 upgrade 步骤）
+   - getPatternsForRequest 带 5s 超时（保护热路径）
+   - 后续可推广到其他 settings 迁出
+
+3. src/db/db.ts v14 → v15
+   - 新增 settings_kv 通用 KV 表
+   - upgrade 不动旧数据（纯新表）
+   - 注：规格说 v13→v14，实际 v14 已被 mingwu→insights 占用，
+     故取 v15
+
+4. server.ts /api/transcribe（Gemini 路径）
+   - 请求体接 patterns: HallucinationPattern[]
+   - 没传/为空时回退 getDefaultPatterns()（向后兼容 spec 要求）
+   - 用 evaluateTranscript 替代 line 757 的 14 项硬编码
+
+5. src/pages/Record.tsx fetchTranscriptionWithRetry
+   - 自动注入 patterns 到请求体（5 处调用点不用改）
+   - patterns 读失败时降级为后端 default（不阻塞用户录音）
+
+6. src/pages/Settings.tsx 新增「转写设置」tab
+   - 列表展示当前 patterns
+   - 「添加 pattern」表单（type + value + description）
+   - 「删除」（hover 出现）
+   - 「恢复默认」按钮
+   - 「settings.tabTranscription」i18n key（zh + en）
+
+7. src/i18n/{zh,en}.ts 加 settings.tabTranscription
+
+TDD：tests/hallucination-filter.test.ts 16 单元测试
+  H1-H3: exact / substring / regex match
+  H4: no match
+  H5-H9: confidence 边界值（< 5/=5/中段/=51/>51）
+  H10-H13: shouldDropTranscript 决策
+  H14: default patterns 完整性
+  H15-H16: no match + invalid regex 容错
+
+测试结果：16/16 全过。tsc + vite + esbuild 全过。
+schema：v14 → v15（无破坏性）。
+版本号：0.1.2 → 0.2.0（minor bump，schema 变更）。

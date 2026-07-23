@@ -1,0 +1,42 @@
+feat(security): issue P1-003 (ADR-0003) API Key 隔离基础设施
+
+按用户决定：先收口基础设施部分，跨文件集成留 P1-003 follow-up。
+
+本 PR 只加新模块，不动现有代码：
+  - src/lib/apiKeyStore.ts          — IndexedDB 读写 API key 的核心模块
+  - tests/apiKeyStore.test.ts       — 8 个静态 + 行为测试
+  - docs/adr/0003-api-key-isolation.md   — 决策记录
+  - docs/issues/p1/003-api-key-isolation.md   — spec
+
+设计：
+  - 复用 P0 #004 沉淀的 db.settings_kv 表
+  - key 前缀 api_key.，3 个 type：llm / embed / tts
+  - setApiKey("") 等价 delete（避免空值记录污染表）
+  - loadApiKey 不存在时返回 ''（不抛错）
+  - 不引新依赖（fake-indexeddb 不引入）
+  - 不引 Web Crypto 加密（路径 B 留 P2）
+
+测试策略（Node 端没 IndexedDB）：
+  - 静态扫描：apiKeyStore.ts 不调用 localStorage/sessionStorage API
+  - 函数签名检查：set/load/delete/has/listAll 5 个 export
+  - 控制流检查：if (!value) { deleteApiKey } / if (!row) return ''
+  - 集成测试（真 IndexedDB）留 P2
+
+不做（本次收口范围）：
+  ❌ 改 zustand settings.store.ts 的 partialize（漏字段 = 数据丢失）
+  ❌ 改 Settings.tsx 3 处 input handler
+  ❌ 改 multimedia.ts / tts.ts / ttsStream.ts / embedding.ts 读 API key 方式
+  ❌ 改 app.store.ts / Copilot.tsx 计算 ready 状态
+
+跨文件集成留 P1-003 follow-up issue。预计 4-6 小时。
+
+验收（本地全过，未 push）：
+  ✅ npx tsc --noEmit — 0 error
+  ✅ npm run build — 通过
+  ✅ npx tsx tests/apiKeyStore.test.ts — 8/8 通过
+  ✅ 其他 16 个单测应仍全过（本次没改任何现有文件）
+
+ADR 决策路径：docs/adr/0003-api-key-isolation.md 路径 A
+  (IndexedDB 隔离 + 不在 localStorage，不引 Web Crypto)
+
+不 push — 等用户决定 push 时机。

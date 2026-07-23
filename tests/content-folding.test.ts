@@ -2,7 +2,7 @@
  * #113 内容卡片折叠与交互 E2E 测试（Puppeteer）
  *
  * 覆盖旅程：
- *   R.  拾微页（Record）卡片：纯文本超 12 行进入折叠态、单击展开/收起、双击进编辑弹窗、
+ *   R.  记录页（Record）卡片：纯文本超 12 行进入折叠态、单击展开/收起、双击进编辑弹窗、
  *       右键弹复制/编辑/多选/删除菜单、折叠态多媒体仅一行缩略（2 个 + "+N"）。
  *   RV. 回顾页（Review）卡片：折叠态显示摘要、单击展开正文、双击 inline 编辑、
  *       右键弹复制/编辑/重新生成/删除菜单（验证 #104 现有折叠/交互不被 #113 破坏）。
@@ -96,7 +96,7 @@ async function run() {
   browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
 
   // ===========================================================================
-  // 旅程 R：拾微页（Record）卡片折叠与交互（issue #113）
+  // 旅程 R：记录页（Record）卡片折叠与交互（issue #113）
   // ===========================================================================
   const ctx = await browser.createBrowserContext();
   const pageR = await ctx.newPage();
@@ -106,7 +106,7 @@ async function run() {
   // 注入一条 15 行纯文本 + 4 个图片附件的 log（多媒体不计入 12 行，但折叠态需一行缩略）
   const longContent = Array.from(
     { length: 15 },
-    (_, i) => `第${i + 1}行测试内容，用于验证拾微卡片折叠功能。`
+    (_, i) => `第${i + 1}行测试内容，用于验证记录卡片折叠功能。`
   ).join('\n');
   await putRecord(pageR, 'raw_logs', {
     id: 'fold-log-1',

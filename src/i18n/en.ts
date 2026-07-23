@@ -1,6 +1,6 @@
 /**
  * #12 English UI text dictionary
- * Covers all hardcoded Chinese text (Gleanings/Review/Thoughts/Insights tabs, buttons, hints, settings, etc.)
+ * Covers all hardcoded Chinese text (Records/Review/Thoughts/Insights tabs, buttons, hints, settings, etc.)
  */
 import type { TranslationDict } from '../lib/i18n';
 
@@ -21,11 +21,11 @@ export const en: TranslationDict = {
   'common.cancel': 'Cancel',
   'common.confirm': 'Confirm',
   'common.preparingTts': 'Generating audio…',
-  // Issue 1: stats subtitle relocated to module top-left (Gleanings/Review/Thoughts)
+  // Issue 1: stats subtitle relocated to module top-left (Records/Review/Thoughts)
   'common.todayStats': 'Today {count} notes · {chars} chars',
 
   // --- TabBar labels ---
-  'tab.record': 'Gleanings',
+  'tab.record': 'Records',
   'tab.review': 'Review',
   'tab.thoughts': 'Thoughts',
   'tab.insight': 'Insights',
@@ -37,7 +37,7 @@ export const en: TranslationDict = {
   'layout.tagManagement': 'Tag Management',
   'layout.copilot': 'Baimiao Copilot',
   'layout.syncError': 'Sync error',
-  // Header page-title mapping: Gleanings=Baimiao (others reuse tab.*)
+  // Header page-title mapping: Records=Baimiao (others reuse tab.*)
   'layout.titleBaimiao': 'Baimiao',
   'layout.prevDay': 'Previous day',
   'layout.nextDay': 'Next day',
@@ -55,10 +55,10 @@ export const en: TranslationDict = {
   'about.close': 'Close',
 
   // --- Search panel ---
-  'search.placeholder': 'Search gleanings, diaries, distillations...',
+  'search.placeholder': 'Search records, diaries, distillations...',
   'search.cancel': 'Cancel',
   'search.recent': 'Recent searches',
-  'search.emptyHint': 'Enter keywords to find your inspiration gleanings',
+  'search.emptyHint': 'Enter keywords to find your inspiration records',
   'search.searching': 'Generating search vector and querying local database...',
   'search.semanticUnavailable': 'Semantic search unavailable',
   'search.semanticHint': 'Tip: showing plain text search results.',
@@ -81,7 +81,7 @@ export const en: TranslationDict = {
   'search.selectEnd': 'Select end date',
   'search.alertSelectDates': 'Please select both start and end dates',
   'search.alertStartAfterEnd': 'Start date cannot be later than end date',
-  'search.typeRecord': 'Gleaning',
+  'search.typeRecord': 'Record',
   'search.typeDiary': 'Diary',
   'search.typeReview': 'Review',
   'search.typeInsight': 'Insight',
@@ -90,8 +90,8 @@ export const en: TranslationDict = {
   'search.vectorEmpty': 'Local vector store is empty (confirm settings and wait for data)',
   'search.computing': 'Computing...',
 
-  // --- Record page (Gleanings) ---
-  'record.title': 'Time Gleanings',
+  // --- Record page (Records) ---
+  'record.title': 'Time Records',
   'record.storageWarning': 'Security notice: permanent storage protection is not enabled. Data may be cleared by the system.',
   'record.settings': 'Settings',
   'record.dontRemind': "Don't remind again",
@@ -104,7 +104,7 @@ export const en: TranslationDict = {
   'record.selectedCount': '{count} selected',
   'record.clickToEnd': 'Tap to end & send',
   'record.parsing': 'Parsing...',
-  'record.inputPlaceholder': 'Type a gleaning to record...',
+  'record.inputPlaceholder': 'Type a record to capture...',
   'record.addAttachment': 'Add attachment',
   'record.image': 'Image',
   'record.audio': 'Audio',
@@ -117,8 +117,8 @@ export const en: TranslationDict = {
   'record.editRecord': 'Edit',
   'record.multiSelect': 'Multi-select',
   'record.deleteRecord': 'Delete',
-  'record.editTitle': 'Edit Gleaning',
-  'record.confirmDelete': 'Delete this gleaning? This cannot be undone.',
+  'record.editTitle': 'Edit Record',
+  'record.confirmDelete': 'Delete this record? This cannot be undone.',
   'record.save': 'Save',
   'record.saving': 'Saving…',
   'record.contentPlaceholder': 'Content...',
@@ -215,11 +215,11 @@ export const en: TranslationDict = {
   'review.batchGenerate': 'Batch generate',
   'review.batchProgress': 'Generating {current}/{total}',
   'review.confirmDelete': 'Delete this review?',
-  'review.noFragmentsGen': 'No gleanings for this day. Cannot generate a review.',
-  'review.noFragmentsRegen': 'No gleanings for this day. Cannot regenerate the review.',
+  'review.noFragmentsGen': 'No records for this day. Cannot generate a review.',
+  'review.noFragmentsRegen': 'No records for this day. Cannot regenerate the review.',
   'review.emptyTodayTitle': 'No review content for today yet',
   'review.emptyTodayDesc': 'Let AI summarize your day',
-  'review.todayFragmentsCount': 'You captured {count} gleanings today',
+  'review.todayFragmentsCount': 'You captured {count} records today',
   'review.batchGenerating': 'Batch generating {current}/{total}...',
   'review.contentEmpty': 'This review is empty',
   'review.selectTemplate': 'Select templates (multi-select)',
@@ -309,9 +309,9 @@ export const en: TranslationDict = {
   'insight.rangeCustomError': 'Please select both start and end dates',
   'insight.editPlaceholder': 'Start editing {type}...',
   'insight.generatingMingwu': 'Insight in progress...',
-  'insight.generatingMingwuDesc': 'Contemplating gleanings and distillations, surfacing life patterns',
+  'insight.generatingMingwuDesc': 'Contemplating records and distillations, surfacing life patterns',
   'insight.startTitle': 'Begin your insight journey',
-  'insight.startDesc': 'Click the button below to let AI contemplate your gleanings and distillations over this period, surfacing awakenings and insights.',
+  'insight.startDesc': 'Click the button below to let AI contemplate your records and distillations over this period, surfacing awakenings and insights.',
   'insight.generateMingwu': 'Generate insight',
   'insight.mingwuInProgress': 'Insight...',
   'insight.to': 'to',
@@ -352,7 +352,7 @@ export const en: TranslationDict = {
   'settings.multimediaSummary': 'Multimedia summary submission',
   'settings.multimediaDesc': 'When generating reviews/insights, whether to submit AI summaries of image/video attachments to the model. Turn off to submit text only.',
   'settings.tts': 'Text-to-Speech (TTS)',
-  'settings.ttsDesc': 'Provides read-aloud for AI-generated reviews, insights, and chat replies. Gleanings and distillations are not supported.',
+  'settings.ttsDesc': 'Provides read-aloud for AI-generated reviews, insights, and chat replies. Records and distillations are not supported.',
   'settings.ttsService': 'TTS service',
   'settings.ttsWebspeech': 'Built-in (Web Speech)',
   'settings.ttsExternal': 'External TTS API',
@@ -500,7 +500,7 @@ export const en: TranslationDict = {
   'settings.aiStop': '🛑 Stop & clear',
   'settings.aiScan30': '🪄 Scan & backfill past 30 days of diaries & reviews',
   'settings.dataExport': 'Data export',
-  'settings.exportLogs': 'Raw gleaning records',
+  'settings.exportLogs': 'Raw records',
   'settings.exportLogsDesc': 'Export all timeline entries, including voice data.',
   'settings.exportDiaries': 'Generated diaries & reviews',
   'settings.exportDiariesDesc': 'Export AI-generated diary text with date stamps.',
@@ -598,7 +598,7 @@ export const en: TranslationDict = {
   'copilot.noHistoryTitle': 'No conversations yet',
   'copilot.noHistoryDesc': 'Start a new conversation. Copilot will generate a session record based on your questions.',
   'copilot.semanticOff': 'Semantic retrieval is off',
-  'copilot.semanticOffDesc': 'Copilot relies on local vector retrieval to search your gleanings, diaries, and reviews. Please configure and enable the embedding model in Settings first.',
+  'copilot.semanticOffDesc': 'Copilot relies on local vector retrieval to search your records, diaries, and reviews. Please configure and enable the embedding model in Settings first.',
   'copilot.goSettings': 'Go to Settings',
   'copilot.ragPlaceholder': 'Ask Copilot anything about your notes…',
   'copilot.chatPlaceholder': 'Chat with AI about any topic…',
@@ -623,7 +623,7 @@ export const en: TranslationDict = {
   'tags.mergeTarget': 'Merge into (target path)',
   'tags.deleteConfirm': 'Delete tag "{name}"? This tag will be removed from associated records.',
   'tags.empty': 'No tags yet',
-  'tags.emptyHint': 'Type #tag in gleanings to auto-create',
+  'tags.emptyHint': 'Type #tag in records to auto-create',
   'tags.renameDesc': 'Renaming cascades to all associated records (including child tags). Enter the full path to also move the hierarchy.',
   'tags.mergeTitleWith': 'Merge tag "{path}"',
   'tags.mergeDesc': 'After merging, all records tagged "{path}" will switch to the target tag, and an alias is created so future "{path}" inputs are auto-corrected.',
@@ -648,7 +648,7 @@ export const en: TranslationDict = {
   'tags.deleteTagAndNotesConfirm': 'Delete tag "{path}" and all associated records?',
   'tags.deleteTagAndNotesConfirmTitle': 'Confirm deletion',
   'tags.deleteTagAndNotesFinal': 'Final confirmation: this will permanently delete tag "{path}" and all records tagged with it. This cannot be undone.',
-  'tags.deleteTagAndNotesWarning': 'Warning: this will cascade delete related records in Gleanings, Reviews, Thoughts, and Insights.',
+  'tags.deleteTagAndNotesWarning': 'Warning: this will cascade delete related records in Records, Reviews, Thoughts, and Insights.',
   'tags.confirmDeleteFinalBtn': 'Confirm and delete',
 
   // --- Provider labels (partial Chinese) ---
@@ -659,7 +659,7 @@ export const en: TranslationDict = {
   'provider.siliconflowShort': 'Silicon',
 
   // --- Data type labels (export) ---
-  'dataType.raw_logs': 'Gleanings',
+  'dataType.raw_logs': 'Records',
   'dataType.daily_reviews': 'Reviews',
   'dataType.thoughts': 'Thoughts',
   'dataType.insight': 'Insights',
@@ -696,7 +696,7 @@ export const en: TranslationDict = {
   'randomWalk.editTitle': 'Edit Record',
 
   // --- CalendarHeatmap ---
-  'calendarHeatmap.record': 'Gleanings',
+  'calendarHeatmap.record': 'Records',
   'calendarHeatmap.diary': 'Diary',
   'calendarHeatmap.review': 'Review',
   'calendarHeatmap.days': 'days',

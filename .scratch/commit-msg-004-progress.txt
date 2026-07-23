@@ -1,0 +1,4 @@
+docs(handoff): mark issue #004 done in CURRENT_STATE
+
+更新进度表第四行（#004 已合并）+ 添加 commit hash 和 tag 引用。
+注意规格说 v13→v14，但 v14 已被 mingwu→insights 占用，故取 v15。

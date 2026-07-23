@@ -69,7 +69,7 @@ export default function Review() {
   const [editText, setEditText] = useState<string>('');
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
-  // #104 多选模式互斥：回顾页当前无多选模式，保留状态与守卫以与拾微页一致，
+  // #104 多选模式互斥：回顾页当前无多选模式，保留状态与守卫以与记录页一致，
   // 未来接入多选 UI 时只需切换该状态即可自动屏蔽双击编辑。
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
 
@@ -470,7 +470,7 @@ export default function Review() {
                     }}
                     onDoubleClick={(e) => {
                       // #104 双击触发 inline 编辑（textarea 获得焦点）
-                      // #104 多选模式下双击不触发编辑（与拾微页一致）
+                      // #104 多选模式下双击不触发编辑（与记录页一致）
                       if (isMultiSelectMode) return;
                       if (isEditing || isGenerating) return;
                       // 取消延迟的单击折叠/展开

@@ -1,0 +1,60 @@
+chore(cleanup): 删除 6 个失效 E2E 测试 + 标 v1/v3 issue done
+
+P0 完成做端到端回归时发现历史遗留：v3 UI 重构（#100-#116）改了
+UI 元素/data-testid 但没同步更新 E2E 测试。6 个测试要么找不元素
+要么自身 syntax 错误（multimedia.test.ts line 453 sheetBox 重复声明）。
+同时 27 个 v1/v3 issue 文件 frontmatter status 还是 ready-for-agent，
+但代码早已合并——文档状态没跟 commit 更新。
+
+按用户决定：删测试 + 标 done（不修不 skip，最干净）。
+
+删除：
+  tests/llm-chat.test.ts (1/4)
+  tests/multimedia.test.ts (crash - 自身 syntax 错误)
+  tests/prompt-review.test.ts (1/7)
+  tests/random-walk.test.ts (4/5)
+  tests/thoughts.test.ts (2/3)
+  tests/tts.test.ts (3/4)
+
+修改 frontmatter status: ready-for-agent → done：
+  docs/issues/001-ui-ux-restructure.md (含 markdown body 状态描述)
+  docs/issues/002-seam-1-global-layout-header.md
+  docs/issues/003-seam-2-settings-page.md
+  docs/issues/004-seam-3-rag-chat-nav.md
+  docs/issues/005-seam-4-multimedia-card.md
+  docs/issues/006-seam-5-contemplation-card.md
+  docs/issues/007-seam-6-input-toolbar-attachment-panel.md
+  docs/issues/008-seam-7-prompt-merge.md
+  docs/issues/009-seam-8-tts-external-api.md
+  docs/issues/010-seam-9-i18n-copy-fix.md
+  docs/issues/100-ui-ux-restructure-v2.md
+  docs/issues/101-stats-relocate.md
+  docs/issues/102-random-walk-adaptive.md
+  docs/issues/103-record-edit-modal.md
+  docs/issues/104-double-click-edit.md
+  docs/issues/105-mingwu-sun-icon.md
+  docs/issues/106-header-restructure.md
+  docs/issues/107-media-fullscreen-preview.md
+  docs/issues/108-attachment-panel.md
+  docs/issues/109-settings-restructure.md
+  docs/issues/110-ui-ux-v3-followup.md
+  docs/issues/111-settings-page-cleanup.md
+  docs/issues/112-tag-quick-actions.md
+  docs/issues/113-content-folding-interactions.md
+  docs/issues/114-calendar-stats-alignment.md
+  docs/issues/115-copilot-rag-history-filter.md
+  docs/issues/116-random-walk-simplification.md
+
+不动：docs/issues/v2/create-issues.sh（这是 shell 脚本模板，不是 issue）
+
+后续：
+  - 保留测试 16 个文件，15 个 100% 通过 + 1 个 desktop-width-debug
+    （puppeteer sandbox 限制，非产品 bug）
+  - 总通过：73/73 + desktop-width-debug（diagnostic）
+  - 新约定写入 CURRENT_STATE.md：data-testid 改必同步测试，否则视为 dead test 立即删
+
+范围控制（按用户决定）：
+  ✅ 删测试
+  ✅ 标 status
+  ❌ 修测试（需要 v3 上下文，可能改错）
+  ❌ 改 keep 测试用 .skip 注释（用户选「不保留」）

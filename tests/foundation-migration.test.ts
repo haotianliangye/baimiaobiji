@@ -2,7 +2,7 @@
  * #3 Foundation E2E 测试（Puppeteer）
  *
  * 覆盖五个旅程：
- *   A. 导航：底部 4 Tab 为「拾微/回顾/沉淀/洞察」；/diary 重定向到 /review、/insights 重定向到 /insight。
+ *   A. 导航：底部 4 Tab 为「记录/回顾/沉淀/洞察」；/diary 重定向到 /review、/insights 重定向到 /insight。
  *   B. 迁移：构造旧版 v7 IndexedDB（daily_diaries + insights + daily_reviews），启动应用触发 v8/v14 升级，
  *      验证数据迁移到 daily_reviews(entry_type) / insights、旧表删除、migration_backups 写入。
  *   C. 回顾合并：迁移后 /review 同列展示「日记」与「回顾」卡片。
@@ -169,7 +169,7 @@ async function run() {
   const navText = tabLabels.join('|');
   assert(
     'A1 底部导航 4 Tab',
-    ['拾微', '回顾', '沉淀', '洞察'].every((t) => navText.includes(t)) && !navText.includes('日记'),
+    ['记录', '回顾', '沉淀', '洞察'].every((t) => navText.includes(t)) && !navText.includes('日记'),
     `nav=${navText}`
   );
   // /diary -> /review 重定向

@@ -1,0 +1,21 @@
+docs(handoff): P1-001 (MoN-7) 进展 + P1 阶段规划
+
+P1 阶段规划：4 个纯后端健壮 issue，按价值/风险排序：
+  P1-001 (MoN-7) 测试接 CI    — 已 commit 等 push
+  P1-002 (MoN-8) 健康检查端点  — 待开始
+  P1-003 (ADR-0003) API Key 隔离 — 待开始
+  P1-004 (ADR-0004) 长期记忆 facts 表 — 待开始
+
+排除（加新功能）：
+  Jag-3 反馈闭环
+  Jag-4 多通道一致性
+
+P1-001 当前阻塞：GitHub PAT 缺 workflow scope。
+refusing to allow a Personal Access Token to create or update
+workflow `.github/workflows/test.yml` without `workflow` scope
+
+需用户手动在 GitHub Web UI 操作（Settings → Actions → General →
+Workflow permissions 选 "Allow GitHub Actions to create and approve
+pull requests"），然后 `git push origin refactor/mingwu-to-insight`。
+
+commit b6df64a + 2e851e7 已在本地 refactor 分支，差远端 push。

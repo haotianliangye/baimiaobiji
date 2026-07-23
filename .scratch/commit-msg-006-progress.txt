@@ -1,0 +1,7 @@
+docs(handoff): mark issue #006 done + 沉淀新约定
+
+Issue #006 完成进展：
+- 进度表 #006 行：⏳ → ✅（含 commit hash + tag）
+- 新增「错误诊断」约定：errorBuffer.ts 模块规范
+- 新增「包版本号管理」约定：每个 issue 都要 bump package.json
+  - #006 累积修正 0.1.0 → 0.2.2 的漂移（前 5 个 issue 都漏了）

@@ -1,0 +1,30 @@
+docs(context): P0 全部完成 — 更新 CONTEXT.md
+
+P0 阶段（#001-#008）全部合并完毕，跨 8 个 commit / 4 次 db schema
+迁移 / 73 个新单测全过。更新根目录 CONTEXT.md 反映现状。
+
+变更：
+- 当前版本：0.1.0 → 0.3.0
+- 完整版本谱系列出
+- db v1 → v16（#004 v15, #008 v16）
+- 进度 section 加 P0 全部完成 + P1 启动中
+- "已建立的约定" 5 个新 section：
+  - 渲染约定（#005）
+  - 数据约定（#004/#008）
+  - 错误诊断约定（#006）
+  - 存储压力约定（#007）
+  - 包版本号管理（#006 强制）
+  - 启动入口（main.tsx，非 App.tsx）
+- 修事实错：backups 表 v15 → v16、settings_kv 表 v14 → v15、broken 标记名修正
+
+端到端回归测试结果：
+- 17 个 P0 相关单测：全过
+- 6 个历史测试失败（非 P0 引入）：llm-chat / multimedia / prompt-review
+  / random-walk / thoughts / tts
+- npm run build：✅
+- npx tsc --noEmit：✅ 0 error
+- db 迁移链 v1 → v16：✅ 完整
+
+未修的 6 个历史失败：
+- 标记为 P1 候选
+- 范围控制：P0 阶段不接受累积债务修复

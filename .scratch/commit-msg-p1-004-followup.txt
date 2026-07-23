@@ -1,0 +1,45 @@
+feat(memory): P1-004 follow-up — Facts UI section
+
+按用户决定"先加 UI 再 push"。给长期记忆 facts 加最小可用 UI。
+
+文件改动：
+  src/pages/Settings.tsx       +130 行（FactsSection 组件 + import + data tab 渲染）
+  src/db/db.ts                 Fact.category 类型 string → 字面量联合（type safety）
+  src/i18n/zh.ts               +14 行（14 个 key）
+  src/i18n/en.ts               +14 行
+
+FactsSection UI：
+  - 标题"长期记忆" + 简短描述
+  - 输入表单：key 输入框 + category 下拉（4 选项）+ value 输入框 + 添加按钮
+  - 列表：分类 badge + key + value + 删除按钮
+  - 空状态：暂无事实 / 添加第一条
+  - 错误提示：空 key / 空 value
+  - 用 useLiveQuery 自动 reload（增/删后立即刷新）
+  - data-testid：fact-key-input / fact-category-select / fact-value-input / fact-add-btn / fact-item / fact-delete-btn
+
+不做（留 P2 / follow-up）：
+  ❌ 编辑 fact（用户删了再加）
+  ❌ 搜索 / 过滤
+  ❌ 排序控制
+  ❌ AI 自动抽取（路径 B 留 P2）
+  ❌ Copilot prompt 注入（路径 C 留 P2）
+  ❌ 新增独立 tab（塞进 data tab 末尾，0 改 tab 路由）
+
+设计取舍：
+  - 塞 data tab 末尾（不新增 tab），减少 Settings 重构风险
+  - Fact.category 收紧到字面量联合（避免 f.category 当 string 传给 categoryLabel 报错）
+  - 用 useLiveQuery 自动 reload（与 AutoBackupSection 模式一致）
+
+验收（本地全过，未 push）：
+  ✅ npx tsc --noEmit — 0 error
+  ✅ npm run build — 162.0kb server.cjs
+  ✅ tests/factsStore.test.ts — 10/10 静态
+  ✅ tests/factsStore-integration.test.ts — 4/4 真行为
+  ✅ 18 个测试全过（含 P1 + P0 + chunking）
+
+不 push — 等用户决定 push 时机。
+
+下一步：等用户 push 节奏决定：
+  - 选择 A：一次性 push 全部 P1-001..P1-004 + follow-up
+  - 选择 B：先 push 单独的 P1-004 follow-up（已稳定的最小 UI）
+  - 选择 C：暂不 push，继续做 P2 候选（AI 抽取 / Copilot 注入）

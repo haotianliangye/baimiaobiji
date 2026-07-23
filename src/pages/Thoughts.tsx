@@ -185,7 +185,7 @@ export default function Thoughts() {
   const [createAttachments, setCreateAttachments] = useState<AttachmentMeta[]>([]);
   const createScrollRef = useRef<HTMLDivElement>(null);
 
-  // --- 录音状态（与拾微板块同款：getUserMedia + MediaRecorder + /api/transcribe） ---
+  // --- 录音状态（与记录板块同款：getUserMedia + MediaRecorder + /api/transcribe） ---
   const [isListening, setIsListening] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
@@ -212,7 +212,7 @@ export default function Thoughts() {
   };
 
   /**
-   * 与拾微板块的 handleToggleListen 同款：
+   * 与记录板块的 handleToggleListen 同款：
    *   1) getUserMedia 拿麦克风流；
    *   2) MediaRecorder 录音（最多 60 秒）；
    *   3) 录音停止后 base64 编码并调用 /api/transcribe；

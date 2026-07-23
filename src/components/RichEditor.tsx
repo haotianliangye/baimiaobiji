@@ -49,7 +49,7 @@ export interface RichEditorProps {
   minHeightClass?: string;
   /** 透传给 textarea 的 data-testid，供 E2E 定位（创建/编辑两个编辑器需区分）。 */
   textareaTestId?: string;
-  /** 点击附件缩略图时打开预览（拾微编辑弹窗传入 MediaPreview）。 */
+  /** 点击附件缩略图时打开预览（记录编辑弹窗传入 MediaPreview）。 */
   onAttachmentPreview?: (items: AttachmentMeta[], initialIndex: number) => void;
   /** 当前记录的多媒体合并摘要（单附件无单独 summary 时作悬浮提示兜底）。 */
   attachmentSummary?: string;
@@ -114,7 +114,7 @@ function isDirectUrl(ref?: string): boolean {
  * （已存附件，ref 指向 IndexedDB attachments store 的 id）两种 ref。
  * 已存附件从 store 加载 Blob 转 object URL 渲染，组件卸载时自动 revoke。
  *
- * 在传入 onPreview 的场景（拾微编辑弹窗）下：
+ * 在传入 onPreview 的场景（记录编辑弹窗）下：
  * - 点击缩略图打开 MediaPreview；
  * - 桌面端鼠标悬停显示 AI 摘要悬浮提示；
  * - 手机端长按显示 AI 摘要悬浮提示。

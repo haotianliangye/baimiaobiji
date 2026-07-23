@@ -89,7 +89,7 @@ export async function retrieveCopilotContext(
         navDate: format(new Date(log.created_at), 'yyyy-MM-dd'),
         displayDate: format(new Date(log.created_at), 'yyyy-MM-dd HH:mm'),
         content: log.content,
-        label: '拾微记录',
+        label: '记录',
       });
       candidates.push({ key, embedding: log.embedding });
     }

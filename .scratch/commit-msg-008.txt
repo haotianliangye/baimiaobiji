@@ -1,0 +1,73 @@
+feat(backup): issue #008 本地自动备份
+
+本地保留最近 4 周（28 天）快照，作为"本地云"。比 WebDAV 简单，
+比啥都没有强。P0 最后一个 issue。
+
+新增 src/lib/autoBackup.ts（分层设计）：
+  1. 纯函数层（无 db 依赖，单测可覆盖）
+     - shouldBackup({enabled, lastBackupAt, now?, intervalMs?}) 决策表
+       边界：now - lastBackupAt > intervalMs（严格大于）
+     - pruneCutoff(now, retentionDays) 计算过期时间
+     - buildSnapshotTables() 应备份的 5 个表名
+     - TABLES_TO_BACKUP / TABLES_TO_EXCLUDE 常量
+     - DEFAULT_BACKUP_INTERVAL_MS = 24h, DEFAULT_RETENTION_DAYS = 28
+  2. 包装层（涉及 db）
+     - getAutoBackupEnabled / setAutoBackupEnabled（用 settings_kv 复用 #004 约定）
+     - createBackup(type: 'auto' | 'manual')
+     - pruneOldBackups(retentionDays)
+     - maybeBackup()：检查 + 触发，自动跳过 24h 内重复
+     - restoreBackup(id)：先创建 manual 备份当前状态 → 清库 → bulkAdd
+     - listBackups(limit) / deleteBackup(id) / totalBackupSize()
+
+src/db/db.ts v15 → v16（注意：规格写 v14→v15 是错的，v15 已被 #004 占用）：
+  - 新增 backups 表：'id, created_at, type'
+  - 复用 db.ts 定义的 BackupRecord 接口（避免重复）
+  - 升级无需迁旧数据：新表，初始为空
+
+src/main.tsx 启动时 + visibilitychange 触发：
+  - 启动时 fire-and-forget 调用 maybeBackup()（不阻塞首屏）
+  - visibilitychange === 'hidden' 时再检查一次（防用户用完就关）
+  - 不用 App.tsx（实际启动入口是 main.tsx，#007 经验）
+
+src/pages/Settings.tsx AutoBackupSection 组件：
+  - 位置：数据管理 tab，Storage Protection 下方
+  - 开关（toggle），存 settings_kv
+  - 「立即手动备份」按钮
+  - 历史列表：时间 / 类型（auto=蓝 / manual=绿） / 大小 / 恢复 / 删除
+  - 顶部显示总条数 + 总大小（KB）
+  - useLiveQuery 让列表自动刷新（备份后/删除后）
+  - 恢复前 confirm（防误操作）
+  - 显式说明：备份不含音频附件（太大）和向量（可重建）
+
+i18n（zh + en）：settings.autoBackup* 16 个 key
+
+TDD：tests/auto-backup.test.ts 10 个单元测试（只测纯函数层）
+  B1-B2: shouldBackup 默认参数
+  B3: 24h 内 → false
+  B4: 24h 后 → true
+  B5: 关闭 → false
+  B6: 无 last backup → true
+  B7: pruneCutoff
+  B8: buildSnapshotTables + 排除列表
+  B9: 默认值 28 天 / 24h
+  B10: TABLES_TO_BACKUP 5 个表
+
+测试结果：10/10 全过。tsc + vite build + esbuild 全过。
+无 console.error 残留。
+package.json: 0.2.3 → 0.3.0（minor bump，schema 变更）。
+db: v15 → v16（新增 backups 表，无破坏性）。
+
+规格修正（4 处）：
+  - v14→v15 错：实际 v15→v16（v15 已被 #004 占）
+  - "mingwu" 表名错：v14 改名为 insights
+  - App.tsx 错：实际启动入口是 main.tsx
+  - ensurePersistentStorage 错：复用 storage.ts 现有 requestStoragePersistence
+
+未做的（按范围控制）：
+  ❌ restore 集成测试 → 涉及 mock db 成本高，留 follow-up
+  ❌ 性能测试 1000 条 < 2s → 同上
+  ❌ 设置 store 加 autoBackup 字段 → 直接用 settings_kv 替代
+
+P0 完成情况：8/8 issue 全部合并
+  v0.1.0 (#001) → v0.1.1 (#002) → v0.1.2 (#003) → v0.2.0 (#004) → 
+  v0.2.1 (#005) → v0.2.2 (#006) → v0.2.3 (#007) → v0.3.0 (#008)

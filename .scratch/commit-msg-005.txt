@@ -1,0 +1,49 @@
+feat(citation): issue #005 引用回溯验证
+
+LLM 编造的 #log_id_<UUID> 引用以前在 UI 上是死链。
+本提交新增 verifyCitations + VerifiedMarkdown，让 broken 引用
+（UUID 不在 db.raw_logs 里）显示成虚线下划线 + hover 提示。
+
+新增 src/lib/citationVerify.ts：
+  - BROKEN_MARKER 常量 = '<!--broken-citation-->'
+  - verifyCitationsAgainstIds(markdown, validIds)：纯函数，
+    匹配 #log_id_<UUID>，不存在的打 marker，broken 列表去重，
+    每处都加 marker（即使 UUID 重复）
+  - verifyCitations(markdown)：包装层，db.raw_logs.bulkGet 一次拿所有
+  - getBrokenUuids(result)：UI 辅助
+  - context 字段：每条 broken 引用前 20 + 后 20 字符上下文
+
+新增 src/components/VerifiedMarkdown.tsx：
+  - useState + useEffect 异步 verify，markdown 变化再 verify
+  - washCitations 同步 → verifyCitations 异步 → marker 转 span
+    → ReactMarkdown 渲染
+  - 自定义 linkRenderer 保留原 link onClick 行为
+  - 渲染失败/空 broken → 不显示徽标
+
+src/index.css 新增：
+  - .citation-broken：橙色虚线下划线 + hover 提示
+  - .broken-citation-badge：橙色徽标，含 hover 详情
+
+替换三处使用：
+  - src/pages/Review.tsx：原 ReactMarkdown + washCitations → VerifiedMarkdown
+    + linkRenderer 保留 navigate 跳转
+  - src/pages/Insights.tsx：原 ReactMarkdown + washCitations → VerifiedMarkdown
+  - src/components/ContextChat.tsx：原 ReactMarkdown + washCitations →
+    VerifiedMarkdown + linkRenderer 保留 onCitationClick
+
+TDD：tests/citation-verify.test.ts 10 个单元测试
+  V1-V2: 空 / 无 UUID
+  V3-V5: 有效 / 无效 / 混合
+  V6: context 提取
+  V7: 重复有效（total 反映次数）
+  V8: 100KB 性能 < 100ms
+  V9: 重复无效（broken 去重到 1，marker 每处都加）
+  V10: washCitations 输出格式仍能验证
+
+测试结果：10/10 全过。V8 实测 2ms / 142KB。
+tsc + vite + esbuild 全过。无 schema 变更。0.2.0 → 0.2.1。
+
+注：
+  - 规格说"已建立的约定"section 加 Markdown 渲染前必经 verifyCitations → 改 CONTEXT.md
+  - 规格说三处裸用 dangerouslySetInnerHTML → 实际三处都是 ReactMarkdown，
+    替换时把 linkRenderer 提出来保留 onClick 逻辑
