@@ -182,6 +182,17 @@ export interface TagAlias {
   target: string;             // 合并目标路径
 }
 
+// Issue #008: 本地自动备份记录
+export interface BackupRecord {
+  id: string;                 // uuid
+  created_at: number;         // ms timestamp
+  type: 'auto' | 'manual';
+  payload: string;            // JSON 字符串（snapshot 序列化）
+  size_bytes: number;
+  source_version: string;     // package.json version
+  db_version: number;         // db.verno
+}
+
 export class WhitewashDiaryDB extends dexie {
   raw_logs!: Table<RawLog>;
   daily_reviews!: Table<DailyReview>;
@@ -194,6 +205,7 @@ export class WhitewashDiaryDB extends dexie {
   attachments!: Table<AttachmentBlob>;
   chunks!: Table<TextChunk>;
   settings_kv!: Table<SettingsKVRecord>;
+  backups!: Table<BackupRecord>;
 
   constructor() {
     super('whitewash_diary');
@@ -493,6 +505,16 @@ export class WhitewashDiaryDB extends dexie {
       attachments: 'id, type, created_at',
       chunks: 'id, source_id, [source_type+source_id+field], *tags',
       settings_kv: 'key',
+    });
+    // Version 16: Issue #008 本地自动备份。
+    // - 新增 backups 表（主键 id），按 created_at 索引，按 type 索引。
+    // - 记录最近 4 周（28 天）的完整数据快照：raw_logs/daily_reviews/thoughts/insights/tags
+    // - 不含 attachments（音频 Blob 太大）/ chunks（可重建）/ settings_kv（已在云）
+    //   / copilot_conversations（经常变）
+    // - 升级无需迁旧数据：新表，初始为空
+    // - 用户开关 autoBackup.enabled 也存 settings_kv（保持 v15 引入的约定）
+    this.version(16).stores({
+      backups: 'id, created_at, type',
     });
   }
 }

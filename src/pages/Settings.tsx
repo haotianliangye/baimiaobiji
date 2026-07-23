@@ -23,6 +23,17 @@ import { useTranslation } from '../lib/i18n';
 import { getPatterns, addPattern, removePattern, resetPatterns } from '../lib/hallucinationPatterns';
 import type { HallucinationPattern } from '../lib/hallucinationFilter';
 import { getErrorCount, exportErrorLog, clearErrorLog, triggerTestError, ERROR_BUFFER_MAX_SIZE } from '../lib/errorBuffer';
+import {
+  getAutoBackupEnabled,
+  setAutoBackupEnabled,
+  createBackup,
+  listBackups,
+  restoreBackup,
+  deleteBackup,
+  totalBackupSize,
+  type BackupRecord,
+} from '../lib/autoBackup';
+import { useLiveQuery } from 'dexie-react-hooks';
 
 const SYNC_START_DELAY_MS = 500;
 const OAUTH_CHECK_INTERVAL_MS = 50;
@@ -554,6 +565,172 @@ function ErrorInspector() {
         <p className="text-[10px] text-stone-400 mt-2">上次导出：{lastExport}</p>
       )}
     </div>
+  );
+}
+
+/**
+ * Issue #008: 本地自动备份 section
+ *
+ * 让用户能看到/控制/恢复本地自动备份。
+ */
+function AutoBackupSection() {
+  const { t } = useTranslation();
+  const [enabled, setEnabled] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // 用 useLiveQuery 让备份列表自动刷新（备份后/删除后）
+  const backups = useLiveQuery(() => listBackups(20), [], [] as BackupRecord[]);
+  const totalSize = useLiveQuery(() => totalBackupSize(), [], 0);
+
+  useEffect(() => {
+    getAutoBackupEnabled().then(setEnabled).catch(() => setEnabled(true));
+  }, []);
+
+  const handleToggle = async (next: boolean) => {
+    setEnabled(next);
+    try {
+      await setAutoBackupEnabled(next);
+    } catch (e) {
+      setLoadError((e as Error).message);
+      setEnabled(!next); // 回滚
+    }
+  };
+
+  const handleBackupNow = async () => {
+    setIsCreating(true);
+    setLoadError(null);
+    try {
+      await createBackup('manual');
+    } catch (e) {
+      setLoadError((e as Error).message);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleRestore = async (id: string) => {
+    if (!confirm(t('settings.autoBackupRestoreConfirm'))) return;
+    setLoadError(null);
+    try {
+      await restoreBackup(id);
+      // 提醒用户：数据已替换
+      alert('已恢复。请刷新页面查看最新数据。');
+    } catch (e) {
+      setLoadError((e as Error).message);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm(t('settings.autoBackupDeleteConfirm'))) return;
+    try {
+      await deleteBackup(id);
+    } catch (e) {
+      setLoadError((e as Error).message);
+    }
+  };
+
+  return (
+    <section className="baimiao-card-diary p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-[12.5px] font-semibold text-stone-400 tracking-wider uppercase flex items-center gap-1.5">
+          <Database className="w-4 h-4 text-stone-400" />
+          {t('settings.autoBackup')}
+        </h3>
+        <label className="relative inline-flex items-center cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(e) => handleToggle(e.target.checked)}
+            className="sr-only peer"
+          />
+          <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-black"></div>
+        </label>
+      </div>
+
+      <p className="text-[11.5px] text-stone-500 leading-relaxed">
+        {t('settings.autoBackupDesc')}
+      </p>
+
+      {loadError && (
+        <div className="px-3 py-2 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-[12px]">
+          {loadError}
+        </div>
+      )}
+
+      <button
+        onClick={handleBackupNow}
+        disabled={isCreating}
+        className="w-full flex items-center justify-center gap-2 bg-stone-900 text-white py-2.5 rounded-xl text-[13px] font-medium hover:bg-black transition-colors disabled:opacity-30 disabled:cursor-not-allowed active:scale-[0.98]"
+      >
+        {isCreating ? (
+          <>
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            {t('settings.autoBackupCreating')}
+          </>
+        ) : (
+          <>
+            <Database className="w-3.5 h-3.5" />
+            {t('settings.autoBackupNow')}
+          </>
+        )}
+      </button>
+
+      <div className="pt-2 border-t border-stone-100 space-y-2">
+        <div className="flex items-center justify-between">
+          <h4 className="text-[12px] font-medium text-stone-700">
+            {t('settings.autoBackupList')}
+          </h4>
+          <span className="text-[10px] text-stone-400 font-mono">
+            {(backups?.length ?? 0)} 条 · {((totalSize ?? 0) / 1024).toFixed(1)} KB
+          </span>
+        </div>
+
+        {backups && backups.length > 0 ? (
+          <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
+            {backups.map((b) => (
+              <div
+                key={b.id}
+                className="flex items-center gap-2 px-3 py-2 bg-stone-50 hover:bg-stone-100 rounded-lg text-[11.5px] group"
+              >
+                <span className={cn(
+                  'shrink-0 px-1.5 py-0.5 rounded text-[9.5px] font-mono',
+                  b.type === 'auto' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'
+                )}>
+                  {b.type === 'auto' ? 'auto' : 'manual'}
+                </span>
+                <span className="flex-1 text-stone-700 font-mono">
+                  {new Date(b.created_at).toLocaleString('zh-CN', {
+                    month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit'
+                  })}
+                </span>
+                <span className="text-stone-400 font-mono">
+                  {(b.size_bytes / 1024).toFixed(1)}K
+                </span>
+                <button
+                  onClick={() => handleRestore(b.id)}
+                  className="shrink-0 px-2 py-1 text-stone-600 hover:text-stone-900 hover:bg-white rounded text-[10.5px] opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  {t('settings.autoBackupRestore')}
+                </button>
+                <button
+                  onClick={() => handleDelete(b.id)}
+                  className="shrink-0 p-1 text-stone-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                  title={t('settings.autoBackupDelete')}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-stone-400 text-center text-[11.5px] py-3">
+            {t('settings.autoBackupEmpty')}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -2465,6 +2642,9 @@ export default function Settings() {
                   <div className="text-[12px] text-stone-450 py-2">{t('settings.gettingStorage')}</div>
                 )}
               </section>
+
+              {/* Issue #008: Auto Backup card */}
+              <AutoBackupSection />
 
               {/* Encrypted Cloud Sync card */}
               <section className="baimiao-card-diary p-4 space-y-3">
