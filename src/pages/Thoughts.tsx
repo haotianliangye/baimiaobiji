@@ -500,6 +500,7 @@ export default function Thoughts() {
               onChange={setCreateContent}
               attachments={createAttachments}
               onAttachmentsChange={setCreateAttachments}
+              onAttachmentPreview={(items, initialIndex) => setMediaPreview({ items, initialIndex })}
               autoFocus
               minHeightClass="min-h-[110px]"
               textareaTestId="thought-create-textarea"
