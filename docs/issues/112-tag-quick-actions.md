@@ -1,9 +1,9 @@
----
+﻿---
 id: "112"
 title: "标签快捷操作菜单：置顶、编辑、移除、删除"
-status: "ready-for-agent"
+status: "done"
 labels:
-  - "ready-for-agent"
+  - "done"
   - "ui-ux-v3"
 created: "2026-07-15"
 parent_issue: "110"

@@ -1,9 +1,9 @@
 ---
 id: "001"
 title: "UI/UX 重构：统一顶部栏、系统设置、多媒体展示、输入与导航"
-status: "ready-for-agent"
+status: "done"
 labels:
-  - "ready-for-agent"
+  - "done"
 created: "2026-07-14"
 related_prd: "docs/prd-ui-ux-2026-07-13.md"
 related_alignment: "docs/requirement-alignment-2026-07-13.md"
@@ -11,7 +11,7 @@ related_alignment: "docs/requirement-alignment-2026-07-13.md"
 
 # 白描笔记 UI/UX 重构 PRD
 
-> 状态：**ready-for-agent**（已 seams 确认，可在本地按 9 个 seam 拆分实施）。  
+> 状态：**done**（已 seams 确认并在本地按 9 个 seam 拆分实施完成；详细见 v3 issue 100-116）。  
 > 对齐来源：`docs/requirement-alignment-2026-07-13.md`  
 > PRD 文件：`docs/prd-ui-ux-2026-07-13.md`
 

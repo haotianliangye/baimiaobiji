@@ -1,9 +1,9 @@
----
+﻿---
 id: "009"
 title: "Seam 8：TTS 外部 API 配置（Gemini / 火山引擎）"
-status: "ready-for-agent"
+status: "done"
 labels:
-  - "ready-for-agent"
+  - "done"
   - "seam"
   - "settings"
   - "tts"

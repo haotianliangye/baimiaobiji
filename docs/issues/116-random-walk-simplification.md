@@ -1,9 +1,9 @@
----
+﻿---
 id: "116"
 title: "随机漫步精简与视觉调整"
-status: "ready-for-agent"
+status: "done"
 labels:
-  - "ready-for-agent"
+  - "done"
   - "ui-ux-v3"
 created: "2026-07-15"
 parent_issue: "110"

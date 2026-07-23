@@ -1,9 +1,9 @@
----
+﻿---
 id: "006"
 title: "Seam 5：沉淀卡片限高折叠与缩略图规范"
-status: "ready-for-agent"
+status: "done"
 labels:
-  - "ready-for-agent"
+  - "done"
   - "seam"
   - "ui"
   - "contemplation"

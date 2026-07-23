@@ -1,9 +1,9 @@
----
+﻿---
 id: "008"
 title: "Seam 7：提示词配置合并与数据迁移"
-status: "ready-for-agent"
+status: "done"
 labels:
-  - "ready-for-agent"
+  - "done"
   - "seam"
   - "settings"
   - "prompt"

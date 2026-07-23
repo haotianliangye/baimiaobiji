@@ -1,9 +1,9 @@
----
+﻿---
 id: "110"
 title: "UI/UX 重构 v3 跟进（需求补漏）"
-status: "ready-for-agent"
+status: "done"
 labels:
-  - "ready-for-agent"
+  - "done"
   - "seam"
 created: "2026-07-15"
 parent_issue: ""

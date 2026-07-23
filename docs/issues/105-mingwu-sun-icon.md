@@ -1,9 +1,9 @@
----
+﻿---
 id: "105"
 title: "需求 5：明悟 Tab 图标改 Sun"
-status: "ready-for-agent"
+status: "done"
 labels:
-  - "ready-for-agent"
+  - "done"
   - "seam"
 created: "2026-07-14"
 parent_issue: "docs/issues/100-ui-ux-restructure-v2.md"
