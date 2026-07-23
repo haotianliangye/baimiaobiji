@@ -1,9 +1,9 @@
----
+﻿---
 id: "102"
 title: "需求 2：随机漫步屏幕自适应"
-status: "ready-for-agent"
+status: "done"
 labels:
-  - "ready-for-agent"
+  - "done"
   - "seam"
 created: "2026-07-14"
 parent_issue: "docs/issues/100-ui-ux-restructure-v2.md"

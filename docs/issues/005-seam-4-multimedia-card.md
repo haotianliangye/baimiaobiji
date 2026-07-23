@@ -1,9 +1,9 @@
----
+﻿---
 id: "005"
 title: "Seam 4：多媒体记录卡片渲染"
-status: "ready-for-agent"
+status: "done"
 labels:
-  - "ready-for-agent"
+  - "done"
   - "seam"
   - "ui"
   - "multimedia"

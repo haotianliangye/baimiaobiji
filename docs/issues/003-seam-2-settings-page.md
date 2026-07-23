@@ -1,9 +1,9 @@
----
+﻿---
 id: "003"
 title: "Seam 2：系统设置页重构"
-status: "ready-for-agent"
+status: "done"
 labels:
-  - "ready-for-agent"
+  - "done"
   - "seam"
   - "ui"
   - "settings"

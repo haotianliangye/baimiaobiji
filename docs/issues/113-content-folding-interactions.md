@@ -1,9 +1,9 @@
----
+﻿---
 id: "113"
 title: "内容卡片折叠与交互恢复（拾微 + 回顾）"
-status: "ready-for-agent"
+status: "done"
 labels:
-  - "ready-for-agent"
+  - "done"
   - "ui-ux-v3"
 created: "2026-07-15"
 parent_issue: "110"

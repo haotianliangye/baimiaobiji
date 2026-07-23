@@ -1,9 +1,9 @@
----
+﻿---
 id: "004"
 title: "Seam 3：RAG+CHAT（Copilot）导航重构"
-status: "ready-for-agent"
+status: "done"
 labels:
-  - "ready-for-agent"
+  - "done"
   - "seam"
   - "ui"
   - "rag"

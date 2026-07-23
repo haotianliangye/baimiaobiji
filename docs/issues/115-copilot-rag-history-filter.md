@@ -1,9 +1,9 @@
----
+﻿---
 id: "115"
 title: "Copilot RAG 选择器文案对齐与历史页日期筛选"
-status: "ready-for-agent"
+status: "done"
 labels:
-  - "ready-for-agent"
+  - "done"
   - "ui-ux-v3"
 created: "2026-07-15"
 parent_issue: "110"

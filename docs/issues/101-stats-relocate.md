@@ -1,9 +1,9 @@
----
+﻿---
 id: "101"
 title: "需求 1：统计小字下移与统一"
-status: "ready-for-agent"
+status: "done"
 labels:
-  - "ready-for-agent"
+  - "done"
   - "seam"
 created: "2026-07-14"
 parent_issue: "docs/issues/100-ui-ux-restructure-v2.md"

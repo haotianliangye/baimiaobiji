@@ -1,9 +1,9 @@
----
+﻿---
 id: "010"
 title: "Seam 9：i18n 文案修正（消除中英混编 key）"
-status: "ready-for-agent"
+status: "done"
 labels:
-  - "ready-for-agent"
+  - "done"
   - "seam"
   - "i18n"
   - "copy"

@@ -1,9 +1,9 @@
----
+﻿---
 id: "002"
 title: "Seam 1：统一全局 Layout 与顶部标题栏"
-status: "ready-for-agent"
+status: "done"
 labels:
-  - "ready-for-agent"
+  - "done"
   - "seam"
   - "ui"
   - "navigation"

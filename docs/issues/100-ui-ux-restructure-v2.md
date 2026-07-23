@@ -1,9 +1,9 @@
----
+﻿---
 id: "100"
 title: "UI/UX 重构 v2：统计下移/随机漫步/编辑弹窗/双击/图标/顶部栏/预览/附件面板/设置页"
-status: "ready-for-agent"
+status: "done"
 labels:
-  - "ready-for-agent"
+  - "done"
   - "prd"
 created: "2026-07-14"
 related_prd: "docs/prd-ui-ux-2026-07-14.md"

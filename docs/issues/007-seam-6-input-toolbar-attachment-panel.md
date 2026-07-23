@@ -1,9 +1,9 @@
----
+﻿---
 id: "007"
 title: "Seam 6：输入工具栏升级与拾微附件上传面板"
-status: "ready-for-agent"
+status: "done"
 labels:
-  - "ready-for-agent"
+  - "done"
   - "seam"
   - "ui"
   - "input"

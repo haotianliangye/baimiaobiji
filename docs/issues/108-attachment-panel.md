@@ -1,9 +1,9 @@
----
+﻿---
 id: "108"
 title: "需求 8：拾微附件上传入口动画面板"
-status: "ready-for-agent"
+status: "done"
 labels:
-  - "ready-for-agent"
+  - "done"
   - "seam"
 created: "2026-07-14"
 parent_issue: "docs/issues/100-ui-ux-restructure-v2.md"

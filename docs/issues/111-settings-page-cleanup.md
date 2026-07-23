@@ -1,9 +1,9 @@
----
+﻿---
 id: "111"
 title: "设置页结构整理：语言入口平铺 + 抽屉毛玻璃 + 标签区收纳"
-status: "ready-for-agent"
+status: "done"
 labels:
-  - "ready-for-agent"
+  - "done"
   - "ui-ux-v3"
 created: "2026-07-15"
 parent_issue: "110"
