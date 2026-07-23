@@ -15,8 +15,12 @@
 | #004 | 转写幻觉检测升级 | ✅ 已合并 (commit `37a66bc`, tag `v0.2.0`) | feat/issue-004-hallucination-filters | 16/16 filter 测试通过 + db v15 |
 | #005 | 引用回溯验证 | ✅ 已合并 (commit `586ae56`, tag `v0.2.1`) | feat/issue-005-cite-verification | 10/10 verify 测试通过 + 100KB 2ms |
 | #006 | 错误日志环形缓冲 | ✅ 已合并 (commit `98047e7`, tag `v0.2.2`) | feat/issue-006-error-buffer | 10/10 buffer 测试通过 + 累积版本号修正 |
-| #007 | 存储预警 | ⏳ 待开始 | — | — |
-| #008 | 自动备份 | ⏳ 待开始 | — | — |
+| #007 | 存储压力可视化 | ✅ 已合并 (commit `1b8c857`, tag `v0.2.3`) | feat/issue-007-storage-pressure | 13/13 pressure 测试通过 |
+| #008 | 本地自动备份 | ✅ 已合并 (commit `30b110f`, tag `v0.3.0`) | feat/issue-008-auto-backup | 10/10 backup 测试通过 + db v16 |
+
+## 🎉 P0 全部完成 (8/8)
+
+P0 阶段所有 issue 已合并。可以开始端到端回归测试 + 进入 P1。
 
 **图例**：⏳ 待开始 / 🚧 进行中 / ✅ 已合并 / ❌ 已回滚
 
