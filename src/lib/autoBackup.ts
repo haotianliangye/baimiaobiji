@@ -52,6 +52,7 @@ export const TABLES_TO_EXCLUDE = [
   'copilot_conversations', // 聊天记录经常变
   'settings_kv',           // 配置已在云同步覆盖
   'migration_backups',     // 旧 V2 迁移备份，不再需要
+  'facts',                 // P1-004 (ADR-0004)：长期记忆 — 重建代价低（P2 候选：从 daily_reviews AI 抽取）
 ] as const;
 
 export interface ShouldBackupArgs {
