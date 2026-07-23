@@ -1,0 +1,56 @@
+feat(debug): issue #006 错误日志环形缓冲 + 包版本号累积修正
+
+用户反馈问题能导出错误现场。本地环形缓冲 100 条，不接第三方监控
+（隐私优先）。
+
+新增 src/lib/errorBuffer.ts：
+  - 100 条 FIFO 环形缓冲（避免内存膨胀）
+  - logError(msg, ctx?, level?, source?) 默认 error 级别
+  - logWarn / logInfo 便捷 helper
+  - getErrorCount / getAllErrors / clearErrorLog
+  - exportErrorLog → JSON 含 version/exported_at/max_size
+  - 自定义 JSON replacer：Error 对象默认 toJSON 变空，显式
+    提取 name/message/stack 让导出可读
+  - triggerTestError 演示 helper
+  - 仍然 console.error 输出（不破坏现有调试路径）
+  - pkg.version 注入代替 spec 写的 import.meta.env（统一来源）
+
+src/pages/Settings.tsx 新增 ErrorInspector：
+  - 位置：About tab 上方（普通用户能直接看到，不需要 5 次连点）
+  - 显示 X / 100 当前缓冲大小
+  - 「导出 JSON」按钮 → 下载 error-log-<timestamp>.json
+  - 「清空」按钮（带 confirm）
+  - 「触发测试」按钮（演示用）
+
+package.json: 0.1.0 → 0.2.2（累积修正）
+  - 前 5 个 issue 都没 bump package.json（只 bump git tag）
+  - 这次 #006 顺便补上，让 vite 注入到 bundle 的 VITE_APP_VERSION
+    和 git tag 同步
+  - vite.config.ts 的 0.1.0 → 0.2.2 通过 build 自动注入
+
+TDD：tests/error-buffer.test.ts 10 个单元测试
+  B1: 初始为空
+  B2: logError 后 count=1
+  B3: 满 100 条时正确丢弃最旧
+  B4: 超过 100 条 total 仍 = 100
+  B5: 导出 JSON 合法且结构正确
+  B6: 清空后 count=0
+  B7: Error 对象自动提取 stack 到顶层
+  B8: level: error/warn/info 区分
+  B9: 导出 JSON 含 version
+  B10: 导出 JSON 含 exported_at
+
+测试结果：10/10 全过。tsc + vite build + esbuild 全过。
+bundle 已含 "0.2.2" 字符串（#001 验证约定通过）。
+
+未做的（按范围控制）：
+  ❌ 替换 14 文件 100+ 处 console.error → 不做，spec 自己写「重点位置」
+  ❌ 5 次连点隐藏入口 → 简化：直接显示在 About tab（更实用）
+  ❌ settings_kv 持久化 → 故意不做，诊断信息应该不跨 session
+  ❌ 跨标签页同步 → 后续 issue 单独发
+
+注：规格说「读 CONTEXT.md」实际文件存在在根目录（CONTEXT.md），不是
+docs/handoff/，前几次我都查错了位置。
+
+schema 变更：无。
+版本号：0.2.1 → 0.2.2（patch，但同时累积修正 0.1.0 → 0.2.2 的漂移）。

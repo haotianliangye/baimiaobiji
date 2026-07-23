@@ -1,0 +1,11 @@
+docs(handoff): mark issue #005 done + 修正事实 + 加「已建立的约定」section
+
+Issue #005 完成进展：
+- 进度表 #005 行：⏳ → ✅（含 commit hash + tag）
+- 修正「Schema 迁移顺序」事实错误（v15/v16 而非 v14/v15）
+- 修正「读 CONTEXT.md」指引（实际不存在，CURRENT_STATE.md 自带硬约束）
+- 新增「已建立的约定」section：沉淀 5 个 issue 实施中形成的可复用模式
+  - src/lib/ 模块组织
+  - 后端 fetch 调用约定
+  - 任务队列重试约定
+  - 客户端 settings 持久化约定

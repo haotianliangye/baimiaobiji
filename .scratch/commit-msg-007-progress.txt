@@ -1,0 +1,5 @@
+docs(handoff): mark issue #007 done + 沉淀新约定
+
+Issue #007 完成进展：
+- 进度表 #007 行：⏳ → ✅（含 commit hash + tag）
+- 新增「存储压力检测」约定：4 档阈值 + 进度条模式

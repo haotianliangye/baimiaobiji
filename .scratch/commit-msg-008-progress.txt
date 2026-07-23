@@ -1,0 +1,11 @@
+docs(handoff): mark P0 全部完成（#008 done）
+
+Issue #008 完成进展：
+- 进度表 #008 行：⏳ → ✅（含 commit hash + tag）
+- 新增「本地自动备份」约定：5 表备份 / 24h 节流 / 28 天保留
+- 加 🎉 P0 全部完成 banner
+- 标记进入 P1 阶段
+
+注：因 branch -D 跑在 merge 之前，导致 #008 的 commit 短暂丢失
+（dangling commit），用 cherry-pick 恢复。tag v0.3.0 落在
+cherry-pick 后的 commit (30b110f) 上。

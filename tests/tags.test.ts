@@ -2,7 +2,7 @@
  * #4 全局标签系统 E2E 测试（Puppeteer）
  *
  * 覆盖旅程：
- *   1. 拾微输入 `#工作/项目A` -> raw_logs.tags 含该标签，tags 表有该标签
+ *   1. 记录输入 `#工作/项目A` -> raw_logs.tags 含该标签，tags 表有该标签
  *   2. /tags 标签管理页树形显示 工作 -> 项目A
  *   3. 重命名 工作/项目A -> 工作/项目B，原记录 tags 更新
  *   4. 合并 工作/项目B 到 工作/项目C：建 alias，原记录 tags 变 工作/项目C
@@ -147,7 +147,7 @@ async function run() {
   const ctx = await browser.createBrowserContext();
   const page = await ctx.newPage();
 
-  // ---------- 步骤 1：拾微输入 #工作/项目A ----------
+  // ---------- 步骤 1：记录输入 #工作/项目A ----------
   await page.goto(`${BASE_URL}/`, { waitUntil: 'domcontentloaded' });
   // 清理可能存在的旧数据库
   await deleteDatabase(page);

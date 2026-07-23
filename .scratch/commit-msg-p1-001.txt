@@ -1,0 +1,37 @@
+ci(workflow): issue P1-001 (MoN-7) 测试接 CI
+
+仓库之前没有 CI，16 个测试只能本地手动跑。P0 #001 规格里提到
+"CI step" "CI 检查版本 tag" 但当时没真建——这是 P0 的遗留债。
+
+P1 阶段 = 纯后端健壮工作，不加产品功能。本 PR 是 P1 第一个 issue：
+- 唯一改动：新增 .github/workflows/test.yml（< 90 行）
+- 加：docs/issues/p1/001-test-ci.md 规格文件
+- 0 业务代码改动
+- 0 依赖新增
+- 0 版本号变更（不打 tag）
+
+设计取舍（详见 issue 文档）：
+- 单一 ubuntu-latest，不做 matrix
+- 不用 npm cache（简单优先）
+- 串行跑 16 个测试（避免 port / IndexedDB 冲突）
+- 15 分钟超时（本地测 5 分钟，留 3x buffer）
+- 触发：push 到 main / refactor/*，PR 到 main / refactor/*，手动 dispatch
+- 不自动 tag / 发布（保留 P0 #001 沉淀的人工纪律）
+
+P1 计划（按价值/风险）：
+- P1-001 (本 PR)：测试接 CI - 0.5 天
+- P1-002 (MoN-8)：健康检查端点 - 0.5 天
+- P1-003 (ADR-0003)：API Key 隔离 - 1-2 天
+- P1-004 (ADR-0004)：长期记忆 facts 表 - 1-2 天
+
+不做（加新功能，跳过）：
+- Jag-3 反馈闭环
+- Jag-4 多通道一致性
+
+每个 P1 走 8 步流程（与 P0 同），做完 1 个复盘 1 次。
+3-5 天能完成全部 4 个 P1 issue。
+
+验收：
+- [ ] yaml 语法正确（python yaml.safe_load 验证通过）
+- [ ] push 后 GitHub Actions 触发
+- [ ] CI 16/16 测试通过 + tsc + build

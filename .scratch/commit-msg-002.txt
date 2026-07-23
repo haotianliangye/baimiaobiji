@@ -1,0 +1,35 @@
+feat(server): issue #002 服务端超时 + 健康检查
+
+LLM 服务商挂掉时，挂死的 fetch 请求会拖死整个 Express 进程。
+本提交给所有外网调用加超时上限 + 加健康检查端点。
+
+新增 src/lib/fetchWithTimeout.ts：
+  - fetchWithTimeout(url, opts, timeoutMs) 包装 fetch
+  - 用 AbortController + clearTimeout（finally 兜底，无 timer 泄漏）
+  - 导出 FETCH_TIMEOUTS 常量按任务分档（embedding 15s / testConnection 8s /
+    transcribe 60s / tts 30s / webdav 30s / llm 45s）
+
+替换 server.ts 中 8 处 fetch 调用：
+  - /api/generate-embedding（OpenAI 兼容分支）
+  - /api/test-connection（chat + embed 两个分支）
+  - /api/transcribe（火山引擎 + OpenAI 兼容两个分支）
+  - /api/tts（火山引擎分支）
+  - /api/webdav-proxy
+  - sendLLMRequest（所有 LLM 通用调用）
+
+加 /api/health 端点：
+  - GET /api/health → {ok, uptime, version, timestamp}
+  - 暴露 package.json version 与 process.uptime()
+
+顺手：server.ts PORT 改读环境变量（process.env.PORT，默认 3000），
+方便测试用 4178 端口隔离运行。
+
+TDD：
+  - tests/fetch-timeout.test.ts：5 个单元测试覆盖正常响应 / 超时触发 /
+    timer 清理 / 自定义超时 / 默认 30000ms
+  - tests/server-health.test.ts：8 个 E2E 测试覆盖 status / ok / version /
+    uptime 类型 / uptime 范围 / timestamp 类型 / timestamp 偏差
+
+测试结果：5/5 单元测试 + 8/8 E2E 全过。
+build：tsc + vite build + esbuild server.ts 全过。
+无 schema 变更。版本号 0.1.0 → 0.1.1。

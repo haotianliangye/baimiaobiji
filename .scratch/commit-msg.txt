@@ -1,0 +1,11 @@
+feat(versioning): issue #001 版本号与发布纪律
+
+- package.json 0.0.0 -> 0.1.0（首个 semver 标记）
+- vite.config.ts 通过 define 注入 import.meta.env.VITE_APP_VERSION
+- i18n zh.ts / en.ts 从 VITE_APP_VERSION 派生 app.version 文案
+  （顺手修：原硬编码 v1.2.0 跟 package.json 0.0.0 漂移）
+- CLAUDE.md 加「版本号规则」section，同步修正分支约定
+  （主分支实为 refactor/mingwu-to-insight，非 main）
+
+TDD 验证：npm run build 后 bundle 含 b6="0.1.0"，define 注入生效。
+无 schema 变更。

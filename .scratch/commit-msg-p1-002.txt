@@ -1,0 +1,33 @@
+feat(monitoring): issue P1-002 (MoN-8) 4 个健康检查端点
+
+把现有的 1 个 /api/health 端点（#002 沉淀）扩展为 4 个独立端点，
+覆盖监控/诊断的不同场景。纯后端基础设施加固，不加产品功能。
+
+4 个端点：
+  GET /api/health   — 保留 #002 沉淀的 liveness，4 字段不变（兼容性）
+  GET /api/ready    — 新增 readiness：db 模块可静态加载 + 拿到 verno
+  GET /api/version  — 新增纯版本：package.json + db_version + node + platform
+  GET /api/storage  — 新增存储压力：process.memoryUsage()（server 端无 navigator.storage）
+
+设计决策：
+  - 不删 /api/health（保持 #002 沉淀的兼容）
+  - 节流用闭包 + Date.now()，不引入新依赖
+  - /api/ready 用 dynamic import 拿 db.verno（dexie 是 browser-only，server 端
+    不能真 open db，所以检查「能否静态加载 + 拿到 verno」而不是 db.open()）
+  - /api/version 也用 dynamic import 拿真实 db_version（不 hardcode 16）
+  - 30s/60s 节流避免高 QPS 反复 import
+
+文件改动：
+  server.ts          +80 行（3 个新端点 + 注释）
+  tests/health-endpoints.test.ts  新增（18 个断言）
+  docs/issues/p1/002-health-endpoints.md  新增（spec）
+
+验收（本地全过，未 push）：
+  ✅ npx tsc --noEmit — 0 error
+  ✅ npm run build — 76.9kb server.cjs
+  ✅ npx tsx tests/health-endpoints.test.ts — 18/18 通过
+  ✅ npx tsx tests/server-health.test.ts — 8/8 通过（兼容性保留）
+
+注：之前 #002 的 /api/health 字段未动；新端点不替代它，是补充。
+
+不 push — 等用户决定 push 时机。

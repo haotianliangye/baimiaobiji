@@ -59,13 +59,13 @@ export default function Layout() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const currentPath = location.pathname;
-  // 日期导航仅在「拾微 / 回顾」两个按日期浏览的 Tab 显示
+  // 日期导航仅在「记录 / 回顾」两个按日期浏览的 Tab 显示
   const showDateNav = currentPath === '/' || currentPath === '/review';
   // 需求 6：沉淀中间为瀑布流/时间线胶囊；洞察中间为时间范围胶囊
   const showThoughtsCapsule = currentPath === '/thoughts';
   const showMingwuCapsule = currentPath === '/insight';
 
-  // 页面标题映射：拾微=白描 / 回顾 / 沉淀 / 洞察（标题不可点击）
+  // 页面标题映射：记录=白描 / 回顾 / 沉淀 / 洞察（标题不可点击）
   const routeTitleKey: Record<string, string> = {
     '/': 'layout.titleBaimiao',
     '/review': 'tab.review',
@@ -291,7 +291,7 @@ export default function Layout() {
               )}
             </div>
 
-            {/* 中：日期导航（仅拾微/回顾；点击日期打开日期选择器；随机漫步模式下隐藏） */}
+            {/* 中：日期导航（仅记录/回顾；点击日期打开日期选择器；随机漫步模式下隐藏） */}
             {showDateNav && !isRandomWalkMode && (
               <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1 shrink-0 z-20">
                 <button

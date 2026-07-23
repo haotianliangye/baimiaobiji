@@ -1,0 +1,46 @@
+fix(db): P1-004 (ADR-0004) 补 v17 schema 注册
+
+之前 f8493d3 漏了 `this.version(17).stores({ facts: '...' })`，
+只在 class 加了 `facts!: Table<Fact>` 字段声明。
+TypeScript 类型对（class field），但运行时 dexie 不知道 facts 表存在
+→ `db.facts` 在运行时 undefined → 所有 factsStore 操作崩溃。
+
+发现路径：
+  - 静态 regex 测试通过（检查文件里 "db.facts" 字符串）
+  - puppeteer 真行为测试（FI1-FI4）发现 hasFacts=false
+  - 加上 v17.stores 后，hasFacts=true，addFact 真能跑
+
+之前 commit 的影响：
+  - 用户 push + merge 到 main 后：db.facts 操作 = 崩溃
+  - 没被任何代码调用（基础设施），但仍然是"bad shape" schema
+
+修复：
+  - 加 this.version(17).stores({ facts: 'id, key, category, created_at' })
+  - 与 P0 #004 / #008 模式一致（新增表时同时更新 stores）
+
+新增真行为测试：
+  - tests/factsStore-integration.test.ts — puppeteer 4 个断言
+  - FI1 db.facts 在 IDB schema 真存在
+  - FI2 addFact 真成功
+  - FI3 countFacts 真能跑
+  - FI4 deleteFact 后 getFact undefined
+
+教训：
+  - 静态 regex 测试覆盖率不足，必须有真行为测试
+  - dexie schema 改动必须同时改 stores + class field
+  - 测试"代码在文件里"≠"代码真在运行时"
+
+不 push — 等用户决定 push 时机。
+
+v17 migration 风险评估（用户问"push 到 main 会不会丢数据"）：
+  ✅ v16 → v17 纯新增表（facts），零迁移风险
+  ✅ 旧用户升级：dexie 自动跑 upgrade，无数据触碰
+  ✅ autoBackup 显式排除 facts → 备份体积不变
+  ✅ P0 #008 已有的本地自动备份覆盖 v16 所有表
+  ✅ 没有跨设备同步的破坏风险
+
+详细数据丢失风险评估：
+  P1-001 (CI workflow)              — 零数据影响（只是 build script）
+  P1-002 (4 个 /api/* 健康端点)    — 零数据影响（只读）
+  P1-003 (apiKeyStore.ts)          — 零数据影响（未集成进 store）
+  P1-004 (v17 schema + factsStore) — 零数据影响（纯新增表）

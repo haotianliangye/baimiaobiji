@@ -1,0 +1,3 @@
+docs(handoff): mark issue #003 done in CURRENT_STATE
+
+更新进度表第三行（#003 已合并）+ 添加 commit hash 和 tag 引用。

@@ -1,0 +1,37 @@
+feat(queue): issue #003 任务队列指数退避 + 错误分类
+
+原任务队列固定重试 + 固定 3s 延时，10 个并发失败请求同时重试
+会再次撞 rate limit 形成雪崩。本提交换成指数退避 + jitter。
+
+新增 src/lib/backoff.ts（纯函数 + 零运行时依赖）：
+  - getBackoffMs(retry, baseMs=2000, maxMs=60000)
+    指数退避（2^retry * baseMs，封顶 maxMs）+ ±30% jitter
+    中位数序列实测 [2314, 4630, 9280, 18219, 36681] 干净的指数翻倍
+  - isRetryableError(err)
+    4xx（400/401/403/404/429）→ false 不重试
+    5xx + 无 status（网络错误/超时）→ true 重试
+    null/undefined/非对象 → true（保守兜底）
+  - getRetryLimit(err)
+    4xx → 0 次（立即 fail）
+    5xx/网络 → 5 次
+    其他 fallback → 3 次
+  - RETRY_LIMITS 常量导出
+
+改 app.store.ts processNextQueueTask：
+  - catch 块跟踪 lastQueueError，4xx 直接从队列移除（不重试）
+  - 重试上限改为 getRetryLimit(lastQueueError) 动态决定
+  - 失败后等待用 getBackoffMs(currentTask.retryCount) 替代固定 3000ms
+
+注意：issue 规格说"替换两处"（line 614 + line 935）。但 line 614 是
+generateSelected 的 batch 间隔（每篇回顾之间的正常间隔），不是 retry。
+批量生成本来就需要每篇之间等一会儿，跟"重试退避"语义不同——保持固定
+间隔不动。
+
+TDD：tests/backoff.test.ts 8 个单元测试覆盖
+  B1: retry=0 接近 baseMs
+  B2: retry=10 不超 maxMs（即使 +30% jitter）
+  B3: 200 采样验证 jitter 范围
+  B4: 中位数序列严格递增（指数增长验证）
+  B5-B8: 4xx/5xx/网络/null 错误分类
+
+测试结果：8/8 全过。lint + build 通过。无 schema 变更。0.1.1 → 0.1.2。

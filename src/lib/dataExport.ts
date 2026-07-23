@@ -19,7 +19,7 @@ export interface ExportOptions {
 
 // 各类型在 Markdown 中的分节标题
 const TYPE_LABELS: Record<DataType, string> = {
-  raw_logs: '拾微',
+  raw_logs: '记录',
   daily_reviews: '回顾',
   thoughts: '沉淀',
   insights: '洞察',

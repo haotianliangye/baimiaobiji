@@ -100,7 +100,7 @@ function longMingwuText(): string {
 
 /**
  * 构造 v11（IDB version 110）的 whitewash_diary 库并播种测试数据：
- *   - raw_logs: 一条带 content + attachment_summary + tags 的拾微（record + multimedia 两类任务）
+ *   - raw_logs: 一条带 content + attachment_summary + tags 的记录（record + multimedia 两类任务）
  *   - daily_reviews: 一条 entry_type='review'、ai_review 长文本的回顾（多个分块）
  *   - mingwu: 一条 content 长文本的洞察（多个分块）。v14 升级时 mingwu -> insights（迁移数据 + 改 mingwu_type 为 insight_type）。
  * 同时预置 localStorage：开启 embedding（embedEnabled=true）+ 预填 embedding 队列。
@@ -313,12 +313,12 @@ async function run() {
   // record 分块
   const recordChunks = chunks.filter((c) => c.source_type === 'raw_logs' && c.field === 'content');
   assert(
-    'A3 拾微 content 产出分块',
+    'A3 记录 content 产出分块',
     recordChunks.length === 1 && recordChunks[0].source_id === 'log-1' && recordChunks[0].chunk_index === 0,
     `recordChunks=${recordChunks.length}`
   );
   assert(
-    'A4 拾微分块携带 tags',
+    'A4 记录分块携带 tags',
     recordChunks.length > 0 && Array.isArray(recordChunks[0].tags) && recordChunks[0].tags.includes('工作/阅读'),
     `tags=${JSON.stringify(recordChunks[0]?.tags)}`
   );

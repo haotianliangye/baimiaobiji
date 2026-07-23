@@ -1058,7 +1058,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (myRequestId !== searchRequestId) return;
     }
 
-    // 1. 拾微记录搜索
+    // 1. 记录搜索
     if (modules.includes('record')) {
       const logs = await db.raw_logs.toArray();
       const matchedLogs = logs.filter(log => {
@@ -1071,7 +1071,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       results.push(...matchedLogs.map(log => ({
         id: log.id,
         type: 'record' as const,
-        title: `拾微记录 · ${format(new Date(log.created_at), 'yyyy-MM-dd HH:mm')}`,
+        title: `记录 · ${format(new Date(log.created_at), 'yyyy-MM-dd HH:mm')}`,
         content: log.content,
         date: format(new Date(log.created_at), 'yyyy-MM-dd'),
         highlightSnippets: getHighlightSnippet(log.content, query)
@@ -1174,7 +1174,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           metaByKey.set(key, {
             id: log.id,
             type: 'record',
-            title: `[语义] 拾微记录 . ${format(new Date(log.created_at), 'yyyy-MM-dd HH:mm')}`,
+            title: `[语义] 记录 . ${format(new Date(log.created_at), 'yyyy-MM-dd HH:mm')}`,
             content: log.content,
             date: format(new Date(log.created_at), 'yyyy-MM-dd'),
             highlightSnippets: getHighlightSnippet(log.content, query),

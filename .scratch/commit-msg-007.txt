@@ -1,0 +1,57 @@
+feat(storage): issue #007 存储压力可视化
+
+IndexedDB 满时浏览器会 evict，app 必须感知。本提交给 Settings →
+数据管理页加 4 档压力进度条，让用户一眼看到存储情况，critical/danger
+时给警告文案。
+
+新增 src/lib/storagePressure.ts：
+  - checkStoragePressure(criticalThreshold=0.85) 异步检测
+  - getPressureLevel(ratio) 4 档判定：ok/warning/critical/danger
+    阈值：< 0.7 ok, 0.7-0.85 warning, 0.85-0.95 critical, ≥ 0.95 danger
+  - formatPressure(ratio) 整数百分比格式化
+  - 缺 navigator.storage.estimate / quota=0 / usage=0 都安全降级
+  - 故意不复用 src/lib/storage.ts 的 StorageEstimateInfo（不同维度）
+
+新增 src/hooks/useStorageMonitor.ts：
+  - 5 分钟轮询（spec 要求）
+  - useEffect cleanup 清理 timer
+  - cancelled 标记防 unmount 后 setState
+
+src/pages/Settings.tsx 扩展数据管理 tab 的 Storage Protection section：
+  - 加进度条（4 档颜色：绿/黄/橙/红）
+  - 加百分比数字（mono 字体）
+  - critical/danger 时显示警告：「存储空间紧张，建议立即导出备份」
+  - 复用现有 storageInfo（避免再调一次 estimate）
+
+package.json: 0.2.2 → 0.2.3（按 #006 沉淀的约定，每个 issue 必 bump）
+
+TDD：tests/storage-pressure.test.ts 13 个单元测试
+  P0: 缺 navigator 返回零值
+  P1: ratio=0.9 → critical
+  P2: ratio=0.5 → 非 critical
+  P3: 边界 0.85 不 critical（严格大于）
+  P4: 边界 0.86 critical
+  P5: 自定义阈值
+  P6: usage=0
+  P7: quota=0
+  P8: 缺 navigator.storage
+  P9: formatPressure
+  P10: getPressureLevel 4 档
+  P11-P12: level 阈值边界
+  P13: StorageStatus type 字段完整性
+
+测试结果：13/13 全过。tsc + vite build + esbuild 全过。
+无 schema 变更。
+
+未做的（按范围控制）：
+  ❌ 扩展 Toast action 按钮 → spec 过度承诺，改用常驻进度条（更实用）
+  ❌ App.tsx 启动时 ensurePersistentStorage → 复用现有 requestStoragePersistence
+    （Settings 数据管理页已有「激活永久存储」按钮，按需触发而非启动时）
+  ❌ useStorageMonitor hook 集成到 Layout → 加了但目前没人用（向后兼容，
+    后续 issue 可能要在 toast / badge 复用）
+
+注：
+  - spec 假设「App.tsx 没 useEffect」但实际启动逻辑在 main.tsx（直接调函数）
+  - 现有 Toast 系统是「半成品」：store + 组件有，但 Layout 没接
+  - 现有 Settings Storage Protection section 已显示 usedBytes/quotaBytes
+    （#001/#002 沉淀），本提交只补 ratio 进度条
