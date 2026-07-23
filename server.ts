@@ -1282,6 +1282,7 @@ ${contextContent || '（本次未检索到相关片段）'}
   // Health check endpoint — used by /api/health probes (e.g. uptime monitoring)
   // and to detect whether the local Express proxy is reachable from mobile PWA.
   // Issue #002: added alongside server timeout work.
+  // Issue P1-002 (MoN-8): 扩展为 4 个端点 — /health /ready /version /storage
   app.get('/api/health', (_req, res) => {
     res.json({
       ok: true,
@@ -1290,6 +1291,91 @@ ${contextContent || '（本次未检索到相关片段）'}
       timestamp: Date.now(),
     });
   });
+
+  // ---- Issue P1-002: 监控端点 ----
+  // Readiness 探针：server 进程 + 模块图 + db 静态信息齐。
+  // 注意：dexie 是 browser-only（依赖 indexedDB），server 端无法真打开 db。
+  // 所以这里检查「能否静态加载 db 模块 + 拿到 verno」，不打开 db。
+  // 30s 节流避免高 QPS 时反复 import。
+  let readyCache: { at: number; result: { ok: boolean; db: string; db_version: number } } | null = null;
+  const READY_TTL_MS = 30 * 1000;
+
+  app.get('/api/ready', async (_req, res) => {
+    const now = Date.now();
+    if (readyCache && now - readyCache.at < READY_TTL_MS) {
+      return res.status(readyCache.result.ok ? 200 : 503).json({
+        ...readyCache.result,
+        uptime: process.uptime(),
+        timestamp: now,
+        cached: true,
+      });
+    }
+    let dbOk = false;
+    let dbVersion = 0;
+    try {
+      // 静态 import db 模块（不打开）。如果 import 失败说明 db.ts 有编译错误
+      const dbModule = await import('./src/db/db.js').catch(() => null as any);
+      const db = dbModule?.db;
+      if (db && typeof db.verno === 'number' && db.verno > 0) {
+        dbVersion = db.verno;
+        dbOk = true;
+      }
+    } catch (e) {
+      dbOk = false;
+    }
+    readyCache = { at: now, result: { ok: dbOk, db: dbOk ? 'loadable' : 'unloadable', db_version: dbVersion } };
+    return res.status(dbOk ? 200 : 503).json({
+      ...readyCache.result,
+      uptime: process.uptime(),
+      timestamp: now,
+      cached: false,
+    });
+  });
+
+  // 纯版本信息：客户端启动时调一次
+  // 异步取 db.verno（dexie 在 server 端不能 open，但能 import 拿静态字段）
+  app.get('/api/version', async (_req, res) => {
+    let dbVersion = 0;
+    try {
+      const dbModule = await import('./src/db/db.js').catch(() => null as any);
+      const db = dbModule?.db;
+      if (db && typeof db.verno === 'number') dbVersion = db.verno;
+    } catch {}
+    res.json({
+      version: pkg.version,
+      db_version: dbVersion,
+      build_time: new Date().toISOString(),
+      node_version: process.version,
+      platform: process.platform,
+    });
+  });
+
+  // 存储压力：基于 process.memoryUsage()（server 端无 navigator.storage.estimate）
+  // 60s 节流
+  let storageCache: { at: number; data: any } | null = null;
+  const STORAGE_TTL_MS = 60 * 1000;
+
+  app.get('/api/storage', (_req, res) => {
+    const now = Date.now();
+    if (storageCache && now - storageCache.at < STORAGE_TTL_MS) {
+      return res.json({ ...storageCache.data, cached: true });
+    }
+    const mem = process.memoryUsage();
+    // 用 heapUsed 当作"已用"，rss 当作"上限"（粗略，server-side 没有真 quota）
+    const usedBytes = mem.heapUsed;
+    const quotaBytes = mem.rss;
+    const ratio = quotaBytes > 0 ? usedBytes / quotaBytes : 0;
+    let level: 'ok' | 'warning' | 'critical' | 'danger' = 'ok';
+    if (ratio >= 0.95) level = 'danger';
+    else if (ratio >= 0.85) level = 'critical';
+    else if (ratio >= 0.7) level = 'warning';
+    storageCache = {
+      at: now,
+      data: { used_bytes: usedBytes, quota_bytes: quotaBytes, ratio, level },
+    };
+    return res.json({ ...storageCache.data, cached: false });
+  });
+  // ---- /Issue P1-002 ----
 
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
