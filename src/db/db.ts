@@ -151,11 +151,13 @@ export interface TextChunk {
 // Issue P1-004 (ADR-0004): 长期记忆 facts 表。
 // 关于"用户事实"的结构化记录：生日、偏好、习惯、背景事实。
 // P0 阶段只 manual 录入；P2 候选：AI 自动抽取（基于 #005 引用回溯）。
+// 注：category 是字面量联合（'user' | 'preference' | 'event' | 'context'），
+//     与 src/lib/factsStore.ts 的 FactCategory 一致。
 export interface Fact {
   id: string;                 // uuid，主键
   key: string;                // 业务唯一键，e.g. 'user.birthday', 'preference.theme'
   value: string;              // 事实值（自由文本，结构化由调用方决定）
-  category: string;           // 'user' | 'preference' | 'event' | 'context'
+  category: 'user' | 'preference' | 'event' | 'context';
   confidence: number;         // 0-1，P0 阶段 manual 录入都 1.0
   source: 'manual' | 'extracted';  // P0 阶段只 'manual'
   created_at: number;

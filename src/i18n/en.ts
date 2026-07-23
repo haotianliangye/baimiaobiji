@@ -709,4 +709,19 @@ export const en: TranslationDict = {
   // --- MediaPreview fullscreen preview ---
   'mediaPreview.prev': 'Previous',
   'mediaPreview.next': 'Next',
+
+  // --- Facts long-term memory (P1-004 follow-up) ---
+  'settings.facts': 'Long-term memory',
+  'settings.factsDescription': 'Record facts about you. AI will remember. No need to repeat next time.',
+  'settings.factsKeyPlaceholder': 'e.g. user.birthday',
+  'settings.factsValuePlaceholder': 'fact value',
+  'settings.factsAdd': 'Add',
+  'settings.factsCategory': 'Category',
+  'settings.factsCategoryUser': 'User',
+  'settings.factsCategoryPreference': 'Preference',
+  'settings.factsCategoryEvent': 'Event',
+  'settings.factsCategoryContext': 'Context',
+  'settings.factsEmpty': 'No facts yet. Add the first one.',
+  'settings.factsDelete': 'Delete',
+  'settings.factsConfidence': 'Confidence',
 };

@@ -7,7 +7,8 @@ import TagManagement from './TagManagement';
 import DrawerTagList from '../components/DrawerTagList';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_MINGWU_PROMPT, DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT, DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT, DEFAULT_PROMPTS_BY_LANG, DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG, DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG, type Language } from '../store/settings.store';
-import { db, normalizeLegacyDiary, normalizeLegacyInsight } from '../db/db';
+import { db, normalizeLegacyDiary, normalizeLegacyInsight, type Fact } from '../db/db';
+import { addFact, listFacts, deleteFact, type FactCategory } from '../lib/factsStore';
 import { enqueueAllMissingEmbeddings } from '../lib/embedding';
 import { checkStorageStatus, requestStoragePersistence, StorageEstimateInfo } from '../lib/storage';
 import { getPressureLevel, type PressureLevel } from '../lib/storagePressure';
@@ -730,6 +731,136 @@ function AutoBackupSection() {
           </div>
         )}
       </div>
+    </section>
+  );
+}
+
+/**
+ * Issue P1-004 follow-up (ADR-0004): 长期记忆 Facts UI
+ *
+ * 让用户能手动录入关于自己的事实（生日 / 偏好 / 习惯 / 背景）。
+ * P2 候选：AI 自动抽取（基于 #005 引用回溯）/ Copilot prompt 注入。
+ */
+function FactsSection() {
+  const { t } = useTranslation();
+  const facts = useLiveQuery(() => listFacts({ limit: 100 }), [], [] as Fact[]);
+  const [draftKey, setDraftKey] = useState('');
+  const [draftValue, setDraftValue] = useState('');
+  const [draftCategory, setDraftCategory] = useState<FactCategory>('user');
+  const [error, setError] = useState<string | null>(null);
+
+  const handleAdd = async () => {
+    setError(null);
+    const k = draftKey.trim();
+    const v = draftValue.trim();
+    if (!k) { setError(t('settings.factsKeyPlaceholder')); return; }
+    if (!v) { setError(t('settings.factsValuePlaceholder')); return; }
+    try {
+      await addFact({ key: k, value: v, category: draftCategory });
+      setDraftKey('');
+      setDraftValue('');
+      setDraftCategory('user');
+    } catch (e: any) {
+      setError(e?.message ?? 'add failed');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try { await deleteFact(id); } catch (e: any) { setError(e?.message ?? 'delete failed'); }
+  };
+
+  const categoryLabel = (c: FactCategory) => {
+    const map: Record<FactCategory, string> = {
+      user: t('settings.factsCategoryUser'),
+      preference: t('settings.factsCategoryPreference'),
+      event: t('settings.factsCategoryEvent'),
+      context: t('settings.factsCategoryContext'),
+    };
+    return map[c];
+  };
+
+  return (
+    <section className="baimiao-card-diary p-4 space-y-3">
+      <h3 className="text-[12.5px] font-semibold text-stone-400 tracking-wider uppercase flex items-center gap-1.5 mb-1.5">
+        <Database className="w-4 h-4 text-stone-400" />
+        {t('settings.facts')}
+      </h3>
+      <p className="text-[11px] text-stone-500 leading-tight">
+        {t('settings.factsDescription')}
+      </p>
+
+      {/* 输入表单 */}
+      <div className="space-y-2 p-3 rounded-xl border border-stone-200/60 bg-stone-50/30">
+        <div className="flex gap-2">
+          <input
+            data-testid="fact-key-input"
+            value={draftKey}
+            onChange={(e) => setDraftKey(e.target.value)}
+            placeholder={t('settings.factsKeyPlaceholder')}
+            className="flex-1 px-2.5 py-1.5 text-[12.5px] rounded-lg border border-stone-200 bg-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-300"
+          />
+          <select
+            data-testid="fact-category-select"
+            value={draftCategory}
+            onChange={(e) => setDraftCategory(e.target.value as FactCategory)}
+            className="px-2 py-1.5 text-[12.5px] rounded-lg border border-stone-200 bg-white focus:outline-none focus:ring-2 focus:ring-stone-300"
+          >
+            <option value="user">{categoryLabel('user')}</option>
+            <option value="preference">{categoryLabel('preference')}</option>
+            <option value="event">{categoryLabel('event')}</option>
+            <option value="context">{categoryLabel('context')}</option>
+          </select>
+        </div>
+        <input
+          data-testid="fact-value-input"
+          value={draftValue}
+          onChange={(e) => setDraftValue(e.target.value)}
+          placeholder={t('settings.factsValuePlaceholder')}
+          className="w-full px-2.5 py-1.5 text-[12.5px] rounded-lg border border-stone-200 bg-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-300"
+        />
+        <div className="flex items-center justify-between gap-2">
+          {error ? <span className="text-[11px] text-rose-600">{error}</span> : <span />}
+          <button
+            data-testid="fact-add-btn"
+            onClick={handleAdd}
+            className="px-3 py-1.5 text-[12px] rounded-lg bg-stone-800 text-white hover:bg-stone-700 transition-colors flex items-center gap-1"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            {t('settings.factsAdd')}
+          </button>
+        </div>
+      </div>
+
+      {/* 列表 */}
+      {!facts || facts.length === 0 ? (
+        <p className="text-[12px] text-stone-400 italic text-center py-3">
+          {t('settings.factsEmpty')}
+        </p>
+      ) : (
+        <ul className="space-y-1.5">
+          {facts.map((f) => (
+            <li
+              key={f.id}
+              data-testid="fact-item"
+              className="flex items-center gap-2 p-2.5 rounded-lg border border-stone-200/60 bg-white hover:bg-stone-50/50 transition-colors"
+            >
+              <span className="text-[10.5px] uppercase tracking-wider text-stone-400 font-medium min-w-[60px]">
+                {categoryLabel(f.category)}
+              </span>
+              <span className="text-[11px] font-mono text-stone-600">{f.key}</span>
+              <span className="text-[12.5px] text-stone-800 flex-1 truncate">{f.value}</span>
+              <button
+                data-testid="fact-delete-btn"
+                onClick={() => handleDelete(f.id)}
+                aria-label={t('settings.factsDelete')}
+                className="p-1 rounded-md text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
@@ -3422,6 +3553,9 @@ export default function Settings() {
                   )}
                 </div>
               </section>
+
+              {/* P1-004 follow-up: 长期记忆 Facts section */}
+              <FactsSection />
             </div>
           )}
 
