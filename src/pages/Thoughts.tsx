@@ -618,6 +618,7 @@ export default function Thoughts() {
                 onChange={setEditContent}
                 attachments={editAttachments}
                 onAttachmentsChange={setEditAttachments}
+                onAttachmentPreview={(items, initialIndex) => setMediaPreview({ items, initialIndex })}
                 minHeightClass="min-h-[160px]"
                 textareaTestId="thought-edit-textarea"
               />
