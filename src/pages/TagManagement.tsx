@@ -281,7 +281,7 @@ function TagNode({
         <span className="flex-1 text-[13.5px] text-stone-700 truncate select-none">
           {node.name}
         </span>
-        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center gap-0.5 transition-opacity">
           <button
             data-testid="tag-rename-btn"
             onClick={() => onRename(node.path)}
