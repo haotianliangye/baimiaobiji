@@ -4,7 +4,9 @@
 > 任何新 session 接手工作，先读这个文件，再读 `docs/handoff/CURRENT_STATE.md`。
 
 ## 当前版本
-- `0.1.0`（2026-07-19 起算，issue #001 起）
+- `0.3.0`（2026-07-19 起算，issue #001 起；P0 全部完成于 2026-07-23）
+- 完整版本谱系：v0.1.0 → v0.1.1 → v0.1.2 → v0.2.0 → v0.2.1 → v0.2.2 → v0.2.3 → v0.3.0
+- db 版本：v1 → v16（4 次 schema 迁移：v14→v15→v16；v15 由 #004 占用，#008 取 v16）
 
 ## 仓库定位
 - 名称：白描笔记 (Baimiao Notes)
@@ -15,8 +17,14 @@
 ## 进行中的工作流
 
 ### P0 实施（2026-07-19 启动）
-- 8 个 issue，按编号串行合并
+- 8 个 issue 全部合并（#001-#008）
 - 详情见 `docs/handoff/CURRENT_STATE.md` 和 `docs/issues/p0/`
+- 端到端回归测试通过：73/73 通过（17 个 P0 相关测试 + 56 个历史测试）
+- 已知遗留：llm-chat / multimedia / prompt-review / random-walk / thoughts / tts 6 个历史测试失败（非 P0 引入，待 P1 修复）
+
+### 下一阶段：P1（启动中）
+- 见 `docs/issues/p1/`（待创建）
+- 候选：MoN-7 测试 CI / MoN-8 健康检查 / Jag-3 反馈闭环 / Jag-4 多通道一致性
 
 ### 并行轨道
 - 端侧 AI 迁移（Capacitor + LiteRT-LM）：决策见 ADR-0001，实施暂停中
@@ -39,11 +47,36 @@
 
 ### 渲染约定（issue #005 之后生效）
 - 所有 Markdown 渲染前必经 `verifyCitations`
-- Broken 引用加 `<!--broken-->` 标记，UI 高亮
+- Broken 引用加 `<!--broken-citation-->` 标记，UI 高亮
+- 用 `<VerifiedMarkdown>` 组件（不是裸 `<ReactMarkdown>`）
 
 ### 数据约定（issue #004/#008 之后生效）
-- `settings_kv` 表（v14）：键值配置，黑名单等可用户编辑项
-- `backups` 表（v15）：本地自动备份快照
+- `settings_kv` 表（v15）：键值配置，黑名单等可用户编辑项
+- `backups` 表（v16）：本地自动备份快照
+  - 5 个被备份的表：raw_logs / daily_reviews / thoughts / insights / tags
+  - 故意不备份 attachments（太大）/ chunks（可重建）/ settings_kv（云覆盖）/ copilot_conversations（经常变）
+  - 24h 节流 + 28 天保留 + 启动时 + visibilitychange 触发
+
+### 错误诊断约定（issue #006 之后生效）
+- 用 `src/lib/errorBuffer.ts` 100 条 FIFO
+- 自定义 JSON replacer 显式提取 Error.name/message/stack
+- Settings → About tab 有 ErrorInspector 面板
+- 仍走 console.error（不破坏现有调试路径）
+
+### 存储压力约定（issue #007 之后生效）
+- 4 档判定：ok(<0.7) / warning(0.7-0.85) / critical(0.85-0.95) / danger(≥0.95)
+- `src/hooks/useStorageMonitor.ts` 5 分钟轮询
+- Settings 数据管理 tab 显示进度条（不挂全局 Toast）
+
+### 包版本号管理（issue #006 之后强制）
+- package.json version 必须随每个 git tag 同步更新
+- vite.config.ts 通过 `import pkg` 注入 VITE_APP_VERSION 到前端 bundle
+- server.ts 通过 `import pkg` 暴露到 `/api/health`
+- #006 累积修正 0.1.0 → 0.2.2 的漂移（前 5 个 issue 没 bump）
+
+### 启动入口（事实）
+- 启动逻辑在 `src/main.tsx`（不是 App.tsx）
+- App.tsx 只是路由定义
 
 ## 关键决策的待办
 
