@@ -23,8 +23,10 @@
 - 已知遗留：llm-chat / multimedia / prompt-review / random-walk / thoughts / tts 6 个历史测试失败（非 P0 引入，待 P1 修复）
 
 ### 下一阶段：P1（启动中）
-- 见 `docs/issues/p1/`（待创建）
-- 候选：MoN-7 测试 CI / MoN-8 健康检查 / Jag-3 反馈闭环 / Jag-4 多通道一致性
+- P1 = 纯后端健壮工作（**0 新产品功能**）
+- 4 个 issue，按价值/风险排序：MoN-7 → MoN-8 → ADR-3 → ADR-4
+- 详见 `docs/issues/p1/001-test-ci.md` 和 `docs/handoff/CURRENT_STATE.md` P1 阶段表
+- 候选（已排除，加新功能）：Jag-3 反馈闭环 / Jag-4 多通道一致性
 
 ### 并行轨道
 - 端侧 AI 迁移（Capacitor + LiteRT-LM）：决策见 ADR-0001，实施暂停中

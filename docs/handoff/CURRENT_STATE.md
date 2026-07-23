@@ -27,7 +27,20 @@
 
 ## 🎉 P0 全部完成 (8/8)
 
-P0 阶段所有 issue 已合并。可以开始端到端回归测试 + 进入 P1。
+P0 阶段所有 issue 已合并。端到端回归测试 + v3 失效测试清理已完成。
+
+## P1 阶段（2026-07-23 启动）
+
+P1 = 纯后端健壮工作（**0 新产品功能**），按价值/风险排序：
+
+| # | Issue | 状态 | 分支 | 验收 |
+|---|-------|------|------|------|
+| P1-001 (MoN-7) | 测试接 CI | 🚧 已 commit 待 push | feat/p1-001-test-ci | .github/workflows/test.yml + 16 测试自动跑 |
+| P1-002 (MoN-8) | 健康检查端点 | ⏳ 待开始 | — | /api/health 扩 + 监控 |
+| P1-003 (ADR-0003) | API Key 真隔离 | ⏳ 待开始 | — | localStorage → IndexedDB |
+| P1-004 (ADR-0004) | 长期记忆 facts 表 | ⏳ 待开始 | — | v17 schema + 简单 CRUD |
+
+P1-001 当前阻塞：**GitHub PAT 缺 `workflow` scope**（push `.github/workflows/test.yml` 被拒）。需用户手动在 GitHub Web UI 启用 workflow 写入权限（Settings → Actions → General → Workflow permissions）。修好后 `git push` 即可。进入 P1。
 
 **图例**：⏳ 待开始 / 🚧 进行中 / ✅ 已合并 / ❌ 已回滚
 
