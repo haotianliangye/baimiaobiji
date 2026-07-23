@@ -710,4 +710,19 @@ export const zh: TranslationDict = {
   // --- MediaPreview 全屏预览 ---
   'mediaPreview.prev': '上一个',
   'mediaPreview.next': '下一个',
+
+  // --- Facts 长期记忆 (P1-004 follow-up) ---
+  'settings.facts': '长期记忆',
+  'settings.factsDescription': '记录关于你的事实，AI 会记住。下次不用重复说。',
+  'settings.factsKeyPlaceholder': '例如 user.birthday',
+  'settings.factsValuePlaceholder': '事实内容',
+  'settings.factsAdd': '添加',
+  'settings.factsCategory': '分类',
+  'settings.factsCategoryUser': '用户',
+  'settings.factsCategoryPreference': '偏好',
+  'settings.factsCategoryEvent': '事件',
+  'settings.factsCategoryContext': '背景',
+  'settings.factsEmpty': '暂无事实。添加第一条吧。',
+  'settings.factsDelete': '删除',
+  'settings.factsConfidence': '置信度',
 };
