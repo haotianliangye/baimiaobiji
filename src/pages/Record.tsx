@@ -1981,6 +1981,7 @@ export default function Record() {
                   onChange={setEditDoc}
                   onUpload={saveFileAsAttachment}
                   minHeightClass="min-h-[160px]"
+                  maxHeightClass="max-h-[45vh] sm:max-h-[320px]"
                   dataTestId="record-document-editor"
                   placeholder={t('record.contentPlaceholder')}
                 />

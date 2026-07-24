@@ -128,6 +128,7 @@ export interface DocumentEditorProps {
   autoFocus?: boolean;
   editable?: boolean;
   minHeightClass?: string;
+  maxHeightClass?: string;
   dataTestId?: string;
   /**
    * 可选：在工具栏下方显示一行 hint（例如：「# 输入 #标签 自动归类」）。
@@ -155,6 +156,7 @@ export default function DocumentEditor({
   autoFocus = false,
   editable = true,
   minHeightClass = 'min-h-[160px]',
+  maxHeightClass = 'max-h-[40vh] sm:max-h-[320px]',
   dataTestId = 'document-editor',
   hint,
   shouldUpload,
@@ -341,7 +343,7 @@ export default function DocumentEditor({
 
       {/* 编辑区 */}
       <div
-        className={`px-3 py-2 ${minHeightClass} overflow-y-auto thin-scrollbar baimiao-editorial-body`}
+        className={`px-3 py-2 ${minHeightClass} ${maxHeightClass} overflow-y-auto thin-scrollbar baimiao-editorial-body`}
         data-testid={`${dataTestId}-content`}
       >
         <EditorContent editor={editor} />

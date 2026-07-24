@@ -535,6 +535,7 @@ export default function Thoughts() {
               onUpload={saveFileAsAttachment}
               autoFocus
               minHeightClass="min-h-[110px]"
+              maxHeightClass="max-h-[30vh] sm:max-h-[220px]"
               dataTestId="thought-create-editor"
               hint="# 输入 #标签 自动归类"
               placeholder={t('thoughts.createPlaceholder')}
@@ -646,12 +647,13 @@ export default function Thoughts() {
             </div>
 
             {/* 弹窗内容（可滚动） */}
-            <div className="flex-1 overflow-y-auto thin-scrollbar p-3 flex flex-col gap-3">
+            <div className="flex-1 overflow-y-auto thin-scrollbar p-3 flex flex-col gap-3 min-h-0">
               <DocumentEditor
                 value={editDoc}
                 onChange={setEditDoc}
                 onUpload={saveFileAsAttachment}
                 minHeightClass="min-h-[160px]"
+                maxHeightClass="max-h-[45vh] sm:max-h-[320px]"
                 dataTestId="thought-edit-editor"
                 hint="# 输入 #标签 自动归类"
                 placeholder={t('thoughts.editPlaceholder')}
