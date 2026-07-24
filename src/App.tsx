@@ -45,12 +45,15 @@ const router = createBrowserRouter([
       {
         path: 'tags',
         element: <TagManagement />
+      },
+      // Issue: 设置入口改造 —— 把 /settings 从顶级路由移到 Layout 子路由，
+      // 这样点击 [≡] 时 Layout 仍挂载，主面板能被推到右侧作"暗淡"次位展示。
+      // drawer / detail 用 ?view=detail 区分，drawer 为默认。
+      {
+        path: 'settings',
+        element: <Settings />
       }
     ]
-  },
-  {
-    path: '/settings',
-    element: <Settings />
   }
 ]);
 

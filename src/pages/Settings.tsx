@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, KeyRound, Server, Cpu, FileDown, Settings2, RotateCcw, Eye, EyeOff, Upload, Shield, Cloud, ShieldCheck, Loader2, CloudLightning, Download, FileJson, FileText, MessageSquare, Volume2, Tags, Info, Database, X, ChevronRight, ChevronDown, ChevronUp, Search, Mic, Plus, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import TagManagement from './TagManagement';
@@ -868,6 +868,7 @@ function FactsSection() {
 export default function Settings() {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const settingsStore = useSettingsStore();
   const {
     provider,
@@ -925,13 +926,18 @@ export default function Settings() {
     updateVectorsCount
   } = useAppStore();
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState<'model' | 'tts' | 'embedding' | 'data' | 'prompt' | 'tags' | 'transcription' | 'about'>(
-    (location.state as any)?.tab || 'model'
-  );
-  // Issue 109: 设置页抽屉 + 全页详情模式（推翻 Seam 2 左右分栏）
-  const [view, setView] = useState<'drawer' | 'detail'>(
-    (location.state as any)?.drawer ? 'drawer' : 'detail'
-  );
+  const ALLOWED_TABS = ['model', 'tts', 'embedding', 'data', 'prompt', 'tags', 'transcription', 'about'] as const;
+  type SettingsTab = typeof ALLOWED_TABS[number];
+  const initialTab = (() => {
+    const t = new URLSearchParams(location.search).get('tab');
+    return (ALLOWED_TABS as readonly string[]).includes(t ?? '') ? (t as SettingsTab) : 'model';
+  })();
+  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
+  // Issue: 设置入口改造 —— drawer / detail 切换改由 URL search 参数驱动（去掉对 location.state 的依赖，
+  // 让路由可分享、可前进/后退）。default = 'drawer'，?view=detail 进入详情模式。
+  const initialView: 'drawer' | 'detail' =
+    new URLSearchParams(location.search).get('view') === 'detail' ? 'detail' : 'drawer';
+  const [view, setView] = useState<'drawer' | 'detail'>(initialView);
   // 设置页桌面/移动布局分流：桌面端（md: ≥768px）下抽屉与详情页左右分栏同时常驻显示，不滑入动画
   const isDesktop = useMediaQuery('(min-width: 768px)');
   // task-111: 抽屉「所有标签」默认展开，点击标题行可展开/收起
@@ -1555,6 +1561,11 @@ export default function Settings() {
     setActiveTab(tab);
     // 桌面端下抽屉与详情页左右分栏常驻显示，点菜单项只切 tab、不切 view
     if (!isDesktop) {
+      // Issue: 改为 URL search params 驱动，让浏览器后退按钮能回退到 drawer。
+      const next = new URLSearchParams(location.search);
+      next.set('view', 'detail');
+      next.set('tab', tab);
+      setSearchParams(next, { replace: false });
       setView('detail');
     }
   };
@@ -1627,123 +1638,142 @@ export default function Settings() {
     </div>
   );
 
+  // Issue: 设置入口改造 —— 抽屉内容抽到独立 JSX 块，便于在移动端用 Portal 渲染到 body，
+  // 让抽屉的固定定位不被 Layout 的 .w-1/3 容器裁剪。
+  const drawerContent = (
+    <motion.aside
+      className={`flex flex-col border-r border-baimiao-border/30 bg-[#faf9fc] shrink-0 ${
+        isDesktop
+          ? 'relative w-1/3 h-full shadow-none'
+          : 'fixed top-0 left-0 bottom-0 w-72 z-[60] shadow-xl'
+      }`}
+      initial={isDesktop ? false : { x: '-100%' }}
+      animate={isDesktop ? undefined : { x: 0 }}
+      transition={isDesktop ? undefined : { duration: 0.3, ease: 'easeInOut' }}
+      data-testid="settings-drawer"
+    >
+      {/* 抽屉头部 */}
+      <div className="flex h-14 items-center justify-between px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 shrink-0">
+        <h2 className="text-[15.5px] font-bold text-baimiao-mysteria font-serif baimiao-editorial-title">{t('settings.title')}</h2>
+        <button
+          onClick={() => navigate(-1)}
+          className="p-2 -mr-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100/60 transition-all rounded-full active:scale-90"
+          aria-label={t('about.close')}
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Issue 003: 语言选择模块平铺到抽屉 header 下方 */}
+      <div className="flex items-center justify-between px-3 py-2.5 shrink-0" data-testid="drawer-language-switcher">
+        <span className="text-[13px] font-medium text-stone-700">{t('settings.languageLabel')}</span>
+        <div className="inline-flex items-center bg-stone-100/80 rounded-full p-0.5">
+          <button
+            data-testid="language-zh"
+            onClick={() => setLanguage('zh')}
+            className={`w-16 py-1.5 rounded-full text-[12.5px] font-medium transition-all text-center ${
+              language === 'zh'
+                ? 'bg-white text-baimiao-mysteria shadow-sm font-bold'
+                : 'text-stone-500 hover:text-stone-700'
+            }`}
+          >
+            {t('settings.languageZh')}
+          </button>
+          <button
+            data-testid="language-en"
+            onClick={() => setLanguage('en')}
+            className={`w-16 py-1.5 rounded-full text-[12.5px] font-medium transition-all text-center ${
+              language === 'en'
+                ? 'bg-white text-baimiao-mysteria shadow-sm font-bold'
+                : 'text-stone-500 hover:text-stone-700'
+            }`}
+          >
+            {t('settings.languageEn')}
+          </button>
+        </div>
+      </div>
+
+      {/* 上半部分：设置菜单项（不滚动） */}
+      {drawerNav}
+
+      {/* task-111: 抽屉「所有标签」区块支持展开/收起；管理入口改为设置图标 */}
+      <div className="flex-1 overflow-hidden flex flex-col border-t border-baimiao-border/30 min-h-0">
+        <div className="flex items-center justify-between px-4 py-2.5 shrink-0">
+          <button
+            onClick={() => setTagsExpanded(v => !v)}
+            className="flex items-center gap-1.5 text-[12px] font-semibold text-stone-500 uppercase tracking-wider transition-colors hover:text-stone-700"
+            aria-label={tagsExpanded ? t('thoughts.collapse') : t('thoughts.expand')}
+            data-testid="drawer-all-tags-toggle"
+          >
+            {t('settings.allTags')}
+            {tagsExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('tags');
+              // 桌面端下抽屉与详情页左右分栏常驻显示，只切 tab、不切 view
+              if (!isDesktop) {
+                const next = new URLSearchParams(location.search);
+                next.set('view', 'detail');
+                next.set('tab', 'tags');
+                setSearchParams(next, { replace: false });
+                setView('detail');
+              }
+            }}
+            className="p-1.5 -mr-1.5 text-baimiao-mysteria hover:bg-baimiao-mysteria/5 rounded-full transition-all active:scale-95"
+            aria-label={t('settings.manageTags')}
+            data-testid="drawer-manage-tags"
+          >
+            <Settings2 className="w-4 h-4" />
+          </button>
+        </div>
+        {tagsExpanded && (
+          <DrawerTagList />
+        )}
+      </div>
+    </motion.aside>
+  );
+
   // 统一根容器 + 条件渲染：桌面端（isDesktop=true）下抽屉与详情页左右分栏同时常驻显示，抽屉不滑入、无遮罩
   // Issue 004（方案 B）：桌面端整体区域 = 视口 1/3，靠左对齐，右侧 2/3 留空
+  // Issue: 设置入口改造 —— 抽屉原本覆盖在自身根容器上，根容器已被推到右侧（由 Layout 负责），
+  // 因此移动端下需要把抽屉用 createPortal 渲染到 body 全屏，让它从屏幕左缘滑入。
+  const shouldMountDrawer = isDesktop || view === 'drawer';
+  const shouldShowDetail = isDesktop || view === 'detail';
+
+  // Issue: 设置入口改造 —— 移动端只挂抽屉到 Portal，背板交给 Layout 提供（透明 click-catcher，不画毛玻璃）。
+  const mobilePortal = drawerContent;
+
+  // Issue: 设置入口改造 —— Settings 现在挂在 Layout 的 <Outlet /> 里，
+  // 桌面端需要把抽屉 + 详情用 flex-row 并排包一层，移动端 view==='detail' 时只需详情。
+  // 移动端抽屉则走 Portal（在 return 之外已经组好 mobilePortal）。
+  const showInTree = isDesktop || shouldShowDetail;
+
   return (
-    <div
-      className={`flex h-full bg-stone-100 font-sans text-stone-900 overflow-hidden ${
-        isDesktop ? 'flex-row w-1/3 mx-auto' : 'relative flex-col items-center justify-center'
-      }`}
-    >
-      {/* 移动端遮罩：仅 drawer view 显示，点击关闭设置 */}
-      {!isDesktop && view === 'drawer' && (
-        <div
-          className="absolute inset-0 bg-white/30 backdrop-blur-md z-40"
-          onClick={() => navigate(-1)}
-          data-testid="settings-drawer-backdrop"
-        />
-      )}
+    <>
+      {/* 移动端抽屉 + 背板：Portal 到 body，不受本组件根容器限制 */}
+      {shouldMountDrawer && !isDesktop && createPortal(mobilePortal, document.body)}
 
-      {/* 抽屉：桌面端常驻显示 + 相对定位 + 无滑入动画；移动端绝对定位 + 滑入动画 */}
-      {/* Issue 004（方案 B）：桌面端抽屉 = 视口 1/9（=根容器 1/3 的 1/3），替代原 w-72 */}
-      {(isDesktop || view === 'drawer') && (
-        <motion.aside
-          className={`flex flex-col border-r border-baimiao-border/30 bg-[#faf9fc] shrink-0 ${
+      {showInTree && (
+        <div
+          className={`flex h-full overflow-hidden ${
             isDesktop
-              ? 'relative w-1/3 h-full shadow-none'
-              : 'absolute top-0 left-0 bottom-0 w-72 z-50 shadow-xl'
+              ? 'flex-row bg-stone-100'
+              : 'flex-col items-center justify-center bg-stone-100'
           }`}
-          initial={isDesktop ? false : { x: '-100%' }}
-          animate={isDesktop ? undefined : { x: 0 }}
-          transition={isDesktop ? undefined : { duration: 0.3, ease: 'easeInOut' }}
-          data-testid="settings-drawer"
         >
-          {/* 抽屉头部 */}
-          <div className="flex h-14 items-center justify-between px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 shrink-0">
-            <h2 className="text-[15.5px] font-bold text-baimiao-mysteria font-serif baimiao-editorial-title">{t('settings.title')}</h2>
-            <button
-              onClick={() => navigate(-1)}
-              className="p-2 -mr-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100/60 transition-all rounded-full active:scale-90"
-              aria-label={t('about.close')}
+          {/* 桌面端抽屉：inline 渲染，与详情并排；移动端已走 Portal */}
+          {shouldMountDrawer && isDesktop && drawerContent}
+
+          {/* 详情页：桌面端占满剩余宽度；移动端 view==='detail' 时居中卡片显示 */}
+          {shouldShowDetail && (
+            <div
+              className={`flex flex-col h-full overflow-hidden bg-white ${
+                isDesktop
+                  ? 'flex-1 ring-1 ring-black/5'
+                  : 'relative z-50 mx-auto w-full md:max-w-3xl shadow-sm ring-1 ring-black/5'
+              }`}
             >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Issue 003: 语言选择模块平铺到抽屉 header 下方 */}
-          <div className="flex items-center justify-between px-3 py-2.5 shrink-0" data-testid="drawer-language-switcher">
-            <span className="text-[13px] font-medium text-stone-700">{t('settings.languageLabel')}</span>
-            <div className="inline-flex items-center bg-stone-100/80 rounded-full p-0.5">
-              <button
-                data-testid="language-zh"
-                onClick={() => setLanguage('zh')}
-                className={`w-16 py-1.5 rounded-full text-[12.5px] font-medium transition-all text-center ${
-                  language === 'zh'
-                    ? 'bg-white text-baimiao-mysteria shadow-sm font-bold'
-                    : 'text-stone-500 hover:text-stone-700'
-                }`}
-              >
-                {t('settings.languageZh')}
-              </button>
-              <button
-                data-testid="language-en"
-                onClick={() => setLanguage('en')}
-                className={`w-16 py-1.5 rounded-full text-[12.5px] font-medium transition-all text-center ${
-                  language === 'en'
-                    ? 'bg-white text-baimiao-mysteria shadow-sm font-bold'
-                    : 'text-stone-500 hover:text-stone-700'
-                }`}
-              >
-                {t('settings.languageEn')}
-              </button>
-            </div>
-          </div>
-
-          {/* 上半部分：设置菜单项（不滚动） */}
-          {drawerNav}
-
-          {/* task-111: 抽屉「所有标签」区块支持展开/收起；管理入口改为设置图标 */}
-          <div className="flex-1 overflow-hidden flex flex-col border-t border-baimiao-border/30 min-h-0">
-            <div className="flex items-center justify-between px-4 py-2.5 shrink-0">
-              <button
-                onClick={() => setTagsExpanded(v => !v)}
-                className="flex items-center gap-1.5 text-[12px] font-semibold text-stone-500 uppercase tracking-wider transition-colors hover:text-stone-700"
-                aria-label={tagsExpanded ? t('thoughts.collapse') : t('thoughts.expand')}
-                data-testid="drawer-all-tags-toggle"
-              >
-                {t('settings.allTags')}
-                {tagsExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab('tags');
-                  // 桌面端下抽屉与详情页左右分栏常驻显示，只切 tab、不切 view
-                  if (!isDesktop) setView('detail');
-                }}
-                className="p-1.5 -mr-1.5 text-baimiao-mysteria hover:bg-baimiao-mysteria/5 rounded-full transition-all active:scale-95"
-                aria-label={t('settings.manageTags')}
-                data-testid="drawer-manage-tags"
-              >
-                <Settings2 className="w-4 h-4" />
-              </button>
-            </div>
-            {tagsExpanded && (
-              <DrawerTagList />
-            )}
-          </div>
-        </motion.aside>
-      )}
-
-      {/* 详情页：桌面端常驻显示 + 占满剩余宽度；移动端 view==='detail' 时居中卡片显示 */}
-      {/* Issue 004（方案 B）：桌面端主面板 = 根容器剩余空间（=视口 2/9，由 flex-1 自动计算） */}
-      {(isDesktop || view === 'detail') && (
-        <div
-          className={`flex flex-col h-full overflow-hidden bg-white ${
-            isDesktop
-              ? 'flex-1 ring-1 ring-black/5'
-              : 'relative z-50 mx-auto w-full md:max-w-3xl shadow-sm ring-1 ring-black/5'
-          }`}
-        >
         {/* Header -- 直接关闭设置（不返回抽屉） */}
         <div className="flex h-14 items-center px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 shrink-0">
           <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-baimiao-mysteria/70 hover:text-baimiao-mysteria hover:bg-baimiao-mysteria/5 transition-all rounded-full active:scale-90" aria-label={t('settings.back')}>
@@ -3665,6 +3695,8 @@ export default function Settings() {
 
         </div>
       )}
+        </div>
+      )}
 
       {/* #009-ext: TTS 语音选择 Modal（仅外部 TTS + 已选 Provider 时可用） */}
       {ttsVoiceModalOpen && (ttsProvider === 'gemini' || ttsProvider === 'volcengine') && (
@@ -3681,7 +3713,7 @@ export default function Settings() {
           customHintKey="settings.ttsVoiceCustomHint"
         />
       )}
-    </div>
+    </>
   );
 }
 

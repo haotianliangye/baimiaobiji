@@ -545,7 +545,7 @@ export default function Copilot() {
                   {t('copilot.semanticOffDesc')}
                 </p>
                 <button
-                  onClick={() => { setCopilotMode(false); navigate('/settings'); }}
+                  onClick={() => { setCopilotMode(false); navigate('/settings?view=detail'); }}
                   className="bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white px-5 py-2 rounded-full text-[13px] font-medium shadow-sm hover:brightness-110 transition-all active:scale-95"
                 >
                   {t('copilot.goSettings')}
