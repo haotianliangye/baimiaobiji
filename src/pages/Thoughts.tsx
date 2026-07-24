@@ -536,6 +536,8 @@ export default function Thoughts() {
               autoFocus
               minHeightClass="min-h-[110px]"
               dataTestId="thought-create-editor"
+              hint="# 输入 #标签 自动归类"
+              placeholder={t('thoughts.createPlaceholder')}
             />
             <div className="flex items-center justify-between">
               <span className="text-[11px] text-stone-400 pl-1">{t('thoughts.charCount', { count: countChars(documentToText(createDoc)) })}</span>
@@ -651,6 +653,8 @@ export default function Thoughts() {
                 onUpload={saveFileAsAttachment}
                 minHeightClass="min-h-[160px]"
                 dataTestId="thought-edit-editor"
+                hint="# 输入 #标签 自动归类"
+                placeholder={t('thoughts.editPlaceholder')}
               />
 
               {/* created_at 修改：original_created_at 保留用于溯源 */}

@@ -129,6 +129,11 @@ export interface DocumentEditorProps {
   editable?: boolean;
   minHeightClass?: string;
   dataTestId?: string;
+  /**
+   * 可选：在工具栏下方显示一行 hint（例如：「# 输入 #标签 自动归类」）。
+   * 用于沉淀页还原旧 RichEditor 视觉。
+   */
+  hint?: string;
   /** 自定义工具栏的 onBeforeUpload 钩子；返回 false 跳过。 */
   shouldUpload?: () => boolean;
 }
@@ -151,6 +156,7 @@ export default function DocumentEditor({
   editable = true,
   minHeightClass = 'min-h-[160px]',
   dataTestId = 'document-editor',
+  hint,
   shouldUpload,
 }: DocumentEditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -271,7 +277,7 @@ export default function DocumentEditor({
   return (
     <div
       data-testid={dataTestId}
-      className="flex flex-col w-full bg-transparent"
+      className="flex flex-col w-full bg-white rounded-2xl border border-stone-200/70 shadow-[0_2px_10px_rgb(0_0_0_/_0.03)] overflow-hidden focus-within:border-baimiao-mysteria/30 transition-colors"
     >
       {editable && (
         <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-stone-100 bg-stone-50/60 shrink-0 flex-wrap" data-testid="document-editor-toolbar">
@@ -283,6 +289,7 @@ export default function DocumentEditor({
                 type="button"
                 title={btn.label}
                 data-testid={`document-editor-tool-${btn.key}`}
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => btn.onClick(editor!)}
                 className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors active:scale-95 ${
                   active
@@ -299,6 +306,7 @@ export default function DocumentEditor({
             type="button"
             title="插入图片"
             data-testid="document-editor-upload-image"
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => fileInputRef.current?.click()}
             className="w-7 h-7 flex items-center justify-center rounded-md text-stone-500 hover:text-baimiao-mysteria hover:bg-stone-200/50 transition-colors active:scale-95"
           >
@@ -308,6 +316,7 @@ export default function DocumentEditor({
             type="button"
             title="上传任意媒体"
             data-testid="document-editor-upload"
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => fileInputRef.current?.click()}
             className="w-7 h-7 flex items-center justify-center rounded-md text-stone-500 hover:text-baimiao-mysteria hover:bg-stone-200/50 transition-colors active:scale-95"
           >
@@ -332,7 +341,7 @@ export default function DocumentEditor({
 
       {/* 编辑区 */}
       <div
-        className={`px-1 py-1 ${minHeightClass} overflow-y-auto thin-scrollbar baimiao-editorial-body`}
+        className={`px-3 py-2 ${minHeightClass} overflow-y-auto thin-scrollbar baimiao-editorial-body`}
         data-testid={`${dataTestId}-content`}
       >
         <EditorContent editor={editor} />
@@ -342,6 +351,13 @@ export default function DocumentEditor({
           </div>
         )}
       </div>
+
+      {/* 可选 hint 行：标签提示等。沉淀页用「# 输入 #标签 自动归类」。 */}
+      {editable && hint && (
+        <div className="px-3 py-1.5 text-[11.5px] text-stone-400 border-t border-stone-100 bg-stone-50/40">
+          {hint}
+        </div>
+      )}
 
       {/* 超链接弹框 */}
       {showLinkDialog && (
