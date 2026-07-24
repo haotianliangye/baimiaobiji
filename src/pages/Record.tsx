@@ -1957,7 +1957,7 @@ export default function Record() {
           }}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-md max-h-[88vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-200"
+            className="bg-white rounded-2xl w-full max-w-md sm:max-w-xl md:max-w-2xl lg:max-w-3xl max-h-[88vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* 弹窗头 */}
