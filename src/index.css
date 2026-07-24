@@ -56,6 +56,16 @@ html, body, #root {
    Baimiao Superhuman Custom UI Classes
    ========================================================================== */
 
+/* DocumentEditor 的 ProseMirror 视图去掉默认 focus 边框（沿用 RichEditor 风格） */
+.baimiao-editorial-body .ProseMirror {
+  outline: none !important;
+}
+
+/* ProseMirror 在 contentEditable 内的 placeholder 边距 */
+.baimiao-editorial-body .ProseMirror-focused {
+  outline: none !important;
+}
+
 /* 纸质社论排版正文 */
 .baimiao-editorial-body {
   color: var(--color-baimiao-ink) !important;
@@ -68,18 +78,50 @@ html, body, #root {
   font-feature-settings: "lnum" 1 !important;
 }
 
-/* 全站核心卡片与正文段落/列表项两端对齐 */
-.baimiao-editorial-body p, 
+.baimiao-editorial-body .baimiao-media-figure {
+  margin: 0.75rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.baimiao-editorial-body .baimiao-media-figure img,
+.baimiao-editorial-body .baimiao-media-figure video,
+.baimiao-editorial-body .baimiao-media-figure audio {
+  max-width: 100%;
+  display: block;
+}
+
+.baimiao-editorial-body .baimiao-media-figure figcaption {
+  width: 100%;
+  margin-top: 0.35rem;
+  color: var(--color-stone-500, #78716c);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  text-align: center;
+  white-space: pre-wrap;
+}
+
+.baimiao-editorial-body .baimiao-media--align-left {
+  align-items: flex-start;
+}
+
+.baimiao-editorial-body .baimiao-media--align-right {
+  align-items: flex-end;
+}
+
+/* 正文默认左对齐；用户通过编辑器选择的对齐方式由内联样式控制。 */
+.baimiao-editorial-body p,
 .baimiao-editorial-body li,
-.baimiao-card-diary p, 
+.baimiao-card-diary p,
 .baimiao-card-diary li,
-.baimiao-card-review p, 
+.baimiao-card-review p,
 .baimiao-card-review li,
-.baimiao-card-bubble p, 
+.baimiao-card-bubble p,
 .baimiao-card-bubble li {
-  text-align: justify !important;
-  text-justify: inter-ideograph !important;
-  text-align-last: left !important;
+  text-align: left;
+  text-justify: auto;
+  text-align-last: left;
 }
 
 /* 首个段落（用作普通文字日记标题时）保持正常左对齐，不拉伸 */

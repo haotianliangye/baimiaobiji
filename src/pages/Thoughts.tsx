@@ -4,19 +4,21 @@
  * 功能：
  * - 列表默认瀑布流（CSS columns masonry），顶部可切换「瀑布流 / 时间线」。
  *   时间线按 created_at（可被用户修改的展示时间）分组。
- * - 底部快速输入框，点击展开 Blinko 风格富文本编辑器（RichEditor：格式工具栏 +
- *   标签入口 + 图片附件入口）。
- * - 双击记录进入编辑弹窗；可修改 content 与 created_at，original_created_at 保留
+ * - 底部快速输入框，点击展开 DocumentEditor（Tiptap 富文本，Issue #15） +
+ *   标签入口 + 媒体附件入口（走 db.attachments，不存 data URL）。
+ * - 双击记录进入编辑弹窗；可修改 content_doc 与 created_at，original_created_at 保留
  *   首次值用于溯源。
- * - 标签：内容中的 #标签由 thoughts.store 统一 parseTagsFromText + resolveAlias +
- *   createTag 解析落库，存入 thought.tags。
- * - 附件：图片以 data URL 存 AttachmentMeta.ref（最小实现，#6 完善多媒体 Blob）。
- * - 删除/编辑用 db.thoughts.update/delete；embedding 由 embedding.ts 钩子自动索引。
+ * - 标签：内容中的 #标签由 thoughts.store 统一 documentToText + parseTagsFromText +
+ *   resolveAlias + createTag 解析落库，存入 thought.tags。
+ * - 附件：DocumentEditor 的 onUpload 走 saveFileAsAttachment（multimedia.ts），
+ *   把 Blob 存 db.attachments，attachmentId 写进 content_doc 的 media block；
+ *   列表卡片用 DocumentView + resolveAttachment 查询 Blob 渲染。
+ * - 删除/编辑用 db.thoughts.update/delete；引用感知清理 db.attachments Blob。
+ *   embedding 由 embedding.ts 钩子自动索引。
  */
 import { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { format, isSameDay } from 'date-fns';
-import ReactMarkdown from 'react-markdown';
 import {
   X,
   Trash2,
@@ -28,24 +30,28 @@ import {
   Sparkles,
   ChevronUp,
   ChevronDown,
-  Film,
-  Music,
-  Play,
   Mic,
   Loader2,
   Keyboard,
 } from 'lucide-react';
-import { db, type Thought, type AttachmentMeta } from '../db/db';
+import { db, type Thought } from '../db/db';
 import { useThoughtsStore } from '../store/thoughts.store';
 import { useTagsStore } from '../store/tags.store';
 import { useSettingsStore } from '../store/settings.store';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { countChars } from '../lib/wordCount';
-import RichEditor from '../components/RichEditor';
 import TodayStats from '../components/TodayStats';
-import MediaPreview from '../components/MediaPreview';
 import { useAppStore } from '../store/app.store';
 import { useTranslation } from '../lib/i18n';
+import DocumentEditor from '../components/DocumentEditor';
+import DocumentView from '../components/DocumentView';
+import {
+  documentToText,
+  createEmptyDocument,
+  type RichDocument,
+} from '../lib/documentModel';
+import { resolveDocumentContent } from '../db/db';
+import { saveFileAsAttachment } from '../lib/multimedia';
 
 type ViewMode = 'masonry' | 'timeline';
 
@@ -167,22 +173,18 @@ export default function Thoughts() {
     };
   }, []);
 
-  // 需求 7：图片/视频全屏预览状态
-  const [mediaPreview, setMediaPreview] = useState<{ items: AttachmentMeta[]; initialIndex: number } | null>(null);
-
   const allThoughts = useLiveQuery(() => db.thoughts.toArray(), []);
   const thoughts = useMemo(
     () => (allThoughts || []).slice().sort((a, b) => b.created_at - a.created_at),
     [allThoughts]
   );
 
-  // 需求 6：视图模式从 app store 读取（顶部栏胶囊控制）
+  // 视图模式从 app store 读取（顶部栏胶囊控制）
   const view = useAppStore((s) => s.thoughtsViewMode);
 
   // --- 底部快速创建编辑器 ---
   const [isCreating, setIsCreating] = useState(false);
-  const [createContent, setCreateContent] = useState('');
-  const [createAttachments, setCreateAttachments] = useState<AttachmentMeta[]>([]);
+  const [createDoc, setCreateDoc] = useState<RichDocument>(() => createEmptyDocument());
   const createScrollRef = useRef<HTMLDivElement>(null);
 
   // --- 录音状态（与记录板块同款：getUserMedia + MediaRecorder + /api/transcribe） ---
@@ -195,19 +197,17 @@ export default function Thoughts() {
   const isCancelledRef = useRef(false);
 
   const handleOpenCreate = () => {
-    setCreateContent('');
-    setCreateAttachments([]);
+    setCreateDoc(createEmptyDocument());
     setIsCreating(true);
   };
   const handleCloseCreate = () => {
     setIsCreating(false);
-    setCreateContent('');
-    setCreateAttachments([]);
+    setCreateDoc(createEmptyDocument());
   };
   const handleSaveCreate = async () => {
-    const text = createContent.trim();
-    if (!text) return;
-    await createThought({ content: text, attachments: createAttachments });
+    const text = documentToText(createDoc);
+    if (!text.trim()) return;
+    await createThought({ content_doc: createDoc });
     handleCloseCreate();
   };
 
@@ -216,7 +216,8 @@ export default function Thoughts() {
    *   1) getUserMedia 拿麦克风流；
    *   2) MediaRecorder 录音（最多 60 秒）；
    *   3) 录音停止后 base64 编码并调用 /api/transcribe；
-   *   4) 把转写出的文字预填到 createContent，并展开 RichEditor 供用户继续编辑/保存。
+   *   4) 把转写出的文字插入当前编辑文档的末尾，并展开 DocumentEditor 供用户继续编辑/保存。
+   *   关键：转写结果插入 content_doc 而非 Markdown 字符串（Issue #15 第三切片）。
    */
   const handleToggleListen = async () => {
     if (isMicInitializingRef.current) return;
@@ -335,9 +336,37 @@ export default function Thoughts() {
                   }
                 }
 
-                // 把转写结果预填到沉淀输入框并展开编辑器
-                setCreateContent(transcribedText);
-                setCreateAttachments([]);
+                // 把转写结果插入当前编辑文档末尾（如未打开编辑器则新建）
+                setCreateDoc((prev) => {
+                  const base = prev && prev.type === 'doc' ? prev : createEmptyDocument();
+                  const lastBlock =
+                    Array.isArray(base.content) && base.content.length > 0
+                      ? base.content[base.content.length - 1]
+                      : null;
+                  const newParagraph = {
+                    type: 'paragraph' as const,
+                    content: [{ type: 'text' as const, text: transcribedText }],
+                  };
+                  if (lastBlock && lastBlock.type === 'paragraph') {
+                    // 追加到末段（避免每次语音都开新段，更像 flomo 风格）
+                    const lastContent = Array.isArray(lastBlock.content) ? lastBlock.content : [];
+                    const merged = {
+                      type: 'paragraph' as const,
+                      content: [
+                        ...lastContent,
+                        { type: 'text' as const, text: '\n' + transcribedText },
+                      ],
+                    };
+                    return {
+                      ...base,
+                      content: [...base.content.slice(0, -1), merged],
+                    };
+                  }
+                  return {
+                    ...base,
+                    content: [...(Array.isArray(base.content) ? base.content : []), newParagraph],
+                  };
+                });
                 setIsCreating(true);
               } catch (err) {
                 console.error("Error processing transcription:", err);
@@ -387,29 +416,25 @@ export default function Thoughts() {
 
   // --- 编辑弹窗 ---
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editContent, setEditContent] = useState('');
-  const [editAttachments, setEditAttachments] = useState<AttachmentMeta[]>([]);
+  const [editDoc, setEditDoc] = useState<RichDocument>(() => createEmptyDocument());
   const [editCreatedAt, setEditCreatedAt] = useState('');
 
   const openEdit = (thought: Thought) => {
     setEditingId(thought.id);
-    setEditContent(thought.content);
-    setEditAttachments(thought.attachments || []);
+    setEditDoc(resolveDocumentContent(thought));
     setEditCreatedAt(tsToDatetimeLocal(thought.created_at));
   };
   const closeEdit = () => {
     setEditingId(null);
-    setEditContent('');
-    setEditAttachments([]);
+    setEditDoc(createEmptyDocument());
     setEditCreatedAt('');
   };
   const handleSaveEdit = async () => {
     if (!editingId) return;
-    const text = editContent.trim();
-    if (!text) return;
+    const text = documentToText(editDoc);
+    if (!text.trim()) return;
     await updateThought(editingId, {
-      content: text,
-      attachments: editAttachments,
+      content_doc: editDoc,
       created_at: datetimeLocalToTs(editCreatedAt),
     });
     closeEdit();
@@ -423,15 +448,24 @@ export default function Thoughts() {
 
   // 需求 1：真实今日沉淀统计（按 created_at），用于底部输入框左上方小字
   const todayThoughts = useMemo(
-    () => thoughts.filter((t) => isSameDay(new Date(t.created_at), new Date())),
+    () => thoughts.filter((tt) => isSameDay(new Date(tt.created_at), new Date())),
     [thoughts]
   );
   const todayThoughtsChars = useMemo(
-    () => todayThoughts.reduce((sum, t) => sum + countChars(t.content), 0),
+    () => todayThoughts.reduce((sum, tt) => sum + countChars(documentToText(resolveDocumentContent(tt))), 0),
     [todayThoughts]
   );
 
   const timelineGroups = useMemo(() => buildTimelineGroups(thoughts, t), [thoughts, t]);
+
+  // resolveAttachment：DocumentView 解析 media block 的 attachmentId → Blob
+  const resolveAttachment = useMemo(
+    () => async (id: string): Promise<Blob | null> => {
+      const rec = await db.attachments.get(id);
+      return rec ? rec.blob : null;
+    },
+    [],
+  );
 
   return (
     <div className="flex flex-col h-full bg-transparent">
@@ -441,15 +475,15 @@ export default function Thoughts() {
           <EmptyState />
         ) : view === 'masonry' ? (
           <div className="columns-2 gap-2.5">
-            {thoughts.map((t) => (
-              <div key={t.id} className="break-inside-avoid mb-2.5">
+            {thoughts.map((tt) => (
+              <div key={tt.id} className="break-inside-avoid mb-2.5">
                 <ThoughtCard
-                  thought={t}
+                  thought={tt}
                   view={view}
                   copied={copied}
-                  onCopy={() => copy(t.content)}
-                  onEdit={() => openEdit(t)}
-                  onOpenPreview={(items, initialIndex) => setMediaPreview({ items, initialIndex })}
+                  onCopy={() => copy(documentToText(resolveDocumentContent(tt)))}
+                  onEdit={() => openEdit(tt)}
+                  resolveAttachment={resolveAttachment}
                 />
               </div>
             ))}
@@ -470,15 +504,15 @@ export default function Thoughts() {
                   <span className="text-[10.5px] text-stone-400 font-mono">{g.date}</span>
                   <span className="text-[10.5px] text-stone-400">{t('thoughts.itemCount', { count: g.thoughts.length })}</span>
                 </div>
-                {g.thoughts.map((t) => (
+                {g.thoughts.map((tt) => (
                   <ThoughtCard
-                    key={t.id}
-                    thought={t}
+                    key={tt.id}
+                    thought={tt}
                     view={view}
                     copied={copied}
-                    onCopy={() => copy(t.content)}
-                    onEdit={() => openEdit(t)}
-                    onOpenPreview={(items, initialIndex) => setMediaPreview({ items, initialIndex })}
+                    onCopy={() => copy(documentToText(resolveDocumentContent(tt)))}
+                    onEdit={() => openEdit(tt)}
+                    resolveAttachment={resolveAttachment}
                   />
                 ))}
               </div>
@@ -495,18 +529,18 @@ export default function Thoughts() {
         <TodayStats count={todayThoughts.length} chars={todayThoughtsChars} />
         {isCreating ? (
           <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
-            <RichEditor
-              value={createContent}
-              onChange={setCreateContent}
-              attachments={createAttachments}
-              onAttachmentsChange={setCreateAttachments}
-              onAttachmentPreview={(items, initialIndex) => setMediaPreview({ items, initialIndex })}
+            <DocumentEditor
+              value={createDoc}
+              onChange={setCreateDoc}
+              onUpload={saveFileAsAttachment}
               autoFocus
               minHeightClass="min-h-[110px]"
-              textareaTestId="thought-create-textarea"
+              dataTestId="thought-create-editor"
+              hint="# 输入 #标签 自动归类"
+              placeholder={t('thoughts.createPlaceholder')}
             />
             <div className="flex items-center justify-between">
-              <span className="text-[11px] text-stone-400 pl-1">{t('thoughts.charCount', { count: countChars(createContent) })}</span>
+              <span className="text-[11px] text-stone-400 pl-1">{t('thoughts.charCount', { count: countChars(documentToText(createDoc)) })}</span>
               <div className="flex gap-2">
                 <button
                   onClick={handleCloseCreate}
@@ -517,7 +551,7 @@ export default function Thoughts() {
                 <button
                   data-testid="thought-create-save"
                   onClick={handleSaveCreate}
-                  disabled={!createContent.trim()}
+                  disabled={!documentToText(createDoc).trim()}
                   className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[12.5px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Save className="w-3.5 h-3.5" />
@@ -613,14 +647,14 @@ export default function Thoughts() {
 
             {/* 弹窗内容（可滚动） */}
             <div className="flex-1 overflow-y-auto thin-scrollbar p-3 flex flex-col gap-3">
-              <RichEditor
-                value={editContent}
-                onChange={setEditContent}
-                attachments={editAttachments}
-                onAttachmentsChange={setEditAttachments}
-                onAttachmentPreview={(items, initialIndex) => setMediaPreview({ items, initialIndex })}
+              <DocumentEditor
+                value={editDoc}
+                onChange={setEditDoc}
+                onUpload={saveFileAsAttachment}
                 minHeightClass="min-h-[160px]"
-                textareaTestId="thought-edit-textarea"
+                dataTestId="thought-edit-editor"
+                hint="# 输入 #标签 自动归类"
+                placeholder={t('thoughts.editPlaceholder')}
               />
 
               {/* created_at 修改：original_created_at 保留用于溯源 */}
@@ -660,7 +694,7 @@ export default function Thoughts() {
                 <button
                   data-testid="thought-edit-save"
                   onClick={handleSaveEdit}
-                  disabled={!editContent.trim()}
+                  disabled={!documentToText(editDoc).trim()}
                   className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[12.5px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Save className="w-3.5 h-3.5" />
@@ -670,15 +704,6 @@ export default function Thoughts() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* 需求 7：图片/视频全屏预览 */}
-      {mediaPreview && (
-        <MediaPreview
-          items={mediaPreview.items}
-          initialIndex={mediaPreview.initialIndex}
-          onClose={() => setMediaPreview(null)}
-        />
       )}
     </div>
   );
@@ -710,27 +735,25 @@ interface ThoughtCardProps {
   copied: boolean;
   onCopy: () => void;
   onEdit: () => void;
-  onOpenPreview: (items: AttachmentMeta[], initialIndex: number) => void;
+  resolveAttachment: (id: string) => Promise<Blob | null>;
 }
 
 /** 折叠态最大高度（按正文行高 ~22px 估算：时间线 7 行，瀑布流 12 行）。 */
 const COLLAPSED_MAX_H_TIMELINE = 160; // px
 const COLLAPSED_MAX_H_MASONRY = 270; // px
-/** 缩略图网格：时间线一行 3 个 / 瀑布流一行 2 个；最多展示 2 行，超出显示 +N。 */
-const THUMB_CAP_TIMELINE = 6; // 3 * 2
-const THUMB_CAP_MASONRY = 4; // 2 * 2
 
 /** Seam 5: 移动端长按阈值与取消判定（长按 = 进入编辑，对标桌面端双击）。 */
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_THRESHOLD = 10; // px，手指滑动超过该距离取消长按
 
-function ThoughtCard({ thought, view, copied, onCopy, onEdit, onOpenPreview }: ThoughtCardProps) {
+function ThoughtCard({ thought, view, copied, onCopy, onEdit, resolveAttachment }: ThoughtCardProps) {
   const { t } = useTranslation();
   const tags = thought.tags || [];
-  const attachments = thought.attachments || [];
 
+  // 卡片正文：从 content_doc 解析 RichDocument 渲染
+  const doc = useMemo(() => resolveDocumentContent(thought), [thought]);
+  const plainText = useMemo(() => documentToText(doc), [doc]);
   const collapsedMaxH = view === 'timeline' ? COLLAPSED_MAX_H_TIMELINE : COLLAPSED_MAX_H_MASONRY;
-  const thumbCap = view === 'timeline' ? THUMB_CAP_TIMELINE : THUMB_CAP_MASONRY;
 
   const [expanded, setExpanded] = useState(false);
   const [isOverflowing, setIsOverflowing] = useState(false);
@@ -750,7 +773,7 @@ function ThoughtCard({ thought, view, copied, onCopy, onEdit, onOpenPreview }: T
     const ro = new ResizeObserver(check);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [collapsedMaxH, thought.content, attachments]);
+  }, [collapsedMaxH, doc, plainText]);
 
   // 卸载时清理单击/长按计时器
   useEffect(() => {
@@ -815,7 +838,6 @@ function ThoughtCard({ thought, view, copied, onCopy, onEdit, onOpenPreview }: T
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
     }
-    // 长按已触发编辑时，touchend 会合成一次 click；longPressFired 由 handleCardClick 消费
   };
 
   // 阻止移动端长按弹出的系统上下文菜单/选区
@@ -832,18 +854,6 @@ function ThoughtCard({ thought, view, copied, onCopy, onEdit, onOpenPreview }: T
     setExpanded((x) => !x);
   };
 
-  // 多媒体缩略图（image/video/audio），link 不计入缩略图网格
-  const mediaAttachments = attachments.filter(
-    (a) => a.kind === 'image' || a.kind === 'video' || a.kind === 'audio'
-  );
-  // 需求 7：全屏预览仅含 image/video
-  const previewItems = attachments.filter(
-    (a) => a.kind === 'image' || a.kind === 'video'
-  );
-  const showOverflow = mediaAttachments.length > thumbCap;
-  const visibleMedia = showOverflow ? mediaAttachments.slice(0, thumbCap - 1) : mediaAttachments;
-  const overflowCount = mediaAttachments.length - (thumbCap - 1);
-
   return (
     <div
       data-testid="thought-card"
@@ -856,42 +866,19 @@ function ThoughtCard({ thought, view, copied, onCopy, onEdit, onOpenPreview }: T
       className="baimiao-card-bubble p-3.5 cursor-pointer group select-none"
       title={t('thoughts.cardHint')}
     >
-      {/* 可折叠内容区：正文 + 多媒体缩略图 */}
+      {/* 可折叠内容区：DocumentView 渲染 RichDocument（含媒体块通过 resolveAttachment 解析） */}
       <div
         ref={contentRef}
         style={!expanded && isOverflowing ? { maxHeight: `${collapsedMaxH}px` } : undefined}
         className="relative overflow-hidden"
       >
-        {/* 正文 Markdown */}
-        {thought.content.trim() && (
-          <div className="markdown-body prose prose-stone baimiao-editorial-body prose-headings:font-serif baimiao-editorial-title max-w-none text-[13.5px] leading-relaxed prose-h1:text-[16px] prose-h2:text-[15px] prose-h3:text-[14px]">
-            <ReactMarkdown>{thought.content}</ReactMarkdown>
-          </div>
-        )}
-
-        {/* 多媒体缩略图：统一 1:1，时间线一行 3 个，瀑布流一行 2 个 */}
-        {mediaAttachments.length > 0 && (
-          <div className={`grid gap-1.5 mt-2 ${view === 'timeline' ? 'grid-cols-3' : 'grid-cols-2'}`}>
-            {visibleMedia.map((att, idx) => {
-              const previewIdx = previewItems.indexOf(att);
-              return (
-                <ThumbTile
-                  key={idx}
-                  att={att}
-                  name={att.name}
-                  onOpenPreview={previewIdx >= 0 ? () => onOpenPreview(previewItems, previewIdx) : undefined}
-                />
-              );
-            })}
-            {showOverflow && (
-              <button
-                type="button"
-                onClick={toggleExpand}
-                className="relative aspect-square rounded-lg overflow-hidden border border-stone-200 bg-stone-100/80 flex items-center justify-center text-stone-500 text-[13px] font-semibold hover:bg-stone-200/70 transition-colors"
-              >
-                {t('thoughts.moreCount', { count: overflowCount })}
-              </button>
-            )}
+        {plainText.trim() && (
+          <div className="baimiao-editorial-body prose prose-stone max-w-none text-[13.5px] leading-relaxed">
+            <DocumentView
+              value={doc}
+              resolveAttachment={resolveAttachment}
+              dataTestId={`thought-card-view-${thought.id}`}
+            />
           </div>
         )}
 
@@ -950,55 +937,6 @@ function ThoughtCard({ thought, view, copied, onCopy, onEdit, onOpenPreview }: T
           {copied ? t('thoughts.copied') : t('thoughts.copy')}
         </button>
       </div>
-    </div>
-  );
-}
-
-/**
- * 单个多媒体缩略图（1:1）：image 显示图片，video/audio 用图标占位。
- * 需求 7：image/video 点击打开全屏预览（onOpenPreview 传入时启用）。
- */
-function ThumbTile({ att, name, onOpenPreview }: { att: AttachmentMeta; name?: string; onOpenPreview?: () => void }) {
-  const { t } = useTranslation();
-  const clickable = !!onOpenPreview && (att.kind === 'image' || att.kind === 'video');
-
-  const handleClick = (e: React.MouseEvent) => {
-    // 阻止冒泡到卡片的单击/双击/长按逻辑
-    e.stopPropagation();
-    if (clickable) onOpenPreview?.();
-  };
-
-  if (att.kind === 'image' && att.ref) {
-    return (
-      <img
-        src={att.ref}
-        alt={name || t('record.image')}
-        onClick={clickable ? handleClick : undefined}
-        className={`w-full aspect-square object-cover rounded-lg border border-stone-200 ${clickable ? 'cursor-pointer' : ''}`}
-      />
-    );
-  }
-  if (att.kind === 'video') {
-    return (
-      <div
-        onClick={clickable ? handleClick : undefined}
-        className={`relative w-full aspect-square rounded-lg border border-stone-200 bg-stone-100 flex items-center justify-center text-stone-400 ${clickable ? 'cursor-pointer' : ''}`}
-      >
-        <Film className="w-5 h-5" />
-        {clickable && (
-          <span className="absolute inset-0 flex items-center justify-center">
-            <span className="w-6 h-6 rounded-full bg-white/90 flex items-center justify-center shadow-md">
-              <Play className="w-3 h-3 text-stone-900 ml-0.5" fill="currentColor" />
-            </span>
-          </span>
-        )}
-      </div>
-    );
-  }
-  // audio
-  return (
-    <div className="w-full aspect-square rounded-lg border border-stone-200 bg-stone-100 flex items-center justify-center text-stone-400">
-      <Music className="w-5 h-5" />
     </div>
   );
 }

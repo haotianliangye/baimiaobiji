@@ -35,7 +35,7 @@ import {
 } from "lucide-react";
 import { UploadSimple } from "@phosphor-icons/react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { db } from "../db/db";
+import { db, type AttachmentMeta } from "../db/db";
 import { generateUUID } from "../lib/utils";
 import { getPatternsForRequest } from "../lib/hallucinationPatterns";
 import { countChars } from "../lib/wordCount";
@@ -46,9 +46,13 @@ import { parseTagsFromText, resolveAlias } from "../lib/tags";
 import { useTagsStore } from "../store/tags.store";
 import TodayStats from "../components/TodayStats";
 import RichEditor from "../components/RichEditor";
+import DocumentEditor from "../components/DocumentEditor";
+import DocumentView from "../components/DocumentView";
 import MediaPreview from "../components/MediaPreview";
-import { saveAttachmentBlob, blobToBase64, generateAttachmentSummary, requestMultimediaSummary } from "../lib/multimedia";
-import type { AttachmentMeta } from "../db/db";
+import { saveAttachmentBlob, saveFileAsAttachment, blobToBase64, generateAttachmentSummary, requestMultimediaSummary } from "../lib/multimedia";
+import { documentToText, plainTextToDocument, type RichDocument } from "../lib/documentModel";
+import { insertMediaNodeJson, makeMediaAttrs } from "../lib/editorExtensions";
+import { resolveDocumentContent } from "../db/db";
 import { useTranslation } from "../lib/i18n";
 
 /** 待提交的附件（含原始 File，提交时转为 AttachmentMeta + Blob 存 IDB）。 */
@@ -534,7 +538,7 @@ export default function Record() {
   // Action sheet & edit states
   const [activeLog, setActiveLog] = useState<any>(null);
   const [isEditingModalOpen, setIsEditingModalOpen] = useState(false);
-  const [editContent, setEditContent] = useState("");
+  const [editDoc, setEditDoc] = useState<RichDocument>(() => plainTextToDocument(''));
   const [editAttachments, setEditAttachments] = useState<AttachmentMeta[]>([]);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
@@ -645,7 +649,7 @@ export default function Record() {
   );
 
   const dailyChars = useMemo(() => {
-    return (logs || []).reduce((sum, log) => sum + countChars(log.content), 0);
+    return (logs || []).reduce((sum, log) => sum + countChars(documentToText(resolveDocumentContent(log))), 0);
   }, [logs]);
 
   const adjustTextareaHeight = useCallback(() => {
@@ -834,9 +838,11 @@ export default function Record() {
 
               let saveSuccess = false;
               try {
+                const contentDoc = plainTextToDocument(transcribedText);
                 await db.raw_logs.add({
                   id: generateUUID(),
                   content: transcribedText,
+                  content_doc: contentDoc,
                   created_at: Date.now(),
                   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                   audioBlob: audioBlob,
@@ -993,49 +999,58 @@ export default function Record() {
 
     setIsSubmitting(true);
     try {
-      const tags = await processTags(inputText);
       const logId = generateUUID();
       let content = inputText.trim();
 
-      // #6 处理附件：保存 Blob 到 IDB，音频走 STT 转写，图片/视频标记待生成摘要
+      // 保存附件 Blob，并把媒体作为正文 block 节点写入 content_doc。
       const finalAttachments: AttachmentMeta[] = [];
       let hasMediaForSummary = false;
 
       for (const pending of pendingAttachments) {
         if (pending.kind === 'link') {
           finalAttachments.push({ kind: 'link', ref: pending.url, name: pending.name });
-        } else if (pending.file) {
-          const meta = await saveAttachmentBlob(pending.file, pending.kind);
-          finalAttachments.push(meta);
+          continue;
+        }
+        if (!pending.file) continue;
+        const meta = await saveAttachmentBlob(pending.file, pending.kind);
+        finalAttachments.push(meta);
 
-          if (pending.kind === 'audio') {
-            // 语音附件走现有 STT，转写文本拼入 content
-            try {
-              const base64 = await blobToBase64(pending.file);
-              const settings = useSettingsStore.getState();
-              const data = await fetchTranscriptionWithRetry({
-                audio_base64: base64,
-                mime_type: pending.file.type || 'audio/webm',
-                settings,
-              });
-              if (data?.text) {
-                content = content ? `${content}\n${data.text}` : data.text;
-              }
-            } catch (err) {
-              console.error('[Multimedia] Audio transcription failed:', err);
-              content = content ? `${content}\n${t('record.audioTranscribeFailed')}` : t('record.audioTranscribeFailed');
-            }
-          } else if (pending.kind === 'image' || pending.kind === 'video') {
-            // image / video：标记需要生成多模态摘要
-            hasMediaForSummary = true;
+        if (pending.kind === 'audio') {
+          try {
+            const base64 = await blobToBase64(pending.file);
+            const settings = useSettingsStore.getState();
+            const data = await fetchTranscriptionWithRetry({
+              audio_base64: base64,
+              mime_type: pending.file.type || 'audio/webm',
+              settings,
+            });
+            if (data?.text) content = content ? `${content}\n${data.text}` : data.text;
+          } catch (err) {
+            console.error('[Multimedia] Audio transcription failed:', err);
+            content = content ? `${content}\n${t('record.audioTranscribeFailed')}` : t('record.audioTranscribeFailed');
           }
-          // 'file' kind：仅存储，不触发 STT 或摘要
+        } else if (pending.kind === 'image' || pending.kind === 'video') {
+          hasMediaForSummary = true;
         }
       }
 
+      let contentDoc = plainTextToDocument(content || t('record.multimediaRecord'));
+      for (const attachment of finalAttachments) {
+        if (attachment.kind === 'link' || !attachment.ref) continue;
+        const mediaKind = attachment.kind === 'file' ? 'file' : attachment.kind;
+        contentDoc = insertMediaNodeJson(
+          contentDoc,
+          makeMediaAttrs(mediaKind, attachment.ref, {
+            name: attachment.name || '',
+          }),
+        );
+      }
+      const tags = await processTags(content);
+
       await db.raw_logs.add({
         id: logId,
-        content: content || t('record.multimediaRecord'),
+        content,
+        content_doc: contentDoc,
         created_at: Date.now(),
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         tags,
@@ -1230,7 +1245,7 @@ export default function Record() {
    */
   const handleOpenEditModal = useCallback((log: any) => {
     setActiveLog(log);
-    setEditContent(log.content);
+    setEditDoc(resolveDocumentContent(log));
     setEditAttachments(log.attachments || []);
     setIsEditingModalOpen(true);
   }, []);
@@ -1299,118 +1314,20 @@ export default function Record() {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
+  const estimateLogLines = (log: any) => estimateTextLines(documentToText(resolveDocumentContent(log)));
+
   const handleSaveEdit = async () => {
     if (!activeLog || isSavingEdit) return;
-    const text = editContent.trim();
-    // 保存条件：content 非空 或 attachments 非空
-    if (!text && editAttachments.length === 0) return;
+    const text = documentToText(editDoc);
+    if (!text.trim() && editAttachments.length === 0) return;
     setIsSavingEdit(true);
     try {
-      const tags = await processTags(editContent);
-      const originalAttachments: AttachmentMeta[] = activeLog.attachments || [];
-      // 旧附件 ref 集合（非 link），用于检测被删除的附件
-      const remainingOldRefs = new Set(
-        originalAttachments.filter((a) => a.ref && a.kind !== 'link').map((a) => a.ref!)
-      );
-
-      const finalAttachments: AttachmentMeta[] = [];
-      const newMediaForSummary: AttachmentMeta[] = [];
-      let content = editContent.trim();
-
-      for (const att of editAttachments) {
-        if (att.kind === 'link') {
-          // 链接：仅元数据，直接保留
-          finalAttachments.push(att);
-          continue;
-        }
-        const isNew = !!att.ref && att.ref.startsWith('data:');
-        if (isNew) {
-          // 新附件：data URL -> Blob -> saveAttachmentBlob
-          const blob = dataUrlToBlob(att.ref!);
-          const meta = await saveAttachmentBlob(blob, att.kind);
-          if (att.name) meta.name = att.name;
-
-          if (att.kind === 'audio') {
-            // 音频走 STT，转写文本拼入 content
-            try {
-              const base64 = att.ref!.split(',')[1];
-              const settings = useSettingsStore.getState();
-              const data = await fetchTranscriptionWithRetry({
-                audio_base64: base64,
-                mime_type: blob.type || 'audio/webm',
-                settings,
-              });
-              if (data?.text) {
-                content = content ? `${content}\n${data.text}` : data.text;
-              }
-            } catch (err) {
-              console.error('[Edit] Audio transcription failed:', err);
-              content = content
-                ? `${content}\n${t('record.audioTranscribeFailed')}`
-                : t('record.audioTranscribeFailed');
-            }
-          } else if (att.kind === 'image' || att.kind === 'video') {
-            // 图片/视频：标记需要生成多模态摘要
-            newMediaForSummary.push(meta);
-          }
-          // file kind：仅存储，不触发 STT 或摘要
-          finalAttachments.push(meta);
-        } else {
-          // 旧附件（store id）：保留，从删除集合移除
-          if (att.ref) remainingOldRefs.delete(att.ref);
-          finalAttachments.push(att);
-        }
-      }
-
-      // 删除被移除的旧附件 Blob
-      for (const ref of remainingOldRefs) {
-        try { await db.attachments.delete(ref); } catch (e) { /* ignore */ }
-      }
-
-      // 清空所有图片/视频附件时 attachment_summary 一并清空
-      const hasMediaAfter = finalAttachments.some((a) => a.kind === 'image' || a.kind === 'video');
-      const summaryUpdate: { attachment_summary?: undefined } = !hasMediaAfter
-        ? { attachment_summary: undefined }
-        : {};
-
+      const tags = await processTags(text);
       await db.raw_logs.update(activeLog.id, {
-        content,
+        content: text,
+        content_doc: editDoc,
         tags,
-        attachments: finalAttachments.length > 0 ? finalAttachments : undefined,
-        ...summaryUpdate,
       });
-
-      // 异步：对新图片/视频附件生成多模态摘要，写入 attachment_summary
-      if (newMediaForSummary.length > 0) {
-        const genLogId = activeLog.id;
-        setGeneratingSummaryIds((prev) => new Set(prev).add(genLogId));
-        const allMediaForSummary = finalAttachments.filter(
-          (a) => a.kind === 'image' || a.kind === 'video'
-        );
-        generateAttachmentSummary(allMediaForSummary)
-          .then(async ({ attachments: updated, summary }) => {
-            setGeneratingSummaryIds((prev) => {
-              const n = new Set(prev);
-              n.delete(genLogId);
-              return n;
-            });
-            if (summary) {
-              await db.raw_logs.update(genLogId, {
-                attachments: updated,
-                attachment_summary: summary,
-              });
-            }
-          })
-          .catch((err) => {
-            setGeneratingSummaryIds((prev) => {
-              const n = new Set(prev);
-              n.delete(genLogId);
-              return n;
-            });
-            console.error('[Edit] Summary generation failed:', err);
-          });
-      }
-
       setIsEditingModalOpen(false);
     } catch (err: any) {
       alert(t('record.saveFailed', { msg: err?.message || '' }));
@@ -1521,7 +1438,7 @@ export default function Record() {
                     const target = e.target as HTMLElement;
                     if (target.closest('[data-attachment-region]') || target.closest('button, audio, video, img, a')) return;
                     // #113 仅可折叠卡片响应单击折叠/展开；单击/双击互斥（延迟 250ms，双击取消，与回顾页一致）
-                    if (estimateTextLines(log.content) <= FOLD_LINE_THRESHOLD) return;
+                    if (estimateLogLines(log) <= FOLD_LINE_THRESHOLD) return;
                     if (clickTimeoutsRef.current[log.id]) {
                       clearTimeout(clickTimeoutsRef.current[log.id]!);
                       clickTimeoutsRef.current[log.id] = null;
@@ -1603,10 +1520,14 @@ export default function Record() {
                 </span>
                 <div className="flex-1 min-w-0">
                   <div className="inline-block baimiao-card-bubble px-4 py-3 pb-2 max-w-full text-left relative">
-                    <p className={`text-[15.5px] leading-relaxed text-baimiao-ink font-sans tracking-tight break-all ${estimateTextLines(log.content) > FOLD_LINE_THRESHOLD && !expandedLogIds.has(log.id) ? 'line-clamp-12' : ''}`}>
-                      {log.content}
-                    </p>
-                    {estimateTextLines(log.content) > FOLD_LINE_THRESHOLD && (
+                    <div className={`text-[15.5px] leading-relaxed text-baimiao-ink font-sans tracking-tight ${estimateLogLines(log) > FOLD_LINE_THRESHOLD && !expandedLogIds.has(log.id) ? 'max-h-[18rem] overflow-hidden' : ''}`}>
+                      <DocumentView
+                        value={resolveDocumentContent(log)}
+                        resolveAttachment={async (id) => (await db.attachments.get(id))?.blob || null}
+                        dataTestId={`record-document-${log.id}`}
+                      />
+                    </div>
+                    {estimateLogLines(log) > FOLD_LINE_THRESHOLD && (
                       <button
                         data-testid={`log-fold-toggle-${log.id}`}
                         onClick={(e) => {
@@ -1633,18 +1554,7 @@ export default function Record() {
                         )}
                       </div>
                     )}
-                    {log.attachments && log.attachments.length > 0 && (
-                      <MultimediaAttachments
-                        log={log}
-                        isGenerating={generatingSummaryIds.has(log.id)}
-                        retryingIds={retryingAttachmentIds}
-                        onRetryAttachment={handleRetryAttachmentSummary}
-                        onRetryAudio={handleRetryAudioAttachment}
-                        onOpenPreview={(items: AttachmentMeta[], initialIndex: number) => setMediaPreview({ items, initialIndex })}
-                        onOpenDetail={(l: any) => setDetailLog(l)}
-                        collapsed={estimateTextLines(log.content) > FOLD_LINE_THRESHOLD && !expandedLogIds.has(log.id)}
-                      />
-                    )}
+
                   </div>
                   {typeof log.content === "string" && (log.content.includes("解析失败") || log.content.includes("parsing failed")) && log.audioBlob && (
                     <button
@@ -1986,9 +1896,9 @@ export default function Record() {
           >
             <button
               onClick={() => {
-                copy(contextMenuState.log.content);
-                setContextMenuState({ ...contextMenuState, isOpen: false });
-              }}
+                    copy(documentToText(resolveDocumentContent(contextMenuState.log)));
+                    setContextMenuState({ ...contextMenuState, isOpen: false });
+                  }}
               className={`flex flex-col items-center justify-center w-[4.2rem] px-1 py-2 transition-colors rounded-l-lg disabled:opacity-50 ${
                 copied
                   ? 'text-emerald-300 bg-white/10'
@@ -2066,24 +1976,21 @@ export default function Record() {
 
             {/* 内容区（可滚动，局部 overflow-y-auto 不依赖 body 滚动） */}
             <div className="flex-1 overflow-y-auto thin-scrollbar p-3 min-h-0">
-              <RichEditor
-                value={editContent}
-                onChange={setEditContent}
-                attachments={editAttachments}
-                onAttachmentsChange={setEditAttachments}
-                minHeightClass="min-h-[160px]"
-                textareaTestId="record-edit-textarea"
-                placeholder={t('record.contentPlaceholder')}
-                onAttachmentPreview={(items, initialIndex) => setMediaPreview({ items, initialIndex })}
-                attachmentSummary={activeLog?.attachment_summary}
-              />
+                <DocumentEditor
+                  value={editDoc}
+                  onChange={setEditDoc}
+                  onUpload={saveFileAsAttachment}
+                  minHeightClass="min-h-[160px]"
+                  dataTestId="record-document-editor"
+                  placeholder={t('record.contentPlaceholder')}
+                />
             </div>
 
             {/* 底部操作栏：左 字数+删除 / 右 取消+保存 */}
             <div className="flex items-center justify-between px-4 py-3 border-t border-stone-100 shrink-0 gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="text-[12px] text-stone-500 shrink-0">
-                  {t('record.totalChars', { count: countChars(editContent) })}
+                  {t('record.totalChars', { count: countChars(documentToText(editDoc)) })}
                 </span>
                 <button
                   data-testid="record-edit-delete"
@@ -2105,7 +2012,7 @@ export default function Record() {
                 <button
                   data-testid="record-edit-save"
                   onClick={handleSaveEdit}
-                  disabled={(!editContent.trim() && editAttachments.length === 0) || isSavingEdit}
+                  disabled={(!documentToText(editDoc).trim() && editAttachments.length === 0) || isSavingEdit}
                   className="px-4 py-1.5 rounded-full text-[12.5px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 active:scale-[0.98] shadow-md shadow-baimiao-mysteria/10 transition-all disabled:opacity-30 disabled:scale-100 disabled:shadow-none"
                 >
                   {isSavingEdit ? t('record.saving') : t('record.save')}
