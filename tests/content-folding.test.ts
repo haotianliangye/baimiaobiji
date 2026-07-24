@@ -125,67 +125,82 @@ async function run() {
   await pageR.waitForSelector('[data-testid="log-card"]', { timeout: 10000 });
   await new Promise((r) => setTimeout(r, 500));
 
-  // R1：折叠态 - 展开按钮存在且显示「展开」，正文 p 带 line-clamp
+  // R1：折叠态 - 展开按钮存在且正文由 DocumentView 渲染，不再依赖 line-clamp
   const r1 = await pageR.evaluate(() => {
     const card = document.querySelector('[data-testid="log-card"]');
     const toggle = document.querySelector('[data-testid="log-fold-toggle-fold-log-1"]');
-    const p = card?.querySelector('p');
+    const documentView = card?.querySelector('[data-testid="record-document-fold-log-1"]');
     return {
       hasToggle: !!toggle,
       toggleText: toggle ? (toggle.textContent || '').trim() : '',
-      pHasLineClamp: p ? (p.className || '').includes('line-clamp') : false,
+      hasDocumentView: !!documentView,
+      hasLineClamp: !!card?.querySelector('.line-clamp-12'),
     };
   });
   assert(
-    'R1 折叠态显示展开按钮且正文 line-clamp',
-    r1.hasToggle && r1.toggleText.includes('展开') && r1.pHasLineClamp,
-    `按钮="${r1.toggleText}", clamp=${r1.pHasLineClamp}`
+    'R1 折叠态显示展开按钮且正文由 DocumentView 渲染',
+    r1.hasToggle && r1.toggleText.includes('展开') && r1.hasDocumentView && !r1.hasLineClamp,
+    `按钮="${r1.toggleText}", documentView=${r1.hasDocumentView}, lineClamp=${r1.hasLineClamp}`
   );
 
-  // R6：折叠态多媒体仅一行缩略（2 个 MediaThumb + "+N"）
+  // R6：历史附件现在由正文 DocumentView 统一渲染，旧附件网格不再存在
   const r6 = await pageR.evaluate(() => {
-    const region = document.querySelector('[data-attachment-region]');
-    if (!region) return { thumbs: 0, overflow: '' };
-    const thumbs = region.querySelectorAll('.aspect-video').length;
-    const overflowBtn = Array.from(region.querySelectorAll('button')).find((b) =>
-      /^\+\d/.test((b.textContent || '').trim())
-    );
-    return { thumbs, overflow: overflowBtn ? (overflowBtn.textContent || '').trim() : '' };
+    const card = document.querySelector('[data-testid="log-card"]');
+    return {
+      hasDocumentView: !!card?.querySelector('[data-testid="record-document-fold-log-1"]'),
+      hasLegacyAttachmentRegion: !!card?.querySelector('[data-attachment-region]'),
+    };
   });
   assert(
-    'R6 折叠态多媒体仅一行缩略（2 个 + "+N"）',
-    r6.thumbs === 2 && r6.overflow.includes('+'),
-    `缩略=${r6.thumbs}, overflow="${r6.overflow}"`
+    'R6 多媒体纳入正文 DocumentView 且不重复渲染旧附件网格',
+    r6.hasDocumentView && !r6.hasLegacyAttachmentRegion,
+    `documentView=${r6.hasDocumentView}, legacyRegion=${r6.hasLegacyAttachmentRegion}`
   );
 
-  // R2：点 toggle 展开态 - 按钮变「收起」，正文无 line-clamp
+  // R2：点 toggle 展开态 - 按钮变「收起」，正文仍由 DocumentView 渲染且没有 line-clamp
   await pageR.click('[data-testid="log-fold-toggle-fold-log-1"]');
   await new Promise((r) => setTimeout(r, 300));
   const r2 = await pageR.evaluate(() => {
     const toggle = document.querySelector('[data-testid="log-fold-toggle-fold-log-1"]');
-    const p = document.querySelector('[data-testid="log-card"] p');
+    const card = document.querySelector('[data-testid="log-card"]');
     return {
       toggleText: toggle ? (toggle.textContent || '').trim() : '',
-      pHasLineClamp: p ? (p.className || '').includes('line-clamp') : false,
+      hasDocumentView: !!card?.querySelector('[data-testid="record-document-fold-log-1"]'),
+      hasLineClamp: !!card?.querySelector('.line-clamp-12'),
     };
   });
   assert(
     'R2 点击展开 - 按钮变收起且正文无 line-clamp',
-    r2.toggleText.includes('收起') && !r2.pHasLineClamp,
-    `按钮="${r2.toggleText}", clamp=${r2.pHasLineClamp}`
+    r2.toggleText.includes('收起') && r2.hasDocumentView && !r2.hasLineClamp,
+    `按钮="${r2.toggleText}", documentView=${r2.hasDocumentView}, lineClamp=${r2.hasLineClamp}`
   );
 
-  // R3：再点 toggle 收起 - 正文恢复 line-clamp
+  // R3：再次点击收起 - 仍使用容器折叠，不恢复 line-clamp
   await pageR.click('[data-testid="log-fold-toggle-fold-log-1"]');
   await new Promise((r) => setTimeout(r, 300));
   const r3 = await pageR.evaluate(() => {
-    const p = document.querySelector('[data-testid="log-card"] p');
-    return { pHasLineClamp: p ? (p.className || '').includes('line-clamp') : false };
+    const card = document.querySelector('[data-testid="log-card"]');
+    const toggle = document.querySelector('[data-testid="log-fold-toggle-fold-log-1"]');
+    return {
+      toggleText: toggle ? (toggle.textContent || '').trim() : '',
+      hasDocumentView: !!card?.querySelector('[data-testid="record-document-fold-log-1"]'),
+      hasLineClamp: !!card?.querySelector('.line-clamp-12'),
+    };
   });
-  assert('R3 再次点击收起 - 正文恢复 line-clamp', r3.pHasLineClamp, `clamp=${r3.pHasLineClamp}`);
+  assert(
+    'R3 再次点击收起 - 恢复容器折叠且无 line-clamp',
+    r3.toggleText.includes('展开') && r3.hasDocumentView && !r3.hasLineClamp,
+    `按钮="${r3.toggleText}", documentView=${r3.hasDocumentView}, lineClamp=${r3.hasLineClamp}`
+  );
 
   // R5：右键卡片 - 弹复制/编辑/多选/删除菜单（先于 R4，避免编辑弹窗遮挡）
-  await pageR.click('[data-testid="log-card"]', { button: 'right' });
+  await pageR.evaluate(() => {
+    const card = document.querySelector('[data-testid="log-card"]') as HTMLElement | null;
+    if (card) {
+      const evt = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2 });
+      card.dispatchEvent(evt);
+    }
+  });
   await new Promise((r) => setTimeout(r, 400));
   const r5 = await pageR.evaluate(() => {
     const text = document.body.textContent || '';
@@ -203,15 +218,51 @@ async function run() {
   );
   await dismissOverlay(pageR);
 
-  // R4：双击正文区 - 进入编辑弹窗（双击附件区不触发，故 dblclick p）
-  // 用 dispatchEvent dblclick 避免 puppeteer clickCount:2 偶发不触发 dblclick
+  // R4：双击正文区 - 进入编辑弹窗（双击附件区不触发，故 dblclick DocumentView）
   await pageR.evaluate(() => {
-    const p = document.querySelector('[data-testid="log-card"] p') as HTMLElement | null;
-    if (p) p.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
+    const doc = document.querySelector('[data-testid="record-document-fold-log-1"]') as HTMLElement | null;
+    if (doc) doc.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
   });
   await new Promise((r) => setTimeout(r, 500));
   const r4 = (await pageR.$('[data-testid="record-edit-modal"]')) !== null;
   assert('R4 双击正文进入编辑弹窗', r4, `弹窗=${r4}`);
+
+  // R7：内容结构保真 - 文本与图片节点都在 DocumentView 内
+  // 直接写入富文本 doc（包含段落 + 4 张图节点），验证 DocumentView 完整渲染
+  await putRecord(pageR, 'raw_logs', {
+    id: 'fold-log-2',
+    content: '内容结构保真测试',
+    content_doc: {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: '第1行内容结构保真测试' }] },
+        { type: 'image', attrs: { attachmentId: 'fold-att-A', alt: '', caption: '', name: '', width: 100, align: 'center', mimeType: '', duration: 0 } },
+        { type: 'image', attrs: { attachmentId: 'fold-att-B', alt: '', caption: '', name: '', width: 100, align: 'center', mimeType: '', duration: 0 } },
+        { type: 'image', attrs: { attachmentId: 'fold-att-C', alt: '', caption: '', name: '', width: 100, align: 'center', mimeType: '', duration: 0 } },
+        { type: 'image', attrs: { attachmentId: 'fold-att-D', alt: '', caption: '', name: '', width: 100, align: 'center', mimeType: '', duration: 0 } },
+      ],
+    },
+    created_at: TEST_DATE_MS,
+    timezone: 'Asia/Shanghai',
+  });
+  await pageR.goto(`${BASE_URL}/?date=${TEST_DATE}`, { waitUntil: 'networkidle2' });
+  await pageR.waitForSelector('[data-testid="record-document-fold-log-2"]', { timeout: 10000 });
+  await new Promise((r) => setTimeout(r, 600));
+  const r7 = await pageR.evaluate(() => {
+    const view = document.querySelector('[data-testid="record-document-fold-log-2"]');
+    if (!view) return null;
+    const innerHTML = view.innerHTML;
+    const figures = view.querySelectorAll('figure').length;
+    const imgs = view.querySelectorAll('img').length;
+    const data = view.querySelectorAll('[data-attachment-id]').length;
+    return { innerHTML, figures, imgs, data };
+  });
+  console.log('R7 调试:', JSON.stringify(r7));
+  assert(
+    'R7 文档结构保真 - 文本与图片节点均在 DocumentView 中',
+    !!r7 && r7.data === 4,
+    `data=${r7?.data}, figures=${r7?.figures}, imgs=${r7?.imgs}, htmlSample=${(r7?.innerHTML || '').slice(0, 200)}`
+  );
 
   await pageR.close();
   await ctx.close();

@@ -11,7 +11,8 @@
     "lint": "tsc --noEmit",
     "sync-version": "node scripts/sync-version.js",
     "sync-version:check": "node scripts/sync-version.js --check",
-    "test:e2e": "tsx tests/foundation-migration.test.ts"
+    "test:e2e": "tsx tests/foundation-migration.test.ts",
+    "test:unit": "tsx tests/document-model.test.ts && tsx tests/editor-schema.test.ts && tsx tests/editor-extensions.test.ts && tsx tests/document-components.test.ts && tsx tests/document-migration.test.ts && tsx tests/thoughts-store.test.ts"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
@@ -19,6 +20,16 @@
     "@phosphor-icons/react": "^2.1.10",
     "@tailwindcss/typography": "^0.5.20",
     "@tailwindcss/vite": "^4.1.14",
+    "@tiptap/core": "^3.28.0",
+    "@tiptap/extension-link": "^3.28.0",
+    "@tiptap/extension-table": "^3.28.0",
+    "@tiptap/extension-table-cell": "^3.28.0",
+    "@tiptap/extension-table-header": "^3.28.0",
+    "@tiptap/extension-table-row": "^3.28.0",
+    "@tiptap/extension-text-align": "^3.28.0",
+    "@tiptap/pm": "^3.28.0",
+    "@tiptap/react": "^3.28.0",
+    "@tiptap/starter-kit": "^3.28.0",
     "@vitejs/plugin-react": "^5.0.4",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",

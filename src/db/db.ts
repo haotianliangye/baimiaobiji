@@ -1,8 +1,22 @@
 import dexie, { type Table } from 'dexie';
+import {
+  plainTextToDocument,
+  extractAttachmentIds,
+  type RichDocument,
+} from '../lib/documentModel';
+import { buildEditorSchema, EMPTY_RICH_DOCUMENT } from '../lib/editorSchema';
+
+/**
+ * 持久化用的文档 JSON：在 db.ts 里抽象为「任意合法 RichDocument」，
+ * 不在表层展开结构（避免 Dexie update 推断触发循环映射类型）。
+ * 读出时通过 `resolveDocumentContent` 转回强类型 `RichDocument`。
+ */
+export type RichDocumentJson = unknown;
 
 export interface RawLog {
   id: string; // uuid
-  content: string;
+  content?: string;
+  content_doc?: RichDocumentJson;
   created_at: number; // ms timestamp
   timezone: string;
   audioBlob?: Blob;
@@ -105,7 +119,8 @@ export interface Insight {
 // V2「沉淀」笔记（flomo 式慢思考）。#3 仅建表，UI/CRUD 留给 #7。
 export interface Thought {
   id: string;
-  content: string;            // Markdown 自由文本
+  content?: string;           // 旧版 Markdown 自由文本，保留作兼容迁移输入
+  content_doc?: RichDocumentJson;
   tags: string[];             // 全局共享标签（#4），#3 暂留空
   attachments?: AttachmentMeta[]; // 图片/音频/视频/链接元数据，#7 细化
   created_at: number;         // 可被用户修改的展示时间
@@ -543,6 +558,21 @@ export class WhitewashDiaryDB extends dexie {
     this.version(17).stores({
       facts: 'id, key, category, created_at',
     });
+    // Version 18: Issue #15 raw_logs / thoughts 统一 RichDocument 存储基础。
+    // - content_doc 为非索引 JSON 字段，保留旧 content 与附件字段供尚未接入的页面使用。
+    // - 仅在 content_doc 缺失或非法时从旧 content 转换，重复执行不会覆盖已有合法文档。
+    this.version(18).stores({}).upgrade(async (tx) => {
+      for (const tableName of ['raw_logs', 'thoughts']) {
+        const table = tx.table(tableName);
+        const records = await table.toArray();
+        for (const record of records) {
+          const migrated = migrateDocumentContent(record);
+          if (migrated !== record) {
+            await table.put(migrated);
+          }
+        }
+      }
+    });
   }
 }
 
@@ -571,6 +601,60 @@ export function normalizeLegacyInsight(i: any): Insight {
   // 干净重命名：从云备份/导入数据读取时剥离 mingwu_type 旧字段。
   delete i.mingwu_type;
   return { ...i, insight_type: i.insight_type || 'insight' } as Insight;
+}
+
+function isValidRichDocument(value: unknown): value is RichDocument {
+  if (typeof value !== 'object' || value === null || (value as RichDocument).type !== 'doc') return false;
+  try {
+    buildEditorSchema().nodeFromJSON(value as any).check();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** 统一读取记录正文：合法 content_doc 优先，否则兼容旧 content 字符串。 */
+export function resolveDocumentContent(raw: {
+  content_doc?: unknown;
+  content?: unknown;
+  attachments?: AttachmentMeta[];
+} | null | undefined): RichDocument {
+  const hasValidDoc = isValidRichDocument(raw?.content_doc);
+  let doc = hasValidDoc
+    ? raw!.content_doc as RichDocument
+    : typeof raw?.content === 'string' && raw.content !== ''
+      ? plainTextToDocument(raw.content)
+      : EMPTY_RICH_DOCUMENT;
+  const existingIds = new Set(extractAttachmentIds(doc));
+  const legacyAttachments = Array.isArray(raw?.attachments) ? raw.attachments : [];
+  const legacyBlocks = legacyAttachments.flatMap((attachment) => {
+    const ref = attachment?.ref;
+    if (!ref || existingIds.has(ref) || ref.startsWith('data:') || ref.startsWith('http://') || ref.startsWith('https://')) return [];
+    if (attachment.kind !== 'image' && attachment.kind !== 'audio' && attachment.kind !== 'video' && attachment.kind !== 'file') return [];
+    existingIds.add(ref);
+    return [{
+      type: attachment.kind,
+      attrs: {
+        attachmentId: ref,
+        alt: attachment.name || '',
+        caption: attachment.summary || '',
+        name: attachment.name || '',
+        width: 100,
+        align: 'center',
+        mimeType: '',
+        duration: 0,
+      },
+    } as RichDocument['content'][number]];
+  });
+  return legacyBlocks.length > 0
+    ? { type: 'doc', content: [...(doc.content || []), ...legacyBlocks] }
+    : doc;
+}
+
+/** v18 upgrade 共用的纯迁移步骤；已有合法文档时原样返回以保证幂等。 */
+export function migrateDocumentContent<T extends { content_doc?: unknown; content?: unknown; attachments?: AttachmentMeta[] }>(raw: T): T & { content_doc: RichDocumentJson } {
+  if (isValidRichDocument(raw.content_doc)) return raw as T & { content_doc: RichDocumentJson };
+  return { ...raw, content_doc: resolveDocumentContent(raw) };
 }
 
 export const db = new WhitewashDiaryDB();

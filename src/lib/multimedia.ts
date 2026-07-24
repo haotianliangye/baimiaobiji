@@ -47,6 +47,41 @@ export async function requestMultimediaSummary(
 }
 
 /**
+ * DocumentEditor 上传 helper（公开 seam）：
+ *   - 接受一个 File（用户在文件选择器中挑选的本地文件）
+ *   - 把它以 Blob 形式存入 IndexedDB attachments store（**永不**生成 data URL）
+ *   - 返回 { attachmentId, name, mimeType }，供 DocumentEditor 写入 media block attrs
+ *
+ * 设计动机：旧 RichEditor 把图片读成 data URL 存入 AttachmentMeta.ref，
+ * 当 content 同时保存 Markdown 字符串时，data URL 会被双重持久化。
+ * 本 helper 强制走 attachments store，让 attachmentId 成为唯一引用。
+ *
+ * 行为约束：
+ *   - 成功：返回 attachmentId，调用方应把它插入到 content_doc 的 media 节点
+ *   - 失败/抛错：调用方应放弃插入（DocumentEditor 不会持久化任何 data URL）
+ */
+export async function saveFileAsAttachment(
+  file: File,
+  kindOverride?: 'image' | 'audio' | 'video' | 'file',
+): Promise<{ attachmentId: string; name: string; mimeType: string }> {
+  const kind =
+    kindOverride ||
+    (file.type?.startsWith('image/')
+      ? 'image'
+      : file.type?.startsWith('audio/')
+        ? 'audio'
+        : file.type?.startsWith('video/')
+          ? 'video'
+          : 'file');
+  const meta = await saveAttachmentBlob(file, kind);
+  return {
+    attachmentId: meta.ref as string,
+    name: meta.name || file.name || '',
+    mimeType: file.type || '',
+  };
+}
+
+/**
  * 将附件原始文件以 Blob 存入 IndexedDB attachments store，返回 AttachmentMeta。
  * 原始文件不压缩。
  */

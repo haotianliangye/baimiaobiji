@@ -1,4 +1,6 @@
 import { db, type TextChunk } from '../db/db';
+import { resolveDocumentContent } from '../db/db';
+import { documentToText } from './documentModel';
 import { chunkText } from './chunking';
 import { useSettingsStore, DEFAULT_EMBED_PROVIDER_CONFIGS } from '../store/settings.store';
 
@@ -235,7 +237,11 @@ export async function processEmbeddingQueue(
         if (record[eField] && record[eField].length > 0 && record[vField] === versionTag && !task.force) {
           removeTask(task); continue;
         }
-        const rawText: string = record[textField] || '';
+        // record / thought：以 RichDocument 为唯一真源，textField='content' 仅作兼容输入。
+        // diary / review / insight 仍直接读 textField。
+        const rawText: string = task.type === 'record' || task.type === 'thought'
+          ? documentToText(resolveDocumentContent(record))
+          : (record[textField] || '');
 
         if (!rawText.trim()) {
           removeTask(task);
@@ -380,7 +386,9 @@ export async function enqueueAllMissingEmbeddings(): Promise<number> {
     let rows = await table.toArray();
     if (matches) rows = rows.filter(matches); // 合并表：仅扫描本 entry_type 的行
     for (const row of rows) {
-      const text: string = row[textField] || '';
+      const text: string = type === 'record' || type === 'thought'
+        ? documentToText(resolveDocumentContent(row))
+        : (row[textField] || '');
       if (!text.trim()) continue;
       if (row[eField] && row[eField].length > 0 && row[vField] === versionTag) continue;
       const key = `${type}:${row.id}`;

@@ -12,9 +12,6 @@
 // cosine Web Worker (computeCosineBatch) with a main-thread fallback, and the
 // shared SEMANTIC_THRESHOLD / MAX_SEMANTIC_CANDIDATES constants.
 
-import { db } from '../db/db';
-import { requestEmbedding, cosineSimilarity } from './embedding';
-import { computeCosineBatch, type CosineCandidate, type CosineScore } from './cosineWorker';
 import {
   SEMANTIC_THRESHOLD,
   MAX_SEMANTIC_CANDIDATES,
@@ -22,6 +19,10 @@ import {
   isDateInFilter,
 } from '../store/app.store';
 import { format, parseISO } from 'date-fns';
+import { documentToText } from './documentModel';
+import { resolveDocumentContent, db } from '../db/db';
+import { requestEmbedding, cosineSimilarity } from './embedding';
+import { computeCosineBatch, type CosineCandidate, type CosineScore } from './cosineWorker';
 
 export interface CopilotRetrievalFilters {
   // #115 需求 2：移除独立 `diary` 分支，日记与回顾合并到 `review`；新增 `thoughts` 沉淀模块。
@@ -88,7 +89,7 @@ export async function retrieveCopilotContext(
         id: log.id,
         navDate: format(new Date(log.created_at), 'yyyy-MM-dd'),
         displayDate: format(new Date(log.created_at), 'yyyy-MM-dd HH:mm'),
-        content: log.content,
+        content: documentToText(resolveDocumentContent(log)),
         label: '记录',
       });
       candidates.push({ key, embedding: log.embedding });
@@ -129,7 +130,7 @@ export async function retrieveCopilotContext(
         id: t.id,
         navDate: format(new Date(t.created_at), 'yyyy-MM-dd'),
         displayDate: format(new Date(t.created_at), 'yyyy-MM-dd HH:mm'),
-        content: t.content,
+        content: documentToText(resolveDocumentContent(t)),
         label: '沉淀',
       });
       candidates.push({ key, embedding: t.embedding });

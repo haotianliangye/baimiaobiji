@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { db, normalizeLegacyDiary, normalizeLegacyReview, normalizeLegacyInsight } from '../db/db';
+import { db, normalizeLegacyDiary, normalizeLegacyReview, normalizeLegacyInsight, resolveDocumentContent } from '../db/db';
 import { generateUUID } from '../lib/utils';
 import { SYNC_CONSTANTS } from '../config/constants';
 import { getBackoffMs, isRetryableError, getRetryLimit } from '../lib/backoff';
@@ -25,6 +25,7 @@ import {
   subDays
 } from 'date-fns';
 import { parseTagsFromText, resolveAlias, matchesByPrefix, normalizeTagPath } from '../lib/tags';
+import { documentToText } from '../lib/documentModel';
 import { useTagsStore } from './tags.store';
 
 // #31 AI 生成的回顾/日记自动打全局标签：解析 AI 文本中的 #标签，经别名纠正后落库，返回去重后的标签路径数组。
@@ -1062,20 +1063,24 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (modules.includes('record')) {
       const logs = await db.raw_logs.toArray();
       const matchedLogs = logs.filter(log => {
-        const matchesQuery = log.content.toLowerCase().includes(query.toLowerCase())
+        const logText = documentToText(resolveDocumentContent(log));
+        const matchesQuery = logText.toLowerCase().includes(query.toLowerCase())
           || (!!queryTag && !!(log.tags && log.tags.some(t => matchesByPrefix(t, queryTag))));
         const matchesDate = isDateInFilter(log.created_at, dateRange, customStartDate, customEndDate);
         return matchesQuery && matchesDate;
       });
 
-      results.push(...matchedLogs.map(log => ({
-        id: log.id,
-        type: 'record' as const,
-        title: `记录 · ${format(new Date(log.created_at), 'yyyy-MM-dd HH:mm')}`,
-        content: log.content,
-        date: format(new Date(log.created_at), 'yyyy-MM-dd'),
-        highlightSnippets: getHighlightSnippet(log.content, query)
-      })));
+      results.push(...matchedLogs.map(log => {
+        const logText = documentToText(resolveDocumentContent(log));
+        return {
+          id: log.id,
+          type: 'record' as const,
+          title: `记录 · ${format(new Date(log.created_at), 'yyyy-MM-dd HH:mm')}`,
+          content: logText,
+          date: format(new Date(log.created_at), 'yyyy-MM-dd'),
+          highlightSnippets: getHighlightSnippet(logText, query),
+        };
+      }));
     }
 
     // 2. 日记搜索
@@ -1168,6 +1173,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           ? await db.raw_logs.where('created_at').between(filterRange.start, filterRange.end).toArray()
           : await db.raw_logs.toArray();
         for (const log of logs.slice(0, MAX_SEMANTIC_CANDIDATES)) {
+          const logText = documentToText(resolveDocumentContent(log));
           if (!log.embedding || log.embedding.length === 0) continue;
           if (seenIds.has(log.id)) continue;
           const key = `record:${log.id}`;
@@ -1175,9 +1181,9 @@ export const useAppStore = create<AppState>((set, get) => ({
             id: log.id,
             type: 'record',
             title: `[语义] 记录 . ${format(new Date(log.created_at), 'yyyy-MM-dd HH:mm')}`,
-            content: log.content,
+            content: logText,
             date: format(new Date(log.created_at), 'yyyy-MM-dd'),
-            highlightSnippets: getHighlightSnippet(log.content, query),
+            highlightSnippets: getHighlightSnippet(logText, query),
           });
           candidates.push({ key, embedding: log.embedding });
         }
