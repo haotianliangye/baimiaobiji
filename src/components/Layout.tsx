@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { NavLink, Outlet, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { motion } from 'motion/react';
 import { Loader2, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning, Sparkles, MessageSquare, Calendar as CalendarIcon, Menu, Lightbulb, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ChatCircleDots, HeadCircuit, Clock, Sun } from '@phosphor-icons/react';
 import { subDays, format, parse, addDays, isSameDay } from 'date-fns';
@@ -10,6 +12,7 @@ import CalendarHeatmap from './CalendarHeatmap';
 import RandomWalk from './RandomWalk';
 import Copilot from '../pages/Copilot';
 import { useTranslation } from '../lib/i18n';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 
 export default function Layout() {
   const navigate = useNavigate();
@@ -59,6 +62,15 @@ export default function Layout() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const currentPath = location.pathname;
+  const isMobile = useMediaQuery('(max-width: 767px)');
+
+  // Issue: 设置入口改造 ——「微信式」移动端推动动画
+  // 仅 <768px 时启用：移动端点 [≡]，主面板向右平移抽屉宽度 = 「主面板被推到右侧」。
+  // 桌面端保持原样不动 —— 走原本的「左 1/3 抽屉 + 右 2/3 详情」左右分栏常驻布局。
+  const SETTINGS_DRAWER_WIDTH = 288;
+  const isSettingsDrawerMode =
+    isMobile && currentPath === '/settings' && searchParams.get('view') !== 'detail';
+  const phoneShellOffsetX = isSettingsDrawerMode ? SETTINGS_DRAWER_WIDTH : 0;
   // 日期导航仅在「记录 / 回顾」两个按日期浏览的 Tab 显示
   const showDateNav = currentPath === '/' || currentPath === '/review';
   // 需求 6：沉淀中间为瀑布流/时间线胶囊；洞察中间为时间范围胶囊
@@ -254,9 +266,42 @@ export default function Layout() {
     setShowDateDropdown(false);
   };
 
+  // Issue: 设置入口改造 —— 移动端推动动画
+  // drawer 模式下铺一层透明全屏 click-catcher 用于点击关闭。
+  // 不绘制任何背景色 —— 不要毛玻璃效果，只有鼠标事件捕获。
+  // 主面板被 motion 推到 x=288 后会"溢出" Layout 的可视区，被 click-catcher 拦截点击。
+  const settingsClickCatcher = isSettingsDrawerMode
+    ? createPortal(
+        <div
+          data-testid="settings-drawer-backdrop"
+          onClick={() => navigate(-1)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 50,
+            background: 'transparent',
+          }}
+        />,
+        document.body
+      )
+    : null;
+
   return (
     <div className="flex flex-col h-full bg-[#f0eef5] font-sans text-stone-900 overflow-hidden items-center justify-center">
-      <div className="w-full sm:w-1/3 h-full bg-white shadow-sm ring-1 ring-black/5 flex flex-col relative overflow-hidden">
+      {settingsClickCatcher}
+      <motion.div
+        initial={false}
+        animate={{ x: phoneShellOffsetX }}
+        transition={{ type: 'spring', stiffness: 280, damping: 30, mass: 0.8 }}
+        style={{
+          pointerEvents: isSettingsDrawerMode ? 'none' : 'auto',
+          flexShrink: 0,
+        }}
+        className="w-full sm:w-1/3 h-full bg-white shadow-sm ring-1 ring-black/5 flex flex-col relative overflow-hidden"
+      >
         {/* Global Nav —— Seam 1 统一顶部栏：左 [≡]标题·副标题 / 中 <日期> / 右 搜索->RAG+CHAT->灯泡 */}
         {!isCopilotMode && (
           <header className="relative flex h-[54px] shrink-0 items-center justify-between px-3 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white/95 border-b border-white/5">
@@ -270,7 +315,7 @@ export default function Layout() {
               */}
               {!isRandomWalkMode && (
                 <button
-                  onClick={() => navigate('/settings', { state: { drawer: true } })}
+                  onClick={() => navigate('/settings')}
                   title={t('settings.title')}
                   aria-label={t('settings.title')}
                   className="p-1.5 hover:opacity-70 transition-opacity active:scale-95 shrink-0"
@@ -525,7 +570,7 @@ export default function Layout() {
             <TabItem to="/insight" icon={<Sun weight="regular" />} label={t('tab.insight')} />
           </div>
         </nav>
-      </div>
+      </motion.div>
 
       {/* 日期选择器（顶部栏中间日期入口）-- 统计+热力图模块（CalendarHeatmap） */}
       {showDatePicker && (
