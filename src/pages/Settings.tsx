@@ -933,11 +933,11 @@ export default function Settings() {
     return (ALLOWED_TABS as readonly string[]).includes(t ?? '') ? (t as SettingsTab) : 'model';
   })();
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
-  // Issue: 设置入口改造 —— drawer / detail 切换改由 URL search 参数驱动（去掉对 location.state 的依赖，
-  // 让路由可分享、可前进/后退）。default = 'drawer'，?view=detail 进入详情模式。
-  const initialView: 'drawer' | 'detail' =
+  // Issue: 设置入口改造 —— drawer / detail 状态完全由 URL ?view=detail 派生，
+  // 不再 useState 缓存。这样无论 navigate(-1) 走 history、还是别的入口直接跳到 ?view=detail，
+  // UI 都跟 URL 同步，不会出现"detail 还残留 / drawer 死活不出现"的破碎态。
+  const view: 'drawer' | 'detail' =
     new URLSearchParams(location.search).get('view') === 'detail' ? 'detail' : 'drawer';
-  const [view, setView] = useState<'drawer' | 'detail'>(initialView);
   // 设置页桌面/移动布局分流：桌面端（md: ≥768px）下抽屉与详情页左右分栏同时常驻显示，不滑入动画
   const isDesktop = useMediaQuery('(min-width: 768px)');
   // task-111: 抽屉「所有标签」默认展开，点击标题行可展开/收起
@@ -1561,12 +1561,13 @@ export default function Settings() {
     setActiveTab(tab);
     // 桌面端下抽屉与详情页左右分栏常驻显示，点菜单项只切 tab、不切 view
     if (!isDesktop) {
-      // Issue: 改为 URL search params 驱动，让浏览器后退按钮能回退到 drawer。
+      // Issue: 改用 replace:true —— 进入详情时原地替换当前 /settings 条目，
+      // 这样 [←] / navigate(-1) 直接退到上一页（用户停留的入口页，如 /thoughts），
+      // 而不是先经过一个已经无意义的 /settings 中间态。
       const next = new URLSearchParams(location.search);
       next.set('view', 'detail');
       next.set('tab', tab);
-      setSearchParams(next, { replace: false });
-      setView('detail');
+      setSearchParams(next, { replace: true });
     }
   };
 
@@ -1713,11 +1714,11 @@ export default function Settings() {
               setActiveTab('tags');
               // 桌面端下抽屉与详情页左右分栏常驻显示，只切 tab、不切 view
               if (!isDesktop) {
+                // 同上：[←] 直接退到入口页，不要 /settings 中间态。
                 const next = new URLSearchParams(location.search);
                 next.set('view', 'detail');
                 next.set('tab', 'tags');
-                setSearchParams(next, { replace: false });
-                setView('detail');
+                setSearchParams(next, { replace: true });
               }
             }}
             className="p-1.5 -mr-1.5 text-baimiao-mysteria hover:bg-baimiao-mysteria/5 rounded-full transition-all active:scale-95"

@@ -312,10 +312,28 @@ export default function Layout() {
                 需求 102 规定退出方式仅 灯泡/×/Tab 三种，[≡] 既非退出入口
                 又会 navigate('/settings') 但不重置 isRandomWalkMode，导致
                 URL 变 /settings 而界面仍渲染 RandomWalk、设置抽屉不可达。
+
+                Issue: 设置入口改造 —— [≡] 始终保留可见，但点击含义不同：
+                - 不在 /settings 时：打开设置抽屉（navigate('/settings')）
+                - 在 /settings?view=detail 时：回到设置的"首页"（即 drawer 形态），
+                  URL 清掉 ?view=detail，主面板被推到右侧、抽屉从左侧滑入 —— 跟示例图吻合。
+                - 在 /settings（drawer）时：等同打开设置，无副作用。
+                这跟 [←] 回退键（navigate(-1)）职责分开：
+                [≡] = "回到设置首页"，[←] = "回到上一个停留的页面（/thoughts 之类）"。
               */}
               {!isRandomWalkMode && (
                 <button
-                  onClick={() => navigate('/settings')}
+                  onClick={() => {
+                    if (currentPath === '/settings') {
+                      // 在 /settings 下：清掉 ?view=detail 等参数，回到 drawer 形态。
+                      // 用 replace:true 避免给 history 多塞一条一样的 /settings。
+                      const next = new URLSearchParams(searchParams);
+                      next.delete('view');
+                      setSearchParams(next, { replace: true });
+                    } else {
+                      navigate('/settings');
+                    }
+                  }}
                   title={t('settings.title')}
                   aria-label={t('settings.title')}
                   className="p-1.5 hover:opacity-70 transition-opacity active:scale-95 shrink-0"
