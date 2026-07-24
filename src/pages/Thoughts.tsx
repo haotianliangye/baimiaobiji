@@ -626,7 +626,7 @@ export default function Thoughts() {
       {/* 编辑弹窗 */}
       {editingId && (
         <div
-          className="fixed inset-0 z-[120] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 animate-in fade-in duration-200"
+          className="fixed inset-0 z-[120] bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 animate-in fade-in duration-200"
           onClick={closeEdit}
         >
           <div
@@ -646,8 +646,8 @@ export default function Thoughts() {
               </button>
             </div>
 
-            {/* 弹窗内容（可滚动） */}
-            <div className="flex-1 overflow-y-auto thin-scrollbar p-3 flex flex-col gap-3 min-h-0">
+            {/* 弹窗内容（与记录板块对齐，局部 overflow-y-auto） */}
+            <div className="flex-1 overflow-y-auto thin-scrollbar p-3 min-h-0 flex flex-col gap-2">
               <DocumentEditor
                 value={editDoc}
                 onChange={setEditDoc}
@@ -655,12 +655,11 @@ export default function Thoughts() {
                 minHeightClass="min-h-[160px]"
                 maxHeightClass="max-h-[45vh] sm:max-h-[320px]"
                 dataTestId="thought-edit-editor"
-                hint="# 输入 #标签 自动归类"
                 placeholder={t('thoughts.editPlaceholder')}
               />
 
-              {/* created_at 修改：original_created_at 保留用于溯源 */}
-              <div className="flex items-center gap-2 px-1">
+              {/* created_at 修改：紧凑单行，避免挤压编辑器高度 */}
+              <div className="flex items-center gap-2 px-1 pt-1">
                 <Clock className="w-3.5 h-3.5 text-stone-400 shrink-0" />
                 <label className="text-[11.5px] text-stone-500 shrink-0">{t('thoughts.displayTime')}</label>
                 <input
@@ -668,25 +667,27 @@ export default function Thoughts() {
                   data-testid="thought-edit-created-at"
                   value={editCreatedAt}
                   onChange={(e) => setEditCreatedAt(e.target.value)}
-                  className="flex-1 bg-stone-50 border border-stone-200 rounded-lg px-2 py-1 text-[12px] text-stone-700 outline-none focus:border-baimiao-mysteria/40"
+                  className="flex-1 bg-stone-50 border border-stone-200 rounded-lg px-2 py-0.5 text-[12px] text-stone-700 outline-none focus:border-baimiao-mysteria/40"
                 />
               </div>
-              <p className="text-[10.5px] text-stone-400 px-1 -mt-1">
-                {t('thoughts.displayTimeHint')}
-              </p>
             </div>
 
-            {/* 弹窗操作栏 */}
-            <div className="flex items-center justify-between px-4 py-3 border-t border-stone-100 shrink-0">
-              <button
-                data-testid="thought-edit-delete"
-                onClick={handleDeleteEdit}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12.5px] font-medium text-rose-500 hover:bg-rose-50 transition-colors"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                {t('thoughts.delete')}
-              </button>
-              <div className="flex gap-2">
+            {/* 弹窗操作栏：左侧字数+删除 / 右侧取消+保存（与记录板块 100% 对齐） */}
+            <div className="flex items-center justify-between px-4 py-3 border-t border-stone-100 shrink-0 gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-[12px] text-stone-500 shrink-0">
+                  {t('record.totalChars', { count: countChars(documentToText(editDoc)) })}
+                </span>
+                <button
+                  data-testid="thought-edit-delete"
+                  onClick={handleDeleteEdit}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[12px] font-medium text-rose-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  {t('thoughts.delete')}
+                </button>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={closeEdit}
                   className="px-3.5 py-1.5 rounded-full text-[12.5px] font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 transition-colors"
@@ -697,9 +698,8 @@ export default function Thoughts() {
                   data-testid="thought-edit-save"
                   onClick={handleSaveEdit}
                   disabled={!documentToText(editDoc).trim()}
-                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[12.5px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="px-4 py-1.5 rounded-full text-[12.5px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 active:scale-[0.98] shadow-md shadow-baimiao-mysteria/10 transition-all disabled:opacity-30 disabled:scale-100 disabled:shadow-none"
                 >
-                  <Save className="w-3.5 h-3.5" />
                   {t('thoughts.save')}
                 </button>
               </div>
