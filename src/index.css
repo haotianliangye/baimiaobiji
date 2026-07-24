@@ -56,6 +56,16 @@ html, body, #root {
    Baimiao Superhuman Custom UI Classes
    ========================================================================== */
 
+/* DocumentEditor 的 ProseMirror 视图去掉默认 focus 边框（沿用 RichEditor 风格） */
+.baimiao-editorial-body .ProseMirror {
+  outline: none !important;
+}
+
+/* ProseMirror 在 contentEditable 内的 placeholder 边距 */
+.baimiao-editorial-body .ProseMirror-focused {
+  outline: none !important;
+}
+
 /* 纸质社论排版正文 */
 .baimiao-editorial-body {
   color: var(--color-baimiao-ink) !important;

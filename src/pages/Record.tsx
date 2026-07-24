@@ -517,7 +517,6 @@ export default function Record() {
   const { copied, copy } = useCopyToClipboard();
   const navigate = useNavigate();
   const [inputText, setInputText] = useState("");
-  const [inputDoc, setInputDoc] = useState<RichDocument>(() => plainTextToDocument(''));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [hideStorageWarning, setHideStorageWarning] = useState(false);
@@ -992,8 +991,7 @@ export default function Record() {
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    const docText = documentToText(inputDoc);
-    if (!docText.trim() && !inputText.trim() && pendingAttachments.length === 0) return;
+    if (!inputText.trim() && pendingAttachments.length === 0) return;
 
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop();
@@ -1002,7 +1000,7 @@ export default function Record() {
     setIsSubmitting(true);
     try {
       const logId = generateUUID();
-      let content = docText.trim() || inputText.trim();
+      let content = inputText.trim();
 
       // 保存附件 Blob，并把媒体作为正文 block 节点写入 content_doc。
       const finalAttachments: AttachmentMeta[] = [];
@@ -1036,9 +1034,7 @@ export default function Record() {
         }
       }
 
-      let contentDoc = docText.trim()
-        ? inputDoc
-        : plainTextToDocument(content || t('record.multimediaRecord'));
+      let contentDoc = plainTextToDocument(content || t('record.multimediaRecord'));
       for (const attachment of finalAttachments) {
         if (attachment.kind === 'link' || !attachment.ref) continue;
         const mediaKind = attachment.kind === 'file' ? 'file' : attachment.kind;
@@ -1066,7 +1062,7 @@ export default function Record() {
         if (att.previewUrl) URL.revokeObjectURL(att.previewUrl);
       }
       setInputText("");
-      setInputDoc(plainTextToDocument(''));
+      setPendingAttachments([]);
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto"; // Reset size
       }
@@ -1666,16 +1662,18 @@ export default function Record() {
                 <span className="ml-[2px] opacity-90 font-normal">{t('record.clickToEnd')}</span>
               </button>
             ) : (
-              <div className="w-full min-h-[36px] max-h-[50vh] overflow-y-auto px-1" data-testid="record-quick-document">
-                <DocumentEditor
-                  value={inputDoc}
-                  onChange={setInputDoc}
-                  onUpload={saveFileAsAttachment}
-                  minHeightClass="min-h-[36px]"
-                  dataTestId="record-quick-editor"
-                  placeholder={t('record.inputPlaceholder')}
-                />
-              </div>
+              <textarea
+                ref={textareaRef}
+                rows={1}
+                data-testid="tag-input"
+                className="w-full bg-transparent px-2 py-[7.5px] text-[15px] leading-[21px] outline-none placeholder:text-stone-400 min-w-0 resize-none overflow-y-auto no-scrollbar"
+                placeholder={isSubmitting ? t('record.parsing') : t('record.inputPlaceholder')}
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={isSubmitting}
+                style={{ maxHeight: "50vh" }}
+              />
             )}
           </div>
 
@@ -1694,10 +1692,10 @@ export default function Record() {
           )}
 
           {!isListening ? (
-            documentToText(inputDoc).trim() || isSubmitting || pendingAttachments.length > 0 ? (
+            inputText.trim() || isSubmitting || pendingAttachments.length > 0 ? (
               <button
                  type="submit"
-                 disabled={(!documentToText(inputDoc).trim() && pendingAttachments.length === 0) || isSubmitting}
+                 disabled={(!inputText.trim() && pendingAttachments.length === 0) || isSubmitting}
                  data-testid="submit-button"
                  className="w-[36px] h-[36px] flex items-center justify-center rounded-xl text-stone-400 hover:text-stone-900 hover:bg-stone-100/50 disabled:opacity-30 disabled:bg-transparent transition-colors shrink-0"
               >
