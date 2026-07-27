@@ -780,8 +780,8 @@ export default function RandomWalk() {
       )}
 
       {/* 卡片堆叠区（Swiper + EffectCards 扇形堆叠）。
-          顶部细栏已移除，卡片整体在剩余空间中居中（略上移）。 */}
-      <div className="flex-1 overflow-hidden relative px-5 pt-1 pb-5 flex items-start justify-center min-h-0">
+          pt-4 给卡片顶部留出约一行字的高度，避免紧贴 header。 */}
+      <div className="flex-1 overflow-hidden relative px-5 pt-4 pb-5 flex items-start justify-center min-h-0">
         {loading ? (
           <div className="text-[13px] text-stone-400">{t('randomWalk.loading')}</div>
         ) : ended ? (
@@ -907,11 +907,22 @@ export default function RandomWalk() {
         )}
       </div>
 
-      {/* 底部操作栏（方形圆角图标浮钮，排列在内容卡下方；删除用主配色强调） */}
+      {/* 底部操作栏（方形圆角图标浮钮）。
+          顺序：删除 → 标签 → 编辑 → 复制 → 设置。
+          「删除」放在最左以远离拇指热点/视线，降低误触；浏览器原生 confirm 兜底。 */}
       {!ended && current && !showTagSheet && (
         <div className="shrink-0 px-4 pb-3 pt-1">
           <div className="flex items-center justify-center gap-2.5 max-w-md mx-auto">
             {/* #116 需求 7：移除底部「已阅」按钮（handleRead 与 read 过滤逻辑保留供后续复用）。 */}
+            <button
+              data-testid="walk-delete"
+              onClick={handleDelete}
+              title={t('randomWalk.delete')}
+              aria-label={t('randomWalk.delete')}
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-sm shadow-baimiao-mysteria/20 hover:brightness-110 transition-all active:scale-95"
+            >
+              <Trash2 className="w-[18px] h-[18px]" />
+            </button>
             <button
               data-testid="walk-tags"
               onClick={() => setShowTagSheet(true)}
@@ -955,15 +966,6 @@ export default function RandomWalk() {
               }`}
             >
               <Settings2 className="w-[18px] h-[18px]" />
-            </button>
-            <button
-              data-testid="walk-delete"
-              onClick={handleDelete}
-              title={t('randomWalk.delete')}
-              aria-label={t('randomWalk.delete')}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-sm shadow-baimiao-mysteria/20 hover:brightness-110 transition-all active:scale-95"
-            >
-              <Trash2 className="w-[18px] h-[18px]" />
             </button>
           </div>
         </div>
