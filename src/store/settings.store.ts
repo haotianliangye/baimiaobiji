@@ -594,16 +594,10 @@ export const useSettingsStore = create<SettingsState>()(
         const newDiaryReviewSummaryPrompt = diaryReviewSummaryPromptByLang[lang] || dNew.diaryReviewSummary;
         const newMingwuInsightSummaryPrompt = mingwuInsightSummaryPromptByLang[lang] || dNew.mingwuInsightSummary;
 
-        // Ensure default slots are always the correct language default
-        newReviewPrompts[0] = dNew.diary;
-        newReviewPrompts[1] = dNew.review;
+        // #open-default-slots: 默认槽位名称跟随当前语言，正文由用户编辑并按 per-language
+        // 持久化在 reviewPromptsByLang / mingwuInsightPromptsByLang 中，此处不再覆盖正文。
         newReviewPromptNames[0] = DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG[lang][0];
         newReviewPromptNames[1] = DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG[lang][1];
-        newMingwuPrompts[0] = dNew.mingwu;
-        newInsightPrompts[0] = dNew.insight;
-        // #008: 明悟/洞察默认槽位固定为对应语言默认 Prompt
-        newMingwuInsightPrompts[0] = dNew.mingwu;
-        newMingwuInsightPrompts[1] = dNew.insight;
         newMingwuInsightPromptNames[0] = DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG[lang][0];
         newMingwuInsightPromptNames[1] = DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG[lang][1];
 
@@ -881,21 +875,15 @@ export const useSettingsStore = create<SettingsState>()(
           // merge 阶段不再显式兜底：currentState spread 已为缺失字段提供初始默认值
           // （ttsProvider='gemini' 等）；老用户升级时由 migrate v<12 回填，已落盘字段原样保留。
 
-          // --- #5: 5 槽统一 reviewPrompts 防污染 ---
-          // 强制 slot 0 = DEFAULT_DIARY_PROMPT，slot 1 = DEFAULT_REVIEW_PROMPT
-          if (merged.reviewPrompts && merged.reviewPrompts.length >= 2) {
-            merged.reviewPrompts[0] = DEFAULT_DIARY_PROMPT;
-            merged.reviewPrompts[1] = DEFAULT_REVIEW_PROMPT;
-          }
-          // 确保 reviewPrompts 有 5 个槽位
+          // --- #5: 5 槽统一 reviewPrompts 长度兜底（不再强制覆盖 slot 0/1 正文） ---
+          // #open-default-slots: slot 0/1 正文可由用户在 per-language *ByLang 中定制，
+          // 此处只兜底长度 <5 的情况（用 '' 填充，不污染已有内容）。
           if (!merged.reviewPrompts || merged.reviewPrompts.length < 5) {
             const padded = merged.reviewPrompts ? [...merged.reviewPrompts] : [];
             while (padded.length < 5) padded.push('');
-            padded[0] = DEFAULT_DIARY_PROMPT;
-            padded[1] = DEFAULT_REVIEW_PROMPT;
             merged.reviewPrompts = padded;
           }
-          // 确保 reviewPromptNames 有 5 个槽位，slot 0/1 固定不可改名
+          // 确保 reviewPromptNames 有 5 个槽位，slot 0/1 名称仍锁定不可改
           if (!merged.reviewPromptNames || merged.reviewPromptNames.length < 5) {
             merged.reviewPromptNames = ['日记', '回顾', '自定义 1', '自定义 2', '自定义 3'];
           } else {
@@ -907,13 +895,10 @@ export const useSettingsStore = create<SettingsState>()(
             merged.reviewSelectedIndices = [0, 1];
           }
 
-          // --- 旧 4 槽 diaryPrompts 防污染（Copilot 仍依赖此字段）---
+          // --- 旧 4 槽 diaryPrompts（Copilot 仍依赖此字段，正文不再强制覆盖） ---
+          // #open-default-slots: diaryPrompts[0] 由 L826-838 反向同步自 merged.mingwuInsightPrompts[0]
+          // （即用户编辑后的 slot 0 正文），故此处无需再写默认。保留柳比歇夫字符串清理作为一次性数据纠偏。
           if (merged.diaryPrompts && merged.diaryPrompts.length === 4) {
-            merged.diaryPrompts[0] = DEFAULT_DIARY_PROMPT;
-            if (merged.diaryPromptIndex === 0) {
-              merged.diaryPrompt = DEFAULT_DIARY_PROMPT;
-            }
-
             // 强力纠偏：如果 1 号槽位（自定义 1）依然残留着柳比歇夫提示词（与 0 号位重复），则强制将其纠正为最新的”贴心日记助手”
             const slot1 = merged.diaryPrompts[1];
             if (slot1 && (slot1.includes('柳比歇夫时间管理') || slot1.includes('柳比歇夫时间日志'))) {
@@ -923,26 +908,20 @@ export const useSettingsStore = create<SettingsState>()(
               }
             }
           }
+          // #open-default-slots: insightPrompts[0] 由反向同步自 mingwuInsightPrompts[1]，此处冗余删除
           if (merged.insightPrompts && merged.insightPrompts.length > 0) {
-            merged.insightPrompts[0] = DEFAULT_INSIGHT_PROMPT;
-            if (merged.insightPromptIndex === 0) {
-              merged.insightPrompt = DEFAULT_INSIGHT_PROMPT;
-            }
+            // 内容已由 L1088 反向同步，无需再覆盖
           }
 
-          // --- #8: 明悟生成 Prompt 4 槽防污染 ---
-          // slot 0 固定为 DEFAULT_MINGWU_PROMPT；确保有 4 个槽位。
+          // --- #8: 明悟生成 Prompt 4 槽长度兜底（slot 0 正文不再强制） ---
+          // #open-default-slots: mingwuPrompts[0] 由反向同步自 mingwuInsightPrompts[0]，此处冗余
           if (!merged.mingwuPrompts || merged.mingwuPrompts.length < 4) {
             const padded = merged.mingwuPrompts ? [...merged.mingwuPrompts] : [];
             while (padded.length < 4) padded.push('');
-            padded[0] = DEFAULT_MINGWU_PROMPT;
             merged.mingwuPrompts = padded;
-          } else {
-            merged.mingwuPrompts[0] = DEFAULT_MINGWU_PROMPT;
           }
-          if (merged.mingwuPromptIndex === 0 || merged.mingwuPromptIndex === undefined) {
+          if (merged.mingwuPromptIndex === undefined) {
             merged.mingwuPromptIndex = 0;
-            merged.mingwuPrompt = DEFAULT_MINGWU_PROMPT;
           }
 
           // --- #12: 多语言 i18n 合并 ---
@@ -951,22 +930,13 @@ export const useSettingsStore = create<SettingsState>()(
           merged.language = mergeLang;
           const dMerge = DEFAULT_PROMPTS_BY_LANG[mergeLang];
 
-          // 根据当前语言覆盖默认槽位（slot 0/1 固定为对应语言的默认 Prompt）
-          if (merged.reviewPrompts && merged.reviewPrompts.length >= 2) {
-            merged.reviewPrompts[0] = dMerge.diary;
-            merged.reviewPrompts[1] = dMerge.review;
-          }
-          // 覆盖 slot 0/1 名称为当前语言
+          // #open-default-slots: slot 0/1 正文由用户在 *ByLang[mergeLang] 中定制，此处不再覆盖；
+          // 仅同步 slot 0/1 名称到当前语言。
           if (merged.reviewPromptNames && merged.reviewPromptNames.length >= 2) {
             merged.reviewPromptNames[0] = DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG[mergeLang][0];
             merged.reviewPromptNames[1] = DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG[mergeLang][1];
           }
-          if (merged.mingwuPrompts && merged.mingwuPrompts.length >= 1) {
-            merged.mingwuPrompts[0] = dMerge.mingwu;
-          }
-          if (merged.insightPrompts && merged.insightPrompts.length >= 1) {
-            merged.insightPrompts[0] = dMerge.insight;
-          }
+          // mingwuPrompts[0] / insightPrompts[0] 由 L1087-1090 反向同步，无需再覆盖
 
           // 初始化 *ByLang 字段（如果缺失，从当前 active 字段拷贝到 zh，en 用默认值）
           if (!merged.reviewPromptsByLang) {
@@ -1012,15 +982,13 @@ export const useSettingsStore = create<SettingsState>()(
             };
           }
 
-          // --- #008: 合并后字段防污染与初始化 ---
-          // mingwuInsightPrompts: 5 槽（明悟/洞察/自定义1/2/3），slot 0/1 固定默认
+          // --- #008: 合并后字段长度兜底与名称锁定（slot 0/1 正文不再强制） ---
+          // #open-default-slots: mingwuInsightPrompts[0/1] 正文由用户在 *ByLang[lang] 中定制
           if (!merged.mingwuInsightPrompts || merged.mingwuInsightPrompts.length < 5) {
             const padded = merged.mingwuInsightPrompts ? [...merged.mingwuInsightPrompts] : [];
             while (padded.length < 5) padded.push('');
             merged.mingwuInsightPrompts = padded;
           }
-          merged.mingwuInsightPrompts[0] = dMerge.mingwu;
-          merged.mingwuInsightPrompts[1] = dMerge.insight;
           // mingwuInsightPromptNames: 5 槽名称，slot 0/1 固定
           if (!merged.mingwuInsightPromptNames || merged.mingwuInsightPromptNames.length < 5) {
             merged.mingwuInsightPromptNames = [...DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG[mergeLang]];
@@ -1069,12 +1037,11 @@ export const useSettingsStore = create<SettingsState>()(
               en: DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT_EN,
             };
           }
-          // 按当前语言覆盖合并后字段的 per-lang 默认槽位
+          // #open-default-slots: 按当前语言覆盖合并后字段的 per-lang 名称（正文保留用户定制）
           if (merged.mingwuInsightPromptsByLang[mergeLang]) {
             const miLang = [...merged.mingwuInsightPromptsByLang[mergeLang]];
             while (miLang.length < 5) miLang.push('');
-            miLang[0] = dMerge.mingwu;
-            miLang[1] = dMerge.insight;
+            // 不再覆盖 miLang[0]/[1]，保留用户在 *ByLang[lang] 中的定制
             merged.mingwuInsightPromptsByLang[mergeLang] = miLang;
           }
           if (merged.mingwuInsightPromptNamesByLang[mergeLang] && merged.mingwuInsightPromptNamesByLang[mergeLang].length >= 2) {

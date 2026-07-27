@@ -711,13 +711,13 @@ function AutoBackupSection() {
                 </span>
                 <button
                   onClick={() => handleRestore(b.id)}
-                  className="shrink-0 px-2 py-1 text-stone-600 hover:text-stone-900 hover:bg-white rounded text-[10.5px] opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="shrink-0 px-2 py-1 text-stone-600 hover:text-stone-900 hover:bg-white rounded text-[10.5px] transition-opacity"
                 >
                   {t('settings.autoBackupRestore')}
                 </button>
                 <button
                   onClick={() => handleDelete(b.id)}
-                  className="shrink-0 p-1 text-stone-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="shrink-0 p-1 text-stone-400 hover:text-red-600 transition-opacity"
                   title={t('settings.autoBackupDelete')}
                 >
                   <Trash2 className="w-3 h-3" />
@@ -2443,7 +2443,24 @@ export default function Settings() {
                         </button>
                       ))}
                     </div>
-                    {localReviewIndex >= 2 && (
+                    {localReviewIndex < 2 ? (
+                      // #open-default-slots: 槽 0/1 正文可编辑，「恢复默认」按当前语言回填
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const lang = useSettingsStore.getState().language;
+                          const next = [...localReviewPrompts];
+                          next[localReviewIndex] = localReviewIndex === 0
+                            ? DEFAULT_PROMPTS_BY_LANG[lang].diary
+                            : DEFAULT_PROMPTS_BY_LANG[lang].review;
+                          setLocalReviewPrompts(next);
+                        }}
+                        className="text-[11px] text-stone-400 hover:text-emerald-600 flex items-center gap-0.5 transition-colors"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        {t('settings.restoreDefault')}
+                      </button>
+                    ) : (
                       <button
                         type="button"
                         onClick={() => {
@@ -2479,20 +2496,14 @@ export default function Settings() {
                 )}
 
                 <textarea
-                  placeholder={localReviewIndex < 2 ? '' : t('settings.promptPlaceholder')}
+                  placeholder={t('settings.promptPlaceholder')}
                   value={localReviewPrompts[localReviewIndex] || ''}
-                  readOnly={localReviewIndex < 2}
                   onChange={e => {
-                    if (localReviewIndex < 2) return;
                     const next = [...localReviewPrompts];
                     next[localReviewIndex] = e.target.value;
                     setLocalReviewPrompts(next);
                   }}
-                  className={`w-full h-28 resize-none border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] transition-all font-mono leading-relaxed ${
-                    localReviewIndex < 2
-                      ? 'bg-stone-50 text-stone-400 border-dashed border-stone-200 cursor-not-allowed'
-                      : 'bg-white text-stone-900 focus:bg-white'
-                  }`}
+                  className="w-full h-28 resize-none border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] transition-all font-mono leading-relaxed bg-white text-stone-900 focus:bg-white placeholder:text-stone-400"
                 />
 
                 {/* #5: 自动生成选中状态 - 每个槽位可勾选 */}
@@ -2562,7 +2573,24 @@ export default function Settings() {
                         </button>
                       ))}
                     </div>
-                    {localMingwuInsightIndex >= 2 && (
+                    {localMingwuInsightIndex < 2 ? (
+                      // #open-default-slots: 槽 0/1 正文可编辑，「恢复默认」按当前语言回填
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const lang = useSettingsStore.getState().language;
+                          const next = [...localMingwuInsightPrompts];
+                          next[localMingwuInsightIndex] = localMingwuInsightIndex === 0
+                            ? DEFAULT_PROMPTS_BY_LANG[lang].mingwu
+                            : DEFAULT_PROMPTS_BY_LANG[lang].insight;
+                          setLocalMingwuInsightPrompts(next);
+                        }}
+                        className="text-[11px] text-stone-400 hover:text-emerald-600 flex items-center gap-0.5 transition-colors"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        {t('settings.restoreDefault')}
+                      </button>
+                    ) : (
                       <button
                         type="button"
                         onClick={() => {
@@ -2598,20 +2626,14 @@ export default function Settings() {
                 )}
 
                 <textarea
-                  placeholder={localMingwuInsightIndex < 2 ? '' : t('settings.mingwuInsightPromptPlaceholder')}
+                  placeholder={t('settings.mingwuInsightPromptPlaceholder')}
                   value={localMingwuInsightPrompts[localMingwuInsightIndex] || ''}
-                  readOnly={localMingwuInsightIndex < 2}
                   onChange={e => {
-                    if (localMingwuInsightIndex < 2) return;
                     const next = [...localMingwuInsightPrompts];
                     next[localMingwuInsightIndex] = e.target.value;
                     setLocalMingwuInsightPrompts(next);
                   }}
-                  className={`w-full h-28 resize-none border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] transition-all font-mono leading-relaxed ${
-                    localMingwuInsightIndex < 2
-                      ? 'bg-stone-50 text-stone-400 border-dashed border-stone-200 cursor-not-allowed'
-                      : 'bg-white text-stone-900 focus:bg-white'
-                  }`}
+                  className="w-full h-28 resize-none border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 rounded-xl text-[13px] transition-all font-mono leading-relaxed bg-white text-stone-900 focus:bg-white placeholder:text-stone-400"
                 />
 
                 {/* #008: 自动生成选中状态 - 明悟/洞察/自定义槽位可勾选 */}
@@ -3655,23 +3677,34 @@ export default function Settings() {
         <div className="shrink-0 px-3 py-3 border-t border-baimiao-border/30 bg-white">
           <button
             onClick={() => {
+              // #open-default-slots: 默认槽位空值兜底，避免下游 /api/generate-* 收到空 prompt
+              const safeReviewPrompts: string[] = [
+                localReviewPrompts[0] || DEFAULT_PROMPTS_BY_LANG[language].diary,
+                localReviewPrompts[1] || DEFAULT_PROMPTS_BY_LANG[language].review,
+                ...localReviewPrompts.slice(2),
+              ];
+              const safeMingwuInsightPrompts: string[] = [
+                localMingwuInsightPrompts[0] || DEFAULT_PROMPTS_BY_LANG[language].mingwu,
+                localMingwuInsightPrompts[1] || DEFAULT_PROMPTS_BY_LANG[language].insight,
+                ...localMingwuInsightPrompts.slice(2),
+              ];
               setSettings({
                 // #5: 保留旧 diaryPrompts 供 Copilot 兼容（只含日记槽位内容）
-                diaryPrompts: [localReviewPrompts[0], '', '', ''],
+                diaryPrompts: [safeReviewPrompts[0], '', '', ''],
                 diaryPromptIndex: 0,
-                diaryPrompt: localReviewPrompts[0],
+                diaryPrompt: safeReviewPrompts[0],
                 // #5: 统一 5 槽 reviewPrompts + 名称 + 选中状态
-                reviewPrompts: localReviewPrompts,
+                reviewPrompts: safeReviewPrompts,
                 reviewPromptNames: localReviewPromptNames,
                 reviewSelectedIndices: localReviewSelectedIndices,
                 reviewPromptIndex: localReviewIndex,
-                reviewPrompt: localReviewPrompts[localReviewIndex],
+                reviewPrompt: safeReviewPrompts[localReviewIndex] || safeReviewPrompts[0],
                 // #008: 合并后字段（store setSettings 会反向同步旧 insightPrompts/mingwuPrompts/summary 等只读兼容字段）
-                mingwuInsightPrompts: localMingwuInsightPrompts,
+                mingwuInsightPrompts: safeMingwuInsightPrompts,
                 mingwuInsightPromptNames: localMingwuInsightPromptNames,
                 mingwuInsightSelectedIndices: localMingwuInsightSelectedIndices,
                 mingwuInsightPromptIndex: localMingwuInsightIndex,
-                mingwuInsightPrompt: localMingwuInsightPrompts[localMingwuInsightIndex],
+                mingwuInsightPrompt: safeMingwuInsightPrompts[localMingwuInsightIndex] || safeMingwuInsightPrompts[0],
                 diaryReviewSummaryPrompt: localDiaryReviewSummaryPrompt,
                 mingwuInsightSummaryPrompt: localMingwuInsightSummaryPrompt,
                 syncEnabled: localSyncEnabled,
