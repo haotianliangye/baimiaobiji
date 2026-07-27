@@ -102,12 +102,12 @@ interface AppState {
   // 需求 6：沉淀视图模式 & 洞察时间范围（顶部栏胶囊与页面共享状态）
   thoughtsViewMode: 'masonry' | 'timeline';
   setThoughtsViewMode: (mode: 'masonry' | 'timeline') => void;
-  mingwuTimeRange: string;
-  setMingwuTimeRange: (range: string) => void;
-  mingwuCustomStart: string;
-  setMingwuCustomStart: (date: string) => void;
-  mingwuCustomEnd: string;
-  setMingwuCustomEnd: (date: string) => void;
+  insightTimeRange: string;
+  setInsightTimeRange: (range: string) => void;
+  insightCustomStart: string;
+  setInsightCustomStart: (date: string) => void;
+  insightCustomEnd: string;
+  setInsightCustomEnd: (date: string) => void;
 
   searchQuery: string;
   searchHistory: string[];
@@ -209,9 +209,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // 需求 6：沉淀视图模式 & 洞察时间范围（顶部栏胶囊与页面共享状态）
   thoughtsViewMode: 'timeline',
-  mingwuTimeRange: 'week',
-  mingwuCustomStart: '',
-  mingwuCustomEnd: '',
+  insightTimeRange: 'week',
+  insightCustomStart: '',
+  insightCustomEnd: '',
 
   searchQuery: '',
   searchHistory: (() => {
@@ -993,16 +993,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ thoughtsViewMode: mode });
   },
 
-  setMingwuTimeRange: (range) => {
-    set({ mingwuTimeRange: range });
+  setInsightTimeRange: (range) => {
+    set({ insightTimeRange: range });
   },
 
-  setMingwuCustomStart: (date) => {
-    set({ mingwuCustomStart: date });
+  setInsightCustomStart: (date) => {
+    set({ insightCustomStart: date });
   },
 
-  setMingwuCustomEnd: (date) => {
-    set({ mingwuCustomEnd: date });
+  setInsightCustomEnd: (date) => {
+    set({ insightCustomEnd: date });
   },
 
   setSearchQuery: (query) => {

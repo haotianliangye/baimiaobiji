@@ -471,11 +471,11 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
 export default function Insights() {
   const { t } = useTranslation();
   // 需求 6：时间范围与自定义日期从 app store 读取（顶部栏胶囊控制）
-  const timeRange = useAppStore((s) => s.mingwuTimeRange);
-  const customStart = useAppStore((s) => s.mingwuCustomStart);
-  const customEnd = useAppStore((s) => s.mingwuCustomEnd);
-  const setMingwuCustomStart = useAppStore((s) => s.setMingwuCustomStart);
-  const setMingwuCustomEnd = useAppStore((s) => s.setMingwuCustomEnd);
+  const timeRange = useAppStore((s) => s.insightTimeRange);
+  const customStart = useAppStore((s) => s.insightCustomStart);
+  const customEnd = useAppStore((s) => s.insightCustomEnd);
+  const setInsightCustomStart = useAppStore((s) => s.setInsightCustomStart);
+  const setInsightCustomEnd = useAppStore((s) => s.setInsightCustomEnd);
 
   const { isGeneratingMingwu, mingwuError } = useAppStore();
   const { generateMingwu, regenerateMingwu } = useMingwuStore();
@@ -602,14 +602,14 @@ export default function Insights() {
         <div className="flex bg-white border-b border-stone-100 px-3 py-2.5 justify-center gap-2 items-center z-10 relative shadow-sm overflow-visible shrink-0">
           <DatePickerPopover
             value={customStart}
-            onChange={setMingwuCustomStart}
+            onChange={setInsightCustomStart}
             placeholder={t('settings.startDate')}
             align="left"
           />
           <span className="text-stone-400 text-[12px] font-medium shrink-0">{t('insight.to')}</span>
           <DatePickerPopover
             value={customEnd}
-            onChange={setMingwuCustomEnd}
+            onChange={setInsightCustomEnd}
             placeholder={t('settings.endDate')}
             align="right"
           />

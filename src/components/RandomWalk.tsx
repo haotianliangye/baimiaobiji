@@ -6,7 +6,7 @@
  * 关闭、灯泡 toggle 由 Layout 控制；本组件只负责卡片区 + 底部操作栏。
  *
  * 数据源：默认 thoughts + daily_reviews；可在面板内扩展为
- *   raw_logs + thoughts + daily_reviews + mingwu（存 localStorage，不进 settings.store）。
+ *   raw_logs + thoughts + daily_reviews + insights（来自 db.insights，IndexedDB 存储）。
  *
  * 抽取规则：每次随机抽 3 条（跨所选数据源），过滤最近 N 天（默认 7，可配置）已展示过的记录；
  *   「已阅」按钮标记为永久不再出现。展示历史存 localStorage(random-walk-shown)。
@@ -195,7 +195,7 @@ function toWalkItems(
   thoughts: Thought[],
   rawLogs: RawLog[],
   reviews: DailyReview[],
-  mingwu: Insight[],
+  insights: Insight[],
   sources: SourceType[],
   tf: TFunc
 ): WalkItem[] {
@@ -256,7 +256,7 @@ function toWalkItems(
     }
   }
   if (sources.includes('insights')) {
-    for (const m of mingwu) {
+    for (const m of insights) {
       if (!m.id) continue;
       items.push({
         key: `insights:${m.id}`,
@@ -440,15 +440,15 @@ export default function RandomWalk() {
   const allThoughts = useLiveQuery(() => db.thoughts.toArray(), []);
   const allRawLogs = useLiveQuery(() => db.raw_logs.toArray(), []);
   const allReviews = useLiveQuery(() => db.daily_reviews.toArray(), []);
-  const allMingwu = useLiveQuery(() => db.insights.toArray(), []);
+  const allInsights = useLiveQuery(() => db.insights.toArray(), []);
 
   // 用 ref 持有最新数据，draw 闭包始终读到最新值
-  const dataRef = useRef({ thoughts: [] as Thought[], rawLogs: [] as RawLog[], reviews: [] as DailyReview[], mingwu: [] as Insight[] });
+  const dataRef = useRef({ thoughts: [] as Thought[], rawLogs: [] as RawLog[], reviews: [] as DailyReview[], insights: [] as Insight[] });
   dataRef.current = {
     thoughts: allThoughts || [],
     rawLogs: allRawLogs || [],
     reviews: allReviews || [],
-    mingwu: allMingwu || [],
+    insights: allInsights || [],
   };
 
   // DocumentView 用的附件解析：从 db.attachments 取 Blob（与沉淀/记录页面同款）
@@ -501,7 +501,7 @@ export default function RandomWalk() {
       dataRef.current.thoughts,
       dataRef.current.rawLogs,
       dataRef.current.reviews,
-      dataRef.current.mingwu,
+      dataRef.current.insights,
       sourcesRef.current,
       t
     );
@@ -537,7 +537,7 @@ export default function RandomWalk() {
     allThoughts !== undefined &&
     allRawLogs !== undefined &&
     allReviews !== undefined &&
-    allMingwu !== undefined;
+    allInsights !== undefined;
   const didInitDraw = useRef(false);
   useEffect(() => {
     if (!ready || didInitDraw.current) return;

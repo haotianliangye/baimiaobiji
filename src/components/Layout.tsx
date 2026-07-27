@@ -54,8 +54,8 @@ export default function Layout() {
     setRandomWalkMode,
     thoughtsViewMode,
     setThoughtsViewMode,
-    mingwuTimeRange,
-    setMingwuTimeRange,
+    insightTimeRange,
+    setInsightTimeRange,
   } = useAppStore();
 
   const { syncEnabled, embedEnabled, diaryPrompts } = useSettingsStore();
@@ -77,7 +77,7 @@ export default function Layout() {
   const showDateNav = currentPath === '/' || currentPath === '/review';
   // 需求 6：沉淀中间为瀑布流/时间线胶囊；洞察中间为时间范围胶囊
   const showThoughtsCapsule = currentPath === '/thoughts';
-  const showMingwuCapsule = currentPath === '/insight';
+  const showInsightCapsule = currentPath === '/insight';
   const isTagAggregation = currentPath === '/tag';
   const tagPathParam = isTagAggregation ? (searchParams.get('path') || '') : '';
   const tagDisplayName = tagPathParam ? tagPathParam.split('/').pop() || tagPathParam : '';
@@ -93,7 +93,7 @@ export default function Layout() {
   const headerTitleKey = routeTitleKey[currentPath] || 'layout.titleBaimiao';
 
   // 需求 6：洞察时间范围胶囊选项（复用现有洞察下拉选项与语义）
-  const mingwuRangeOptions = [
+  const insightRangeOptions = [
     { value: 'day', label: t('insight.rangeDay') },
     { value: 'week', label: t('insight.rangeWeek') },
     { value: 'month', label: t('insight.rangeMonth') },
@@ -102,8 +102,8 @@ export default function Layout() {
     { value: 'year', label: t('insight.rangeYear') },
     { value: 'custom', label: t('insight.rangeCustomRange') },
   ];
-  const mingwuRangeLabel = (range: string) =>
-    mingwuRangeOptions.find((o) => o.value === range)?.label || t('insight.rangeWeek');
+  const insightRangeLabel = (range: string) =>
+    insightRangeOptions.find((o) => o.value === range)?.label || t('insight.rangeWeek');
 
   // 日期导航（与各页面共用 ?date= 查询参数）
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -138,12 +138,12 @@ export default function Layout() {
   const [showThoughtsDropdown, setShowThoughtsDropdown] = useState(false);
   const thoughtsCapsuleRef = useRef<HTMLDivElement>(null);
   const thoughtsCardRef = useRef<HTMLDivElement>(null);
-  const [showMingwuDropdown, setShowMingwuDropdown] = useState(false);
-  const mingwuCapsuleRef = useRef<HTMLDivElement>(null);
-  const mingwuCardRef = useRef<HTMLDivElement>(null);
+  const [showInsightDropdown, setShowInsightDropdown] = useState(false);
+  const insightCapsuleRef = useRef<HTMLDivElement>(null);
+  const insightCardRef = useRef<HTMLDivElement>(null);
   // 下拉定位:用 createPortal + fixed + 胶囊 rect,避开父级 overflow-hidden 裁剪
   const [thoughtsDropdownRect, setThoughtsDropdownRect] = useState<{ left: number; top: number } | null>(null);
-  const [mingwuDropdownRect, setMingwuDropdownRect] = useState<{ left: number; top: number } | null>(null);
+  const [insightDropdownRect, setInsightDropdownRect] = useState<{ left: number; top: number } | null>(null);
   // 标签聚合页 TopBar 胶囊下拉
   const [showTagDropdown, setShowTagDropdown] = useState(false);
   const tagCapsuleRef = useRef<HTMLDivElement>(null);
@@ -217,10 +217,10 @@ export default function Layout() {
   // 需求 6：洞察时间范围胶囊点击外部关闭
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      const inButton = mingwuCapsuleRef.current && mingwuCapsuleRef.current.contains(event.target as Node);
-      const inCard = mingwuCardRef.current && mingwuCardRef.current.contains(event.target as Node);
+      const inButton = insightCapsuleRef.current && insightCapsuleRef.current.contains(event.target as Node);
+      const inCard = insightCardRef.current && insightCardRef.current.contains(event.target as Node);
       if (!inButton && !inCard) {
-        setShowMingwuDropdown(false);
+        setShowInsightDropdown(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -292,12 +292,12 @@ export default function Layout() {
 
   // 洞察胶囊下拉定位(同 tag dropdown 模式)
   useEffect(() => {
-    if (!showMingwuDropdown || !mingwuCapsuleRef.current) return;
+    if (!showInsightDropdown || !insightCapsuleRef.current) return;
     const update = () => {
-      const el = mingwuCapsuleRef.current;
+      const el = insightCapsuleRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
-      setMingwuDropdownRect({
+      setInsightDropdownRect({
         left: rect.left + rect.width / 2,
         top: rect.bottom + 6,
       });
@@ -309,7 +309,7 @@ export default function Layout() {
       window.removeEventListener('scroll', update, true);
       window.removeEventListener('resize', update);
     };
-  }, [showMingwuDropdown]);
+  }, [showInsightDropdown]);
 
   useEffect(() => {
     if (showDateDropdown) {
@@ -661,39 +661,39 @@ export default function Layout() {
             )}
 
             {/* 中：洞察时间范围下拉胶囊（随机漫步模式下隐藏） */}
-            {showMingwuCapsule && !isRandomWalkMode && (
-              <div className="absolute left-1/2 -translate-x-1/2 shrink-0 z-20" ref={mingwuCapsuleRef}>
+            {showInsightCapsule && !isRandomWalkMode && (
+              <div className="absolute left-1/2 -translate-x-1/2 shrink-0 z-20" ref={insightCapsuleRef}>
                 <button
-                  data-testid="mingwu-range-dropdown"
-                  onClick={() => setShowMingwuDropdown(!showMingwuDropdown)}
+                  data-testid="insight-range-dropdown"
+                  onClick={() => setShowInsightDropdown(!showInsightDropdown)}
                   className="flex items-center gap-1 px-3 py-1 rounded-full bg-stone-100/80 border border-stone-200/60 text-baimiao-mysteria text-[12px] font-medium select-none hover:bg-stone-200/60 transition-colors active:scale-95"
                 >
-                  {mingwuRangeLabel(mingwuTimeRange)}
+                  {insightRangeLabel(insightTimeRange)}
                   <ChevronDown className="w-3 h-3 opacity-60" />
                 </button>
               </div>
             )}
-            {showMingwuCapsule && showMingwuDropdown && mingwuDropdownRect && createPortal(
+            {showInsightCapsule && showInsightDropdown && insightDropdownRect && createPortal(
               <div
-                ref={mingwuCardRef}
-                data-testid="mingwu-capsule-dropdown"
+                ref={insightCardRef}
+                data-testid="insight-capsule-dropdown"
                 style={{
                   position: 'fixed',
-                  left: `${mingwuDropdownRect.left}px`,
-                  top: `${mingwuDropdownRect.top}px`,
+                  left: `${insightDropdownRect.left}px`,
+                  top: `${insightDropdownRect.top}px`,
                   transform: 'translateX(-50%)',
                   zIndex: 60,
                 }}
                 className="bg-white border border-stone-200/60 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-1.5 animate-in fade-in zoom-in-95 duration-100 w-[200px]"
               >
                 <div className="grid grid-cols-4 gap-1">
-                  {mingwuRangeOptions.map((opt) => (
+                  {insightRangeOptions.map((opt) => (
                     <button
                       key={opt.value}
-                      data-testid={`mingwu-range-option-${opt.value}`}
-                      onClick={() => { setMingwuTimeRange(opt.value); setShowMingwuDropdown(false); }}
+                      data-testid={`insight-range-option-${opt.value}`}
+                      onClick={() => { setInsightTimeRange(opt.value); setShowInsightDropdown(false); }}
                       className={`px-1 py-2 text-[11px] font-medium rounded-lg text-center transition-colors ${
-                        mingwuTimeRange === opt.value
+                        insightTimeRange === opt.value
                           ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria'
                           : 'text-stone-500 hover:text-baimiao-mysteria hover:bg-stone-100/50'
                       }`}
