@@ -49,6 +49,7 @@ import RichEditor from "../components/RichEditor";
 import DocumentEditor from "../components/DocumentEditor";
 import DocumentView from "../components/DocumentView";
 import MediaPreview from "../components/MediaPreview";
+import { TagChip } from "../components/TagChip";
 import { saveAttachmentBlob, saveFileAsAttachment, blobToBase64, generateAttachmentSummary, requestMultimediaSummary } from "../lib/multimedia";
 import { documentToText, plainTextToDocument, type RichDocument } from "../lib/documentModel";
 import { insertMediaNodeJson, makeMediaAttrs } from "../lib/editorExtensions";
@@ -1568,6 +1569,17 @@ export default function Record() {
                       {retryingLogId === log.id ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <RefreshCw className="w-3.5 h-3.5"/>}
                       {t('record.retryTranscription')}
                     </button>
+                  )}
+                  {(log.tags?.length ?? 0) > 0 && (
+                    <div className="flex items-center gap-1 flex-wrap mt-2">
+                      {log.tags!.map((tag) => (
+                        <TagChip
+                          key={tag}
+                          path={tag}
+                          testId={`record-tag-${log.id}-${tag}`}
+                        />
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>

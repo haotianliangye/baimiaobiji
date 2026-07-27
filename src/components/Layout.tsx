@@ -468,11 +468,18 @@ export default function Layout() {
                 </button>
               </div>
             )}
-            {isTagAggregation && showTagDropdown && tagDisplayName && (
+            {isTagAggregation && showTagDropdown && tagDisplayName && tagDropdownRect && createPortal(
               <div
                 ref={tagCardRef}
                 data-testid="tag-aggregation-capsule-dropdown"
-                className="absolute left-1/2 -translate-x-1/2 top-[44px] z-50 bg-white rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-1.5 w-[240px] animate-in fade-in zoom-in-95 duration-100"
+                style={{
+                  position: 'fixed',
+                  left: `${tagDropdownRect.left}px`,
+                  top: `${tagDropdownRect.top}px`,
+                  transform: 'translateX(-50%)',
+                  zIndex: 60,
+                }}
+                className="bg-white rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-1.5 w-[240px] animate-in fade-in zoom-in-95 duration-100"
               >
                 {/* 1. 切换标签(二级列表,默认收起) */}
                 <button
@@ -554,7 +561,8 @@ export default function Layout() {
                 >
                   {t('tags.aggregationBack')}
                 </button>
-              </div>
+              </div>,
+              document.body
             )}
 
             {/* 中：沉淀瀑布流/时间线下拉胶囊切换器（仅文字无图标；随机漫步模式下隐藏） */}
