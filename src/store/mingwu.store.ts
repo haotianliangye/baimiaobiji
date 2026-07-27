@@ -7,16 +7,14 @@
  * 数据源：所选时间范围的 raw_logs + thoughts。生成时按 settings.submitMultimedia
  * 决定是否向模型提交多媒体摘要（raw_logs.attachment_summary）。
  *
- * AI 产出自动打全局标签：生成文本后用 parseTagsFromText 提取 #标签、resolveAlias
- * 纠正被合并的标签、createTag 落库到全局 tags 表，存入 insights.tags（非索引字段）。
+ * 标签改为用户手动管理：生成时不再调用 parseTagsFromText，新生成的洞察 tags 字段
+ * 默认为空数组；regenerate 时保留用户已手动添加的标签。手动编辑 UI 见 Insights.tsx。
  *
  * 生成队列状态托管在 app.store（isGeneratingInsight / insightError），本 store 负责逻辑。
  */
 import { create } from 'zustand';
 import { db, type Insight } from '../db/db';
 import { generateUUID } from '../lib/utils';
-import { parseTagsFromText, resolveAlias } from '../lib/tags';
-import { useTagsStore } from './tags.store';
 import { useSettingsStore } from './settings.store';
 import { useAppStore } from './app.store';
 import { format } from 'date-fns';
@@ -33,24 +31,6 @@ interface MingwuState {
   generateMingwu: (params: GenerateMingwuParams) => Promise<void>;
   /** 重新生成单张卡片（按 oldInsight 的时间范围与类型）。 */
   regenerateMingwu: (oldInsight: Insight) => Promise<void>;
-}
-
-/**
- * 从文本解析 #标签 -> resolveAlias 纠正 -> createTag 落库，返回去重后的标签路径数组。
- * 与 thoughts.store 的 processTagsFromText 流程一致，保证全局标签系统口径统一。
- */
-async function processTagsFromText(text: string): Promise<string[]> {
-  const store = useTagsStore.getState();
-  await store.refreshAliases();
-  const aliases = useTagsStore.getState().aliases;
-  const rawTags = parseTagsFromText(text);
-  if (rawTags.length === 0) return [];
-  const resolved = rawTags.map((t) => resolveAlias(t, aliases));
-  const unique = Array.from(new Set(resolved));
-  for (const tag of unique) {
-    await store.createTag(tag);
-  }
-  return unique;
 }
 
 /**
@@ -156,7 +136,6 @@ export const useMingwuStore = create<MingwuState>(() => ({
 
       // 明悟卡片
       if (wantMingwu && data.mingwu_report) {
-        const mingwuTags = await processTagsFromText(data.mingwu_report);
         const mingwuCard: Insight = {
           id: generateUUID(),
           range_type: rangeType,
@@ -167,14 +146,13 @@ export const useMingwuStore = create<MingwuState>(() => ({
           ai_summary: (data.mingwu_summary || '').toString().trim() || '暂无内容概要',
           insight_type: 'mingwu',
           created_at: now,
-          tags: mingwuTags,
+          tags: [],   // #insight-manual-tags: 标签由用户在 Insights.tsx 手动添加
         };
         await db.insights.add(mingwuCard);
       }
 
       // 洞察卡片（时间戳略晚 1ms，保证列表中明悟在前）
       if (wantInsight && data.insight_report) {
-        const insightTags = await processTagsFromText(data.insight_report);
         const insightCard: Insight = {
           id: generateUUID(),
           range_type: rangeType,
@@ -185,7 +163,7 @@ export const useMingwuStore = create<MingwuState>(() => ({
           ai_summary: (data.insight_summary || '').toString().trim() || '暂无内容概要',
           insight_type: 'insight',
           created_at: now + 1,
-          tags: insightTags,
+          tags: [],   // #insight-manual-tags: 标签由用户在 Insights.tsx 手动添加
         };
         await db.insights.add(insightCard);
       }
@@ -225,7 +203,8 @@ export const useMingwuStore = create<MingwuState>(() => ({
       const summary = isMingwuType ? data.mingwu_summary : data.insight_summary;
 
       if (report) {
-        const tags = await processTagsFromText(report);
+        // #insight-manual-tags: regenerate 时保留用户已手动添加的标签，不重新解析
+        const preservedTags = oldInsight.tags || [];
         // 删除旧卡片，添加新卡片
         if (oldInsight.id) {
           await db.insights.delete(oldInsight.id);
@@ -240,7 +219,7 @@ export const useMingwuStore = create<MingwuState>(() => ({
           ai_summary: (summary || '').toString().trim() || oldInsight.ai_summary || '暂无内容概要',
           insight_type: oldInsight.insight_type,
           created_at: now,
-          tags,
+          tags: preservedTags,
         });
       }
     } catch (err: any) {

@@ -501,7 +501,7 @@ ${logsSection || '（无拾微记录）'}
 Thoughts (沉淀):
 ${thoughtsSection || '（无沉淀笔记）'}
 
-请用清晰克制的 Markdown 格式输出你的明悟报告。可在文中以 #标签 形式标注浮现的关键生命主题。`;
+请用清晰克制的 Markdown 格式输出你的明悟报告。`;
 
       // 洞察上下文
       const insightContext = `${insightPrompt || defaultInsightPrompt}

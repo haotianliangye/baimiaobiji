@@ -287,6 +287,10 @@ export const en: TranslationDict = {
   'insight.copied': 'Copied',
   'insight.edit': 'Edit',
   'insight.save': 'Save',
+  // #insight-manual-tags: manual tag editing
+  'insight.tagPlaceholder': 'Tag path',
+  'insight.addTag': 'Add tag',
+  'insight.tags': 'Tags',
   'insight.saving': 'Saving…',
   'insight.cancel': 'Cancel',
   'insight.delete': 'Delete',

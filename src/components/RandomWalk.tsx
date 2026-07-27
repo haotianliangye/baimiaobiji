@@ -729,7 +729,9 @@ export default function RandomWalk() {
   };
 
   // ---------- 标签增删（仅 raw_logs / daily_reviews） ----------
-  const canEditTags = current?.type === 'raw_logs' || current?.type === 'daily_reviews';
+  const canEditTags = current?.type === 'raw_logs'
+    || current?.type === 'daily_reviews'
+    || current?.type === 'insights';
 
   const refreshItemTags = (key: string, tags: string[]) => {
     setItems((prev) => prev.map((it) => (it.key === key ? { ...it, tags } : it)));

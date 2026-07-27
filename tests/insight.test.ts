@@ -204,25 +204,43 @@ async function run() {
   assert('B2 明悟类型徽标存在', !!mingwuBadge, mingwuBadge ? '有徽标' : '无徽标');
   assert('B3 洞察类型徽标存在', !!insightBadge, insightBadge ? '有徽标' : '无徽标');
 
-  // ---------- 断言 C：AI 产出自动打标签 ----------
-  // insights 记录的 tags 字段应非空
-  const insightWithTags = insightRecords.filter((m) => m.tags && m.tags.length > 0);
+  // ---------- 断言 C：取消 AI 自动打标签（改为手动添加） ----------
+  // #insight-manual-tags: 新生成的洞察 tags 字段应为空（默认无 AI 自动标签）
+  const insightWithoutTags = insightRecords.filter((m) => !m.tags || m.tags.length === 0);
   assert(
-    'C1 insights 记录含 tags 字段',
-    insightWithTags.length >= 2,
-    `有tags的记录数=${insightWithTags.length}/${insightRecords.length}`
+    'C1 新生成的 insights 默认 tags 为空（无 AI 自动标签）',
+    insightWithoutTags.length === insightRecords.length && insightRecords.length >= 2,
+    `空tags记录数=${insightWithoutTags.length}/${insightRecords.length}`
   );
 
-  // 全局 tags 表应含 AI 产出的标签定义
-  const tagDefs = await readStore(page, 'tags');
-  const tagPaths = tagDefs.map((t) => t.path || t.name || '');
-  const expectedTags = ['孤独', '自由', '习惯', '运动'];
-  const foundTags = expectedTags.filter((t) => tagPaths.includes(t));
-  assert(
-    'C2 全局 tags 表含 AI 产出标签',
-    foundTags.length >= 3,
-    `找到标签=${foundTags.join(',')} (期望至少3个)`
-  );
+  // C2 手动添加标签生效：在第一张洞察卡片点 [+] 输入「工作」回车后，DB 中 tags 应含「工作」
+  const firstCard = await page.$('[data-testid="insight-card"]');
+  if (firstCard) {
+    const addBtn = await firstCard.$('[data-testid="insight-tag-add-btn"]');
+    if (addBtn) {
+      await addBtn.click();
+      const input = await firstCard.$('input[placeholder*="标签"], input[placeholder*="Tag"]');
+      if (input) {
+        await input.fill('工作');
+        await input.press('Enter');
+        // 等待 Dexie 写入生效
+        await page.waitForTimeout(500);
+        const afterAdd = await readStore(page, 'insights');
+        const tagged = afterAdd.find((m) => (m.tags || []).includes('工作'));
+        assert(
+          'C2 手动添加标签后，insights 中能找到「工作」',
+          !!tagged,
+          tagged ? `tags=${JSON.stringify(tagged.tags)}` : '未找到'
+        );
+      } else {
+        assert('C2 手动添加标签', false, '未找到 tag 输入框');
+      }
+    } else {
+      assert('C2 手动添加标签', false, '未找到 + 按钮');
+    }
+  } else {
+    assert('C2 手动添加标签', false, '未找到 insight-card');
+  }
 
   await page.close();
   await ctx.close();

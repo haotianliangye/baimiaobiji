@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Loader2, Calendar, AlertCircle, ChevronDown, ChevronUp, Trash2, Copy, Check, RefreshCw, MessageCircle, Save, Edit2, Volume2, Square } from 'lucide-react';
+import { Loader2, Calendar, AlertCircle, ChevronDown, ChevronUp, Trash2, Copy, Check, RefreshCw, MessageCircle, Save, Edit2, Volume2, Square, Plus } from 'lucide-react';
 import { Sun } from '@phosphor-icons/react';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useTTS } from '../lib/tts';
@@ -10,6 +10,8 @@ import { TagChip } from '../components/TagChip';
 import { db, Insight } from '../db/db';
 import { useAppStore } from '../store/app.store';
 import { useMingwuStore } from '../store/mingwu.store';
+import { useTagsStore } from '../store/tags.store';
+import { normalizeTagPath, resolveAlias } from '../lib/tags';
 import { format, subDays } from 'date-fns';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { formatDiaryMarkdown } from '../lib/utils';
@@ -62,6 +64,39 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
   const [editText, setEditText] = useState(insight.content || '');
   const [isSaving, setIsSaving] = useState(false);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // #insight-manual-tags: 手动标签编辑（参照 Review.tsx addTagToReview 模式）
+  const [addingTagToInsight, setAddingTagToInsight] = useState<string | null>(null);
+  const [newTagInput, setNewTagInput] = useState('');
+  const refreshAliases = useTagsStore((s) => s.refreshAliases);
+  useEffect(() => { refreshAliases(); }, [refreshAliases]);
+
+  const addTagToInsight = async (insightId: string) => {
+    const trimmed = newTagInput.trim();
+    if (!trimmed) { setAddingTagToInsight(null); return; }
+    const { aliases, createTag } = useTagsStore.getState();
+    const normalized = normalizeTagPath(trimmed);
+    const resolved = resolveAlias(normalized, aliases);
+    const current = await db.insights.get(insightId);
+    if (current) {
+      const currentTags = current.tags || [];
+      if (!currentTags.includes(resolved)) {
+        await db.insights.update(insightId, { tags: [...currentTags, resolved] });
+      }
+    }
+    await createTag(resolved);
+    setNewTagInput('');
+    setAddingTagToInsight(null);
+  };
+
+  const removeTagFromInsight = async (insightId: string, tagPath: string) => {
+    const current = await db.insights.get(insightId);
+    if (current?.tags) {
+      await db.insights.update(insightId, {
+        tags: current.tags.filter((t) => t !== tagPath),
+      });
+    }
+  };
 
   const isMingwuType = insight.insight_type === 'mingwu';
   const typeLabel = isMingwuType ? t('insight.mingwu') : t('insight.insight');
@@ -193,17 +228,59 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
           <span>{typeLabel} · {headerDate}</span>
           <span>{rangeTypeLabel(insight.range_type)}</span>
         </div>
-        {(insight.tags?.length ?? 0) > 0 && (
-          <div className="px-4 py-1.5 border-t border-black/[0.02] bg-stone-50/30 flex items-center gap-1 flex-wrap min-h-[28px]">
-            {insight.tags!.map((tag) => (
-              <TagChip
-                key={tag}
-                path={tag}
-                testId={`insight-tag-${insight.id}-${tag}`}
-              />
-            ))}
-          </div>
-        )}
+        {/* #insight-manual-tags: 手动标签编辑行 — 始终显示，参照 Review.tsx 模式。
+            空标签时显示「+ 添加标签」带文字按钮，非空时只显示图标 + 现有 chip。 */}
+        <div className="px-4 py-1.5 border-t border-black/[0.02] bg-stone-50/30 flex items-center gap-1 flex-wrap min-h-[28px]">
+          {(insight.tags || []).map((tag) => (
+            <TagChip
+              key={tag}
+              path={tag}
+              testId={`insight-tag-${insight.id}-${tag}`}
+              removable
+              onRemove={() => removeTagFromInsight(insight.id!, tag)}
+            />
+          ))}
+          {addingTagToInsight === insight.id ? (
+            <input
+              type="text"
+              value={newTagInput}
+              onChange={(e) => setNewTagInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.stopPropagation(); addTagToInsight(insight.id!); }
+                if (e.key === 'Escape') { setAddingTagToInsight(null); setNewTagInput(''); }
+              }}
+              onBlur={() => addTagToInsight(insight.id!)}
+              placeholder={t('insight.tagPlaceholder')}
+              className="bg-white border border-stone-200 rounded-full px-2 py-0.5 text-[10.5px] outline-none focus:border-baimiao-mysteria/40 w-24"
+              autoFocus
+            />
+          ) : (insight.tags?.length ?? 0) === 0 ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setAddingTagToInsight(insight.id || null);
+                setNewTagInput('');
+              }}
+              data-testid="insight-tag-add-btn"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-200/50 transition-colors text-[10.5px]"
+            >
+              <Plus className="w-3 h-3" />
+              <span>{t('insight.addTag')}</span>
+            </button>
+          ) : (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setAddingTagToInsight(insight.id || null);
+                setNewTagInput('');
+              }}
+              data-testid="insight-tag-add-btn"
+              className="inline-flex items-center justify-center w-5 h-5 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-200/50 transition-colors"
+            >
+              <Plus className="w-3 h-3" />
+            </button>
+          )}
+        </div>
         {expanded && (
           <div
             data-testid="mingwu-card-content"

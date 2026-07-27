@@ -288,6 +288,10 @@ export const zh: TranslationDict = {
   'insight.copied': '已复制',
   'insight.edit': '编辑',
   'insight.save': '保存',
+  // #insight-manual-tags: 手动标签编辑
+  'insight.tagPlaceholder': '标签路径',
+  'insight.addTag': '添加标签',
+  'insight.tags': '标签',
   'insight.saving': '保存中…',
   'insight.cancel': '取消',
   'insight.delete': '删除',
