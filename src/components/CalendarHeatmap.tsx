@@ -34,6 +34,12 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, ac
     () => db.thoughts.where('created_at').between(startDate.getTime(), baseDate.getTime() + 86400000).toArray(),
     [startDate.getTime(), baseDate.getTime()]
   );
+  // diary/review 区段查询：按 daily_reviews 条数着色（review_date 是 YYYY-MM-DD 字符串索引）
+  const reviewsForPeriod = useLiveQuery(() => {
+    const startStr = format(startDate, 'yyyy-MM-dd');
+    const endStr = format(baseDate, 'yyyy-MM-dd');
+    return db.daily_reviews.where('review_date').between(startStr, endStr, true, true).toArray();
+  }, [startDate.getTime(), baseDate.getTime()]);
 
   const stats = useMemo(() => {
     const map = new Map<string, number>();
@@ -42,6 +48,10 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, ac
         const dateStr = format(new Date(th.created_at), 'yyyy-MM-dd');
         map.set(dateStr, (map.get(dateStr) || 0) + 1);
       });
+    } else if (activeSection === 'diary' || activeSection === 'review') {
+      reviewsForPeriod?.forEach((r) => {
+        map.set(r.review_date, (map.get(r.review_date) || 0) + 1);
+      });
     } else {
       logs?.forEach((log) => {
         const dateStr = format(new Date(log.created_at), 'yyyy-MM-dd');
@@ -49,7 +59,7 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, ac
       });
     }
     return map;
-  }, [activeSection, logs, thoughtsForPeriod]);
+  }, [activeSection, logs, thoughtsForPeriod, reviewsForPeriod]);
 
   // Generate exactly 70 days cells chronologically (from left to right, top to bottom)
   const gridCells = [];
@@ -71,6 +81,12 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, ac
       if (count === 1) return 'bg-baimiao-mysteria/20 rounded-[4px]';
       if (count === 2) return 'bg-baimiao-mysteria/45 rounded-[4px]';
       if (count === 3) return 'bg-baimiao-mysteria/70 rounded-[4px]';
+      return 'bg-baimiao-mysteria rounded-[4px]';
+    }
+    if (activeSection === 'diary' || activeSection === 'review') {
+      // 回顾日均 0–1 条（每日自动生成一次）；多次手动重生成会到 2–3
+      if (count === 1) return 'bg-baimiao-mysteria/25 rounded-[4px]';
+      if (count === 2) return 'bg-baimiao-mysteria/55 rounded-[4px]';
       return 'bg-baimiao-mysteria rounded-[4px]';
     }
     // raw_logs 阈值（保持现状）
@@ -203,9 +219,11 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, ac
                         title={t('calendarHeatmap.cellTitle', {
                           date: dateStr,
                           count,
-                          unit: activeSection === 'thoughts'
-                            ? t('calendarHeatmap.thoughtUnit')
-                            : t('calendarHeatmap.recordUnit'),
+                          unit: (activeSection === 'diary' || activeSection === 'review')
+                            ? t('calendarHeatmap.reviewUnit')
+                            : activeSection === 'thoughts'
+                              ? t('calendarHeatmap.thoughtUnit')
+                              : t('calendarHeatmap.recordUnit'),
                         })}
                       />
                     );

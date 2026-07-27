@@ -726,6 +726,7 @@ export const en: TranslationDict = {
   'calendarHeatmap.totalChars': 'Total {section} chars',
   'calendarHeatmap.cellTitle': '{date}: {count} {unit}',
   'calendarHeatmap.recordUnit': 'records',
+  'calendarHeatmap.reviewUnit': 'reviews',
   'calendarHeatmap.thoughtUnit': 'thoughts',
   'calendarHeatmap.backToToday': 'Back to today',
   'calendarHeatmap.monthFormat': 'MMM',

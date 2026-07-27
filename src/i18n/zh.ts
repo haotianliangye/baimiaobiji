@@ -727,6 +727,7 @@ export const zh: TranslationDict = {
   'calendarHeatmap.totalChars': '{section}总字数',
   'calendarHeatmap.cellTitle': '{date}: {count} {unit}',
   'calendarHeatmap.recordUnit': '条记录',
+  'calendarHeatmap.reviewUnit': '篇回顾',
   'calendarHeatmap.thoughtUnit': '条沉淀',
   'calendarHeatmap.backToToday': '回到今天',
   'calendarHeatmap.monthFormat': 'MM月',
