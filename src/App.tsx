@@ -6,6 +6,7 @@ import Thoughts from './pages/Thoughts';
 import Insights from './pages/Insights';
 import Settings from './pages/Settings';
 import TagManagement from './pages/TagManagement';
+import TagAggregation from './pages/TagAggregation';
 
 // V2 信息架构：记录(/) · 回顾(/review) · 沉淀(/thoughts) · 洞察(/insight)
 // /diary、/mingwu、/insights 为旧链接，重定向到新路由（Copilot/LLM Chat 仍从 Header 进入）。
@@ -45,6 +46,11 @@ const router = createBrowserRouter([
       {
         path: 'tags',
         element: <TagManagement />
+      },
+      // 标签聚合页 — /tag?path=<encoded path>
+      {
+        path: 'tag',
+        element: <TagAggregation />
       },
       // Issue: 设置入口改造 —— 把 /settings 从顶级路由移到 Layout 子路由，
       // 这样点击 [≡] 时 Layout 仍挂载，主面板能被推到右侧作"暗淡"次位展示。

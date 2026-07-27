@@ -1,12 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { NavLink, Outlet, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Loader2, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning, Sparkles, MessageSquare, Calendar as CalendarIcon, Menu, Footprints, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { Loader2, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning, Sparkles, MessageSquare, Calendar as CalendarIcon, Menu, Footprints, ChevronLeft, ChevronRight, Hash, ChevronRight as ChevronRightSm } from 'lucide-react';
 import { ChatCircleDots, HeadCircuit, Clock, Sun } from '@phosphor-icons/react';
 import { subDays, format, parse, addDays, isSameDay } from 'date-fns';
 import { useAppStore } from '../store/app.store';
 import { useSettingsStore } from '../store/settings.store';
+import { db } from '../db/db';
 import MiniCalendar from './MiniCalendar';
 import CalendarHeatmap from './CalendarHeatmap';
 import RandomWalk from './RandomWalk';
@@ -76,13 +78,17 @@ export default function Layout() {
   // 需求 6：沉淀中间为瀑布流/时间线胶囊；洞察中间为时间范围胶囊
   const showThoughtsCapsule = currentPath === '/thoughts';
   const showMingwuCapsule = currentPath === '/insight';
+  const isTagAggregation = currentPath === '/tag';
+  const tagPathParam = isTagAggregation ? (searchParams.get('path') || '') : '';
+  const tagDisplayName = tagPathParam ? tagPathParam.split('/').pop() || tagPathParam : '';
 
-  // 页面标题映射：记录=白描 / 回顾 / 沉淀 / 洞察（标题不可点击）
+  // 页面标题映射：记录=白描 / 回顾 / 沉淀 / 洞察 / 标签聚合（标题不可点击）
   const routeTitleKey: Record<string, string> = {
     '/': 'layout.titleBaimiao',
     '/review': 'tab.review',
     '/thoughts': 'tab.thoughts',
     '/insight': 'tab.insight',
+    '/tag': 'tags.aggregationTitle',
   };
   const headerTitleKey = routeTitleKey[currentPath] || 'layout.titleBaimiao';
 
@@ -135,6 +141,27 @@ export default function Layout() {
   const [showMingwuDropdown, setShowMingwuDropdown] = useState(false);
   const mingwuCapsuleRef = useRef<HTMLDivElement>(null);
   const mingwuCardRef = useRef<HTMLDivElement>(null);
+  // 标签聚合页 TopBar 胶囊下拉
+  const [showTagDropdown, setShowTagDropdown] = useState(false);
+  const tagCapsuleRef = useRef<HTMLDivElement>(null);
+  const tagCardRef = useRef<HTMLDivElement>(null);
+  // 「切换标签」二级列表
+  const [showTagSwitcher, setShowTagSwitcher] = useState(false);
+
+  // 计算"所有出现在内容里的标签",供 TopBar 「切换标签」列表。
+  // 仅在 /tag 路由且下拉打开时才订阅(其余时间不增负担)。
+  const tagRecords = useLiveQuery(() => db.raw_logs.toArray(), []);
+  const tagReviews = useLiveQuery(() => db.daily_reviews.toArray(), []);
+  const tagThoughts = useLiveQuery(() => db.thoughts.toArray(), []);
+  const tagInsights = useLiveQuery(() => db.insights.toArray(), []);
+  const allUsedTagPaths = useMemo(() => {
+    const set = new Set<string>();
+    (tagRecords ?? []).forEach((r) => (r.tags || []).forEach((p) => set.add(p)));
+    (tagReviews ?? []).forEach((r) => (r.tags || []).forEach((p) => set.add(p)));
+    (tagThoughts ?? []).forEach((th) => (th.tags || []).forEach((p) => set.add(p)));
+    (tagInsights ?? []).forEach((i) => (i.tags || []).forEach((p) => set.add(p)));
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'zh-CN'));
+  }, [tagRecords, tagReviews, tagThoughts, tagInsights]);
 
   const [tempStartDate, setTempStartDate] = useState(searchFilters.customStartDate || '');
   const [tempEndDate, setTempEndDate] = useState(searchFilters.customEndDate || '');
@@ -198,6 +225,46 @@ export default function Layout() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  // 标签聚合页 TopBar 胶囊下拉点击外部关闭
+  useEffect(() => {
+    if (!showTagDropdown) return;
+    function handleClickOutside(event: MouseEvent) {
+      const inButton = tagCapsuleRef.current && tagCapsuleRef.current.contains(event.target as Node);
+      const inCard = tagCardRef.current && tagCardRef.current.contains(event.target as Node);
+      if (!inButton && !inCard) {
+        setShowTagDropdown(false);
+        setShowTagSwitcher(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showTagDropdown]);
+
+  // 标签聚合页胶囊下拉定位:用 portal + fixed + 胶囊 rect,避开父级 overflow-hidden 裁剪
+  const [tagDropdownRect, setTagDropdownRect] = useState<{ left: number; top: number } | null>(null);
+  useEffect(() => {
+    if (!showTagDropdown || !tagCapsuleRef.current) return;
+    const update = () => {
+      const el = tagCapsuleRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      // 居中于胶囊下方
+      setTagDropdownRect({
+        left: rect.left + rect.width / 2,
+        top: rect.bottom + 6,
+      });
+    };
+    update();
+    window.addEventListener('scroll', update, true);
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update, true);
+      window.removeEventListener('resize', update);
+    };
+  }, [showTagDropdown, tagDisplayName]);
 
   useEffect(() => {
     if (showDateDropdown) {
@@ -381,6 +448,111 @@ export default function Layout() {
                   className="p-1 hover:opacity-70 transition-opacity active:scale-95 disabled:opacity-30 disabled:hover:opacity-30"
                 >
                   <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* 中：标签聚合页胶囊(可点击弹出菜单) */}
+            {isTagAggregation && !isRandomWalkMode && tagDisplayName && (
+              <div className="absolute left-1/2 -translate-x-1/2 shrink-0 z-20" ref={tagCapsuleRef}>
+                <button
+                  type="button"
+                  data-testid="tag-aggregation-capsule"
+                  onClick={() => { setShowTagDropdown(!showTagDropdown); setShowTagSwitcher(false); }}
+                  title={tagPathParam}
+                  className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-stone-100/80 border border-stone-200/60 text-baimiao-mysteria text-[12px] font-medium select-none hover:bg-stone-200/60 transition-colors active:scale-95"
+                >
+                  <Hash className="w-3 h-3 opacity-60" />
+                  {tagDisplayName}
+                  <ChevronDown className={`w-3 h-3 opacity-60 transition-transform ${showTagDropdown ? 'rotate-180' : ''}`} />
+                </button>
+              </div>
+            )}
+            {isTagAggregation && showTagDropdown && tagDisplayName && (
+              <div
+                ref={tagCardRef}
+                data-testid="tag-aggregation-capsule-dropdown"
+                className="absolute left-1/2 -translate-x-1/2 top-[44px] z-50 bg-white rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-1.5 w-[240px] animate-in fade-in zoom-in-95 duration-100"
+              >
+                {/* 1. 切换标签(二级列表,默认收起) */}
+                <button
+                  type="button"
+                  data-testid="tag-capsule-switcher"
+                  onClick={() => setShowTagSwitcher(!showTagSwitcher)}
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-[12px] text-stone-700 hover:bg-stone-100 rounded-lg transition-colors"
+                >
+                  <span>{t('tags.aggregationSwitchTag')}</span>
+                  <ChevronRightSm className={`w-3 h-3 text-stone-400 transition-transform ${showTagSwitcher ? 'rotate-90' : ''}`} />
+                </button>
+                {showTagSwitcher && (
+                  <div className="max-h-[280px] overflow-y-auto thin-scrollbar my-1 border-t border-stone-100 pt-1" data-testid="tag-capsule-switcher-list">
+                    {allUsedTagPaths.length === 0 ? (
+                      <div className="px-3 py-2 text-[11px] text-stone-400">—</div>
+                    ) : (
+                      allUsedTagPaths.map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          data-testid={`tag-capsule-switcher-${p}`}
+                          onClick={() => {
+                            setShowTagDropdown(false);
+                            setShowTagSwitcher(false);
+                            navigate(`/tag?path=${encodeURIComponent(p)}`);
+                          }}
+                          className={`w-full text-left px-3 py-1.5 text-[12px] rounded-lg transition-colors ${
+                            p === tagPathParam
+                              ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria font-medium'
+                              : 'text-stone-600 hover:bg-stone-100'
+                          }`}
+                        >
+                          #{p}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+                {/* 2. 包含子标签 toggle */}
+                <label className="w-full flex items-center justify-between px-3 py-1.5 text-[12px] text-stone-700 hover:bg-stone-100 rounded-lg cursor-pointer transition-colors">
+                  <span>{t('tags.aggregationIncludeChildren')}</span>
+                  <input
+                    type="checkbox"
+                    data-testid="tag-capsule-include-children"
+                    checked={searchParams.get('includeChildren') !== '0'}
+                    onChange={(e) => {
+                      const next = new URLSearchParams(searchParams);
+                      if (e.target.checked) next.delete('includeChildren');
+                      else next.set('includeChildren', '0');
+                      setSearchParams(next, { replace: true });
+                    }}
+                    className="accent-baimiao-mysteria w-3 h-3"
+                  />
+                </label>
+                {/* 3. 在标签管理中查看 */}
+                <button
+                  type="button"
+                  data-testid="tag-capsule-open-mgmt"
+                  onClick={() => {
+                    setShowTagDropdown(false);
+                    setShowTagSwitcher(false);
+                    navigate('/settings?view=detail&tab=tags');
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-[12px] text-stone-700 hover:bg-stone-100 rounded-lg transition-colors"
+                >
+                  {t('tags.aggregationViewInManagement')}
+                </button>
+                {/* 4. 返回 */}
+                <button
+                  type="button"
+                  data-testid="tag-capsule-back"
+                  onClick={() => {
+                    setShowTagDropdown(false);
+                    setShowTagSwitcher(false);
+                    if (window.history.length > 1) navigate(-1);
+                    else navigate('/thoughts');
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-[12px] text-stone-700 hover:bg-stone-100 rounded-lg transition-colors border-t border-stone-100 mt-1 pt-2"
+                >
+                  {t('tags.aggregationBack')}
                 </button>
               </div>
             )}

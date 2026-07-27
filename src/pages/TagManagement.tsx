@@ -252,6 +252,7 @@ function TagNode({
   onMerge: (path: string) => void;
   onDelete: (path: string) => void;
 }) {
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const hasChildren = node.children.length > 0;
   const isExpanded = expandedPaths.has(node.path);
@@ -278,9 +279,15 @@ function TagNode({
           </span>
         )}
         <Hash className="w-3 h-3 text-baimiao-mysteria/50 shrink-0" />
-        <span className="flex-1 text-[13.5px] text-stone-700 truncate select-none">
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); navigate(`/tag?path=${encodeURIComponent(node.path)}`); }}
+          className="flex-1 text-[13.5px] text-stone-700 truncate select-none text-left bg-transparent border-0 p-0 hover:text-baimiao-mysteria transition-colors"
+          title={node.path}
+          data-testid={`tag-open-aggregation-${node.path}`}
+        >
           {node.name}
-        </span>
+        </button>
         <div className="flex items-center gap-0.5 transition-opacity">
           <button
             data-testid="tag-rename-btn"

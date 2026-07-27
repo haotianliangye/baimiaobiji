@@ -650,6 +650,20 @@ export const en: TranslationDict = {
   'tags.deleteTagAndNotesFinal': 'Final confirmation: this will permanently delete tag "{path}" and all records tagged with it. This cannot be undone.',
   'tags.deleteTagAndNotesWarning': 'Warning: this will cascade delete related records in Records, Reviews, Thoughts, and Insights.',
   'tags.confirmDeleteFinalBtn': 'Confirm and delete',
+  // --- Tag aggregation page ---
+  'tags.aggregationTitle': 'Tag aggregation',
+  'tags.aggregationCount': '{count} items',
+  'tags.aggregationEmpty': 'No content tagged "{path}"',
+  'tags.aggregationIncludeChildren': 'Include child tags',
+  'tags.aggregationExcludeChildren': 'Exact match only',
+  'tags.aggregationViewInManagement': 'Open in tag management',
+  'tags.aggregationBack': 'Back',
+  'tags.aggregationSwitchTag': 'Switch tag',
+  'tags.sectionRecord': 'Records',
+  'tags.sectionReview': 'Reviews',
+  'tags.sectionThoughts': 'Thoughts',
+  'tags.sectionInsights': 'Insights',
+  'tags.openTag': 'Open tag aggregation page',
 
   // --- Provider labels (partial Chinese) ---
   'provider.volcengine': 'Volcengine',

@@ -651,6 +651,20 @@ export const zh: TranslationDict = {
   'tags.deleteTagAndNotesFinal': '这是最后确认：将永久删除标签「{path}」及所有带该标签的记录，无法恢复。',
   'tags.deleteTagAndNotesWarning': '警告：此操作会级联删除记录、回顾、沉淀、洞察中的相关记录。',
   'tags.confirmDeleteFinalBtn': '确认并删除',
+  // --- 标签聚合页 ---
+  'tags.aggregationTitle': '标签聚合',
+  'tags.aggregationCount': '{count} 条',
+  'tags.aggregationEmpty': '暂无标签为「{path}」的内容',
+  'tags.aggregationIncludeChildren': '包含子标签',
+  'tags.aggregationExcludeChildren': '仅精确匹配',
+  'tags.aggregationViewInManagement': '在标签管理中查看',
+  'tags.aggregationBack': '返回',
+  'tags.aggregationSwitchTag': '切换标签',
+  'tags.sectionRecord': '记录',
+  'tags.sectionReview': '回顾',
+  'tags.sectionThoughts': '沉淀',
+  'tags.sectionInsights': '洞察',
+  'tags.openTag': '打开标签聚合页',
 
   // --- Provider labels (部分中文) ---
   'provider.volcengine': '火山引擎',

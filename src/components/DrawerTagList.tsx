@@ -4,6 +4,7 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useNavigate } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Hash, MoreVertical, Pin, Pencil, Unlink, Trash2, X } from 'lucide-react';
 import { db } from '../db/db';
 import { useTagsStore } from '../store/tags.store';
@@ -18,8 +19,16 @@ interface MenuState {
 
 export default function DrawerTagList() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const rawTags = useLiveQuery(() => db.tags.toArray(), []);
   const { pinTag, unpinTag, updateTag, removeTagOnly, deleteTagAndNotes } = useTagsStore();
+
+  // 点击标签名 → 直接跳聚合页。DrawerTagList 仅在 /settings 路由下挂载,跳转后随 settings 一起卸载,
+  // 因此不需要手动关闭抽屉或菜单。
+  const openTagAggregation = (path: string) => {
+    setMenu(null);
+    navigate(`/tag?path=${encodeURIComponent(path)}`);
+  };
 
   const sortedTags = useMemo(() => {
     if (!rawTags) return [];
@@ -209,6 +218,7 @@ export default function DrawerTagList() {
                     setDeleting({ path, step: 1 });
                     setMenu(null);
                   }}
+                  onOpenTag={openTagAggregation}
                 />
               ))}
           </div>
@@ -371,6 +381,7 @@ function TagNode({
   onEdit,
   onRemove,
   onDelete,
+  onOpenTag,
 }: {
   node: TreeNode;
   depth: number;
@@ -384,6 +395,7 @@ function TagNode({
   onEdit: (path: string) => void;
   onRemove: (path: string) => void;
   onDelete: (path: string) => void;
+  onOpenTag: (path: string) => void;
 }) {
   const { t } = useTranslation();
   const hasChildren = node.children.length > 0;
@@ -418,15 +430,19 @@ function TagNode({
         <span className="shrink-0 text-[13px] text-stone-500 mr-0.5 select-none" aria-hidden="true">
           {icon ? icon : <Hash className="w-3 h-3 text-baimiao-mysteria/50" />}
         </span>
-        <span
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onOpenTag(node.path); }}
           className={cn(
-            'flex-1 text-[13px] truncate select-none',
+            'flex-1 text-[13px] truncate select-none text-left bg-transparent border-0 p-0',
+            'hover:text-baimiao-mysteria transition-colors',
             pinned ? 'text-baimiao-mysteria font-semibold' : 'text-stone-600'
           )}
           title={node.path}
+          data-testid={`drawer-tag-open-${node.path}`}
         >
           {node.name}
-        </span>
+        </button>
         <div className="flex items-center gap-0.5 shrink-0">
           {pinned && (
             <Pin className="w-3 h-3 text-baimiao-mysteria/70 shrink-0" data-testid={`drawer-tag-pinned-${node.path}`} />
@@ -473,6 +489,7 @@ function TagNode({
                 onEdit={onEdit}
                 onRemove={onRemove}
                 onDelete={onDelete}
+                onOpenTag={onOpenTag}
               />
             ))}
         </div>
