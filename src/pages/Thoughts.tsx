@@ -19,6 +19,7 @@
 import { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { format, isSameDay } from 'date-fns';
+import { useSearchParams } from 'react-router-dom';
 import {
   X,
   Trash2,
@@ -41,6 +42,7 @@ import { useSettingsStore } from '../store/settings.store';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { countChars } from '../lib/wordCount';
 import TodayStats from '../components/TodayStats';
+import { TagChip } from '../components/TagChip';
 import { useAppStore } from '../store/app.store';
 import { useTranslation } from '../lib/i18n';
 import DocumentEditor from '../components/DocumentEditor';
@@ -178,6 +180,22 @@ export default function Thoughts() {
     () => (allThoughts || []).slice().sort((a, b) => b.created_at - a.created_at),
     [allThoughts]
   );
+
+  // #random-walk-nav: 随机漫步双击跳转 — 滚动到目标 thought 并临时高亮
+  const [searchParams] = useSearchParams();
+  const thoughtIdParam = searchParams.get('thoughtId');
+  useEffect(() => {
+    if (!thoughtIdParam || !allThoughts) return;
+    const timer = setTimeout(() => {
+      const el = document.querySelector(`[data-thought-id="${CSS.escape(thoughtIdParam)}"]`);
+      if (el instanceof HTMLElement) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('bg-baimiao-mysteria/10', 'transition-colors', 'duration-500');
+        setTimeout(() => el.classList.remove('bg-baimiao-mysteria/10'), 2000);
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [thoughtIdParam, allThoughts]);
 
   // 视图模式从 app store 读取（顶部栏胶囊控制）
   const view = useAppStore((s) => s.thoughtsViewMode);
@@ -906,14 +924,11 @@ function ThoughtCard({ thought, view, copied, onCopy, onEdit, resolveAttachment 
       {tags.length > 0 && (
         <div className="flex items-center gap-1 flex-wrap mt-2">
           {tags.map((tag) => (
-            <span
+            <TagChip
               key={tag}
-              data-testid={`thought-tag-${tag}`}
-              className="inline-flex items-center gap-0.5 bg-baimiao-mysteria/8 text-baimiao-mysteria text-[10.5px] px-1.5 py-0.5 rounded-full"
-            >
-              <Hash className="w-2.5 h-2.5 opacity-60" />
-              {tag.split('/').pop()}
-            </span>
+              path={tag}
+              testId={`thought-tag-${tag}`}
+            />
           ))}
         </div>
       )}

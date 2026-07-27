@@ -16,13 +16,13 @@
  *   - 删除/编辑按记录类型调对应表（raw_logs/thoughts/daily_reviews/mingwu）。
  *   - 标签：raw_logs/daily_reviews 可增删（#4 标签系统）；thoughts 标签来自正文 #标签（只读）。
  *   - 复制：useCopyToClipboard。
- *   - 编辑：弹 RichEditor 编辑弹窗（不跳转页面），所有记录类型统一。
+ *   - 编辑：弹 DocumentEditor 富文本编辑弹窗（不跳转页面），与沉淀页同款。
  *   - 「下一张」靠左右滑动实现，不单设按钮。
  */
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { format } from 'date-fns';
-import ReactMarkdown from 'react-markdown';
+import { useNavigate } from 'react-router-dom';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { EffectCards } from 'swiper/modules';
 import type { Swiper as SwiperClass } from 'swiper';
@@ -45,12 +45,23 @@ import {
   Play,
   Link as LinkIcon,
 } from 'lucide-react';
-import { db, type Thought, type RawLog, type DailyReview, type Insight, type AttachmentMeta } from '../db/db';
+import { db, type Thought, type RawLog, type DailyReview, type Insight, type AttachmentMeta, resolveDocumentContent } from '../db/db';
 import { useTagsStore } from '../store/tags.store';
+import { useAppStore } from '../store/app.store';
+import { useThoughtsStore } from '../store/thoughts.store';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { normalizeTagPath } from '../lib/tags';
 import { useTranslation } from '../lib/i18n';
-import RichEditor from './RichEditor';
+import {
+  documentToText,
+  createEmptyDocument,
+  plainTextToDocument,
+  type RichDocument,
+} from '../lib/documentModel';
+import { saveFileAsAttachment } from '../lib/multimedia';
+import DocumentView from './DocumentView';
+import DocumentEditor from './DocumentEditor';
+import { VerifiedMarkdown } from './VerifiedMarkdown';
 import MediaPreview from './MediaPreview';
 
 type SourceType = 'raw_logs' | 'thoughts' | 'daily_reviews' | 'insights';
@@ -87,7 +98,8 @@ interface WalkItem {
   key: string; // `${type}:${id}`
   type: SourceType;
   id: string;
-  content: string; // 展示正文（Markdown）
+  content: string; // 展示正文（Markdown 字符串，用于 VerifiedMarkdown 与复制）
+  contentDoc?: RichDocument; // 沉淀/记录：富文本 doc（DocumentView 用）
   title?: string; // 回顾/洞察的一句话摘要
   createdAt: number;
   tags: string[];
@@ -190,11 +202,13 @@ function toWalkItems(
   const items: WalkItem[] = [];
   if (sources.includes('thoughts')) {
     for (const th of thoughts) {
+      const doc = resolveDocumentContent(th);
       items.push({
         key: `thoughts:${th.id}`,
         type: 'thoughts',
         id: th.id,
-        content: th.content,
+        content: documentToText(doc),
+        contentDoc: doc,
         createdAt: th.created_at,
         tags: th.tags || [],
         rawText: th.content,
@@ -205,11 +219,13 @@ function toWalkItems(
   }
   if (sources.includes('raw_logs')) {
     for (const r of rawLogs) {
+      const doc = resolveDocumentContent(r);
       items.push({
         key: `raw_logs:${r.id}`,
         type: 'raw_logs',
         id: r.id,
-        content: r.content,
+        content: documentToText(doc),
+        contentDoc: doc,
         createdAt: r.created_at,
         tags: r.tags || [],
         rawText: r.content,
@@ -435,6 +451,15 @@ export default function RandomWalk() {
     mingwu: allMingwu || [],
   };
 
+  // DocumentView 用的附件解析：从 db.attachments 取 Blob（与沉淀/记录页面同款）
+  const resolveAttachment = useMemo(
+    () => async (id: string): Promise<Blob | null> => {
+      const rec = await db.attachments.get(id);
+      return rec?.blob ?? null;
+    },
+    [],
+  );
+
   // --- 配置 state（与 localStorage 同步） ---
   const [sources, setSources] = useState<SourceType[]>(loadSources);
   const [cooldownDays, setCooldownDays] = useState<number>(loadCooldownDays);
@@ -461,8 +486,8 @@ export default function RandomWalk() {
 
   // --- 编辑弹窗状态 ---
   const [editingItem, setEditingItem] = useState<WalkItem | null>(null);
-  const [editContent, setEditContent] = useState('');
-  const [editAttachments, setEditAttachments] = useState<AttachmentMeta[]>([]);
+  // 编辑器内容（统一 RichDocument；各源类型初始化时按需 resolve）
+  const [editDoc, setEditDoc] = useState<RichDocument>(() => createEmptyDocument());
   const [editSaving, setEditSaving] = useState(false);
 
   const sourcesRef = useRef(sources);
@@ -522,6 +547,54 @@ export default function RandomWalk() {
 
   const current = items[currentIndex];
 
+  // #open-default-slots 之外：双击卡片 → 精确跳转到对应模块的具体条目
+  const navigate = useNavigate();
+  const setRandomWalkMode = useAppStore((s) => s.setRandomWalkMode);
+
+  // 把 WalkItem 映射到目标模块 URL（精确 id 由 Record/Review/Thoughts/Insights 消费）
+  const getNavigationTarget = useCallback((item: WalkItem): { pathname: string; search: string } => {
+    switch (item.type) {
+      case 'raw_logs':
+        return {
+          pathname: '/',
+          search: `?date=${format(new Date(item.createdAt), 'yyyy-MM-dd')}&logId=${encodeURIComponent(item.id)}`,
+        };
+      case 'daily_reviews':
+        return {
+          pathname: '/review',
+          search: `?date=${encodeURIComponent(item.reviewDate ?? format(new Date(item.createdAt), 'yyyy-MM-dd'))}`,
+        };
+      case 'thoughts':
+        return { pathname: '/thoughts', search: `?thoughtId=${encodeURIComponent(item.id)}` };
+      case 'insights':
+        return { pathname: '/insight', search: `?insightId=${encodeURIComponent(item.id)}` };
+      default:
+        return { pathname: '/', search: '' };
+    }
+  }, []);
+
+  // 移动端双触状态：同一卡片、300ms 内、位移 <10px 视为双击
+  const lastCardTapRef = useRef<{ itemKey: string; time: number; x: number; y: number } | null>(null);
+  // 600ms 防重入：避免 onDoubleClick 与 onTouchStart 双触在同一事件循环触发两次导航
+  const isNavigatingRef = useRef(false);
+
+  const handleCardDoubleActivate = useCallback((item: WalkItem, e: React.SyntheticEvent) => {
+    const target = e.target as HTMLElement;
+    // 排除交互元素：按钮、链接、媒体控件、附件区域（双击应只触发卡片导航）
+    if (target.closest('button, a, audio, video, [data-attachment-region]')) return;
+    // Swiper 堆叠中非当前卡片不响应（避免双击露出的后层卡片）
+    const cardEl = target.closest('[data-testid="walk-card"]');
+    if (!cardEl || cardEl.getAttribute('data-active') !== 'true') return;
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
+
+    const { pathname, search } = getNavigationTarget(item);
+    // 先关闭 RandomWalk 模式，否则即便 URL 变化界面仍渲染 RandomWalk
+    setRandomWalkMode(false);
+    navigate({ pathname, search });
+    setTimeout(() => { isNavigatingRef.current = false; }, 600);
+  }, [getNavigationTarget, navigate, setRandomWalkMode]);
+
   // Issue 002：检测当前卡片正文是否溢出，决定是否显示底部渐变遮罩
   useEffect(() => {
     const el = contentRefs.current[currentIndex];
@@ -576,67 +649,76 @@ export default function RandomWalk() {
     advance();
   };
 
-  // ---------- 编辑弹窗（RichEditor，不跳转页面） ----------
-  const canEditAttachments = editingItem?.type === 'raw_logs' || editingItem?.type === 'thoughts';
+  // ---------- 编辑弹窗（DocumentEditor，对齐沉淀页富文本编辑器） ----------
 
   const openEdit = async (item: WalkItem) => {
     setEditingItem(item);
-    setEditContent(item.content);
-    setEditAttachments([]);
-    // 从 DB 读取最新内容回显
-    if (item.type === 'raw_logs') {
-      const rec = await db.raw_logs.get(item.id);
-      setEditContent(rec?.content ?? item.content);
-      setEditAttachments(rec?.attachments ?? []);
-    } else if (item.type === 'thoughts') {
-      const rec = await db.thoughts.get(item.id);
-      setEditContent(rec?.content ?? item.content);
-      setEditAttachments(rec?.attachments ?? []);
-    } else if (item.type === 'daily_reviews') {
-      const rec = await db.daily_reviews.get(item.id);
-      const isDiary = rec?.entry_type === 'diary';
-      setEditContent(isDiary ? (rec?.ai_editorial ?? '') : (rec?.ai_review ?? ''));
-    } else if (item.type === 'insights') {
-      const rec = await db.insights.get(item.id);
-      setEditContent(rec?.content ?? item.content);
+    setEditDoc(createEmptyDocument());
+    try {
+      if (item.type === 'raw_logs') {
+        const rec = await db.raw_logs.get(item.id);
+        setEditDoc(resolveDocumentContent(rec ?? { content: item.content }));
+      } else if (item.type === 'thoughts') {
+        const rec = await db.thoughts.get(item.id);
+        setEditDoc(resolveDocumentContent(rec ?? { content: item.content }));
+      } else if (item.type === 'daily_reviews') {
+        const rec = await db.daily_reviews.get(item.id);
+        const isDiary = rec?.entry_type === 'diary';
+        const md = isDiary ? (rec?.ai_editorial ?? '') : (rec?.ai_review ?? '');
+        setEditDoc(plainTextToDocument(md));
+      } else if (item.type === 'insights') {
+        const rec = await db.insights.get(item.id);
+        setEditDoc(plainTextToDocument(rec?.content ?? item.content));
+      }
+    } catch (err) {
+      console.error('openEdit failed', err);
+      setEditDoc(createEmptyDocument());
     }
   };
 
   const closeEdit = () => {
     setEditingItem(null);
-    setEditContent('');
-    setEditAttachments([]);
+    setEditDoc(createEmptyDocument());
   };
 
   const handleSaveEdit = async () => {
     if (!editingItem) return;
-    const text = editContent.trim();
-    // raw_logs/thoughts 允许仅附件无文本；daily_reviews/mingwu 需非空文本
-    if (!text && !(canEditAttachments && editAttachments.length > 0)) return;
+    const text = documentToText(editDoc).trim();
+    // 全部源类型均要求非空（文档模型必含段落/标题）
+    if (!text) return;
     setEditSaving(true);
     try {
+      const key = editingItem.key;
       if (editingItem.type === 'raw_logs') {
-        await db.raw_logs.update(editingItem.id, { content: editContent, attachments: editAttachments });
+        // 保留 legacy content 供 embedding 索引
+        await db.raw_logs.update(editingItem.id, {
+          content: text,
+          content_doc: editDoc,
+        });
       } else if (editingItem.type === 'thoughts') {
-        await db.thoughts.update(editingItem.id, { content: editContent, attachments: editAttachments });
+        // 走 store 自动同步 content_doc / content / tags / embedding 等
+        const { updateThought } = useThoughtsStore.getState();
+        await updateThought(editingItem.id, { content_doc: editDoc });
       } else if (editingItem.type === 'daily_reviews') {
         const rec = await db.daily_reviews.get(editingItem.id);
         const isDiary = rec?.entry_type === 'diary';
-        if (isDiary) {
-          await db.daily_reviews.update(editingItem.id, { ai_editorial: editContent });
-        } else {
-          await db.daily_reviews.update(editingItem.id, { ai_review: editContent });
-        }
+        await db.daily_reviews.update(editingItem.id,
+          isDiary ? { ai_editorial: text } : { ai_review: text });
       } else if (editingItem.type === 'insights') {
-        await db.insights.update(editingItem.id, { content: editContent });
+        await db.insights.update(editingItem.id, { content: text });
       }
       // 同步更新当前批次中的卡片内容
       setItems((prev) =>
         prev.map((it) =>
-          it.key === editingItem.key ? { ...it, content: editContent, rawText: editContent } : it
+          it.key === key
+            ? { ...it, content: text, rawText: text, contentDoc: editDoc }
+            : it
         )
       );
       closeEdit();
+    } catch (err) {
+      console.error('save edit failed', err);
+      alert(t('record.saveFailed', { msg: String((err as Error)?.message ?? err) }));
     } finally {
       setEditSaving(false);
     }
@@ -837,6 +919,37 @@ export default function RandomWalk() {
                   className={`w-full h-full baimiao-card-bubble p-5 flex flex-col transition-opacity duration-200 relative ${
                     index === currentIndex ? 'opacity-100' : 'opacity-40'
                   }`}
+                  // 桌面：双击卡片跳转；移动端：由 onTouchStart 自实现双触（浏览器 dblclick 不可靠）
+                  onDoubleClick={(e) => {
+                    if (index === currentIndex && current) {
+                      handleCardDoubleActivate(current, e);
+                    }
+                  }}
+                  onTouchStart={(e) => {
+                    if (index !== currentIndex || !current) return;
+                    const target = e.target as HTMLElement;
+                    if (target.closest('button, a, audio, video, [data-attachment-region]')) return;
+                    const touch = e.touches[0];
+                    if (!touch) return;
+                    const x = touch.clientX;
+                    const y = touch.clientY;
+                    const now = Date.now();
+                    const last = lastCardTapRef.current;
+                    if (
+                      last &&
+                      last.itemKey === current.key &&
+                      now - last.time < 300 &&
+                      Math.hypot(x - last.x, y - last.y) < 10
+                    ) {
+                      // 第二次 tap：阻止 Swiper 接管并导航
+                      e.preventDefault();
+                      e.stopPropagation();
+                      lastCardTapRef.current = null;
+                      handleCardDoubleActivate(current, e);
+                    } else {
+                      lastCardTapRef.current = { itemKey: current.key, time: now, x, y };
+                    }
+                  }}
                 >
                   {/* Issue 002：移除 chip 行（类型徽章 + 时间戳），减少视觉干扰。 */}
 
@@ -847,20 +960,35 @@ export default function RandomWalk() {
                     </p>
                   )}
 
-                  {/* 内容区（正文 + 多媒体附件共用一个局部滚动区，底部渐变遮罩）。
-                      附件为主记录的正文是 [多媒体记录] 占位，过滤掉不渲染，只显示附件区。 */}
+                  {/* 内容区（按源类型走对应渲染器，15.5px 与源页面一致）。
+                      - 沉淀/记录（doc 源）：DocumentView 富文本渲染，媒体由 doc 内 media block 接管。
+                      - 回顾/洞察（Markdown 源）：VerifiedMarkdown（含引用清洗）。
+                      - 多媒体专属（doc 空但有 legacy attachments）：保留 WalkAttachments。 */}
                   {(() => {
-                    const hasBodyText = !!item.content.trim() && !isMultimediaPlaceholder(item.content);
-                    const hasAttachments = !!item.attachments && item.attachments.length > 0;
+                    const isDocSource = item.type === 'thoughts' || item.type === 'raw_logs';
+                    const docText = item.contentDoc ? documentToText(item.contentDoc).trim() : '';
+                    const hasDocText = isDocSource && docText.length > 0;
+                    const hasMarkdownText =
+                      !isDocSource && !!item.content.trim() && !isMultimediaPlaceholder(item.content);
+                    const isMediaOnly =
+                      isDocSource &&
+                      docText.length === 0 &&
+                      !!item.attachments &&
+                      item.attachments.length > 0;
                     return (
                       <div className="flex-1 relative min-h-0">
                         <div
                           ref={(el) => { contentRefs.current[index] = el; }}
                           data-testid="walk-card-content"
-                          className="w-full h-full overflow-y-auto thin-scrollbar markdown-body prose prose-stone baimiao-editorial-body baimiao-editorial-title max-w-none text-[13.5px] leading-relaxed prose-h1:text-[16px] prose-h2:text-[15px] prose-h3:text-[14px]"
+                          className="w-full h-full overflow-y-auto thin-scrollbar prose prose-stone baimiao-editorial-body baimiao-editorial-title max-w-none text-[15.5px] leading-relaxed prose-h1:text-[19px] prose-h2:text-[17px] prose-h3:text-[16px]"
                         >
-                          {hasBodyText && <ReactMarkdown>{item.content}</ReactMarkdown>}
-                          {hasAttachments && (
+                          {hasDocText && item.contentDoc && (
+                            <DocumentView value={item.contentDoc} resolveAttachment={resolveAttachment} />
+                          )}
+                          {hasMarkdownText && (
+                            <VerifiedMarkdown markdown={item.content} />
+                          )}
+                          {isMediaOnly && (
                             <WalkAttachments
                               attachments={item.attachments!}
                               attachmentSummary={item.attachmentSummary}
@@ -1070,21 +1198,24 @@ export default function RandomWalk() {
         />
       )}
 
-      {/* 编辑弹窗（RichEditor，不跳转页面，不显示/不修改展示时间） */}
+      {/* 编辑弹窗（DocumentEditor，对齐沉淀页富文本编辑器） */}
       {editingItem && (
         <div
           data-testid="walk-edit-modal"
           className="fixed inset-0 z-[150] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 animate-in fade-in duration-200"
-          onClick={closeEdit}
+          onClick={() => { if (!editSaving) closeEdit(); }}
         >
           <div
             className="bg-white rounded-2xl w-full max-w-md max-h-[88vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* 弹窗头 */}
+            {/* 弹窗头：标题按源类型复用源页面 i18n */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-stone-100 shrink-0">
               <span className="text-[13.5px] font-semibold text-baimiao-mysteria">
-                {t('randomWalk.editTitle')}
+                {editingItem.type === 'thoughts' && t('thoughts.editTitle')}
+                {editingItem.type === 'raw_logs' && t('record.editTitle')}
+                {editingItem.type === 'daily_reviews' && t('review.editTitle')}
+                {editingItem.type === 'insights' && t('insight.editTitle')}
               </span>
               <button
                 onClick={closeEdit}
@@ -1094,17 +1225,15 @@ export default function RandomWalk() {
               </button>
             </div>
 
-            {/* 弹窗内容（可滚动） */}
+            {/* 弹窗内容（Tiptap 富文本） */}
             <div className="flex-1 overflow-y-auto thin-scrollbar p-3 flex flex-col gap-3 min-h-0">
-              <RichEditor
-                value={editContent}
-                onChange={setEditContent}
-                attachments={canEditAttachments ? editAttachments : []}
-                onAttachmentsChange={canEditAttachments ? setEditAttachments : undefined}
-                minHeightClass="min-h-[160px]"
-                textareaTestId="walk-edit-textarea"
-                onAttachmentPreview={(items, initialIndex) => setMediaPreview({ items, initialIndex })}
-                attachmentSummary={editingItem.type === 'raw_logs' ? editingItem.attachmentSummary : undefined}
+              <DocumentEditor
+                value={editDoc}
+                onChange={setEditDoc}
+                onUpload={saveFileAsAttachment}
+                minHeightClass="min-h-[200px]"
+                maxHeightClass="max-h-[55vh] sm:max-h-[420px]"
+                dataTestId="walk-edit-editor"
               />
             </div>
 
@@ -1119,7 +1248,7 @@ export default function RandomWalk() {
               <button
                 data-testid="walk-edit-save"
                 onClick={handleSaveEdit}
-                disabled={editSaving || (!editContent.trim() && !(canEditAttachments && editAttachments.length > 0))}
+                disabled={editSaving}
                 className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[12.5px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Save className="w-3.5 h-3.5" />

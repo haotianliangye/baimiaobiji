@@ -11,6 +11,7 @@ import { formatDiaryMarkdown } from '../lib/utils';
 import { washCitations } from '../lib/citationWash';
 import ActionSheet from '../components/ActionSheet';
 import ContextChat from '../components/ContextChat';
+import { TagChip } from '../components/TagChip';
 import { Trash2, ChevronDown, ChevronUp, RefreshCw, X, Sparkles, MessageCircle, Copy, Check, Activity, Save, Edit2, Loader2, CheckSquare, Square, Hash, Plus, Volume2, Square as SquareIcon } from 'lucide-react';
 import { useAppStore } from '../store/app.store';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
@@ -152,6 +153,8 @@ export default function Review() {
     y: 0,
   });
   const dateParam = searchParams.get('date');
+  // #random-walk-nav: 随机漫步双击跳转目标 reviewId；定位 + 临时高亮
+  const reviewIdParam = searchParams.get('reviewId');
   const [showPromptMenu, setShowPromptMenu] = useState(false);
   // Stores the DOMRect of the triggering button (viewport-relative, for fixed positioning)
   const [popoverRect, setPopoverRect] = useState<DOMRect | null>(null);
@@ -323,6 +326,20 @@ export default function Review() {
   // Query the independent daily_reviews table only
   const allReviews = useLiveQuery(() => db.daily_reviews.toArray(), []);
 
+  // #random-walk-nav: 来自随机漫步的 reviewId 跳转 — 滚动到目标卡片并临时高亮
+  useEffect(() => {
+    if (!reviewIdParam || !allReviews) return;
+    const timer = setTimeout(() => {
+      const el = document.querySelector(`[data-review-id="${CSS.escape(reviewIdParam)}"]`);
+      if (el instanceof HTMLElement) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('bg-baimiao-mysteria/10', 'transition-colors', 'duration-500');
+        setTimeout(() => el.classList.remove('bg-baimiao-mysteria/10'), 2000);
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [reviewIdParam, allReviews]);
+
   // Group reviews by review_date, show only today's date
   const reviewsForDate = useMemo(() => {
     if (!allReviews) return [];
@@ -448,6 +465,7 @@ export default function Review() {
                   <div
                     key={review.id}
                     data-testid="review-card"
+                    data-review-id={review.id}
                     className="w-full overflow-hidden baimiao-card-review"
                     onClick={(e) => {
                       if (isEditing || isGenerating) return;
@@ -556,20 +574,13 @@ export default function Review() {
                     {/* #4 标签显示区（最小实现，卡片角落 chip 行）：收起时也显示添加按钮 */}
                     <div className="px-4 py-1.5 border-t border-black/[0.02] bg-stone-50/30 flex items-center gap-1 flex-wrap min-h-[28px]">
                       {(review.tags || []).map(tag => (
-                        <span
+                        <TagChip
                           key={tag}
-                          data-testid={`review-tag-${tag}`}
-                          className="inline-flex items-center gap-0.5 bg-baimiao-mysteria/8 text-baimiao-mysteria text-[10.5px] px-2 py-0.5 rounded-full select-none"
-                        >
-                          <Hash className="w-2.5 h-2.5 opacity-60" />
-                          {tag.split('/').pop()}
-                          <button
-                            onClick={(e) => { e.stopPropagation(); removeTagFromReview(review.id, tag); }}
-                            className="hover:text-rose-500 transition-colors ml-0.5"
-                          >
-                            <X className="w-2.5 h-2.5" />
-                          </button>
-                        </span>
+                          path={tag}
+                          testId={`review-tag-${review.id}-${tag}`}
+                          removable
+                          onRemove={() => removeTagFromReview(review.id, tag)}
+                        />
                       ))}
                       {addingTagToReview === review.id ? (
                         <input

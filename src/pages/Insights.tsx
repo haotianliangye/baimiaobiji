@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Loader2, Calendar, AlertCircle, ChevronDown, ChevronUp, Trash2, Copy, Check, RefreshCw, MessageCircle, Save, Edit2, Volume2, Square } from 'lucide-react';
 import { Sun } from '@phosphor-icons/react';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useTTS } from '../lib/tts';
 import ReactMarkdown from 'react-markdown';
 import ContextChat from '../components/ContextChat';
+import { TagChip } from '../components/TagChip';
 import { db, Insight } from '../db/db';
 import { useAppStore } from '../store/app.store';
 import { useMingwuStore } from '../store/mingwu.store';
@@ -104,6 +106,7 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
     <div
       data-testid="insight-card"
       data-insight-type={insight.insight_type}
+      id={`insight-${insight.id}`}
       className="w-full overflow-hidden baimiao-card-diary mb-4 relative"
       onTouchStart={(e) => {
          if (isEditing) return;
@@ -190,6 +193,17 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
           <span>{typeLabel} · {headerDate}</span>
           <span>{rangeTypeLabel(insight.range_type)}</span>
         </div>
+        {(insight.tags?.length ?? 0) > 0 && (
+          <div className="px-4 py-1.5 border-t border-black/[0.02] bg-stone-50/30 flex items-center gap-1 flex-wrap min-h-[28px]">
+            {insight.tags!.map((tag) => (
+              <TagChip
+                key={tag}
+                path={tag}
+                testId={`insight-tag-${insight.id}-${tag}`}
+              />
+            ))}
+          </div>
+        )}
         {expanded && (
           <div
             data-testid="mingwu-card-content"
@@ -417,6 +431,22 @@ export default function Insights() {
   }, [handleInteraction]);
 
   const insightList = useLiveQuery(() => db.insights.orderBy('created_at').reverse().toArray());
+
+  // #random-walk-nav: 随机漫步双击跳转 — 滚动到目标 insight 并临时高亮
+  const [searchParams] = useSearchParams();
+  const insightIdParam = searchParams.get('insightId');
+  useEffect(() => {
+    if (!insightIdParam || !insightList) return;
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`insight-${CSS.escape(insightIdParam)}`);
+      if (el instanceof HTMLElement) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('bg-baimiao-mysteria/10', 'transition-colors', 'duration-500');
+        setTimeout(() => el.classList.remove('bg-baimiao-mysteria/10'), 2000);
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [insightIdParam, insightList]);
 
   const computeRange = () => {
     const today = new Date();
