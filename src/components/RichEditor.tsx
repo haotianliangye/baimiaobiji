@@ -700,7 +700,7 @@ export default function RichEditor({
       {/* 编辑区 / 预览区 */}
       {showPreview ? (
         <div
-          className={`px-4 py-3 ${minHeightClass} max-h-[260px] overflow-y-auto thin-scrollbar markdown-body prose prose-stone baimiao-editorial-body prose-headings:font-serif baimiao-editorial-title max-w-none text-[14.5px] leading-relaxed`}
+          className={`px-4 py-3 ${minHeightClass} max-h-[260px] overflow-y-auto thin-scrollbar markdown-body prose prose-stone baimiao-editorial-body baimiao-editorial-title max-w-none text-[14.5px] leading-relaxed`}
         >
           {value.trim() ? (
             <ReactMarkdown>{value}</ReactMarkdown>

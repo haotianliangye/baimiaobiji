@@ -106,7 +106,7 @@ export default function TagManagement({ embedded = false }: { embedded?: boolean
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <h2 className="text-[13.5px] font-bold tracking-wide text-baimiao-mysteria flex items-center gap-1.5 font-serif baimiao-editorial-title">
+          <h2 className="text-[13.5px] font-bold tracking-wide text-baimiao-mysteria flex items-center gap-1.5">
             <TagsIcon className="w-4 h-4 text-baimiao-mysteria/70 shrink-0" />
             {t('tags.title')}
           </h2>

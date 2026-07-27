@@ -290,7 +290,7 @@ export default function Layout() {
     : null;
 
   return (
-    <div className="flex flex-col h-full bg-[#f0eef5] font-sans text-stone-900 overflow-hidden items-center justify-center">
+    <div className="flex flex-col h-full bg-[#f0eef5] text-stone-900 overflow-hidden items-center justify-center">
       {settingsClickCatcher}
       <motion.div
         initial={false}
@@ -304,7 +304,7 @@ export default function Layout() {
       >
         {/* Global Nav —— Seam 1 统一顶部栏：左 [≡]标题·副标题 / 中 <日期> / 右 搜索->RAG+CHAT->灯泡 */}
         {!isCopilotMode && (
-          <header className="relative flex h-[54px] shrink-0 items-center justify-between px-3 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white/95 border-b border-white/5">
+          <header className="relative flex h-[54px] shrink-0 items-center justify-between px-3 bg-white/85 backdrop-blur-md text-baimiao-mysteria border-b border-stone-200/60">
             {/* 左：[≡] 页面标题 · 副标题（标题不可点击，≡ 进设置） */}
             <div className="flex items-center gap-2 min-w-0 flex-1 z-10">
               {/*
@@ -346,8 +346,8 @@ export default function Layout() {
               </h1>
               {isRandomWalkMode ? null : (
                 autoGenTasks.length > 0 && (isProcessingQueue || isQueuePaused) ? (
-                  <span className={`flex items-center gap-1 bg-white/10 text-white/90 border border-white/10 text-[10px] px-2 py-0.5 rounded-full font-medium select-none tracking-wide ${isQueuePaused ? 'opacity-65' : 'animate-pulse'} shrink-0`}>
-                    <Loader2 className={`w-2.5 h-2.5 text-white/60 ${isQueuePaused ? '' : 'animate-spin'}`} />
+                  <span className={`flex items-center gap-1 bg-stone-100/80 text-baimiao-mysteria border border-stone-200/60 text-[10px] px-2 py-0.5 rounded-full font-medium select-none tracking-wide ${isQueuePaused ? 'opacity-65' : 'animate-pulse'} shrink-0`}>
+                    <Loader2 className={`w-2.5 h-2.5 text-baimiao-mysteria/60 ${isQueuePaused ? '' : 'animate-spin'}`} />
                     {isQueuePaused ? `${t('layout.aiPaused')} (${autoGenTasks.length})` : `${t('layout.aiProcessing')} (${autoGenTasks.length})`}
                   </span>
                 ) : null
@@ -369,7 +369,7 @@ export default function Layout() {
                   onClick={() => setShowDatePicker(true)}
                   aria-label={t('layout.selectDate')}
                   title={t('layout.selectDate')}
-                  className="text-[12px] font-mono text-white/90 w-[56px] text-center select-none hover:opacity-80 py-1 rounded-md transition-opacity active:scale-95"
+                  className="text-[12px] font-mono text-baimiao-mysteria/85 w-[56px] text-center select-none hover:opacity-80 py-1 rounded-md transition-opacity active:scale-95"
                 >
                   {dateDisplayStr}
                 </button>
@@ -390,7 +390,7 @@ export default function Layout() {
               <div className="absolute left-1/2 -translate-x-1/2 shrink-0 z-20" ref={thoughtsCapsuleRef}>
                 <button
                   onClick={() => setShowThoughtsDropdown(!showThoughtsDropdown)}
-                  className="px-3 py-1 rounded-full bg-white/10 border border-white/10 text-white/90 text-[12px] font-medium select-none hover:bg-white/15 transition-colors active:scale-95"
+                  className="px-3 py-1 rounded-full bg-stone-100/80 border border-stone-200/60 text-baimiao-mysteria text-[12px] font-medium select-none hover:bg-stone-200/60 transition-colors active:scale-95"
                 >
                   {thoughtsViewMode === 'masonry' ? t('thoughts.masonry') : t('thoughts.timeline')}
                 </button>
@@ -432,7 +432,7 @@ export default function Layout() {
                 <button
                   data-testid="mingwu-range-dropdown"
                   onClick={() => setShowMingwuDropdown(!showMingwuDropdown)}
-                  className="flex items-center gap-1 px-3 py-1 rounded-full bg-white/10 border border-white/10 text-white/90 text-[12px] font-medium select-none hover:bg-white/15 transition-colors active:scale-95"
+                  className="flex items-center gap-1 px-3 py-1 rounded-full bg-stone-100/80 border border-stone-200/60 text-baimiao-mysteria text-[12px] font-medium select-none hover:bg-stone-200/60 transition-colors active:scale-95"
                 >
                   {mingwuRangeLabel(mingwuTimeRange)}
                   <ChevronDown className="w-3 h-3 opacity-60" />
@@ -442,7 +442,7 @@ export default function Layout() {
             {showMingwuCapsule && showMingwuDropdown && (
               <div
                 ref={mingwuCardRef}
-                className="absolute left-1/2 -translate-x-1/2 top-[44px] z-50 bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-xl rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.15)] p-1.5 animate-in fade-in zoom-in-95 duration-100 w-[200px]"
+                className="absolute left-1/2 -translate-x-1/2 top-[44px] z-50 bg-white border border-stone-200/60 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-1.5 animate-in fade-in zoom-in-95 duration-100 w-[200px]"
               >
                 <div className="grid grid-cols-4 gap-1">
                   {mingwuRangeOptions.map((opt) => (
@@ -452,8 +452,8 @@ export default function Layout() {
                       onClick={() => { setMingwuTimeRange(opt.value); setShowMingwuDropdown(false); }}
                       className={`px-1 py-2 text-[11px] font-medium rounded-lg text-center transition-colors ${
                         mingwuTimeRange === opt.value
-                          ? 'bg-white/15 text-white'
-                          : 'text-white/70 hover:text-white hover:bg-white/10'
+                          ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria'
+                          : 'text-stone-500 hover:text-baimiao-mysteria hover:bg-stone-100/50'
                       }`}
                     >
                       {opt.label}
@@ -604,8 +604,8 @@ export default function Layout() {
       {isSearchMode && (
         <div className="absolute inset-0 w-full sm:w-1/3 mx-auto left-0 right-0 bg-white z-[80] flex flex-col overflow-hidden animate-in fade-in duration-200">
           {/* Search Header */}
-          <div className="flex h-[54px] shrink-0 items-center px-4 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white gap-3 select-none border-b border-white/5">
-            <div className="flex-1 bg-white/10 rounded-xl px-3 py-1 flex items-center gap-2 border border-white/5">
+          <div className="flex h-[54px] shrink-0 items-center px-4 bg-white text-baimiao-mysteria gap-3 select-none border-b border-stone-200/60">
+            <div className="flex-1 bg-stone-100/80 rounded-xl px-3 py-1 flex items-center gap-2 border border-stone-200/60">
               <Search className="w-[15px] h-[15px] text-stone-400 shrink-0" />
               <input
                 type="text"
@@ -613,18 +613,18 @@ export default function Layout() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="w-full bg-transparent text-[13.5px] text-white outline-none placeholder:text-stone-400"
+                className="w-full bg-transparent text-[13.5px] text-baimiao-mysteria outline-none placeholder:text-stone-400"
                 autoFocus
               />
               {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="p-0.5 text-stone-400 hover:text-white">
+                <button onClick={() => setSearchQuery('')} className="p-0.5 text-stone-400 hover:text-baimiao-mysteria">
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
-            <button 
+            <button
               onClick={() => setSearchMode(false)}
-              className="text-[13.5px] text-stone-300 hover:text-white font-medium shrink-0"
+              className="text-[13.5px] text-stone-500 hover:text-baimiao-mysteria font-medium shrink-0"
             >
               {t('search.cancel')}
             </button>
@@ -674,8 +674,8 @@ export default function Layout() {
                     setSearchFilters({ ...searchFilters, modules: newModules });
                   }}
                   className={`px-3 py-1 rounded-xl text-[12px] font-medium border transition-all shrink-0 active:scale-95 ${
-                    isSelected 
-                      ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white border-transparent shadow-sm shadow-baimiao-mysteria/10' 
+                    isSelected
+                      ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria border-baimiao-mysteria/20'
                       : 'bg-[#f0edf4]/50 text-[#8a859e] border-stone-200/20 hover:bg-[#f0edf4]'
                   }`}
                 >
@@ -781,7 +781,7 @@ export default function Layout() {
                         setShowDateDropdown(false);
                       }}
                       disabled={!tempStartDate || !tempEndDate}
-                      className="w-full mt-1.5 py-1.5 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white rounded-xl text-[11.5px] font-semibold flex items-center justify-center gap-1 active:scale-[0.98] disabled:opacity-40"
+                      className="w-full mt-1.5 py-1.5 bg-baimiao-mysteria text-white rounded-xl text-[11.5px] font-semibold flex items-center justify-center gap-1 active:scale-[0.98] disabled:opacity-40 hover:opacity-90"
                     >
                       <CalendarIcon className="w-3 h-3" />
                       {t('search.confirm')}

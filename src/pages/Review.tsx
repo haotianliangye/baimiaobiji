@@ -400,12 +400,12 @@ export default function Review() {
         <div className="flex-1 w-full mb-20 flex flex-col gap-3">
           {reviewsForDate.length === 0 && !hasPendingForDate ? (
             <div className="flex flex-col items-center justify-center py-8 w-full select-none">
-              <p className="text-[13px] text-stone-400 mb-5 tracking-wider font-medium font-serif">{t('review.emptyTodayTitle')}</p>
+              <p className="text-[13px] text-stone-400 mb-5 tracking-wider font-medium">{t('review.emptyTodayTitle')}</p>
               <div className="flex flex-col items-center justify-center p-8 bg-gradient-to-br from-baimiao-mysteria/[0.03] to-[#2c2957]/[0.01] rounded-2xl border border-baimiao-mysteria/10 shadow-[0_8px_30px_rgba(27,25,56,0.03)] text-center w-full max-w-[280px]">
                 <div className="text-baimiao-mysteria mb-4 bg-white p-3 rounded-xl shadow-[0_2px_10px_rgba(27,25,56,0.05)] border border-baimiao-mysteria/5">
                   <Sparkles className="w-6 h-6 stroke-[1.5px] text-baimiao-mysteria/70 animate-pulse" />
                 </div>
-                <p className="text-[15px] text-stone-900 font-medium tracking-tight mb-2 font-serif baimiao-editorial-title">
+                <p className="text-[15px] text-stone-900 font-medium tracking-tight mb-2">
                   {t('review.todayFragmentsCount', { count: logsCountForDate })}
                 </p>
                 <p className="text-[12.5px] text-stone-500 mb-6 leading-relaxed">{t('review.emptyTodayDesc')}</p>
@@ -638,7 +638,7 @@ export default function Review() {
                           ) : entryContent ? (
                             <>
                               <div
-                                className="markdown-body prose prose-stone baimiao-editorial-body prose-h1:text-[19px] prose-h2:text-[17px] prose-h3:text-[16px] prose-h1:leading-snug prose-headings:font-medium prose-headings:font-serif baimiao-editorial-title max-w-none text-[15.5px] leading-relaxed select-text pointer-events-auto"
+                                className="markdown-body prose prose-stone baimiao-editorial-body prose-h1:text-[19px] prose-h2:text-[17px] prose-h3:text-[16px] prose-h1:leading-snug prose-headings:font-medium baimiao-editorial-title max-w-none text-[15.5px] leading-relaxed select-text pointer-events-auto"
                               >
                                 <VerifiedMarkdown
                                   markdown={formatDiaryMarkdown(entryContent)}

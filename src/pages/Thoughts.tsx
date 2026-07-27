@@ -498,7 +498,7 @@ export default function Thoughts() {
                   className="sticky top-0 z-10 bg-[#faf9fc]/90 backdrop-blur px-1 py-1 -mx-1 flex items-center gap-1.5"
                 >
                   <Clock className="w-3 h-3 text-baimiao-mysteria/60" />
-                  <span className="text-[12px] font-semibold text-baimiao-mysteria font-serif baimiao-editorial-title">
+                  <span className="text-[12px] font-semibold text-baimiao-mysteria">
                     {g.label}
                   </span>
                   <span className="text-[10.5px] text-stone-400 font-mono">{g.date}</span>
@@ -635,7 +635,7 @@ export default function Thoughts() {
           >
             {/* 弹窗头 */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-stone-100 shrink-0">
-              <span className="text-[13.5px] font-semibold text-baimiao-mysteria font-serif baimiao-editorial-title">
+              <span className="text-[13.5px] font-semibold text-baimiao-mysteria">
                 {t('thoughts.editTitle')}
               </span>
               <button
@@ -719,7 +719,7 @@ function EmptyState() {
       <div className="text-baimiao-mysteria mb-4 bg-white p-3 rounded-xl shadow-[0_2px_10px_rgba(27,25,56,0.05)] border border-baimiao-mysteria/5">
         <Sparkles className="w-6 h-6 stroke-[1.5px] text-baimiao-mysteria/70" />
       </div>
-      <p className="text-[15px] text-stone-900 font-medium tracking-tight mb-2 font-serif baimiao-editorial-title">
+      <p className="text-[15px] text-stone-900 font-medium tracking-tight mb-2">
         {t('thoughts.emptyTitle')}
       </p>
       <p className="text-[12.5px] text-stone-500 leading-relaxed max-w-[260px]">
@@ -875,7 +875,7 @@ function ThoughtCard({ thought, view, copied, onCopy, onEdit, resolveAttachment 
         className="relative overflow-hidden"
       >
         {plainText.trim() && (
-          <div className="baimiao-editorial-body prose prose-stone max-w-none text-[13.5px] leading-relaxed">
+          <div className="baimiao-editorial-body prose prose-stone max-w-none text-[15.5px] leading-relaxed">
             <DocumentView
               value={doc}
               resolveAttachment={resolveAttachment}

@@ -1,11 +1,15 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Inter:wght@400;500;600&family=Noto+Serif+SC:wght@400;500&display=swap');
+/* 唯一保留的外链字体:Logo「白描」二字用 LXGW WenKai(霞鹜文楷)。
+   其他所有文字(正文/标题/时间戳)走系统默认字体栈 —— iOS 苹方、macOS 苹方、
+   Android 厂商字体、Windows 微软雅黑。系统默认符合"用户顺应自己习惯"原则。 */
+@import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css');
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Cormorant Garamond", "Noto Serif SC", "Source Han Serif SC", "IPAPMincho", "宋体", serif;
-  
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "微软雅黑", system-ui, sans-serif;
+  --font-serif: "LXGW WenKai", "霞鹜文楷", system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
+
   /* Superhuman Color Tokens */
   --color-baimiao-mysteria: #1b1938;      /* 暮光深紫 */
   --color-baimiao-cream: #e9e5dd;         /* 温暖奶油 */
@@ -130,11 +134,9 @@ html, body, #root {
   text-align-last: left !important;
 }
 
-/* 纸质社论排版标题 */
+/* 保留的样式容器:不再强制字体(全应用已统一为系统默认),仅保留 lining-nums
+   让数字上下对齐。文字本身的字体由上下文决定。 */
 .baimiao-editorial-title {
-  font-family: var(--font-serif) !important;
-  color: var(--color-baimiao-ink) !important;
-  font-weight: 500 !important;
   font-variant-numeric: lining-nums !important;
   font-feature-settings: "lnum" 1 !important;
 }

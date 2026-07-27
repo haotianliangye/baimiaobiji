@@ -305,9 +305,9 @@ export default function Copilot() {
   return (
     <div className="absolute inset-0 bg-[#f0eef5] flex flex-col overflow-hidden animate-in fade-in duration-200">
       {/* Header */}
-      <div className="flex h-[54px] shrink-0 items-center px-4 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white gap-2 select-none border-b border-white/5">
-        <MessageSquare className="w-4.5 h-4.5 text-white/90 shrink-0 translate-y-[2px]" />
-        <span className="text-[14px] font-normal flex-1 font-serif baimiao-editorial-title translate-y-[2px] tracking-wide select-none">
+      <div className="flex h-[54px] shrink-0 items-center px-4 bg-white text-baimiao-mysteria gap-2 select-none border-b border-stone-200/60">
+        <MessageSquare className="w-4.5 h-4.5 text-baimiao-mysteria/85 shrink-0 translate-y-[2px]" />
+        <span className="text-[14px] font-normal flex-1 translate-y-[2px] tracking-wide select-none">
           {t('copilot.title')}
         </span>
         <button onClick={handleNewConversation} title={t('copilot.newChat')} className="p-1.5 hover:opacity-70 transition-opacity active:scale-95 shrink-0">
@@ -324,7 +324,7 @@ export default function Copilot() {
           onClick={() => handleSwitchMode('rag')}
           className={`flex-1 text-center py-2 rounded-xl text-[12.5px] font-semibold tracking-wide transition-all active:scale-[0.98] ${
             navView === 'rag'
-              ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-md shadow-baimiao-mysteria/10'
+              ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria border border-baimiao-mysteria/20 shadow-sm'
               : 'bg-stone-50 text-stone-600 hover:bg-stone-100 border border-stone-200/60'
           }`}
         >
@@ -334,7 +334,7 @@ export default function Copilot() {
           onClick={() => handleSwitchMode('chat')}
           className={`flex-1 text-center py-2 rounded-xl text-[12.5px] font-semibold tracking-wide transition-all active:scale-[0.98] ${
             navView === 'chat'
-              ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-md shadow-baimiao-mysteria/10'
+              ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria border border-baimiao-mysteria/20 shadow-sm'
               : 'bg-stone-50 text-stone-600 hover:bg-stone-100 border border-stone-200/60'
           }`}
         >
@@ -344,7 +344,7 @@ export default function Copilot() {
           onClick={handleSwitchToHistory}
           className={`flex-1 text-center py-2 rounded-xl text-[12.5px] font-semibold tracking-wide transition-all active:scale-[0.98] ${
             navView === 'history'
-              ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-md shadow-baimiao-mysteria/10'
+              ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria border border-baimiao-mysteria/20 shadow-sm'
               : 'bg-stone-50 text-stone-600 hover:bg-stone-100 border border-stone-200/60'
           }`}
         >
@@ -434,7 +434,7 @@ export default function Copilot() {
                   onClick={() => handleSelectConversation(c.id)}
                   className={`flex items-center justify-between p-4 cursor-pointer rounded-2xl border transition-all ${
                     c.id === currentId
-                      ? 'bg-gradient-to-r from-baimiao-mysteria/10 to-[#2c2957]/10 border-baimiao-mysteria/40 shadow-sm'
+                      ? 'bg-baimiao-mysteria/10 border-baimiao-mysteria/30 shadow-sm'
                       : 'bg-white hover:bg-stone-50 border-stone-200/60 shadow-sm'
                   }`}
                 >
@@ -478,7 +478,7 @@ export default function Copilot() {
                 <p className="text-[12px] text-stone-500 mb-4 max-w-[200px]">{t('copilot.noHistoryDesc')}</p>
                 <button
                   onClick={handleNewConversation}
-                  className="bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white px-4 py-2 rounded-full text-[12.5px] font-medium shadow-sm hover:brightness-110 active:scale-95 transition-all"
+                  className="bg-baimiao-mysteria text-white px-4 py-2 rounded-full text-[12.5px] font-medium shadow-sm hover:opacity-90 active:scale-95 transition-all"
                 >
                   {t('copilot.newChat')}
                 </button>
@@ -510,7 +510,7 @@ export default function Copilot() {
                     }}
                     className={`px-2.5 py-1 rounded-xl text-[12px] font-medium border transition-all shrink-0 active:scale-95 ${
                       isSelected
-                        ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white border-transparent shadow-sm'
+                        ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria border-baimiao-mysteria/20 shadow-sm'
                         : 'bg-[#f0edf4]/50 text-[#8a859e] border-stone-200/20 hover:bg-[#f0edf4]'
                     }`}
                   >
@@ -546,7 +546,7 @@ export default function Copilot() {
                 </p>
                 <button
                   onClick={() => { setCopilotMode(false); navigate('/settings?view=detail'); }}
-                  className="bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white px-5 py-2 rounded-full text-[13px] font-medium shadow-sm hover:brightness-110 transition-all active:scale-95"
+                  className="bg-baimiao-mysteria text-white px-5 py-2 rounded-full text-[13px] font-medium shadow-sm hover:opacity-90 transition-all active:scale-95"
                 >
                   {t('copilot.goSettings')}
                 </button>

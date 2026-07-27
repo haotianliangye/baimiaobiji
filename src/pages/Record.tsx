@@ -1962,7 +1962,7 @@ export default function Record() {
           >
             {/* 弹窗头 */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-stone-100 shrink-0">
-              <span className="text-[13.5px] font-semibold text-baimiao-mysteria font-serif baimiao-editorial-title">
+              <span className="text-[13.5px] font-semibold text-baimiao-mysteria">
                 {t('record.editTitle')}
               </span>
               <button

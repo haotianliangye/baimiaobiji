@@ -1655,7 +1655,7 @@ export default function Settings() {
     >
       {/* 抽屉头部 */}
       <div className="flex h-14 items-center justify-between px-4 bg-[#faf9fc]/85 backdrop-blur border-b border-baimiao-border/40 shrink-0">
-        <h2 className="text-[15.5px] font-bold text-baimiao-mysteria font-serif baimiao-editorial-title">{t('settings.title')}</h2>
+        <h2 className="text-[15.5px] font-bold text-baimiao-mysteria">{t('settings.title')}</h2>
         <button
           onClick={() => navigate(-1)}
           className="p-2 -mr-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100/60 transition-all rounded-full active:scale-90"
@@ -1780,7 +1780,7 @@ export default function Settings() {
           <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-baimiao-mysteria/70 hover:text-baimiao-mysteria hover:bg-baimiao-mysteria/5 transition-all rounded-full active:scale-90" aria-label={t('settings.back')}>
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h2 className="text-[15.5px] font-bold ml-2 text-baimiao-mysteria font-serif baimiao-editorial-title">{t('settings.title')}</h2>
+          <h2 className="text-[15.5px] font-bold ml-2 text-baimiao-mysteria">{t('settings.title')}</h2>
         </div>
 
         {/* 横向导航栏 */}

@@ -316,7 +316,7 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
             >
               <ChevronDown className="w-6 h-6 text-white" />
             </button>
-            <span className="text-[14px] font-normal flex-1 font-serif baimiao-editorial-title translate-y-[2px] tracking-wide select-none">
+            <span className="text-[14px] font-normal flex-1 translate-y-[2px] tracking-wide select-none">
               {t('chat.longInput')}
             </span>
           </div>

@@ -720,7 +720,7 @@ export default function RandomWalk() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-stone-100 shrink-0">
-              <span className="text-[13.5px] font-semibold text-baimiao-mysteria font-serif baimiao-editorial-title">
+              <span className="text-[13.5px] font-semibold text-baimiao-mysteria">
                 {t('randomWalk.settingsTitle')}
               </span>
               <button
@@ -792,7 +792,7 @@ export default function RandomWalk() {
             <div className="text-baimiao-mysteria/40 mb-4 bg-white p-3 rounded-xl shadow-[0_2px_10px_rgba(27,25,56,0.05)] border border-baimiao-mysteria/5">
               <Lightbulb className="w-6 h-6 stroke-[1.5px]" />
             </div>
-            <p className="text-[14px] text-stone-700 font-medium mb-1 font-serif baimiao-editorial-title">
+            <p className="text-[14px] text-stone-700 font-medium mb-1">
               {t('randomWalk.emptyTitle')}
             </p>
             <p className="text-[12px] text-stone-400 leading-relaxed mb-5">
@@ -842,7 +842,7 @@ export default function RandomWalk() {
 
                   {/* 摘要标题（回顾/洞察） */}
                   {item.title && (
-                    <p className="text-[12.5px] font-semibold text-baimiao-mysteria/80 mb-2 font-serif baimiao-editorial-title shrink-0">
+                    <p className="text-[12.5px] font-semibold text-baimiao-mysteria/80 mb-2 shrink-0">
                       {item.title}
                     </p>
                   )}
@@ -857,7 +857,7 @@ export default function RandomWalk() {
                         <div
                           ref={(el) => { contentRefs.current[index] = el; }}
                           data-testid="walk-card-content"
-                          className="w-full h-full overflow-y-auto thin-scrollbar markdown-body prose prose-stone baimiao-editorial-body prose-headings:font-serif baimiao-editorial-title max-w-none text-[13.5px] leading-relaxed prose-h1:text-[16px] prose-h2:text-[15px] prose-h3:text-[14px]"
+                          className="w-full h-full overflow-y-auto thin-scrollbar markdown-body prose prose-stone baimiao-editorial-body baimiao-editorial-title max-w-none text-[13.5px] leading-relaxed prose-h1:text-[16px] prose-h2:text-[15px] prose-h3:text-[14px]"
                         >
                           {hasBodyText && <ReactMarkdown>{item.content}</ReactMarkdown>}
                           {hasAttachments && (
@@ -984,7 +984,7 @@ export default function RandomWalk() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-stone-100 shrink-0">
-              <span className="text-[13.5px] font-semibold text-baimiao-mysteria font-serif baimiao-editorial-title">
+              <span className="text-[13.5px] font-semibold text-baimiao-mysteria">
                 {t('randomWalk.tagSheetTitle', { type: current.typeLabel })}
               </span>
               <button
@@ -1081,7 +1081,7 @@ export default function RandomWalk() {
           >
             {/* 弹窗头 */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-stone-100 shrink-0">
-              <span className="text-[13.5px] font-semibold text-baimiao-mysteria font-serif baimiao-editorial-title">
+              <span className="text-[13.5px] font-semibold text-baimiao-mysteria">
                 {t('randomWalk.editTitle')}
               </span>
               <button
