@@ -24,6 +24,7 @@
 | #006 | 错误日志环形缓冲 | ✅ 已合并 (commit `98047e7`, tag `v0.2.2`) | feat/issue-006-error-buffer | 10/10 buffer 测试通过 + 累积版本号修正 |
 | #007 | 存储压力可视化 | ✅ 已合并 (commit `1b8c857`, tag `v0.2.3`) | feat/issue-007-storage-pressure | 13/13 pressure 测试通过 |
 | #008 | 本地自动备份 | ✅ 已合并 (commit `30b110f`, tag `v0.3.0`) | feat/issue-008-auto-backup | 10/10 backup 测试通过 + db v16 |
+| hotfix-2026-07-27 | TopBar 浅色化 + 全应用字体统一为系统默认(Logo LXGW WenKai) + 沉淀卡片字号对齐到 15.5px | ✅ 已合并 (commit `ea3eade`, tag `v0.3.1`) | - | UI 视觉一致性;沉淀/记录/回顾/洞察卡片正文均为 15.5px + 系统默认 sans |
 
 ## 🎉 P0 全部完成 (8/8)
 
