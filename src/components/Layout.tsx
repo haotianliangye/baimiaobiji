@@ -141,6 +141,9 @@ export default function Layout() {
   const [showMingwuDropdown, setShowMingwuDropdown] = useState(false);
   const mingwuCapsuleRef = useRef<HTMLDivElement>(null);
   const mingwuCardRef = useRef<HTMLDivElement>(null);
+  // 下拉定位:用 createPortal + fixed + 胶囊 rect,避开父级 overflow-hidden 裁剪
+  const [thoughtsDropdownRect, setThoughtsDropdownRect] = useState<{ left: number; top: number } | null>(null);
+  const [mingwuDropdownRect, setMingwuDropdownRect] = useState<{ left: number; top: number } | null>(null);
   // 标签聚合页 TopBar 胶囊下拉
   const [showTagDropdown, setShowTagDropdown] = useState(false);
   const tagCapsuleRef = useRef<HTMLDivElement>(null);
@@ -265,6 +268,48 @@ export default function Layout() {
       window.removeEventListener('resize', update);
     };
   }, [showTagDropdown, tagDisplayName]);
+
+  // 沉淀胶囊下拉定位(同 tag dropdown 模式)
+  useEffect(() => {
+    if (!showThoughtsDropdown || !thoughtsCapsuleRef.current) return;
+    const update = () => {
+      const el = thoughtsCapsuleRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setThoughtsDropdownRect({
+        left: rect.left + rect.width / 2,
+        top: rect.bottom + 6,
+      });
+    };
+    update();
+    window.addEventListener('scroll', update, true);
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update, true);
+      window.removeEventListener('resize', update);
+    };
+  }, [showThoughtsDropdown, thoughtsViewMode]);
+
+  // 洞察胶囊下拉定位(同 tag dropdown 模式)
+  useEffect(() => {
+    if (!showMingwuDropdown || !mingwuCapsuleRef.current) return;
+    const update = () => {
+      const el = mingwuCapsuleRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setMingwuDropdownRect({
+        left: rect.left + rect.width / 2,
+        top: rect.bottom + 6,
+      });
+    };
+    update();
+    window.addEventListener('scroll', update, true);
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update, true);
+      window.removeEventListener('resize', update);
+    };
+  }, [showMingwuDropdown]);
 
   useEffect(() => {
     if (showDateDropdown) {
@@ -576,10 +621,18 @@ export default function Layout() {
                 </button>
               </div>
             )}
-            {showThoughtsCapsule && showThoughtsDropdown && (
+            {showThoughtsCapsule && showThoughtsDropdown && thoughtsDropdownRect && createPortal(
               <div
                 ref={thoughtsCardRef}
-                className="absolute left-1/2 -translate-x-1/2 top-[44px] z-50 bg-white rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] flex flex-col p-1 animate-in fade-in zoom-in-95 duration-100"
+                data-testid="thoughts-capsule-dropdown"
+                style={{
+                  position: 'fixed',
+                  left: `${thoughtsDropdownRect.left}px`,
+                  top: `${thoughtsDropdownRect.top}px`,
+                  transform: 'translateX(-50%)',
+                  zIndex: 60,
+                }}
+                className="bg-white rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] flex flex-col p-1 animate-in fade-in zoom-in-95 duration-100"
               >
                 <button
                   data-testid="view-masonry"
@@ -603,7 +656,8 @@ export default function Layout() {
                 >
                   {t('thoughts.timeline')}
                 </button>
-              </div>
+              </div>,
+              document.body
             )}
 
             {/* 中：洞察时间范围下拉胶囊（随机漫步模式下隐藏） */}
@@ -619,10 +673,18 @@ export default function Layout() {
                 </button>
               </div>
             )}
-            {showMingwuCapsule && showMingwuDropdown && (
+            {showMingwuCapsule && showMingwuDropdown && mingwuDropdownRect && createPortal(
               <div
                 ref={mingwuCardRef}
-                className="absolute left-1/2 -translate-x-1/2 top-[44px] z-50 bg-white border border-stone-200/60 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-1.5 animate-in fade-in zoom-in-95 duration-100 w-[200px]"
+                data-testid="mingwu-capsule-dropdown"
+                style={{
+                  position: 'fixed',
+                  left: `${mingwuDropdownRect.left}px`,
+                  top: `${mingwuDropdownRect.top}px`,
+                  transform: 'translateX(-50%)',
+                  zIndex: 60,
+                }}
+                className="bg-white border border-stone-200/60 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-1.5 animate-in fade-in zoom-in-95 duration-100 w-[200px]"
               >
                 <div className="grid grid-cols-4 gap-1">
                   {mingwuRangeOptions.map((opt) => (
@@ -640,7 +702,8 @@ export default function Layout() {
                     </button>
                   ))}
                 </div>
-              </div>
+              </div>,
+              document.body
             )}
 
             {/* 右：随机漫步模式下只显示×关闭；否则显示 同步/搜索/RAG/灯泡入口 */}
