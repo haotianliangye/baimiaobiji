@@ -29,15 +29,27 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, ac
     () => db.raw_logs.where('created_at').between(startDate.getTime(), baseDate.getTime() + 86400000).toArray(),
     [startDate.getTime(), baseDate.getTime()]
   );
+  // thoughts 区段单独查询：方格按沉淀条数着色
+  const thoughtsForPeriod = useLiveQuery(
+    () => db.thoughts.where('created_at').between(startDate.getTime(), baseDate.getTime() + 86400000).toArray(),
+    [startDate.getTime(), baseDate.getTime()]
+  );
 
   const stats = useMemo(() => {
     const map = new Map<string, number>();
-    logs?.forEach(log => {
-      const dateStr = format(new Date(log.created_at), 'yyyy-MM-dd');
-      map.set(dateStr, (map.get(dateStr) || 0) + 1);
-    });
+    if (activeSection === 'thoughts') {
+      thoughtsForPeriod?.forEach((th) => {
+        const dateStr = format(new Date(th.created_at), 'yyyy-MM-dd');
+        map.set(dateStr, (map.get(dateStr) || 0) + 1);
+      });
+    } else {
+      logs?.forEach((log) => {
+        const dateStr = format(new Date(log.created_at), 'yyyy-MM-dd');
+        map.set(dateStr, (map.get(dateStr) || 0) + 1);
+      });
+    }
     return map;
-  }, [logs]);
+  }, [activeSection, logs, thoughtsForPeriod]);
 
   // Generate exactly 70 days cells chronologically (from left to right, top to bottom)
   const gridCells = [];
@@ -54,6 +66,14 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, ac
   const getIntensityClass = (count: number, isSelected: boolean) => {
     if (isSelected) return 'bg-baimiao-mysteria border-2 border-baimiao-mysteria/40 scale-110 z-10 rounded-[5px] shadow-[0_2px_8px_rgba(27,25,56,0.35)]';
     if (count === 0) return 'bg-[#f0edf4] border border-black/[0.005] rounded-[4px]';
+    if (activeSection === 'thoughts') {
+      // 沉淀日均通常 0–3 条：复用 raw_logs 阈值会全变最深，看不出差异
+      if (count === 1) return 'bg-baimiao-mysteria/20 rounded-[4px]';
+      if (count === 2) return 'bg-baimiao-mysteria/45 rounded-[4px]';
+      if (count === 3) return 'bg-baimiao-mysteria/70 rounded-[4px]';
+      return 'bg-baimiao-mysteria rounded-[4px]';
+    }
+    // raw_logs 阈值（保持现状）
     if (count < 3) return 'bg-baimiao-mysteria/15 rounded-[4px]';
     if (count < 8) return 'bg-baimiao-mysteria/40 rounded-[4px]';
     if (count < 15) return 'bg-baimiao-mysteria/65 rounded-[4px]';
@@ -180,7 +200,13 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, ac
                            onClose();
                         }}
                         className={`w-[18px] h-[18px] transition-all transform active:scale-[0.85] ${getIntensityClass(count, isSelected)}`}
-                        title={t('calendarHeatmap.cellTitle', { date: dateStr, count })}
+                        title={t('calendarHeatmap.cellTitle', {
+                          date: dateStr,
+                          count,
+                          unit: activeSection === 'thoughts'
+                            ? t('calendarHeatmap.thoughtUnit')
+                            : t('calendarHeatmap.recordUnit'),
+                        })}
                       />
                     );
                   })}

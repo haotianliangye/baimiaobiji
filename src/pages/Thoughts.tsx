@@ -122,18 +122,35 @@ function datetimeLocalToTs(s: string): number {
   return isNaN(t) ? Date.now() : t;
 }
 
-/** 顶部日期 header 与 Record / Review 一致，从 URL ?date= 读取；无参默认今天。 */
-function useThoughtsDateParam() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const today = new Date();
-  const dateParam = searchParams.get('date');
-  let targetDate = today;
-  if (dateParam) {
-    const parsed = parse(dateParam, 'yyyy-MM-dd', new Date());
-    if (!isNaN(parsed.getTime())) targetDate = parsed;
+/** 时间线分组：按 created_at 的 yyyy-MM-dd 归并，组内按 created_at 倒序。 */
+interface TimelineGroup {
+  date: string; // yyyy-MM-dd
+  label: string;
+  thoughts: Thought[];
+}
+
+/** 时间线分组标签翻译函数类型（与 useTranslation().t 签名一致）。 */
+type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
+
+function buildTimelineGroups(thoughts: Thought[], t: TranslateFn): TimelineGroup[] {
+  const map = new Map<string, Thought[]>();
+  const sorted = [...thoughts].sort((a, b) => b.created_at - a.created_at);
+  for (const thought of sorted) {
+    const date = format(new Date(thought.created_at), 'yyyy-MM-dd');
+    if (!map.has(date)) map.set(date, []);
+    map.get(date)!.push(thought);
   }
-  const dateStr = format(targetDate, 'yyyy-MM-dd');
-  return { targetDate, dateStr, setSearchParams };
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const yesterday = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
+  return Array.from(map.entries())
+    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+    .map(([date, items]) => {
+      let label: string;
+      if (date === today) label = t('thoughts.today');
+      else if (date === yesterday) label = t('thoughts.yesterday');
+      else label = format(new Date(date), t('thoughts.dateLabelFormat'));
+      return { date, label, thoughts: items };
+    });
 }
 
 export default function Thoughts() {
@@ -161,26 +178,41 @@ export default function Thoughts() {
     [allThoughts]
   );
 
-  // 顶部日期 header (与 Record/Review 一致)：按 ?date= URL 过滤
-  const { targetDate, dateStr, setSearchParams } = useThoughtsDateParam();
-  const filteredThoughts = useMemo(
-    () => thoughts.filter((tt) => isSameDay(new Date(tt.created_at), targetDate)),
-    [thoughts, targetDate]
+  // 顶部日期 header (与 Record/Review 一致)：默认全部时间线；?date= 设置后才过滤
+  const [searchParams, setSearchParams] = useSearchParams();
+  const dateParam = searchParams.get('date');
+  const hasFilter = !!dateParam;
+  const filterDate = useMemo(() => {
+    if (!dateParam) return null;
+    const parsed = parse(dateParam, 'yyyy-MM-dd', new Date());
+    return isNaN(parsed.getTime()) ? null : parsed;
+  }, [dateParam]);
+  const filterDateStr = filterDate ? format(filterDate, 'yyyy-MM-dd') : '';
+
+  // 默认：所有 thoughts；过滤模式：仅 filterDate 当天
+  const displayedThoughts = useMemo(
+    () => (filterDate
+      ? thoughts.filter((tt) => isSameDay(new Date(tt.created_at), filterDate))
+      : thoughts),
+    [thoughts, filterDate]
   );
 
+  // 时间线分组（仅默认模式用）
+  const timelineGroups = useMemo(() => buildTimelineGroups(thoughts, t), [thoughts, t]);
+
   // #random-walk-nav: 随机漫步双击跳转 — 滚动到目标 thought 并临时高亮
-  // 若当前日期过滤不包含目标 thought，先跳到该 thought 的日期再滚动
-  const [searchParams] = useSearchParams();
+  // 若当前 ?date= 过滤不包含目标 thought，先清除过滤让全部 thoughts 可见，再 scroll
   const thoughtIdParam = searchParams.get('thoughtId');
   useEffect(() => {
     if (!thoughtIdParam || !allThoughts) return;
+    if (searchParams.get('date')) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('date');
+      setSearchParams(next, { replace: true });
+      return; // 等 URL 更新 + useLiveQuery 重新渲染后，下次 effect 触发再 scroll
+    }
     const target = allThoughts.find((tt) => tt.id === thoughtIdParam);
     if (!target) return;
-    const targetDateStr = format(new Date(target.created_at), 'yyyy-MM-dd');
-    if (dateStr !== targetDateStr) {
-      setSearchParams({ date: targetDateStr });
-      return; // 等待 useLiveQuery / filteredThoughts 更新后下次 effect 触发再 scroll
-    }
     const timer = setTimeout(() => {
       const el = document.querySelector(`[data-thought-id="${CSS.escape(thoughtIdParam)}"]`);
       if (el instanceof HTMLElement) {
@@ -190,10 +222,7 @@ export default function Thoughts() {
       }
     }, 150);
     return () => clearTimeout(timer);
-  }, [thoughtIdParam, allThoughts, dateStr, setSearchParams]);
-
-  // 视图模式从 app store 读取（顶部栏胶囊控制）
-  // const view = useAppStore((s) => s.thoughtsViewMode); // 移除：masonry 已取消，仅时间线
+  }, [thoughtIdParam, allThoughts, searchParams, setSearchParams]);
 
   // --- 底部快速创建编辑器 ---
   const [isCreating, setIsCreating] = useState(false);
@@ -482,18 +511,58 @@ export default function Thoughts() {
     <div className="flex flex-col h-full bg-transparent">
       {/* 列表区（局部滚动，遵循移动端红线） */}
       <div ref={createScrollRef} className="flex-1 overflow-y-auto thin-scrollbar px-4 md:px-6 lg:px-8 py-4 md:py-6">
-        {filteredThoughts.length === 0 ? (
-          thoughts.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <DateEmptyState
-              dateStr={dateStr}
-              onBackToToday={() => setSearchParams({})}
-            />
-          )
+        {thoughts.length === 0 ? (
+          <EmptyState />
+        ) : !hasFilter ? (
+          // 默认：全部 thoughts 按日期分组的时间线视图
+          <div className="flex flex-col gap-5">
+            {timelineGroups.map((g) => (
+              <div key={g.date} className="flex flex-col gap-2.5">
+                <div
+                  data-testid="timeline-group"
+                  data-date={g.date}
+                  className="sticky top-0 z-10 bg-[#faf9fc]/90 backdrop-blur px-1 py-1 -mx-1 flex items-center gap-1.5"
+                >
+                  <Clock className="w-3 h-3 text-baimiao-mysteria/60" />
+                  <span className="text-[12px] font-semibold text-baimiao-mysteria">
+                    {g.label}
+                  </span>
+                  <span className="text-[10.5px] text-stone-400 font-mono">{g.date}</span>
+                  <span className="text-[10.5px] text-stone-400">{t('thoughts.itemCount', { count: g.thoughts.length })}</span>
+                </div>
+                {g.thoughts.map((tt) => (
+                  <ThoughtCard
+                    key={tt.id}
+                    thought={tt}
+                    copied={copied}
+                    onCopy={() => copy(documentToText(resolveDocumentContent(tt)))}
+                    onEdit={() => openEdit(tt)}
+                    resolveAttachment={resolveAttachment}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        ) : displayedThoughts.length === 0 ? (
+          <DateEmptyState
+            dateStr={filterDateStr}
+            onBackToToday={() => setSearchParams({})}
+          />
         ) : (
+          // 过滤模式：仅当天 thoughts（按 created_at 倒序），加"查看全部时间线"按钮
           <div className="flex flex-col gap-3.5">
-            {filteredThoughts.map((tt) => (
+            <div className="flex items-center justify-between px-1 -mt-1 mb-1 select-none">
+              <span className="text-[11px] text-stone-400">
+                {t('thoughts.filterHint', { date: filterDateStr, count: displayedThoughts.length })}
+              </span>
+              <button
+                onClick={() => setSearchParams({})}
+                className="text-[11px] text-baimiao-mysteria/70 hover:text-baimiao-mysteria font-medium transition-colors"
+              >
+                {t('thoughts.viewAll')}
+              </button>
+            </div>
+            {displayedThoughts.map((tt) => (
               <ThoughtCard
                 key={tt.id}
                 thought={tt}
