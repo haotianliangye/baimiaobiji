@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { NavLink, Outlet, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Loader2, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning, Sparkles, MessageSquare, Calendar as CalendarIcon, Menu, Lightbulb, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, X, Search, Trash2, ChevronDown, Cloud, CloudOff, CloudLightning, Sparkles, MessageSquare, Calendar as CalendarIcon, Menu, Footprints, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ChatCircleDots, HeadCircuit, Clock, Sun } from '@phosphor-icons/react';
 import { subDays, format, parse, addDays, isSameDay } from 'date-fns';
 import { useAppStore } from '../store/app.store';
@@ -341,7 +341,7 @@ export default function Layout() {
                   <Menu className="w-[18px] h-[18px]" />
                 </button>
               )}
-              <h1 className="text-[16px] font-normal font-serif tracking-widest select-none truncate translate-y-[2px]">
+              <h1 className="text-[16px] font-normal font-serif tracking-widest select-none truncate">
                 {isRandomWalkMode ? t('randomWalk.title') : t(headerTitleKey)}
               </h1>
               {isRandomWalkMode ? null : (
@@ -513,7 +513,7 @@ export default function Layout() {
                     aria-label={t('thoughts.randomWalk')}
                     className="p-1.5 hover:opacity-70 transition-opacity active:scale-95"
                   >
-                    <Lightbulb className="w-[18px] h-[18px]" />
+                    <Footprints className="w-[18px] h-[18px]" />
                   </button>
                 </>
               )}
