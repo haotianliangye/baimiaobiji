@@ -5,13 +5,14 @@
 
 ---
 
-## 当前进度（截至 2026-07-23 P0 完成 + v3 清理）
+## 当前进度（截至 2026-07-28 P0 + v3 完成 + v0.3.x hotfix + 新模块沉淀）
 
 | # | 阶段 | 状态 |
 |---|------|------|
 | P0 (#001-#008) | ✅ 全部合并（v0.1.0 → v0.3.0）| backend infra（fetch / backoff / db / 备份 / 错误日志 / 存储压力 / 引用验证 / 转写过滤）|
 | v1 UI (#001-#010) | ✅ 全部 done（功能已实现并合并）| 9 个 seam 拆分 |
 | v3 UI (#100-#116) | ✅ 全部 done（功能已实现并合并）| 17 个 UI/UX 重构需求 |
+| v0.3.x hotfix | ✅ 全部合并（见下方）| 设置重构 + 沉淀/洞察改造 + 标签系统 + 随机漫步升级 + 热力图统一 |
 | 测试清理 | ✅ 6 个失效测试已删除 | 见下方「清理记录」|
 
 | Issue | 标题 | 状态 | 分支 | 验收 |
@@ -25,6 +26,22 @@
 | #007 | 存储压力可视化 | ✅ 已合并 (commit `1b8c857`, tag `v0.2.3`) | feat/issue-007-storage-pressure | 13/13 pressure 测试通过 |
 | #008 | 本地自动备份 | ✅ 已合并 (commit `30b110f`, tag `v0.3.0`) | feat/issue-008-auto-backup | 10/10 backup 测试通过 + db v16 |
 | hotfix-2026-07-27 | TopBar 浅色化 + 全应用字体统一为系统默认(Logo LXGW WenKai) + 沉淀卡片字号对齐到 15.5px | ✅ 已合并 (commit `ea3eade`, tag `v0.3.1`) | - | UI 视觉一致性;沉淀/记录/回顾/洞察卡片正文均为 15.5px + 系统默认 sans |
+
+## v0.3.x hotfix（2026-07-23 → 2026-07-28，按主题分组）
+
+| 主题 | commit | 说明 |
+|------|--------|------|
+| **设置页重构**（URL 驱动 + 桌面分栏 + 移动抽屉） | `8d0cdc4` `746f17e` `ea2a0fb` `ac01333` | `/settings` 嵌套在 Layout 下，drawer/detail 由 URL `?view=` 驱动；桌面端左右分栏常驻，移动端保留滑出抽屉；`[≡]` 在设置内返回首页，`[←]` 回上一页；**4 个默认 prompt（日记/回顾/明悟/洞察）解锁可编辑** |
+| **沉淀板块重构**（取消瀑布流 + 时间线 + 顶部日期导航 + 热力图） | `b87f774` `3da1213` `3e28956` | 编辑弹窗对齐记录页样式；移除瀑布流模式（统一时间线）；时间线分组头移到顶部 header（与记录/回顾一致），点击日期打开热力图；过滤模式由 URL `?date=` 显式驱动（默认全量） |
+| **热力图区段感知** | `3e28956` `5527f44` | `CalendarHeatmap` 新增 `HeatmapSection='thoughts'`；70 天方格按各区段自身数据源着色（record→raw_logs / review→daily_reviews / thoughts→thoughts），强度阈值分档 |
+| **洞察板块改造**（mingwu→insight 命名 + 取消自动打标签） | `d06fbe7` `06ae2dc` `8998fe1` | 内部字段从 `mingwu*` 重命名为 `insight*`；胶囊 dropdown 改用 portal 定位避免裁剪；**取消 AI 自动打标签**，改为用户手动添加（参照 Review.tsx 手动标签 UI） |
+| **标签系统**（TagChip + TagAggregation 路由 + 标签管理 UI） | `d61405d` `beee170` `bfa85b1` | 新增 `TagChip` 组件（命名导出）；新增 `/tag` 路由（标签聚合页）+ Layout 胶囊入口；drawer 标签列表 + 记录页标签用 TagChip 渲染 |
+| **随机漫步升级**（Footprints 图标 + 15.5px 富文本 + 双击精确定位） | `5f0eae1` `11f9f49` `3acd84a` | TabBar 图标换 Footprints；操作栏重排（删除移到最左减少误触）；卡片字号升 15.5px + 富文本渲染（DocumentView / VerifiedMarkdown）；双击跳转精确到对应页 + `?{recordId|reviewId|thoughtId|insightId}` 高亮 2s |
+| **版本号自动 bump** | `7dd28f7` | `sync-version.js` 自动跑 → 0.3.1 → 0.3.2（patch）→ 0.3.3 |
+
+## v0.3.1+ 当前未打 git tag 的版本
+
+`package.json` 现为 `0.3.3`，最后 git tag 为 `v0.3.1`。sync-version.js 自动 bump 之后未执行 `git tag`（参见 CLAUDE.md "版本号规则"）—— **待用户拍板**：是否补打 v0.3.2 / v0.3.3 tag，或改规则为"自动 tag"。
 
 ## 🎉 P0 全部完成 (8/8)
 

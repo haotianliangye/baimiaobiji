@@ -12,8 +12,8 @@
 
 ### 分支与提交
 
-- **当前主分支**：`refactor/mingwu-to-insight`（取代早期约定的 main，所有 feat 分支从此切出）。
-- **小改动**（单文件或几行修复）：直接改主分支，验证后 `git push origin <base>`。
+- **当前主分支**：`main`（所有改动直接提交或经 feat/fix 分支合入）。
+- **小改动**（单文件或几行修复）：直接改主分支，验证后 `git push origin main`（如需 push 须用户显式指令）。
 - **实验性/可能回滚的改动**：先切 `feat/<name>` 或 `fix/<name>` 分支，推远程，合并后再清理分支。
 - 提交前必须跑：
   ```bash

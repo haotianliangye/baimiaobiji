@@ -142,7 +142,17 @@
 
 ### 更新日志
 
-- **v0.3.0**（当前）
+- **v0.3.3**（当前）
+  - 沉淀板块重构：取消瀑布流模式 + 时间线统一 + 顶部日期导航 + 日历热力图集成；过滤由 URL `?date=` 显式驱动，默认全量时间线分组
+  - 热力图区段感知：record/diary/review/thoughts 各自按本区段数据源着色 + 专属强度阈值
+  - 设置页重构：URL `?view=` 驱动 drawer/detail + 桌面分栏常驻 + 移动抽屉滑出 + `[≡]`/[←]` 语义清晰
+  - 4 个默认 prompt（日记/回顾/明悟/洞察）解锁可编辑
+  - 洞察板块：内部 `mingwu*` → `insight*` 重命名；取消 AI 自动打标签，改用户手动添加
+  - 标签系统：TagChip 组件 + `/tag` 路由 + Layout 胶囊入口
+  - 随机漫步升级：Footprints 图标 + 15.5px 富文本 + 双击精确跳转（Record/Review/Thoughts/Insights 全支持）
+- **v0.3.1**（已 tag）
+  - TopBar 浅色化 + 全应用字体统一为系统默认 + 沉淀卡片字号对齐到 15.5px
+- **v0.3.0**
   - 记录 / 回顾（含日记）/ 沉淀 / 洞察 / 标签 / Copilot / Facts 七大模块上线
   - 支持 10+ 家 LLM / Embedding 服务商
   - WebDAV / OneDrive / Google Drive / Dropbox 端到端加密同步
