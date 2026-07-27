@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
 import { startOfDay, format, addDays, subDays, parse, isSameDay } from 'date-fns';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db/db';
+import { db, resolveDocumentContent } from '../db/db';
 import { countChars } from '../lib/wordCount';
+import { documentToText } from '../lib/documentModel';
 import { useTranslation } from '../lib/i18n';
 
-export type HeatmapSection = 'record' | 'diary' | 'review';
+export type HeatmapSection = 'record' | 'diary' | 'review' | 'thoughts';
 
 interface CalendarHeatmapProps {
   currentDate: Date;
@@ -62,17 +63,24 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, ac
   const allLogs = useLiveQuery(() => db.raw_logs.toArray());
   // v2 数据合并后，日记与回顾统一在 daily_reviews 表（entry_type='diary' | 'review'）
   const allDailyReviews = useLiveQuery(() => db.daily_reviews.toArray());
+  // 沉淀统计：与 Review/Record 共用顶部三段布局，中间项随 activeSection 切到 thoughts
+  const allThoughts = useLiveQuery(() => db.thoughts.toArray());
 
   const totalLogsAllTime = allLogs?.length || 0;
-  // 中间统计项固定显示「回顾」，数量取 daily_reviews 全表
-  const middleCount = allDailyReviews?.length || 0;
-  const middleLabel = t('calendarHeatmap.review');
+  // 中间统计项：record/diary/review 显示回顾条数，thoughts 显示沉淀条数
+  const middleCount = activeSection === 'thoughts'
+    ? (allThoughts?.length || 0)
+    : (allDailyReviews?.length || 0);
+  const middleLabel = activeSection === 'thoughts'
+    ? t('calendarHeatmap.thoughts')
+    : t('calendarHeatmap.review');
 
   const sectionNameMap: Record<HeatmapSection, string> = {
     record: t('calendarHeatmap.record'),
     // 日记与回顾已合并，标签统一用「回顾」
     diary: t('calendarHeatmap.review'),
     review: t('calendarHeatmap.review'),
+    thoughts: t('calendarHeatmap.thoughts'),
   };
   const sectionName = sectionNameMap[activeSection];
 
@@ -86,6 +94,15 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, ac
       const total = (allLogs || []).reduce((sum, log) => sum + countChars(log.content), 0);
       return { daily, total };
     }
+    if (activeSection === 'thoughts') {
+      // 沉淀字数：documentToText(resolveDocumentContent(th)) 与 Thoughts 页一致
+      const daily = (allThoughts || [])
+        .filter(th => format(new Date(th.created_at), 'yyyy-MM-dd') === currentDateStr)
+        .reduce((sum, th) => sum + countChars(documentToText(resolveDocumentContent(th))), 0);
+      const total = (allThoughts || [])
+        .reduce((sum, th) => sum + countChars(documentToText(resolveDocumentContent(th))), 0);
+      return { daily, total };
+    }
     // 日记与回顾已合并：字数为 ai_editorial（旧日记）+ ai_review（旧回顾）之和
     const daily = (allDailyReviews || [])
       .filter(r => r.review_date === currentDateStr)
@@ -93,16 +110,17 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, ac
     const total = (allDailyReviews || [])
       .reduce((sum, r) => sum + countChars(r.ai_review || '') + countChars(r.ai_editorial || ''), 0);
     return { daily, total };
-  }, [activeSection, allLogs, allDailyReviews, currentDateStr]);
+  }, [activeSection, allLogs, allThoughts, allDailyReviews, currentDateStr]);
 
   const firstLogMs = allLogs && allLogs.length > 0 ? allLogs.reduce((acc, log) => Math.min(acc, log.created_at), Date.now()) : Date.now();
   const firstReviewMs = allDailyReviews && allDailyReviews.length > 0 ? allDailyReviews.reduce((acc, r) => {
     const time = parse(r.review_date, 'yyyy-MM-dd', new Date()).getTime();
     return isNaN(time) ? acc : Math.min(acc, time);
   }, Date.now()) : Date.now();
+  const firstThoughtMs = allThoughts && allThoughts.length > 0 ? allThoughts.reduce((acc, th) => Math.min(acc, th.created_at), Date.now()) : Date.now();
 
-  const earliestEntryMs = Math.min(firstLogMs, firstReviewMs);
-  const daysSinceEpoch = (allLogs?.length || allDailyReviews?.length) ? Math.max(1, Math.round((today.getTime() - earliestEntryMs) / (1000 * 60 * 60 * 24)) + 1) : 0;
+  const earliestEntryMs = Math.min(firstLogMs, firstReviewMs, firstThoughtMs);
+  const daysSinceEpoch = (allLogs?.length || allDailyReviews?.length || allThoughts?.length) ? Math.max(1, Math.round((today.getTime() - earliestEntryMs) / (1000 * 60 * 60 * 24)) + 1) : 0;
 
   return (
     <div className="fixed inset-x-0 top-[52px] bottom-0 z-50 flex flex-col items-center p-4 bg-black/20 backdrop-blur-sm transition-all animate-in fade-in duration-200" onClick={onClose}>
@@ -117,7 +135,7 @@ export default function CalendarHeatmap({ currentDate, onSelectDate, onClose, ac
              <span className="text-[12px] text-stone-400 font-medium mt-1">{t('calendarHeatmap.record')}</span>
           </div>
           <div className="flex flex-col items-center">
-             <span className={`text-[32px] font-bold font-mono tracking-tight leading-none ${activeSection === 'diary' || activeSection === 'review' ? 'text-baimiao-mysteria' : 'text-stone-400'}`}>{middleCount}</span>
+             <span className={`text-[32px] font-bold font-mono tracking-tight leading-none ${activeSection === 'diary' || activeSection === 'review' || activeSection === 'thoughts' ? 'text-baimiao-mysteria' : 'text-stone-400'}`}>{middleCount}</span>
              <span className="text-[12px] text-stone-400 font-medium mt-1">{middleLabel}</span>
           </div>
           <div className="flex flex-col items-center">

@@ -52,8 +52,6 @@ export default function Layout() {
     setCopilotMode,
     isRandomWalkMode,
     setRandomWalkMode,
-    thoughtsViewMode,
-    setThoughtsViewMode,
     insightTimeRange,
     setInsightTimeRange,
   } = useAppStore();
@@ -73,10 +71,9 @@ export default function Layout() {
   const isSettingsDrawerMode =
     isMobile && currentPath === '/settings' && searchParams.get('view') !== 'detail';
   const phoneShellOffsetX = isSettingsDrawerMode ? SETTINGS_DRAWER_WIDTH : 0;
-  // 日期导航仅在「记录 / 回顾」两个按日期浏览的 Tab 显示
-  const showDateNav = currentPath === '/' || currentPath === '/review';
-  // 需求 6：沉淀中间为瀑布流/时间线胶囊；洞察中间为时间范围胶囊
-  const showThoughtsCapsule = currentPath === '/thoughts';
+  // 日期导航在「记录 / 回顾 / 沉淀」三个 Tab 都显示 —— 顶部日期 header 与 Record/Review 一致
+  const showDateNav = currentPath === '/' || currentPath === '/review' || currentPath === '/thoughts';
+  // 洞察中间为时间范围胶囊
   const showInsightCapsule = currentPath === '/insight';
   const isTagAggregation = currentPath === '/tag';
   const tagPathParam = isTagAggregation ? (searchParams.get('path') || '') : '';
@@ -122,7 +119,9 @@ export default function Layout() {
     const newDate = offset > 0 ? addDays(targetDate, offset) : subDays(targetDate, Math.abs(offset));
     setSearchParams({ date: format(newDate, 'yyyy-MM-dd') });
   };
-  const heatmapSection = currentPath === '/review' ? 'review' : 'record';
+  const heatmapSection = currentPath === '/review' ? 'review'
+                       : currentPath === '/thoughts' ? 'thoughts'
+                       : 'record';
 
   // 灯泡入口：随机漫步（全局状态控制显隐，主内容区渲染）
 
@@ -134,15 +133,11 @@ export default function Layout() {
   const promptCardRef = useRef<HTMLDivElement>(null);
   const [promptCardPos, setPromptCardPos] = useState<{ top: number; left: number } | null>(null);
 
-  // 需求 6：沉淀胶囊 & 洞察时间范围胶囊下拉
-  const [showThoughtsDropdown, setShowThoughtsDropdown] = useState(false);
-  const thoughtsCapsuleRef = useRef<HTMLDivElement>(null);
-  const thoughtsCardRef = useRef<HTMLDivElement>(null);
+  // 需求 6：洞察时间范围胶囊下拉
   const [showInsightDropdown, setShowInsightDropdown] = useState(false);
   const insightCapsuleRef = useRef<HTMLDivElement>(null);
   const insightCardRef = useRef<HTMLDivElement>(null);
   // 下拉定位:用 createPortal + fixed + 胶囊 rect,避开父级 overflow-hidden 裁剪
-  const [thoughtsDropdownRect, setThoughtsDropdownRect] = useState<{ left: number; top: number } | null>(null);
   const [insightDropdownRect, setInsightDropdownRect] = useState<{ left: number; top: number } | null>(null);
   // 标签聚合页 TopBar 胶囊下拉
   const [showTagDropdown, setShowTagDropdown] = useState(false);
@@ -191,21 +186,6 @@ export default function Layout() {
       if (!inButton && !inCard) {
         setShowPromptDropdown(false);
         setPromptCardPos(null);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
-  // 需求 6：沉淀胶囊点击外部关闭
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      const inButton = thoughtsCapsuleRef.current && thoughtsCapsuleRef.current.contains(event.target as Node);
-      const inCard = thoughtsCardRef.current && thoughtsCardRef.current.contains(event.target as Node);
-      if (!inButton && !inCard) {
-        setShowThoughtsDropdown(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -268,27 +248,6 @@ export default function Layout() {
       window.removeEventListener('resize', update);
     };
   }, [showTagDropdown, tagDisplayName]);
-
-  // 沉淀胶囊下拉定位(同 tag dropdown 模式)
-  useEffect(() => {
-    if (!showThoughtsDropdown || !thoughtsCapsuleRef.current) return;
-    const update = () => {
-      const el = thoughtsCapsuleRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      setThoughtsDropdownRect({
-        left: rect.left + rect.width / 2,
-        top: rect.bottom + 6,
-      });
-    };
-    update();
-    window.addEventListener('scroll', update, true);
-    window.addEventListener('resize', update);
-    return () => {
-      window.removeEventListener('scroll', update, true);
-      window.removeEventListener('resize', update);
-    };
-  }, [showThoughtsDropdown, thoughtsViewMode]);
 
   // 洞察胶囊下拉定位(同 tag dropdown 模式)
   useEffect(() => {
@@ -605,56 +564,6 @@ export default function Layout() {
                   className="w-full text-left px-3 py-1.5 text-[12px] text-stone-700 hover:bg-stone-100 rounded-lg transition-colors border-t border-stone-100 mt-1 pt-2"
                 >
                   {t('tags.aggregationBack')}
-                </button>
-              </div>,
-              document.body
-            )}
-
-            {/* 中：沉淀瀑布流/时间线下拉胶囊切换器（仅文字无图标；随机漫步模式下隐藏） */}
-            {showThoughtsCapsule && !isRandomWalkMode && (
-              <div className="absolute left-1/2 -translate-x-1/2 shrink-0 z-20" ref={thoughtsCapsuleRef}>
-                <button
-                  onClick={() => setShowThoughtsDropdown(!showThoughtsDropdown)}
-                  className="px-3 py-1 rounded-full bg-stone-100/80 border border-stone-200/60 text-baimiao-mysteria text-[12px] font-medium select-none hover:bg-stone-200/60 transition-colors active:scale-95"
-                >
-                  {thoughtsViewMode === 'masonry' ? t('thoughts.masonry') : t('thoughts.timeline')}
-                </button>
-              </div>
-            )}
-            {showThoughtsCapsule && showThoughtsDropdown && thoughtsDropdownRect && createPortal(
-              <div
-                ref={thoughtsCardRef}
-                data-testid="thoughts-capsule-dropdown"
-                style={{
-                  position: 'fixed',
-                  left: `${thoughtsDropdownRect.left}px`,
-                  top: `${thoughtsDropdownRect.top}px`,
-                  transform: 'translateX(-50%)',
-                  zIndex: 60,
-                }}
-                className="bg-white rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] flex flex-col p-1 animate-in fade-in zoom-in-95 duration-100"
-              >
-                <button
-                  data-testid="view-masonry"
-                  onClick={() => { setThoughtsViewMode('masonry'); setShowThoughtsDropdown(false); }}
-                  className={`px-4 py-1.5 text-[12px] font-medium rounded-lg text-left transition-colors ${
-                    thoughtsViewMode === 'masonry'
-                      ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria'
-                      : 'text-stone-600 hover:text-stone-800 hover:bg-stone-100'
-                  }`}
-                >
-                  {t('thoughts.masonry')}
-                </button>
-                <button
-                  data-testid="view-timeline"
-                  onClick={() => { setThoughtsViewMode('timeline'); setShowThoughtsDropdown(false); }}
-                  className={`px-4 py-1.5 text-[12px] font-medium rounded-lg text-left transition-colors ${
-                    thoughtsViewMode === 'timeline'
-                      ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria'
-                      : 'text-stone-600 hover:text-stone-800 hover:bg-stone-100'
-                  }`}
-                >
-                  {t('thoughts.timeline')}
                 </button>
               </div>,
               document.body

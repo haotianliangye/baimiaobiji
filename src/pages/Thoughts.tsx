@@ -18,7 +18,7 @@
  */
 import { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { format, isSameDay } from 'date-fns';
+import { format, isSameDay, parse } from 'date-fns';
 import { useSearchParams } from 'react-router-dom';
 import {
   X,
@@ -43,7 +43,6 @@ import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { countChars } from '../lib/wordCount';
 import TodayStats from '../components/TodayStats';
 import { TagChip } from '../components/TagChip';
-import { useAppStore } from '../store/app.store';
 import { useTranslation } from '../lib/i18n';
 import DocumentEditor from '../components/DocumentEditor';
 import DocumentView from '../components/DocumentView';
@@ -54,8 +53,6 @@ import {
 } from '../lib/documentModel';
 import { resolveDocumentContent } from '../db/db';
 import { saveFileAsAttachment } from '../lib/multimedia';
-
-type ViewMode = 'masonry' | 'timeline';
 
 /**
  * 与 Record 页同款的后端转写调用：POST /api/transcribe，失败重试最多 3 次。
@@ -125,35 +122,18 @@ function datetimeLocalToTs(s: string): number {
   return isNaN(t) ? Date.now() : t;
 }
 
-/** 时间线分组：按 created_at 的 yyyy-MM-dd 归并，组内按 created_at 倒序。 */
-interface TimelineGroup {
-  date: string; // yyyy-MM-dd
-  label: string;
-  thoughts: Thought[];
-}
-
-/** 时间线分组标签翻译函数类型（与 useTranslation().t 签名一致）。 */
-type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
-
-function buildTimelineGroups(thoughts: Thought[], t: TranslateFn): TimelineGroup[] {
-  const map = new Map<string, Thought[]>();
-  const sorted = [...thoughts].sort((a, b) => b.created_at - a.created_at);
-  for (const thought of sorted) {
-    const date = format(new Date(thought.created_at), 'yyyy-MM-dd');
-    if (!map.has(date)) map.set(date, []);
-    map.get(date)!.push(thought);
+/** 顶部日期 header 与 Record / Review 一致，从 URL ?date= 读取；无参默认今天。 */
+function useThoughtsDateParam() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const today = new Date();
+  const dateParam = searchParams.get('date');
+  let targetDate = today;
+  if (dateParam) {
+    const parsed = parse(dateParam, 'yyyy-MM-dd', new Date());
+    if (!isNaN(parsed.getTime())) targetDate = parsed;
   }
-  const today = format(new Date(), 'yyyy-MM-dd');
-  const yesterday = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
-  return Array.from(map.entries())
-    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-    .map(([date, items]) => {
-      let label: string;
-      if (date === today) label = t('thoughts.today');
-      else if (date === yesterday) label = t('thoughts.yesterday');
-      else label = format(new Date(date), t('thoughts.dateLabelFormat'));
-      return { date, label, thoughts: items };
-    });
+  const dateStr = format(targetDate, 'yyyy-MM-dd');
+  return { targetDate, dateStr, setSearchParams };
 }
 
 export default function Thoughts() {
@@ -181,11 +161,26 @@ export default function Thoughts() {
     [allThoughts]
   );
 
+  // 顶部日期 header (与 Record/Review 一致)：按 ?date= URL 过滤
+  const { targetDate, dateStr, setSearchParams } = useThoughtsDateParam();
+  const filteredThoughts = useMemo(
+    () => thoughts.filter((tt) => isSameDay(new Date(tt.created_at), targetDate)),
+    [thoughts, targetDate]
+  );
+
   // #random-walk-nav: 随机漫步双击跳转 — 滚动到目标 thought 并临时高亮
+  // 若当前日期过滤不包含目标 thought，先跳到该 thought 的日期再滚动
   const [searchParams] = useSearchParams();
   const thoughtIdParam = searchParams.get('thoughtId');
   useEffect(() => {
     if (!thoughtIdParam || !allThoughts) return;
+    const target = allThoughts.find((tt) => tt.id === thoughtIdParam);
+    if (!target) return;
+    const targetDateStr = format(new Date(target.created_at), 'yyyy-MM-dd');
+    if (dateStr !== targetDateStr) {
+      setSearchParams({ date: targetDateStr });
+      return; // 等待 useLiveQuery / filteredThoughts 更新后下次 effect 触发再 scroll
+    }
     const timer = setTimeout(() => {
       const el = document.querySelector(`[data-thought-id="${CSS.escape(thoughtIdParam)}"]`);
       if (el instanceof HTMLElement) {
@@ -195,10 +190,10 @@ export default function Thoughts() {
       }
     }, 150);
     return () => clearTimeout(timer);
-  }, [thoughtIdParam, allThoughts]);
+  }, [thoughtIdParam, allThoughts, dateStr, setSearchParams]);
 
   // 视图模式从 app store 读取（顶部栏胶囊控制）
-  const view = useAppStore((s) => s.thoughtsViewMode);
+  // const view = useAppStore((s) => s.thoughtsViewMode); // 移除：masonry 已取消，仅时间线
 
   // --- 底部快速创建编辑器 ---
   const [isCreating, setIsCreating] = useState(false);
@@ -474,8 +469,6 @@ export default function Thoughts() {
     [todayThoughts]
   );
 
-  const timelineGroups = useMemo(() => buildTimelineGroups(thoughts, t), [thoughts, t]);
-
   // resolveAttachment：DocumentView 解析 media block 的 attachmentId → Blob
   const resolveAttachment = useMemo(
     () => async (id: string): Promise<Blob | null> => {
@@ -489,51 +482,26 @@ export default function Thoughts() {
     <div className="flex flex-col h-full bg-transparent">
       {/* 列表区（局部滚动，遵循移动端红线） */}
       <div ref={createScrollRef} className="flex-1 overflow-y-auto thin-scrollbar px-4 md:px-6 lg:px-8 py-4 md:py-6">
-        {thoughts.length === 0 ? (
-          <EmptyState />
-        ) : view === 'masonry' ? (
-          <div className="columns-2 gap-2.5">
-            {thoughts.map((tt) => (
-              <div key={tt.id} className="break-inside-avoid mb-2.5">
-                <ThoughtCard
-                  thought={tt}
-                  view={view}
-                  copied={copied}
-                  onCopy={() => copy(documentToText(resolveDocumentContent(tt)))}
-                  onEdit={() => openEdit(tt)}
-                  resolveAttachment={resolveAttachment}
-                />
-              </div>
-            ))}
-          </div>
+        {filteredThoughts.length === 0 ? (
+          thoughts.length === 0 ? (
+            <EmptyState />
+          ) : (
+            <DateEmptyState
+              dateStr={dateStr}
+              onBackToToday={() => setSearchParams({})}
+            />
+          )
         ) : (
-          <div className="flex flex-col gap-5">
-            {timelineGroups.map((g) => (
-              <div key={g.date} className="flex flex-col gap-2.5">
-                <div
-                  data-testid="timeline-group"
-                  data-date={g.date}
-                  className="sticky top-0 z-10 bg-[#faf9fc]/90 backdrop-blur px-1 py-1 -mx-1 flex items-center gap-1.5"
-                >
-                  <Clock className="w-3 h-3 text-baimiao-mysteria/60" />
-                  <span className="text-[12px] font-semibold text-baimiao-mysteria">
-                    {g.label}
-                  </span>
-                  <span className="text-[10.5px] text-stone-400 font-mono">{g.date}</span>
-                  <span className="text-[10.5px] text-stone-400">{t('thoughts.itemCount', { count: g.thoughts.length })}</span>
-                </div>
-                {g.thoughts.map((tt) => (
-                  <ThoughtCard
-                    key={tt.id}
-                    thought={tt}
-                    view={view}
-                    copied={copied}
-                    onCopy={() => copy(documentToText(resolveDocumentContent(tt)))}
-                    onEdit={() => openEdit(tt)}
-                    resolveAttachment={resolveAttachment}
-                  />
-                ))}
-              </div>
+          <div className="flex flex-col gap-3.5">
+            {filteredThoughts.map((tt) => (
+              <ThoughtCard
+                key={tt.id}
+                thought={tt}
+                copied={copied}
+                onCopy={() => copy(documentToText(resolveDocumentContent(tt)))}
+                onEdit={() => openEdit(tt)}
+                resolveAttachment={resolveAttachment}
+              />
             ))}
           </div>
         )}
@@ -729,7 +697,7 @@ export default function Thoughts() {
   );
 }
 
-/** 空状态 */
+/** 空状态 —— 从未写过任何沉淀 */
 function EmptyState() {
   const { t } = useTranslation();
   return (
@@ -748,32 +716,52 @@ function EmptyState() {
   );
 }
 
+/** 日期空状态 —— 该日无沉淀但历史上写过；提供「回到今天」按钮 */
+function DateEmptyState({ dateStr, onBackToToday }: { dateStr: string; onBackToToday: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center select-none animate-in fade-in duration-200">
+      <Clock className="w-7 h-7 text-stone-300 stroke-[1.5px] mb-3" />
+      <p className="text-[14px] text-stone-700 font-medium mb-1">
+        {t('thoughts.dateEmptyTitle', { date: dateStr })}
+      </p>
+      <p className="text-[12px] text-stone-400 mb-5 leading-relaxed">
+        {t('thoughts.dateEmptyDesc')}
+      </p>
+      <button
+        onClick={onBackToToday}
+        className="px-4 py-1.5 rounded-full text-[12.5px] font-medium text-white bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 active:scale-95 transition-all shadow-sm"
+      >
+        {t('thoughts.backToToday')}
+      </button>
+    </div>
+  );
+}
+
 /** 单条沉淀卡片 */
 interface ThoughtCardProps {
   thought: Thought;
-  view: ViewMode;
   copied: boolean;
   onCopy: () => void;
   onEdit: () => void;
   resolveAttachment: (id: string) => Promise<Blob | null>;
 }
 
-/** 折叠态最大高度（按正文行高 ~22px 估算：时间线 7 行，瀑布流 12 行）。 */
+/** 折叠态最大高度（按正文行高 ~22px 估算：时间线 7 行）。 */
 const COLLAPSED_MAX_H_TIMELINE = 160; // px
-const COLLAPSED_MAX_H_MASONRY = 270; // px
 
 /** Seam 5: 移动端长按阈值与取消判定（长按 = 进入编辑，对标桌面端双击）。 */
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_THRESHOLD = 10; // px，手指滑动超过该距离取消长按
 
-function ThoughtCard({ thought, view, copied, onCopy, onEdit, resolveAttachment }: ThoughtCardProps) {
+function ThoughtCard({ thought, copied, onCopy, onEdit, resolveAttachment }: ThoughtCardProps) {
   const { t } = useTranslation();
   const tags = thought.tags || [];
 
   // 卡片正文：从 content_doc 解析 RichDocument 渲染
   const doc = useMemo(() => resolveDocumentContent(thought), [thought]);
   const plainText = useMemo(() => documentToText(doc), [doc]);
-  const collapsedMaxH = view === 'timeline' ? COLLAPSED_MAX_H_TIMELINE : COLLAPSED_MAX_H_MASONRY;
+  const collapsedMaxH = COLLAPSED_MAX_H_TIMELINE;
 
   const [expanded, setExpanded] = useState(false);
   const [isOverflowing, setIsOverflowing] = useState(false);

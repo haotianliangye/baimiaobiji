@@ -99,9 +99,7 @@ interface AppState {
   isCopilotMode: boolean;
   isRandomWalkMode: boolean;
 
-  // 需求 6：沉淀视图模式 & 洞察时间范围（顶部栏胶囊与页面共享状态）
-  thoughtsViewMode: 'masonry' | 'timeline';
-  setThoughtsViewMode: (mode: 'masonry' | 'timeline') => void;
+  // 需求 6：洞察时间范围（顶部栏胶囊与页面共享状态）
   insightTimeRange: string;
   setInsightTimeRange: (range: string) => void;
   insightCustomStart: string;
@@ -207,8 +205,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isCopilotMode: false,
   isRandomWalkMode: false,
 
-  // 需求 6：沉淀视图模式 & 洞察时间范围（顶部栏胶囊与页面共享状态）
-  thoughtsViewMode: 'timeline',
+  // 需求 6：洞察时间范围（顶部栏胶囊与页面共享状态）
   insightTimeRange: 'week',
   insightCustomStart: '',
   insightCustomEnd: '',
@@ -987,10 +984,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setRandomWalkMode: (open) => {
     set({ isRandomWalkMode: open });
-  },
-
-  setThoughtsViewMode: (mode) => {
-    set({ thoughtsViewMode: mode });
   },
 
   setInsightTimeRange: (range) => {
