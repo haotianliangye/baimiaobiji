@@ -5,7 +5,7 @@
 
 ---
 
-## 当前进度（截至 2026-07-28 P0 + v3 完成 + v0.3.x hotfix + 洞察 5 槽多选 v0.4.0 + 沉淀手动标签 v0.5.0 + 洞察自动生成 v0.5.1 + 卡片 5 槽区分 v0.5.3）
+## 当前进度（截至 2026-07-28 P0 + v3 完成 + v0.3.x hotfix + 洞察 5 槽多选 v0.4.0 + 沉淀手动标签 v0.5.0 + 洞察自动生成 v0.5.1 + 卡片 5 槽区分 v0.5.3 + Settings 浅紫胶囊 + 摘要 Prompt 升级 v0.5.4）
 
 | # | 阶段 | 状态 |
 |---|------|------|
@@ -17,6 +17,7 @@
 | v0.5.0 沉淀手动标签 | ✅ 全部合并（commit 027ec6e/64aec59）| ThoughtCard 手动加/删标签 |
 | v0.5.1 洞察自动生成 | ✅ 全部合并（commits 678883c/aa1b747/c67a8dc/9b724ca）| 周报/月报独立开关 + 静默跳过 |
 | v0.5.3 卡片 5 槽区分 | ✅ 已合并（commit d3905e3）| 回顾/洞察卡片 sub-header 统一为「统摄名（槽位标签）」格式，时间带日期 |
+| v0.5.4 Settings 浅紫胶囊 + 摘要 Prompt 升级 | ✅ 已合并（commits 52be930 + 954fa9f/2df472e）| 11 处胶囊统一浅紫 + 默认 Prompt 泛化（≤39 字）+ migrate v14 强制覆盖 + TTS Gemini 3.1 流式修复 |
 | 测试清理 | ✅ 6 个失效测试已删除 | 见下方「清理记录」|
 
 | Issue | 标题 | 状态 | 分支 | 验收 |
@@ -131,6 +132,26 @@
 - 0 后端 / schema 改动，只读 `prompt_index` + `prompt_name`
 - 0 新增 i18n key（复用 `settings.prompt*`，确保卡片与浮层"槽位名"完全一致）
 - Insights 徽章（mingwu/insight/custom 三态颜色）保留不动，仅 sub-header 同步改造
+
+## v0.5.4（2026-07-28 — Settings 浅紫胶囊统一 + 摘要 Prompt 升级 + TTS Gemini 3.1）
+
+**核心变更**：
+
+| 步骤 | commit | 说明 |
+|------|--------|------|
+| C1 TTS Gemini 3.1 默认模型 + 流式 | `2df472e` `954fa9f` | Gemini TTS 切换到 3.1 flash preview 默认；流式走 Interactions API（true streaming 而非 polling） |
+| C2 Settings 浅紫胶囊统一 | `52be930` | 11 处非底部主按钮的胶囊由深紫/黑色改为浅紫方案（`bg-baimiao-mysteria/10 text-baimiao-mysteria`），active 态加 `border-baimiao-mysteria/40 + font-semibold` 强化选中感；底部「保存并返回」保留深紫作为视觉锚点 |
+| C3 摘要 Prompt 升级 + migrate v14 | `52be930` | `DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT` / `DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT` 改为泛化版（≤39 字）；settings.store.ts version 13 → 14；migrate v14 强制覆盖所有用户的这两个 Prompt 字段，ByLang.en 在已有值时保留 |
+
+**关键设计决策**：
+- 浅紫胶囊：避免与底部「保存并返回」深紫渐变撞色；浅紫底深紫字 vs 深紫底白字形成浅深对偶
+- 摘要 Prompt 强制覆盖：以「当前用户用的也是默认的」为前提；自定义需求从「恢复默认」或设置 UI 重新编辑即可
+- ByLang.en 保留：避免破坏英文环境用户的覆盖
+- TTS Gemini 3.1 默认走 Interactions API 流式（不再轮询）
+
+**风险与边界**：
+- 强制覆盖摘要 Prompt 会清空用户自定义；以反馈/数据后续看是否需要做"非破坏性升级"路径
+- 切换到 Gemini 3.1 后旧 Gemini TTS key 配置无影响（仅模型变化）
 - API 错误：复用现有 retry 逻辑（4xx 不重试 / 5xx 最多 5 次 / 指数退避）
 - 跨类型日期编码：AutoGenTask.dateStr 在 review 是 'YYYY-MM-DD'；insight-* 是 'week:YYYY-MM-DD..YYYY-MM-DD' 编码，避免混淆
 - 每次 Layout 挂载都跑一次调度函数；触发条件命中才入队，否则只跑 initQueue + processNextQueueTask（推进现有任务）
