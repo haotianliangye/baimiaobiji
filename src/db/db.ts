@@ -96,8 +96,10 @@ export interface CopilotConversation {
   updated_at: number;
 }
 
-// V2「洞察」表：存储「明悟」与「洞察」两类 AI 产出。
-// `insight_type` 区分「明悟」（mingwu）与「洞察」（insight）两类卡片。
+// V2「洞察」表：存储「明悟」「洞察」以及「自定义 1/2/3」槽位生成的 AI 产出。
+// `insight_type` 区分「明悟」（mingwu）、「洞察」（insight）以及用户自定义槽位（custom）三类卡片。
+// C4 浮层接入后，5 槽（slot 0/1/2/3/4）都参与生成；slot 0 写 mingwu，slot 1 写 insight，slot 2-4 写 custom。
+// 旧数据兼容性：旧卡 insight_type 仅 'mingwu' | 'insight'，新值 'custom' 不影响已有记录。
 export interface Insight {
   id?: string;
   range_type: string;
@@ -107,7 +109,7 @@ export interface Insight {
   content: string;
   ai_summary?: string;        // one-line poetic summary (mirrors DailyReview)
   created_at: number;
-  insight_type: 'mingwu' | 'insight'; // 明悟 / 洞察 判别
+  insight_type: 'mingwu' | 'insight' | 'custom'; // 明悟 / 洞察 / 自定义槽 判别
   prompt_index?: number;
   prompt_name?: string;
   chat_history?: InsightMessage[];

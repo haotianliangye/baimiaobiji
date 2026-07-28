@@ -1,9 +1,8 @@
 /**
  * #8 洞察（Insight）模块 -- Zustand store。
  *
- * 将原「洞察」升级为「明悟」：一次生成同时产出「明悟」(insight_type='mingwu')
- * 与「洞察」(insight_type='insight') 两类 AI 卡片。
- *
+ * 一次生成可按用户选中的 1-5 个 prompt 槽位（slot 0=明悟，slot 1=洞察，slot 2-4=自定义 1/2/3），
+ * 每个槽位独立调用 /api/generate-insight 一次，生成一张 Insight 卡片。
  * 数据源：所选时间范围的 raw_logs + thoughts。生成时按 settings.submitMultimedia
  * 决定是否向模型提交多媒体摘要（raw_logs.attachment_summary）。
  *
@@ -24,20 +23,38 @@ interface GenerateMingwuParams {
   startTime: number;
   endTime: number;
   rangeLabel: string;
+  /** C2 新增：用户选中的 5 槽索引列表（0..4）。缺省取 useSettingsStore().mingwuInsightSelectedIndices ?? [0, 1]。 */
+  selectedIndices?: number[];
 }
 
 interface MingwuState {
-  /** 按时间范围生成「明悟」+「洞察」两类卡片。 */
+  /** 按选中的 1-5 个 prompt 槽位循环生成 Insight 卡片。 */
   generateMingwu: (params: GenerateMingwuParams) => Promise<void>;
-  /** 重新生成单张卡片（按 oldInsight 的时间范围与类型）。 */
+  /** 重新生成单张卡片（按 oldInsight.prompt_index 索引回 mingwuInsightPrompts）。 */
   regenerateMingwu: (oldInsight: Insight) => Promise<void>;
 }
 
 /**
- * 拉取时间范围内的 raw_logs + thoughts，构建提交给 API 的 payload。
- * 按 settings.submitMultimedia 决定是否附带 raw_logs.attachment_summary。
+ * 把 slot index 映射到 insight_type 字段值：slot 0=明悟，slot 1=洞察，其他=custom。
+ * InsightCard 徽章（Insights.tsx）与 RandomWalk 标签都据此判断显示「明悟/洞察/自定义名」。
  */
-async function buildMingwuPayload(startTime: number, endTime: number, rangeLabel: string) {
+function insightTypeForSlot(slotIndex: number): 'mingwu' | 'insight' | 'custom' {
+  if (slotIndex === 0) return 'mingwu';
+  if (slotIndex === 1) return 'insight';
+  return 'custom';
+}
+
+/**
+ * 拉取时间范围内的 raw_logs + thoughts，按 settings.submitMultimedia 决定是否附带
+ * raw_logs.attachment_summary，再按 selectedIndices 构造 settings.prompts[] 供 API 循环生成。
+ * 空 content 的 prompt 会在此过滤掉，不发请求（保留 settings.prompts 顺序与 selectedIndices 一致）。
+ */
+async function buildMingwuPayload(
+  startTime: number,
+  endTime: number,
+  rangeLabel: string,
+  selectedIndices: number[],
+) {
   const settings = { ...useSettingsStore.getState() };
 
   const logs = await db.raw_logs
@@ -66,11 +83,36 @@ async function buildMingwuPayload(startTime: number, endTime: number, rangeLabel
     content: t.content,
   }));
 
-  return { logs: logsPayload, thoughts: thoughtsPayload, rangeLabel, settings };
+  // 5 槽统一字段 + 兼容旧字段（mingwuPrompt/insightPrompt/insightSummaryPrompt）
+  const mingwuInsightPrompts = settings.mingwuInsightPrompts || [];
+  const mingwuInsightPromptNames = settings.mingwuInsightPromptNames || [];
+  const prompts = selectedIndices
+    .map((idx) => ({
+      index: idx,
+      name: mingwuInsightPromptNames[idx] || `自定义 ${idx - 1}`,
+      content: mingwuInsightPrompts[idx] || '',
+    }))
+    .filter((p) => p.content.trim().length > 0);
+
+  return {
+    logs: logsPayload,
+    thoughts: thoughtsPayload,
+    rangeLabel,
+    settings: {
+      ...settings,
+      prompts,
+      summaryPrompt: settings.mingwuInsightSummaryPrompt,
+      // 兼容字段：旧 API 路径（不含 prompts[]）仍可读
+      mingwuPrompt: mingwuInsightPrompts[0],
+      insightPrompt: mingwuInsightPrompts[1],
+      insightSummaryPrompt: settings.mingwuInsightSummaryPrompt,
+    },
+  };
 }
 
 /**
- * 调用 /api/generate-mingwu 端点，返回明悟与洞察两份报告。
+ * 调 /api/generate-insight；返回 { results: Array<{index, name, report, summary}> }。
+ * 旧 API 路径下 results 为空数组，调用方需自行 fallback 到 mingwu_report/insight_report。
  */
 async function callMingwuApi(payload: {
   logs: any[];
@@ -101,21 +143,28 @@ async function callMingwuApi(payload: {
   }
 
   return res.json() as Promise<{
-    mingwu_report: string;
-    mingwu_summary: string;
-    insight_report: string;
-    insight_summary: string;
+    /** C2 新 schema：循环生成结果，按 slot index 索引 */
+    results?: Array<{ index: number; name: string; report: string; summary: string }>;
+    /** Legacy 双报告字段（仅当 settings.prompts[] 缺失时填充） */
+    mingwu_report?: string;
+    mingwu_summary?: string;
+    insight_report?: string;
+    insight_summary?: string;
   }>;
 }
 
 export const useMingwuStore = create<MingwuState>(() => ({
-  generateMingwu: async ({ rangeType, startTime, endTime, rangeLabel }) => {
+  generateMingwu: async ({ rangeType, startTime, endTime, rangeLabel, selectedIndices }) => {
     const appStore = useAppStore.getState();
     appStore.clearMingwuError();
     useAppStore.setState({ isGeneratingMingwu: true });
 
     try {
-      const payload = await buildMingwuPayload(startTime, endTime, rangeLabel);
+      const indices = selectedIndices
+        ?? useSettingsStore.getState().mingwuInsightSelectedIndices
+        ?? [0, 1];
+
+      const payload = await buildMingwuPayload(startTime, endTime, rangeLabel, indices);
 
       if (payload.logs.length === 0 && payload.thoughts.length === 0) {
         throw new Error('这段时间内还没有任何记录。换个时间范围或者去记录点什么吧！');
@@ -126,44 +175,44 @@ export const useMingwuStore = create<MingwuState>(() => ({
       const startDateIso = new Date(startTime).toISOString();
       const endDateIso = new Date(endTime).toISOString();
       const now = Date.now();
+      const nameMap = useSettingsStore.getState().mingwuInsightPromptNames || [];
 
-      // #008 US36: 读取 mingwuInsightSelectedIndices，只落库选中的类型。
-      // slot 0 = 明悟(mingwu)，slot 1 = 洞察(insight)。默认两者皆选，让「自动生成选中」复选框真正生效。
-      // 后端 /api/generate-mingwu 仍同时生成两份报告（未在本次改动范围），此处按选中过滤落库。
-      const selectedIndices = useSettingsStore.getState().mingwuInsightSelectedIndices || [0, 1];
-      const wantMingwu = selectedIndices.includes(0);
-      const wantInsight = selectedIndices.includes(1);
+      // 按 selectedIndices 顺序落库，保证列表展示顺序稳定
+      let baseTimestamp = now;
+      for (let i = 0; i < indices.length; i++) {
+        const slotIdx = indices[i];
+        // 优先从新 schema 的 results 找；找不到再 fallback 到 legacy 双报告字段（仅 slot 0/1 适用）
+        const result = data.results?.find((r) => r.index === slotIdx);
+        let report = result?.report;
+        let summary = result?.summary;
+        let promptName = result?.name || nameMap[slotIdx] || `自定义 ${slotIdx - 1}`;
 
-      // 明悟卡片
-      if (wantMingwu && data.mingwu_report) {
-        const mingwuCard: Insight = {
-          id: generateUUID(),
-          range_type: rangeType,
-          range_label: rangeLabel,
-          start_date: startDateIso,
-          end_date: endDateIso,
-          content: data.mingwu_report,
-          ai_summary: (data.mingwu_summary || '').toString().trim() || '暂无内容概要',
-          insight_type: 'mingwu',
-          created_at: now,
-          tags: [],   // #insight-manual-tags: 标签由用户在 Insights.tsx 手动添加
-        };
-        await db.insights.add(mingwuCard);
-      }
+        if (!report) {
+          if (slotIdx === 0) {
+            report = data.mingwu_report;
+            summary = data.mingwu_summary;
+            promptName = nameMap[0] || '明悟';
+          } else if (slotIdx === 1) {
+            report = data.insight_report;
+            summary = data.insight_summary;
+            promptName = nameMap[1] || '洞察';
+          }
+        }
+        if (!report) continue; // 服务端未返回该槽的报告，跳过
 
-      // 洞察卡片（时间戳略晚 1ms，保证列表中明悟在前）
-      if (wantInsight && data.insight_report) {
         const insightCard: Insight = {
           id: generateUUID(),
           range_type: rangeType,
           range_label: rangeLabel,
           start_date: startDateIso,
           end_date: endDateIso,
-          content: data.insight_report,
-          ai_summary: (data.insight_summary || '').toString().trim() || '暂无内容概要',
-          insight_type: 'insight',
-          created_at: now + 1,
-          tags: [],   // #insight-manual-tags: 标签由用户在 Insights.tsx 手动添加
+          content: report,
+          ai_summary: (summary || '').toString().trim() || '暂无内容概要',
+          insight_type: insightTypeForSlot(slotIdx),
+          prompt_index: slotIdx,
+          prompt_name: promptName,
+          created_at: baseTimestamp + i,   // 保证 list 顺序与 selectedIndices 一致
+          tags: [],                        // #insight-manual-tags: 标签由用户在 Insights.tsx 手动添加
         };
         await db.insights.add(insightCard);
       }
@@ -185,7 +234,32 @@ export const useMingwuStore = create<MingwuState>(() => ({
       const endTime = new Date(oldInsight.end_date).getTime();
       const rangeLabel = oldInsight.range_label;
 
-      const payload = await buildMingwuPayload(startTime, endTime, rangeLabel);
+      // 解析旧卡对应的 slot：prompt_index 优先 → prompt_name 反查 → insight_type 推断 → 兜底 0
+      const settings = useSettingsStore.getState();
+      const prompts = settings.mingwuInsightPrompts || [];
+      const names = settings.mingwuInsightPromptNames || [];
+      let slotIdx = oldInsight.prompt_index;
+      if (slotIdx === undefined || prompts[slotIdx] === undefined) {
+        const byName = names.findIndex((n) => n === oldInsight.prompt_name);
+        if (byName >= 0) {
+          slotIdx = byName;
+        } else if (oldInsight.insight_type === 'mingwu') {
+          slotIdx = 0;
+        } else if (oldInsight.insight_type === 'insight') {
+          slotIdx = 1;
+        } else {
+          slotIdx = 0;  // 旧卡无法解析时最保守降级到 slot 0
+        }
+      }
+
+      const promptContent = prompts[slotIdx] || '';
+      const promptName = names[slotIdx] || oldInsight.prompt_name || `自定义 ${slotIdx - 1}`;
+
+      // 单槽 payload：仅向 API 发 1 个 prompt（比旧实现「跑 2 个 LLM 只用 1 个」更省）
+      const payload = await buildMingwuPayload(
+        startTime, endTime, rangeLabel,
+        promptContent.trim() ? [slotIdx] : [],   // 空 prompt 不发请求
+      );
 
       if (payload.logs.length === 0 && payload.thoughts.length === 0) {
         throw new Error('此时间段内容为空，无法重新生成。');
@@ -193,35 +267,40 @@ export const useMingwuStore = create<MingwuState>(() => ({
 
       const data = await callMingwuApi(payload);
 
-      const startDateIso = oldInsight.start_date;
-      const endDateIso = oldInsight.end_date;
-      const now = Date.now();
-
-      // 根据原卡片类型决定用哪份报告替换
-      const isMingwuType = oldInsight.insight_type === 'mingwu';
-      const report = isMingwuType ? data.mingwu_report : data.insight_report;
-      const summary = isMingwuType ? data.mingwu_summary : data.insight_summary;
-
-      if (report) {
-        // #insight-manual-tags: regenerate 时保留用户已手动添加的标签，不重新解析
-        const preservedTags = oldInsight.tags || [];
-        // 删除旧卡片，添加新卡片
-        if (oldInsight.id) {
-          await db.insights.delete(oldInsight.id);
+      // 从 results 取报告；若旧卡对应 slot 0/1 且新 schema 无结果，尝试 legacy 字段
+      let report = data.results?.find((r) => r.index === slotIdx)?.report;
+      let summary = data.results?.find((r) => r.index === slotIdx)?.summary;
+      if (!report) {
+        if (slotIdx === 0) {
+          report = data.mingwu_report;
+          summary = data.mingwu_summary;
+        } else if (slotIdx === 1) {
+          report = data.insight_report;
+          summary = data.insight_summary;
         }
-        await db.insights.add({
-          id: generateUUID(),
-          range_type: oldInsight.range_type,
-          range_label: rangeLabel,
-          start_date: startDateIso,
-          end_date: endDateIso,
-          content: report,
-          ai_summary: (summary || '').toString().trim() || oldInsight.ai_summary || '暂无内容概要',
-          insight_type: oldInsight.insight_type,
-          created_at: now,
-          tags: preservedTags,
-        });
       }
+      if (!report) {
+        throw new Error('重新生成失败：服务端未返回报告');
+      }
+
+      const preservedTags = oldInsight.tags || [];
+      if (oldInsight.id) {
+        await db.insights.delete(oldInsight.id);
+      }
+      await db.insights.add({
+        id: generateUUID(),
+        range_type: oldInsight.range_type,
+        range_label: rangeLabel,
+        start_date: oldInsight.start_date,
+        end_date: oldInsight.end_date,
+        content: report,
+        ai_summary: (summary || '').toString().trim() || oldInsight.ai_summary || '暂无内容概要',
+        insight_type: oldInsight.insight_type,        // 保持原卡类型，UI 沿用原徽章色
+        prompt_index: slotIdx,
+        prompt_name: promptName,
+        created_at: Date.now(),
+        tags: preservedTags,
+      });
     } catch (err: any) {
       console.error(err);
       useAppStore.setState({ mingwuError: err.message || '重新生成失败，请重试' });
