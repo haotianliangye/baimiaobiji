@@ -5,7 +5,7 @@
 
 ---
 
-## 当前进度（截至 2026-07-28 P0 + v3 完成 + v0.3.x hotfix + 洞察 5 槽多选 v0.4.0 + 沉淀手动标签 v0.5.0 + 洞察自动生成 v0.5.1）
+## 当前进度（截至 2026-07-28 P0 + v3 完成 + v0.3.x hotfix + 洞察 5 槽多选 v0.4.0 + 沉淀手动标签 v0.5.0 + 洞察自动生成 v0.5.1 + 卡片 5 槽区分 v0.5.3）
 
 | # | 阶段 | 状态 |
 |---|------|------|
@@ -16,6 +16,7 @@
 | v0.4.0 洞察 5 槽 | ✅ 全部合并（commits 67c9445/b559a6c/a872f6c/26304b8/4878850）| 详见下方「v0.4.0」 |
 | v0.5.0 沉淀手动标签 | ✅ 全部合并（commit 027ec6e/64aec59）| ThoughtCard 手动加/删标签 |
 | v0.5.1 洞察自动生成 | ✅ 全部合并（commits 678883c/aa1b747/c67a8dc/9b724ca）| 周报/月报独立开关 + 静默跳过 |
+| v0.5.3 卡片 5 槽区分 | ✅ 已合并（commit d3905e3）| 回顾/洞察卡片 sub-header 统一为「统摄名（槽位标签）」格式，时间带日期 |
 | 测试清理 | ✅ 6 个失效测试已删除 | 见下方「清理记录」|
 
 | Issue | 标题 | 状态 | 分支 | 验收 |
@@ -116,6 +117,20 @@
 **风险与边界**：
 - 首次安装用户：默认 lastRun = 0 + 开关默认 false → 不会自动烧 token
 - PWA 长时间未开：错过的周/月不会被补跑（每次只判「最近一个」），与「每周一/每月 1 号跑一次」语义一致
+
+## v0.5.3（2026-07-28 — 卡片 sub-header 5 槽区分）
+
+**核心变更**：回顾 / 洞察卡片底部 sub-header 统一显示「统摄名（槽位标签）」格式，让用户一眼看出该卡片由哪个 prompt 槽位产出。
+
+| 步骤 | commit | 说明 |
+|------|--------|------|
+| C1 helper + 双页改造 | `d3905e3` | 新增 `src/lib/slotLabel.ts`：按 `prompt_index` 返回固定槽名 i18n（日记/回顾/明悟/洞察/自定义 1/2/3），优先使用用户改过的 `prompt_name`；Review.tsx 卡片 sub-header 由「日记（日记）· HH:mm」改为「回顾（slotLabel）· MM-dd HH:mm」；Insights.tsx sub-header 由「mingwu · MM-dd HH:mm」改为「洞察（slotLabel）· MM-dd HH:mm」，头部徽章保留 insight_type 三态视觉差异 |
+
+**关键设计决策**：
+- 优先级：用户改的 `prompt_name` > 固定槽名（i18n） > `promptDefault` 兜底
+- 0 后端 / schema 改动，只读 `prompt_index` + `prompt_name`
+- 0 新增 i18n key（复用 `settings.prompt*`，确保卡片与浮层"槽位名"完全一致）
+- Insights 徽章（mingwu/insight/custom 三态颜色）保留不动，仅 sub-header 同步改造
 - API 错误：复用现有 retry 逻辑（4xx 不重试 / 5xx 最多 5 次 / 指数退避）
 - 跨类型日期编码：AutoGenTask.dateStr 在 review 是 'YYYY-MM-DD'；insight-* 是 'week:YYYY-MM-DD..YYYY-MM-DD' 编码，避免混淆
 - 每次 Layout 挂载都跑一次调度函数；触发条件命中才入队，否则只跑 initQueue + processNextQueueTask（推进现有任务）
