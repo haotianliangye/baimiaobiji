@@ -68,10 +68,19 @@
 | commit | 说明 |
 |--------|------|
 | `027ec6e` | ThoughtCard 新增 chip + 「+ 添加标签」同框 UI；store seam 拆分；tests +28 覆盖；标签行 pl-0 左对齐 |
+| 补 tag | v0.3.2 / v0.3.3 / v0.4.0 三个历史版本补打完毕（详见下方）|
 
-## v0.3.1+ 当前未打 git tag 的版本
+## v0.3.2 / v0.3.3 / v0.4.0 补 tag 记录（2026-07-28）
 
-`package.json` 现为 `0.5.0`，最后 git tag 为 `v0.3.1`。sync-version.js 自动 bump 之后未执行 `git tag`（参见 CLAUDE.md "版本号规则"）—— **待用户拍板**：是否补打 v0.3.2 / v0.3.3 / v0.4.0 / v0.5.0 tag，或改规则为"自动 tag"。
+此前 sync-version.js 自动 bump 之后未执行 `git tag`，CLAUDE.md 「版本号规则」要求每个合并主分支的版本都打 tag。本次补打：
+
+| tag | commit | 说明 |
+|-----|--------|------|
+| `v0.3.2` | `7dd28f7` | chore: bump version 0.3.1 → 0.3.2（patch）|
+| `v0.3.3` | `d06fbe7` | refactor(internal): rename mingwu → insight（顺手 0.3.2 → 0.3.3）|
+| `v0.4.0` | `1c73fea` | chore(release): v0.4.0 — 洞察 5 槽多选 |
+
+**今后规则建议**：`chore(release)` commit + `git tag v<version>` 在 commit 后立刻同次 push 走完（一次性命令即可），避免再次漂移。
 
 ## 🎉 P0 全部完成 (8/8)
 
