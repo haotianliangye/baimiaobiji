@@ -61,9 +61,17 @@
 - `content_doc` 兼容未做：peer agent 提到 `buildMingwuPayload` 只读 `l.content` 不读 `content_doc`，列为 follow-up。
 - 标签：本次不引入新版本号（CLAUDE.md minor 规则：新功能 + schema 变化）
 
+## v0.5.0（2026-07-28 — 沉淀页手动标签编辑）
+
+**核心变更**：Thoughts 卡片支持手动加/删标签（与 Insights/Review 手动标签同款 UI）。store 新增 `mergeThoughtTagsPreservingManual` 纯函数 seam，编辑正文时把旧正文解析集外的旧标签视为手动保留，避免覆盖用户手动加的 chip。
+
+| commit | 说明 |
+|--------|------|
+| `027ec6e` | ThoughtCard 新增 chip + 「+ 添加标签」同框 UI；store seam 拆分；tests +28 覆盖；标签行 pl-0 左对齐 |
+
 ## v0.3.1+ 当前未打 git tag 的版本
 
-`package.json` 现为 `0.4.0`（v0.4.0 5 槽多选），最后 git tag 为 `v0.3.1`。sync-version.js 自动 bump 之后未执行 `git tag`（参见 CLAUDE.md "版本号规则"）—— **待用户拍板**：是否补打 v0.3.2 / v0.3.3 / v0.4.0 tag，或改规则为"自动 tag"。
+`package.json` 现为 `0.5.0`，最后 git tag 为 `v0.3.1`。sync-version.js 自动 bump 之后未执行 `git tag`（参见 CLAUDE.md "版本号规则"）—— **待用户拍板**：是否补打 v0.3.2 / v0.3.3 / v0.4.0 / v0.5.0 tag，或改规则为"自动 tag"。
 
 ## 🎉 P0 全部完成 (8/8)
 
