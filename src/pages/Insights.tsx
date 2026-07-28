@@ -113,21 +113,12 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
     : isInsightType
       ? t('insight.insight')
       : (insight.prompt_name || t('insight.custom'));
-  // 徽章背景色 / 文字色 + 太阳图标色（custom 用 emerald 区别于前两者）
-  const badgeClass = isMingwuType
-    ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria'
-    : isInsightType
-      ? 'bg-stone-100 text-stone-500'
-      : 'bg-emerald-50 text-emerald-700';
+  // 太阳图标色（mingwu/insight/custom 三态；custom 用 emerald 区别于前两者）
   const sunIconClass = isMingwuType
     ? 'text-baimiao-mysteria'
     : isInsightType
       ? 'text-stone-400'
       : 'text-emerald-600';
-  // testid：mingwu/insight 保持旧值（向后兼容测试）；custom 用 custom-{slot} 形式
-  const badgeTestId = isCustomType
-    ? `insight-type-badge-custom-${insight.prompt_index ?? 'x'}`
-    : `insight-type-badge-${insightType}`;
   const rangeTypeLabel = (range: string) => t(RANGE_TYPE_KEY[range] || 'insight.rangeCustom');
 
   useEffect(() => {
@@ -200,15 +191,8 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
           <div className="flex items-center gap-2 min-w-0">
             <Sun weight="regular" className={`w-4 h-4 shrink-0 ${sunIconClass}`} />
             <span className="text-[15px] font-semibold text-stone-800 truncate">{title}</span>
-            <span
-              data-testid={badgeTestId}
-              className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${badgeClass}`}
-            >
-              {typeLabel}
-            </span>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[12px] text-stone-400 font-mono">{headerDate}</span>
+          <div className="flex items-center gap-1 shrink-0">
             {expanded ? <ChevronUp className="w-4 h-4 text-stone-300" /> : <ChevronDown className="w-4 h-4 text-stone-300" />}
           </div>
         </div>
@@ -247,8 +231,12 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
         </div>
       ) : (
         <>
-        {/* Prompt/range meta sub-header - mirrors Diary/Review's sub-header. 形态：洞察（明悟）· 10-16 10:16 */}
-        <div className="px-4 py-1.5 border-t border-black/[0.03] bg-stone-50/60 text-[11px] text-stone-400 font-mono flex items-center justify-between select-none">
+        {/* Prompt/range meta sub-header - mirrors Diary/Review's sub-header. 形态：洞察（明悟）· 10-16 10:16
+            标题栏不再重复显示类型徽章和日期，统一收敛到这一行。 */}
+        <div
+          data-testid="insight-meta-subheader"
+          className="px-4 py-1.5 border-t border-black/[0.03] bg-stone-50/60 text-[11px] text-stone-400 font-mono flex items-center justify-between select-none"
+        >
           <span>{t('insight.title')}（{slotLabel(insight.prompt_name, insight.prompt_index, t, 'insight')}）· {headerDate}</span>
           <span>{rangeTypeLabel(insight.range_type)}</span>
         </div>

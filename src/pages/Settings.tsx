@@ -299,6 +299,7 @@ const DATA_TYPE_OPTIONS: { id: DataType; labelKey: string }[] = [
  * 数据存 db.settings_kv['transcription.hallucinationPatterns']。
  */
 function TranscriptionFilterPanel() {
+  const { t } = useTranslation();
   const [patterns, setPatterns] = useState<HallucinationPattern[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -345,26 +346,21 @@ function TranscriptionFilterPanel() {
   };
 
   const handleReset = async () => {
-    if (!confirm('确定要恢复全部默认 patterns 吗？自定义内容会丢失。')) return;
+    if (!confirm(t('settings.confirmResetPatterns'))) return;
     await resetPatterns();
     await refresh();
   };
 
   if (loading) {
-    return <div className="p-6 text-stone-500 text-center text-sm">加载中…</div>;
+    return <div className="p-6 text-stone-500 text-center text-sm">{t('common.loading')}</div>;
   }
 
   return (
     <section className="baimiao-card-diary p-5 flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <h3 className="text-[15px] font-semibold text-stone-900">转写幻觉过滤</h3>
-        <p className="text-[12px] text-stone-500 leading-relaxed">
-          LLM 转写音频时可能输出固定的噪音片段（如「[EMPTY_AUDIO]」「谢谢观看」）。
-          这里配置的 patterns 会在每次转写时送给后端，被命中的转写会被丢弃或标记。
-        </p>
-        <p className="text-[12px] text-stone-500 leading-relaxed">
-          配置仅存于本设备的 IndexedDB（settings_kv 表），不参与云同步。
-        </p>
+        <h3 className="text-[15px] font-semibold text-stone-900">{t('settings.transcriptionFilterTitle')}</h3>
+        <p className="text-[12px] text-stone-500 leading-relaxed">{t('settings.transcriptionFilterDesc1')}</p>
+        <p className="text-[12px] text-stone-500 leading-relaxed">{t('settings.transcriptionFilterDesc2')}</p>
       </div>
 
       {err && (
@@ -394,7 +390,7 @@ function TranscriptionFilterPanel() {
             <button
               onClick={() => handleRemove(p.key)}
               className="shrink-0 p-1 text-stone-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
-              title="删除"
+              title={t('common.delete')}
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -402,7 +398,7 @@ function TranscriptionFilterPanel() {
         ))}
         {patterns.length === 0 && (
           <div className="text-stone-400 text-center text-[12px] py-4">
-            还没有任何 pattern，点击下方按钮添加
+            {t('settings.transcriptionFilterEmpty')}
           </div>
         )}
       </div>
@@ -414,40 +410,40 @@ function TranscriptionFilterPanel() {
               onClick={() => setAdding(true)}
               className="flex items-center gap-1 px-3 py-1.5 bg-baimiao-mysteria text-white rounded-lg text-[12px] hover:brightness-110"
             >
-              <Plus className="w-3.5 h-3.5" />添加 pattern
+              <Plus className="w-3.5 h-3.5" />{t('settings.addPattern')}
             </button>
             <button
               onClick={handleReset}
               className="flex items-center gap-1 px-3 py-1.5 text-stone-600 bg-stone-100 hover:bg-stone-200 rounded-lg text-[12px]"
             >
-              <RotateCcw className="w-3.5 h-3.5" />恢复默认
+              <RotateCcw className="w-3.5 h-3.5" />{t('settings.resetDefault')}
             </button>
           </>
         ) : (
           <div className="flex flex-col gap-2 w-full p-3 bg-stone-50 rounded-lg">
             <div className="flex items-center gap-2">
-              <label className="text-[12px] text-stone-600">类型</label>
+              <label className="text-[12px] text-stone-600">{t('settings.type')}</label>
               <select
                 value={newType}
                 onChange={e => setNewType(e.target.value as 'exact' | 'regex')}
                 className="px-2 py-1 text-[12px] border border-stone-200 rounded"
               >
-                <option value="exact">精确匹配</option>
-                <option value="regex">正则表达式</option>
+                <option value="exact">{t('settings.exactMatch')}</option>
+                <option value="regex">{t('settings.regex')}</option>
               </select>
             </div>
             <input
               type="text"
               value={newValue}
               onChange={e => setNewValue(e.target.value)}
-              placeholder={newType === 'regex' ? '例如：关注.*订阅' : '例如：[EMPTY_AUDIO]'}
+              placeholder={newType === 'regex' ? t('settings.patternPlaceholderRegex') : t('settings.patternPlaceholderExact')}
               className="w-full px-2 py-1.5 text-[12px] border border-stone-200 rounded font-mono"
             />
             <input
               type="text"
               value={newDesc}
               onChange={e => setNewDesc(e.target.value)}
-              placeholder="备注（可选）"
+              placeholder={t('settings.patternDescPlaceholder')}
               className="w-full px-2 py-1.5 text-[12px] border border-stone-200 rounded"
             />
             <div className="flex items-center gap-2">
@@ -456,13 +452,13 @@ function TranscriptionFilterPanel() {
                 disabled={!newValue.trim()}
                 className="px-3 py-1.5 bg-baimiao-mysteria text-white rounded-lg text-[12px] disabled:opacity-50"
               >
-                保存
+                {t('common.save')}
               </button>
               <button
                 onClick={() => { setAdding(false); setErr(null); }}
                 className="px-3 py-1.5 text-stone-600 bg-stone-200 rounded-lg text-[12px]"
               >
-                取消
+                {t('common.cancel')}
               </button>
             </div>
           </div>
@@ -484,6 +480,7 @@ function TranscriptionFilterPanel() {
  *   - 「触发测试」按钮（演示用）
  */
 function ErrorInspector() {
+  const { t } = useTranslation();
   const [count, setCount] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
   const [lastExport, setLastExport] = useState<string | null>(null);
@@ -510,14 +507,14 @@ function ErrorInspector() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      setLastExport(new Date().toLocaleTimeString('zh-CN'));
+      setLastExport(new Date().toLocaleTimeString());
     } finally {
       setIsExporting(false);
     }
   };
 
   const handleClear = () => {
-    if (!confirm('确定清空错误日志？')) return;
+    if (!confirm(t('settings.confirmClearErrorLog'))) return;
     clearErrorLog();
     refresh();
   };
@@ -530,14 +527,12 @@ function ErrorInspector() {
   return (
     <div className="w-full mb-5 p-3 bg-stone-50 border border-stone-200/60 rounded-xl text-left">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[12px] font-semibold text-stone-700">错误日志（调试）</span>
+        <span className="text-[12px] font-semibold text-stone-700">{t('settings.errorLogTitle')}</span>
         <span className="text-[11px] text-stone-500 font-mono">
           {count} / {ERROR_BUFFER_MAX_SIZE}
         </span>
       </div>
-      <p className="text-[11px] text-stone-500 mb-3 leading-relaxed">
-        本地环形缓冲，仅在本设备内存。导出 JSON 发给开发者辅助定位问题。
-      </p>
+      <p className="text-[11px] text-stone-500 mb-3 leading-relaxed">{t('settings.errorLogDesc')}</p>
       <div className="flex gap-2 flex-wrap">
         <button
           onClick={handleExport}
@@ -545,7 +540,7 @@ function ErrorInspector() {
           className="flex items-center gap-1 px-3 py-1.5 text-[11px] bg-baimiao-mysteria/10 text-baimiao-mysteria hover:bg-baimiao-mysteria/15 border border-baimiao-mysteria/15 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
           <Download className="w-3 h-3" />
-          导出 JSON
+          {t('settings.exportJsonBtn')}
         </button>
         <button
           onClick={handleClear}
@@ -553,17 +548,17 @@ function ErrorInspector() {
           className="flex items-center gap-1 px-3 py-1.5 text-[11px] bg-stone-200 text-stone-700 rounded-lg hover:bg-stone-300 disabled:opacity-30"
         >
           <Trash2 className="w-3 h-3" />
-          清空
+          {t('common.clear')}
         </button>
         <button
           onClick={handleTest}
           className="flex items-center gap-1 px-3 py-1.5 text-[11px] bg-white border border-stone-200 text-stone-600 rounded-lg hover:bg-stone-50"
         >
-          触发测试
+          {t('settings.triggerTest')}
         </button>
       </div>
       {lastExport && (
-        <p className="text-[10px] text-stone-400 mt-2">上次导出：{lastExport}</p>
+        <p className="text-[10px] text-stone-400 mt-2">{t('settings.lastExport', { time: lastExport })}</p>
       )}
     </div>
   );
@@ -616,7 +611,7 @@ function AutoBackupSection() {
     try {
       await restoreBackup(id);
       // 提醒用户：数据已替换
-      alert('已恢复。请刷新页面查看最新数据。');
+      alert(t('settings.autoBackupRestoreSuccess'));
     } catch (e) {
       setLoadError((e as Error).message);
     }
@@ -683,7 +678,7 @@ function AutoBackupSection() {
             {t('settings.autoBackupList')}
           </h4>
           <span className="text-[10px] text-stone-400 font-mono">
-            {(backups?.length ?? 0)} 条 · {((totalSize ?? 0) / 1024).toFixed(1)} KB
+            {t('settings.backupCountAndSize', { count: backups?.length ?? 0, size: ((totalSize ?? 0) / 1024).toFixed(1) })}
           </span>
         </div>
 
@@ -1214,7 +1209,7 @@ export default function Settings() {
   const handleTestChatConnection = async () => {
     if (!apiKey && provider !== 'custom') {
       setChatTestStatus('fail');
-      setChatTestError('API Key 不能为空');
+      setChatTestError(t('settings.apiKeyRequired'));
       setTimeout(() => setChatTestStatus('idle'), 3000);
       return;
     }
@@ -1246,7 +1241,7 @@ export default function Settings() {
     const actualEmbedKey = embedApiKey || (embedProvider === 'gemini' ? apiKey : '');
     if (!actualEmbedKey && embedProvider !== 'custom') {
       setEmbedTestStatus('fail');
-      setEmbedTestError('API Key 不能为空');
+      setEmbedTestError(t('settings.embeddingApiKeyRequired'));
       setTimeout(() => setEmbedTestStatus('idle'), 3000);
       return;
     }
@@ -1875,18 +1870,18 @@ export default function Settings() {
                         {chatTestStatus === 'testing' ? (
                           <span className="text-[11.5px] text-stone-400 flex items-center gap-1 select-none font-medium leading-none">
                             <Loader2 className="w-3 h-3 animate-spin text-baimiao-mysteria" />
-                            测试中...
+                            {t('settings.testing')}
                           </span>
                         ) : chatTestStatus === 'success' ? (
                           <span className="text-[11.5px] text-green-600 font-semibold flex items-center gap-0.5 animate-in fade-in select-none leading-none">
-                            已连通 ✅
+                            {t('settings.connected')}
                           </span>
                         ) : chatTestStatus === 'fail' ? (
-                          <span 
+                          <span
                             className="text-[11.5px] text-rose-500 font-semibold flex items-center gap-0.5 animate-in fade-in cursor-help select-none leading-none"
                             title={chatTestError}
                           >
-                            连接失败 ❌
+                            {t('settings.connectionFailed')}
                           </span>
                         ) : (
                           <button
@@ -1894,7 +1889,7 @@ export default function Settings() {
                             onClick={handleTestChatConnection}
                             className="text-[11.5px] text-[#8a859e] hover:text-baimiao-mysteria font-medium hover:underline select-none active:scale-95 transition-all leading-none"
                           >
-                            测试连接
+                            {t('settings.testConnection')}
                           </button>
                         )}
                       </div>
@@ -1926,7 +1921,7 @@ export default function Settings() {
                   <div className="space-y-1.5 pt-2 border-t border-stone-100">
                     <label className="flex items-center gap-2 text-[13px] font-medium text-stone-700">
                       <Server className="w-4 h-4 text-stone-400" />
-                      自定义代理地址 (Base URL)
+                      {t('settings.baseUrl')}
                     </label>
                     <input
                       type="text"
@@ -1953,7 +1948,7 @@ export default function Settings() {
                   <div className="space-y-1.5 pt-2 border-t border-stone-100">
                     <label className="flex items-center gap-2 text-[13px] font-medium text-stone-700">
                       <Cpu className="w-4 h-4 text-stone-400" />
-                      模型名称 (Model)
+                      {t('settings.modelName')}
                     </label>
                     <input
                       type="text"
@@ -1983,9 +1978,7 @@ export default function Settings() {
                 <div className="flex items-center justify-between">
                   <div className="flex-1 pr-3">
                     <h3 className="text-[13px] font-semibold text-stone-700 mb-1">{t('settings.multimediaSummary')}</h3>
-                    <p className="text-[11.5px] text-stone-400 leading-relaxed">
-                      生成回顾/洞察时，是否将图片/视频附件的 AI 摘要一并提交给模型。关闭后仅提交文本内容。
-                    </p>
+                    <p className="text-[11.5px] text-stone-400 leading-relaxed">{t('settings.multimediaDesc')}</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer shrink-0">
                     <input
@@ -2192,10 +2185,10 @@ export default function Settings() {
                             {!matched && !ttsVoice && (
                               <p className="text-[10.5px] text-stone-400 leading-tight">
                                 {ttsProvider === 'gemini'
-                                  ? `${TTS_VOICES.gemini.length} 个预置音色可选`
+                                  ? t('settings.ttsPresetVoicesAvailable', { count: TTS_VOICES.gemini.length })
                                   : ttsProvider === 'minimax'
-                                    ? `${TTS_VOICES.minimax.length} 个预置音色可选`
-                                    : `${TTS_VOICES.volcengine.length} 个预置音色可选`}
+                                    ? t('settings.ttsPresetVoicesAvailable', { count: TTS_VOICES.minimax.length })
+                                    : t('settings.ttsPresetVoicesAvailable', { count: TTS_VOICES.volcengine.length })}
                               </p>
                             )}
                           </>
@@ -2809,7 +2802,7 @@ export default function Settings() {
                           return (
                             <div className="mt-2 space-y-1.5">
                               <div className="flex items-center justify-between">
-                                <span className="text-[10px] text-stone-500">已使用</span>
+                                <span className="text-[10px] text-stone-500">{t('settings.storagePressureUsed')}</span>
                                 <span className={`text-[10px] font-mono font-semibold ${textColorMap[level]}`}>
                                   {pct}%
                                 </span>
@@ -2822,7 +2815,7 @@ export default function Settings() {
                               </div>
                               {(level === 'critical' || level === 'danger') && (
                                 <div className={`text-[10.5px] leading-relaxed mt-1.5 ${textColorMap[level]} font-medium`}>
-                                  ⚠️ 存储空间紧张，建议立即导出备份（{pct}% ≥ 85%）。
+                                  {t('settings.storagePressureWarning', { pct })}
                                 </div>
                               )}
                             </div>
@@ -3138,19 +3131,17 @@ export default function Settings() {
 
               {/* AI Auto-Generation Maintenance section */}
               <section className="baimiao-card-diary p-4 space-y-3">
-                <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase mb-1">AI 自动整理维护</h3>
-                <p className="text-[12px] text-stone-500 leading-relaxed">
-                  如果您多天未打开应用，或者中途生成中断导致日记或回顾不全，可以点击下方按钮扫描过去 30 天并自动补齐生成。
-                </p>
+                <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase mb-1">{t('settings.aiMaintenance')}</h3>
+                <p className="text-[12px] text-stone-500 leading-relaxed">{t('settings.aiMaintenanceDesc')}</p>
                 {autoGenTasks.length > 0 ? (
                   <div className="space-y-2 mt-2 bg-stone-50 rounded-xl p-3 border border-stone-100">
                     <div className="flex items-center justify-between text-[12px] font-medium text-stone-600">
                       <span className="flex items-center gap-1.5">
                         <Loader2 className={`w-3.5 h-3.5 ${isQueuePaused ? 'text-stone-400' : 'animate-spin text-stone-900'}`} />
-                        {isQueuePaused ? '⏸️ 自动整理已暂停' : '🪄 正在后台自动整理中...'}
+                        {isQueuePaused ? t('settings.aiPaused') : t('settings.aiProcessing')}
                       </span>
                       <span className="bg-stone-200/60 text-stone-700 px-2 py-0.5 rounded-full text-[11px] font-semibold">
-                        剩余 {autoGenTasks.length} 项
+                        {t('settings.aiRemaining', { count: autoGenTasks.length })}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-2 pt-1">
@@ -3158,13 +3149,13 @@ export default function Settings() {
                         onClick={() => setQueuePaused(!isQueuePaused)}
                         className="py-2 px-3 baimiao-btn-cream transition-colors rounded-lg text-[12px] font-semibold flex items-center justify-center gap-1"
                       >
-                        {isQueuePaused ? '▶️ 恢复整理' : '⏸️ 暂停整理'}
+                        {isQueuePaused ? t('settings.aiResume') : t('settings.aiPause')}
                       </button>
                       <button
                         onClick={() => clearQueue()}
                         className="py-2 px-3 bg-red-50 hover:bg-red-100 transition-colors rounded-lg text-[12px] font-semibold text-red-600 border border-red-100 flex items-center justify-center gap-1"
                       >
-                        🛑 停止并清空
+                        {t('settings.aiStop')}
                       </button>
                     </div>
                   </div>
@@ -3175,18 +3166,15 @@ export default function Settings() {
                     }}
                     className="w-full mt-1 bg-baimiao-mysteria/[0.03] hover:bg-baimiao-mysteria/[0.06] border border-baimiao-mysteria/10 hover:border-baimiao-mysteria/20 text-baimiao-mysteria transition-colors rounded-xl text-[12.5px] font-medium active:scale-[0.98] flex items-center justify-center gap-1.5 py-2.5"
                   >
-                    🪄 扫描并补全过去 30 天的日记与回顾
+                    {t('settings.aiScan30')}
                   </button>
                 )}
               </section>
 
               {/* #C1 v0.6.0 洞察自动生成开关（周报/月报独立控制） */}
               <section className="baimiao-card-diary p-4 space-y-3">
-                <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase mb-1">🔮 洞察自动整理</h3>
-                <p className="text-[12px] text-stone-500 leading-relaxed">
-                  每周一凌晨 00:01 自动生成上周的洞察；每月 1 号凌晨 00:01 自动生成上个月的洞察。
-                  使用「自动生成选中」中勾选的 prompt 槽位；该周期内若无任何记录会静默跳过。
-                </p>
+                <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase mb-1">{t('settings.insightAutoOrganizeTitle')}</h3>
+                <p className="text-[12px] text-stone-500 leading-relaxed">{t('settings.insightAutoOrganizeDesc')}</p>
                 <div className="space-y-2.5">
                   <label className="flex items-center gap-2.5 cursor-pointer">
                     <input
@@ -3692,7 +3680,7 @@ export default function Settings() {
               <div className="space-y-2 mb-6 text-center w-full text-stone-600 text-[13px] border-t border-b border-stone-200/40 py-4 flex flex-col items-center justify-center">
                 <span className="text-stone-400 text-[11px] uppercase tracking-wider">{t('app.authorLabel')}</span>
                 <span className="font-semibold text-stone-900 text-[14px]">{t('app.author')}</span>
-                <p className="text-[12px] text-stone-500 leading-relaxed mt-2.5 pt-2.5 border-t border-stone-200/20 w-full text-center">
+                <p className="self-stretch w-full text-center text-[12px] text-stone-500 leading-relaxed mt-2.5 pt-2.5 px-1 border-t border-stone-200/20">
                   {t('app.tagline')}
                 </p>
               </div>

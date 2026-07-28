@@ -5,7 +5,7 @@
 
 ---
 
-## 当前进度（截至 2026-07-28 P0 + v3 完成 + v0.3.x hotfix + 洞察 5 槽多选 v0.4.0 + 沉淀手动标签 v0.5.0 + 洞察自动生成 v0.5.1 + 卡片 5 槽区分 v0.5.3 + Settings 浅紫胶囊 + 摘要 Prompt 升级 v0.5.4 + TTS 老用户迁移补完 v0.5.5）
+## 当前进度（截至 2026-07-29 P0 + v3 完成 + v0.3.x hotfix + 洞察 5 槽多选 v0.4.0 + 沉淀手动标签 v0.5.0 + 洞察自动生成 v0.5.1 + 卡片 5 槽区分 v0.5.3 + Settings 浅紫胶囊 + 摘要 Prompt 升级 v0.5.4 + TTS 老用户迁移补完 v0.5.5 + 英文 i18n 补完 v0.5.6）
 
 | # | 阶段 | 状态 |
 |---|------|------|
@@ -19,6 +19,7 @@
 | v0.5.3 卡片 5 槽区分 | ✅ 已合并（commit d3905e3）| 回顾/洞察卡片 sub-header 统一为「统摄名（槽位标签）」格式，时间带日期 |
 | v0.5.4 Settings 浅紫胶囊 + 摘要 Prompt 升级 | ✅ 已合并（commits 52be930 + 954fa9f/2df472e）| 11 处胶囊统一浅紫 + 默认 Prompt 泛化（≤39 字）+ migrate v14 强制覆盖 + TTS Gemini 3.1 流式修复 |
 | v0.5.5 TTS 老用户 IndexedDB 迁移 | ✅ 已合并（commit 816f461 + 1235446 release）| settings.store persist version 14 → 15；migrate v15 把 `gemini-2.5-flash-preview-tts` / `gemini-2.5-pro-preview-tts` 强制替换为 `gemini-3.1-flash-tts-preview`，同步 `ttsConfigs.gemini.model` |
+| v0.5.6 Settings 英文 i18n 补完 + 洞察卡片标题去重 | ✅ 已合并（即将 release）| 4 处 Settings 面板（转写过滤 / 错误日志 / AI 维护 / 数据管理）硬编码中文替换为 t()；洞察卡片标题栏去除与 sub-header 重复的类型徽章/时间；testid 收敛到 sub-header |
 | 测试清理 | ✅ 6 个失效测试已删除 | 见下方「清理记录」|
 
 | Issue | 标题 | 状态 | 分支 | 验收 |
@@ -181,6 +182,36 @@
 - 第一次安装 v0.5.5+ 的用户：persist version 直接到 15，migration 跑一遍命中为空值集合 → no-op
 - 已升级到 v0.5.4 但还没触发 migration 的用户：从 v14 → v15 走一遍 → 老值被替换
 - 用户曾手动改过 `ttsModel` 为非 2.5 字符串：不在枚举集合里 → 不被替换（保留用户意图）
+
+## v0.5.6（2026-07-29 — Settings 英文 i18n 补完 + 洞察卡片标题去重）
+
+**核心变更**：英文语言下 4 处 Settings 面板仍硬编码显示中文（转写过滤 / 错误日志 / AI 自动整理维护 / 数据管理 / 多媒体描述 / TTS 预置音色 / API Key 校验 / 备份恢复 alert / 存储压力条），同时洞察卡片标题栏与 sub-header 重复展示类型徽章和时间。统一收口为 i18n + 重复信息合并。
+
+| 模块 | 改动 |
+|------|------|
+| 转写幻觉过滤 | 标题 / 描述 1+2 / 空状态 / 添加 pattern / 恢复默认 / 类型 / 精确匹配 / 正则 / placeholder / 备注 placeholder / 恢复默认确认 → 全部走 t()；panel 内引 `useTranslation` |
+| 错误日志 | 标题 / 描述 / 导出 JSON / 清空 / 触发测试 / 上次导出 / 清空确认 → 全部走 t()；移除 `toLocaleTimeString('zh-CN')` 硬编码 locale |
+| AI 自动整理维护 | 标题 / 描述 / 自动整理已暂停 / 正在后台整理 / 剩余 N 项 / 恢复整理 / 暂停整理 / 停止并清空 / 扫描 30 天 → 复用已存在的 settings.aiMaintenance / aiPaused / aiProcessing / aiRemaining / aiResume / aiPause / aiStop / aiScan30 |
+| 洞察自动整理 | 新增 settings.insightAutoOrganizeTitle / Desc，替换硬编码标题和描述 |
+| Chat Model 配置 | 自定义代理地址 / 模型名称 / 测试中 / 已连通 / 连接失败 / 测试连接 / 多媒体描述 → 已有 key 替换 |
+| TTS 预置音色 | `{n} 个预置音色可选` → settings.ttsPresetVoicesAvailable |
+| 存储压力 | 已使用 / 85% 警告 → settings.storagePressureUsed / storagePressureWarning |
+| 备份 / API Key 校验 | 已恢复 / API Key 不能为空 / 备份条数汇总 → settings.autoBackupRestoreSuccess / apiKeyRequired / embeddingApiKeyRequired / backupCountAndSize |
+| 洞察卡片标题栏 | 删除 badge / headerDate 重复元素（信息已在 sub-header 收敛），删除死代码 badgeClass / badgeTestId；testid 收敛到 `insight-meta-subheader`，测试断言改为查 sub-header 文案 |
+
+**为什么 patch**：
+- 不改 IndexedDB `db.version`（无 schema 变化）
+- 不动 zustand persist version（无 store schema 变化）
+- 纯 UI 字符串 + 测试断言调整
+- 符合 CLAUDE.md 「patch：bug fix、不改 schema 的纯代码改动」
+
+**用户体验**：英文语言下上述红框区域从硬编码中文切换为正确英文；洞察卡片标题栏腾出的宽度留给 `truncate`，长 range_label 不再被截断或挤出。
+
+**风险与边界**：
+- 测试断言修改：原 `[data-testid="insight-type-badge-*"]` 改为查 `[data-testid="insight-meta-subheader"]` 的 `span:first-child` 文案；E2E insight.test.ts 已同步更新
+- 备份"上次导出"时间戳：原 `toLocaleTimeString('zh-CN')` 改为 `toLocaleTimeString()`，跟随系统 locale
+- 错误日志上次导出 / 备份条数汇总：参数化 i18n（`{time}` / `{count}` / `{size}`）
+
 
 ## 🎉 P0 全部完成 (8/8)
 

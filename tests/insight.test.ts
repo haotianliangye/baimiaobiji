@@ -266,11 +266,14 @@ async function run() {
     `mingwu=${hasMingwu}, insight=${hasInsight}, types=${insightTypeCards.join(',')}`
   );
 
-  // 验证类型徽标存在（testid 沿用旧值）
-  const mingwuBadge = await page.$('[data-testid="insight-type-badge-mingwu"]');
-  const insightBadge = await page.$('[data-testid="insight-type-badge-insight"]');
-  assert('B2 明悟类型徽标存在', !!mingwuBadge, mingwuBadge ? '有徽标' : '无徽标');
-  assert('B3 洞察类型徽标存在', !!insightBadge, insightBadge ? '有徽标' : '无徽标');
+  // 验证类型标签存在于 sub-header（标题栏已删除重复徽标，统一收敛到 sub-header）
+  const metaTexts = await page.$$eval('[data-testid="insight-meta-subheader"] span:first-child', (els) =>
+    els.map((e) => e.textContent || '')
+  );
+  const hasMingwuMeta = metaTexts.some((t) => t.includes('洞察（明悟）') || t.includes('（明悟）'));
+  const hasInsightMeta = metaTexts.some((t) => t.includes('洞察（洞察）') || t.includes('（洞察）'));
+  assert('B2 明悟类型标签存在于 sub-header', hasMingwuMeta, `metas=${JSON.stringify(metaTexts)}`);
+  assert('B3 洞察类型标签存在于 sub-header', hasInsightMeta, `metas=${JSON.stringify(metaTexts)}`);
 
   // ---------- 断言 C：手动打标签（默认无 AI 自动标签） ----------
   const insightWithoutTags = insightRecords.filter((m) => !m.tags || m.tags.length === 0);
@@ -360,16 +363,20 @@ async function run() {
     customCard?.prompt_name?.includes('自定义 1') ?? false,
     `prompt_name=${customCard?.prompt_name}`
   );
-  // 徽章 testid 沿用 insight-type-badge-custom-{slot} 形式
-  const customBadge = await page.$('[data-testid="insight-type-badge-custom-2"]');
-  assert('D6 custom 槽徽章存在', !!customBadge, customBadge ? '有徽标' : '无徽标');
-  const customBadgeText = customBadge
-    ? await customBadge.evaluate((e) => e.textContent || '')
-    : '';
+  // 类型标签收敛到 sub-header：从 insight-meta-subheader 中查找 prompt_name
+  const customMetaTexts = await page.$$eval('[data-testid="insight-meta-subheader"] span:first-child', (els) =>
+    els.map((e) => e.textContent || '')
+  );
+  const hasCustomMeta = customMetaTexts.some((t) => t.includes('自定义 1'));
   assert(
-    'D7 custom 徽章文案含 prompt_name（"自定义 1"）',
-    customBadgeText.includes('自定义 1'),
-    `badgeText=${customBadgeText.trim()}`
+    'D6 custom 槽标签存在于 sub-header',
+    hasCustomMeta,
+    `metas=${JSON.stringify(customMetaTexts)}`
+  );
+  assert(
+    'D7 custom 槽标签文案含 prompt_name（"自定义 1"）',
+    hasCustomMeta,
+    `metas=${JSON.stringify(customMetaTexts)}`
   );
 
   await page.close();
