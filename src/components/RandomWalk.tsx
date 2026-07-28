@@ -21,6 +21,7 @@
  */
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import type { Table } from 'dexie';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -265,9 +266,14 @@ function toWalkItems(
         content: m.content,
         title: m.ai_summary,
         createdAt: m.created_at,
-        tags: [],
+        tags: m.tags || [],
         rawText: m.content,
-        typeLabel: m.insight_type === 'insight' ? tf('insight.insight') : tf('insight.mingwu'),
+        // C4 5 槽改造：insight_type 三态（mingwu/insight/custom）；custom 优先用 prompt_name
+        typeLabel: m.insight_type === 'insight'
+          ? tf('insight.insight')
+          : m.insight_type === 'mingwu'
+            ? tf('insight.mingwu')
+            : (m.prompt_name || tf('insight.custom')),
       });
     }
   }
@@ -728,10 +734,16 @@ export default function RandomWalk() {
     if (current) copy(current.rawText);
   };
 
-  // ---------- 标签增删（仅 raw_logs / daily_reviews） ----------
-  const canEditTags = current?.type === 'raw_logs'
-    || current?.type === 'daily_reviews'
-    || current?.type === 'insights';
+  // ---------- 标签增删（raw_logs / daily_reviews / insights / thoughts） ----------
+  // #thought-manual-tags: thoughts 也支持手动加标签（与卡片对齐）
+  // 表选择走 map 避免 ternary 漏 type（曾导致 insights 误写到 db.daily_reviews）
+  const TAG_TABLE: Record<SourceType, Table<any> | null> = {
+    raw_logs: db.raw_logs,
+    daily_reviews: db.daily_reviews,
+    insights: db.insights,
+    thoughts: db.thoughts,
+  };
+  const canEditTags = !!current && TAG_TABLE[current.type] !== null;
 
   const refreshItemTags = (key: string, tags: string[]) => {
     setItems((prev) => prev.map((it) => (it.key === key ? { ...it, tags } : it)));
@@ -742,12 +754,13 @@ export default function RandomWalk() {
     const path = normalizeTagPath(tagInput);
     if (!path) return;
     await createTag(path);
-    const table = current.type === 'raw_logs' ? db.raw_logs : db.daily_reviews;
+    const table = TAG_TABLE[current.type];
+    if (!table) return;
     const rec = await table.get(current.id);
-    const tags = rec?.tags || [];
+    const tags = (rec as any)?.tags || [];
     if (!tags.includes(path)) {
       const next = [...tags, path];
-      await table.update(current.id, { tags: next });
+      await (table as any).update(current.id, { tags: next });
       refreshItemTags(current.key, next);
     }
     setTagInput('');
@@ -755,10 +768,11 @@ export default function RandomWalk() {
 
   const handleRemoveTag = async (tagPath: string) => {
     if (!current || !canEditTags) return;
-    const table = current.type === 'raw_logs' ? db.raw_logs : db.daily_reviews;
+    const table = TAG_TABLE[current.type];
+    if (!table) return;
     const rec = await table.get(current.id);
-    const tags = (rec?.tags || []).filter((t) => t !== tagPath);
-    await table.update(current.id, { tags });
+    const tags = ((rec as any)?.tags || []).filter((t: string) => t !== tagPath);
+    await (table as any).update(current.id, { tags });
     refreshItemTags(current.key, tags);
   };
 
@@ -1177,10 +1191,6 @@ export default function RandomWalk() {
                     {t('randomWalk.addTag')}
                   </button>
                 </div>
-              ) : current.type === 'thoughts' ? (
-                <p className="text-[11px] text-stone-400 leading-relaxed">
-                  {t('randomWalk.thoughtsTagHint')}
-                </p>
               ) : (
                 <p className="text-[11px] text-stone-400 leading-relaxed">
                   {t('randomWalk.unsupportedTags')}

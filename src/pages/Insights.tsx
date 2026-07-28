@@ -10,6 +10,7 @@ import { TagChip } from '../components/TagChip';
 import { db, Insight } from '../db/db';
 import { useAppStore } from '../store/app.store';
 import { useMingwuStore } from '../store/mingwu.store';
+import { useSettingsStore } from '../store/settings.store';
 import { useTagsStore } from '../store/tags.store';
 import { normalizeTagPath, resolveAlias } from '../lib/tags';
 import { format, subDays } from 'date-fns';
@@ -18,6 +19,7 @@ import { formatDiaryMarkdown } from '../lib/utils';
 import { washCitations } from '../lib/citationWash';
 import { VerifiedMarkdown } from '../components/VerifiedMarkdown';
 import DatePickerPopover from '../components/DatePickerPopover';
+import { MultiSlotPromptPopover, type MultiSlotPromptPopoverSlot } from '../components/MultiSlotPromptPopover';
 import { useTranslation } from '../lib/i18n';
 
 const MENU_HALF_WIDTH = 140;
@@ -98,8 +100,33 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
     }
   };
 
-  const isMingwuType = insight.insight_type === 'mingwu';
-  const typeLabel = isMingwuType ? t('insight.mingwu') : t('insight.insight');
+  // C4 5 槽改造：insight_type 三态（mingwu/insight/custom）
+  // - 'mingwu' / 'insight' 走默认固定名（i18n key）
+  // - 'custom' 显示 insight.prompt_name（用户可改名的自定义槽名），无则 fallback 'insight.custom'
+  const insightType = insight.insight_type;
+  const isMingwuType = insightType === 'mingwu';
+  const isInsightType = insightType === 'insight';
+  const isCustomType = insightType === 'custom';
+  const typeLabel = isMingwuType
+    ? t('insight.mingwu')
+    : isInsightType
+      ? t('insight.insight')
+      : (insight.prompt_name || t('insight.custom'));
+  // 徽章背景色 / 文字色 + 太阳图标色（custom 用 emerald 区别于前两者）
+  const badgeClass = isMingwuType
+    ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria'
+    : isInsightType
+      ? 'bg-stone-100 text-stone-500'
+      : 'bg-emerald-50 text-emerald-700';
+  const sunIconClass = isMingwuType
+    ? 'text-baimiao-mysteria'
+    : isInsightType
+      ? 'text-stone-400'
+      : 'text-emerald-600';
+  // testid：mingwu/insight 保持旧值（向后兼容测试）；custom 用 custom-{slot} 形式
+  const badgeTestId = isCustomType
+    ? `insight-type-badge-custom-${insight.prompt_index ?? 'x'}`
+    : `insight-type-badge-${insightType}`;
   const rangeTypeLabel = (range: string) => t(RANGE_TYPE_KEY[range] || 'insight.rangeCustom');
 
   useEffect(() => {
@@ -170,15 +197,11 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
       >
         <div className="flex justify-between items-center w-full">
           <div className="flex items-center gap-2 min-w-0">
-            <Sun weight="regular" className={`w-4 h-4 shrink-0 ${isMingwuType ? 'text-baimiao-mysteria' : 'text-stone-400'}`} />
+            <Sun weight="regular" className={`w-4 h-4 shrink-0 ${sunIconClass}`} />
             <span className="text-[15px] font-semibold text-stone-800 truncate">{title}</span>
             <span
-              data-testid={`insight-type-badge-${insight.insight_type}`}
-              className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-                isMingwuType
-                  ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria'
-                  : 'bg-stone-100 text-stone-500'
-              }`}
+              data-testid={badgeTestId}
+              className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${badgeClass}`}
             >
               {typeLabel}
             </span>
@@ -479,6 +502,13 @@ export default function Insights() {
 
   const { isGeneratingMingwu, mingwuError } = useAppStore();
   const { generateMingwu, regenerateMingwu } = useMingwuStore();
+  // C4 5 槽改造：从 useSettingsStore 读取 5 槽 prompt + 当前选中
+  const {
+    mingwuInsightPrompts,
+    mingwuInsightPromptNames,
+    mingwuInsightSelectedIndices,
+    setSettings,
+  } = useSettingsStore();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const [showFloatBtn, setShowFloatBtn] = useState(false);
@@ -489,6 +519,40 @@ export default function Insights() {
   // pointer-events-auto overlay can intercept clicks on the Save/Cancel
   // buttons, making the save button look unresponsive.
   const [editingInsightId, setEditingInsightId] = useState<string | null>(null);
+
+  // C4 5 槽浮层状态机
+  const [showInsightPromptMenu, setShowInsightPromptMenu] = useState(false);
+  const [insightPopoverRect, setInsightPopoverRect] = useState<DOMRect | null>(null);
+  const openInsightPromptMenu = (rect: DOMRect) => {
+    setInsightPopoverRect(rect);
+    setShowInsightPromptMenu(true);
+  };
+  const closeInsightPromptMenu = () => {
+    setShowInsightPromptMenu(false);
+    setInsightPopoverRect(null);
+  };
+  // 至少保留 1 项；与 Review.handleToggleSlot 同语义
+  const handleToggleInsightSlot = (index: number) => {
+    const current = mingwuInsightSelectedIndices || [0, 1];
+    if (current.includes(index)) {
+      if (current.length <= 1) return;
+      setSettings({ mingwuInsightSelectedIndices: current.filter((i) => i !== index) });
+    } else {
+      setSettings({ mingwuInsightSelectedIndices: [...current, index].sort((a, b) => a - b) });
+    }
+  };
+  // 5 槽元数据（驱动 MultiSlotPromptPopover 渲染）
+  const insightPopoverSlots: MultiSlotPromptPopoverSlot[] = (mingwuInsightPromptNames || [
+    t('settings.promptMingwu'),
+    t('settings.promptInsight'),
+    t('settings.promptCustom1'),
+    t('settings.promptCustom2'),
+    t('settings.promptCustom3'),
+  ]).map((name, idx) => ({
+    name,
+    hasContent: !!mingwuInsightPrompts?.[idx]?.trim().length,
+    isFixed: idx < 2, // 明悟/洞察 不可改名
+  }));
 
   const handleInteraction = useCallback(() => {
     setShowFloatBtn(true);
@@ -576,6 +640,27 @@ export default function Insights() {
         startTime,
         endTime,
         rangeLabel,
+        // 不传 selectedIndices → 由 useMingwuStore 从 useSettingsStore 读取
+      });
+      setTimeout(() => {
+        scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 100);
+    } catch (err: any) {
+      console.error(err);
+    }
+  };
+
+  // C4 5 槽改造：浮层「生成 N 篇洞察」按钮回调
+  const handleGenerateSelectedInsights = async () => {
+    closeInsightPromptMenu();
+    try {
+      const { startTime, endTime, rangeLabel } = computeRange();
+      await generateMingwu({
+        rangeType: timeRange,
+        startTime,
+        endTime,
+        rangeLabel,
+        selectedIndices: mingwuInsightSelectedIndices || [0, 1],
       });
       setTimeout(() => {
         scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
@@ -678,15 +763,32 @@ export default function Insights() {
       >
         <button
           data-testid="mingwu-generate-btn"
-          onClick={handleGenerate}
+          onClick={(e) => openInsightPromptMenu(e.currentTarget.getBoundingClientRect())}
           disabled={isGeneratingMingwu}
           className={`bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-md border border-white/10 text-white px-6 py-2.5 rounded-full text-[13px] font-medium tracking-wide transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:active:scale-100 min-w-[160px] ${(showFloatBtn || isGeneratingMingwu || (!insightList || insightList.length === 0)) ? 'pointer-events-auto' : 'pointer-events-none'}`}
         >
           {isGeneratingMingwu ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sun weight="regular" className="w-4 h-4" />}
-          {isGeneratingMingwu ? t('insight.mingwuInProgress') : t('insight.generateMingwu')}
+          {isGeneratingMingwu
+            ? t('insight.mingwuInProgress')
+            : t('insight.generateNInsights', { count: (mingwuInsightSelectedIndices || [0, 1]).length })}
         </button>
       </div>
       )}
+
+      {/* C4 5 槽多选浮层 — 复用 Review 的 MultiSlotPromptPopover */}
+      <MultiSlotPromptPopover
+        visible={showInsightPromptMenu}
+        anchorRect={insightPopoverRect}
+        slots={insightPopoverSlots}
+        selectedIndices={mingwuInsightSelectedIndices || [0, 1]}
+        onToggle={handleToggleInsightSlot}
+        onGenerate={handleGenerateSelectedInsights}
+        onClose={closeInsightPromptMenu}
+        titleKey="insight.selectTemplate"
+        generateLabelKey="insight.generateNInsights"
+        testIdPrefix="insight-slot-"
+        generateBtnTestId="insight-generate-n-btn"
+      />
     </div>
   );
 }
