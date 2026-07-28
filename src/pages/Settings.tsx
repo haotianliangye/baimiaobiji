@@ -3680,7 +3680,7 @@ export default function Settings() {
               <div className="space-y-2 mb-6 text-center w-full text-stone-600 text-[13px] border-t border-b border-stone-200/40 py-4 flex flex-col items-center justify-center">
                 <span className="text-stone-400 text-[11px] uppercase tracking-wider">{t('app.authorLabel')}</span>
                 <span className="font-semibold text-stone-900 text-[14px]">{t('app.author')}</span>
-                <p className="self-stretch w-full text-center text-[12px] text-stone-500 leading-relaxed mt-2.5 pt-2.5 px-1 border-t border-stone-200/20">
+                <p className="text-center text-[12px] text-stone-500 leading-relaxed mt-2.5 pt-2.5 border-t border-stone-200/20">
                   {t('app.tagline')}
                 </p>
               </div>
