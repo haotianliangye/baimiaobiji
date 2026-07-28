@@ -5,7 +5,7 @@
 
 ---
 
-## 当前进度（截至 2026-07-28 P0 + v3 完成 + v0.3.x hotfix + 新模块沉淀）
+## 当前进度（截至 2026-07-28 P0 + v3 完成 + v0.3.x hotfix + 洞察 5 槽多选 v0.4.0）
 
 | # | 阶段 | 状态 |
 |---|------|------|
@@ -13,6 +13,7 @@
 | v1 UI (#001-#010) | ✅ 全部 done（功能已实现并合并）| 9 个 seam 拆分 |
 | v3 UI (#100-#116) | ✅ 全部 done（功能已实现并合并）| 17 个 UI/UX 重构需求 |
 | v0.3.x hotfix | ✅ 全部合并（见下方）| 设置重构 + 沉淀/洞察改造 + 标签系统 + 随机漫步升级 + 热力图统一 |
+| v0.4.0 洞察 5 槽 | ✅ 全部合并（commits 67c9445/b559a6c/a872f6c/26304b8/4878850）| 详见下方「v0.4.0」 |
 | 测试清理 | ✅ 6 个失效测试已删除 | 见下方「清理记录」|
 
 | Issue | 标题 | 状态 | 分支 | 验收 |
@@ -39,9 +40,30 @@
 | **随机漫步升级**（Footprints 图标 + 15.5px 富文本 + 双击精确定位） | `5f0eae1` `11f9f49` `3acd84a` | TabBar 图标换 Footprints；操作栏重排（删除移到最左减少误触）；卡片字号升 15.5px + 富文本渲染（DocumentView / VerifiedMarkdown）；双击跳转精确到对应页 + `?{recordId|reviewId|thoughtId|insightId}` 高亮 2s |
 | **版本号自动 bump** | `7dd28f7` | `sync-version.js` 自动跑 → 0.3.1 → 0.3.2（patch）→ 0.3.3 |
 
+## v0.4.0（2026-07-28 — 洞察 5 槽多选 prompt，与回顾一致）
+
+**核心变更**：洞察页的「生成洞察」按钮现在会弹出 5 槽多选浮层（与回顾完全一致），用户可选择 1-5 个 prompt（明悟/洞察/自定义 1/2/3），每个被选中的槽独立生成一张 Insight 卡片。改造范围覆盖后端 API、客户端 store、UI 浮层、数据模型、E2E 测试。
+
+| 步骤 | commit | 说明 |
+|------|--------|------|
+| C1 服务端 API 升级 | `67c9445` | `/api/generate-insight` 接受 `settings.prompts[]` 数组循环生成；抽 3 个 helper（buildInsightContext / runInsightOne / runInsightSummary）消除双报告路径的重复；旧请求（无 prompts[]）保留双报告路径向后兼容；`server.ts` 与 `api/index.ts` 1:1 同步 |
+| C2 客户端 store + 类型放宽 | `b559a6c` | `useMingwuStore.generateMingwu` 按 `selectedIndices` 循环落库 1-5 张卡；`regenerateMingwu` 用 `oldInsight.prompt_index` 单槽重生成（比旧实现省一半 LLM）；`Insight.insight_type` 类型放宽为 `'mingwu' \| 'insight' \| 'custom'`（旧值仍合法） |
+| C3 抽取共享浮层组件 | `a872f6c` | 新增 `src/lib/popover.ts`（calcPopoverTop / clampPopoverLeft）+ `src/components/MultiSlotPromptPopover.tsx`；改造 Review.tsx 复用，原内联 JSX 删除；视觉行为零变化 |
+| C4 Insights 页接入 | `26304b8` | 浮层状态机 + 5 槽 toggle（至少保留 1 项）；按钮文案动态显示「生成 N 篇洞察」；InsightCard 徽章三态（mingwu/insight/custom，自定义用 emerald 色）；RandomWalk 三态 fallback；i18n 新增 3 个 key（insight.selectTemplate / generateNInsights / custom） |
+| C5 E2E 测试更新 | `4878850` | `tests/insight.test.ts` mock 改造（按 prompts[] 动态返回 results[]）；交互流改走浮层；新增 7 条 5 槽断言（A0/D1-D7） |
+| C6 版本号 | 见下条 commit | `0.3.3 → 0.4.0`（minor：新功能 + insight_type schema 变化） |
+
+**风险与边界**：
+- API 调用次数：默认 `[0,1]` 行为不变（1 fetch = 2 LLM）；用户主动选更多槽时变慢（5 槽约 30s）。服务端循环内 `await sleep(3000)` 防限流。
+- 旧 Insight 卡兼容：insight_type 放宽到三态，旧值仍合法，徽章 / RandomWalk 三态 fallback 全覆盖。
+- Regenerate 旧卡（无 prompt_index）：fallback 链 `prompt_index` → `prompt_name` 反查 → `insight_type` 推断，再降级到 slot 0。
+- 自动队列未扩展：明悟/洞察按时间范围（不是按日），不在本次范围。
+- `content_doc` 兼容未做：peer agent 提到 `buildMingwuPayload` 只读 `l.content` 不读 `content_doc`，列为 follow-up。
+- 标签：本次不引入新版本号（CLAUDE.md minor 规则：新功能 + schema 变化）
+
 ## v0.3.1+ 当前未打 git tag 的版本
 
-`package.json` 现为 `0.3.3`，最后 git tag 为 `v0.3.1`。sync-version.js 自动 bump 之后未执行 `git tag`（参见 CLAUDE.md "版本号规则"）—— **待用户拍板**：是否补打 v0.3.2 / v0.3.3 tag，或改规则为"自动 tag"。
+`package.json` 现为 `0.4.0`（v0.4.0 5 槽多选），最后 git tag 为 `v0.3.1`。sync-version.js 自动 bump 之后未执行 `git tag`（参见 CLAUDE.md "版本号规则"）—— **待用户拍板**：是否补打 v0.3.2 / v0.3.3 / v0.4.0 tag，或改规则为"自动 tag"。
 
 ## 🎉 P0 全部完成 (8/8)
 
