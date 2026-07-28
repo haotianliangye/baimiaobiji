@@ -46,6 +46,7 @@ export const en: TranslationDict = {
   // --- Auto-generated notifications ---
   'notify.autoDiary': 'Auto-generated diary for {date}',
   'notify.autoReview': 'Auto-generated review for {date}',
+  'notify.autoInsight': 'Auto-generated {count} insight(s) for {rangeLabel}',
   'notify.view': 'View',
 
   // --- About Modal ---
@@ -511,6 +512,10 @@ export const en: TranslationDict = {
   'settings.aiPause': '⏸️ Pause',
   'settings.aiStop': '🛑 Stop & clear',
   'settings.aiScan30': '🪄 Scan & backfill past 30 days of diaries & reviews',
+  // #C1 v0.6.0 Insight weekly/monthly auto-generation
+  'settings.insightAutoGenWeekly': 'Auto-generate last week\'s insights every Monday',
+  'settings.insightAutoGenMonthly': 'Auto-generate last month\'s insights on the 1st',
+  'settings.insightAutoGenHint': 'Uses the prompt slots you\'ve checked in "Auto-generate selected"; silently skips periods with no records.',
   'settings.dataExport': 'Data export',
   'settings.exportLogs': 'Raw records',
   'settings.exportLogsDesc': 'Export all timeline entries, including voice data.',

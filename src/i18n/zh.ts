@@ -47,6 +47,7 @@ export const zh: TranslationDict = {
   // --- 自动生成通知 ---
   'notify.autoDiary': '已自动为您整理 {date} 的日记',
   'notify.autoReview': '已自动为您生成 {date} 的回顾',
+  'notify.autoInsight': '已自动为您生成 {rangeLabel} 的洞察（{count} 张）',
   'notify.view': '查看',
 
   // --- About Modal ---
@@ -512,6 +513,10 @@ export const zh: TranslationDict = {
   'settings.aiPause': '⏸️ 暂停整理',
   'settings.aiStop': '🛑 停止并清空',
   'settings.aiScan30': '🪄 扫描并补全过去 30 天的日记与回顾',
+  // #C1 v0.6.0 洞察周报/月报自动生成
+  'settings.insightAutoGenWeekly': '每周一自动生成上周的洞察',
+  'settings.insightAutoGenMonthly': '每月 1 号自动生成上个月的洞察',
+  'settings.insightAutoGenHint': '使用「自动生成选中」中勾选的 prompt 槽位；该周期内若无任何记录会静默跳过。',
   'settings.dataExport': '数据导出',
   'settings.exportLogs': '原始记录',
   'settings.exportLogsDesc': '导出所有时间线上的打点记录，包含语音数据。',

@@ -1181,6 +1181,14 @@ export default function Settings() {
   const [localDiaryReviewSummaryPrompt, setLocalDiaryReviewSummaryPrompt] = useState(diaryReviewSummaryPrompt || DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT);
   const [localMingwuInsightSummaryPrompt, setLocalMingwuInsightSummaryPrompt] = useState(mingwuInsightSummaryPrompt || DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT);
 
+  // #C1 v0.6.0 洞察自动生成开关（AI 维护卡片用）
+  const [localInsightAutoGenWeeklyEnabled, setLocalInsightAutoGenWeeklyEnabled] = useState(
+    settingsStore.insightAutoGenWeeklyEnabled ?? false
+  );
+  const [localInsightAutoGenMonthlyEnabled, setLocalInsightAutoGenMonthlyEnabled] = useState(
+    settingsStore.insightAutoGenMonthlyEnabled ?? false
+  );
+
   // #12: 语言切换后，从 store 重新加载本地 Prompt 状态（store 的 setLanguage 已切换 active 字段）
   useEffect(() => {
     const s = useSettingsStore.getState();
@@ -3155,6 +3163,40 @@ export default function Settings() {
                 )}
               </section>
 
+              {/* #C1 v0.6.0 洞察自动生成开关（周报/月报独立控制） */}
+              <section className="baimiao-card-diary p-4 space-y-3">
+                <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase mb-1">🔮 洞察自动整理</h3>
+                <p className="text-[12px] text-stone-500 leading-relaxed">
+                  每周一凌晨 00:01 自动生成上周的洞察；每月 1 号凌晨 00:01 自动生成上个月的洞察。
+                  使用「自动生成选中」中勾选的 prompt 槽位；该周期内若无任何记录会静默跳过。
+                </p>
+                <div className="space-y-2.5">
+                  <label className="flex items-center gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      data-testid="insight-auto-gen-weekly-checkbox"
+                      checked={localInsightAutoGenWeeklyEnabled}
+                      onChange={(e) => setLocalInsightAutoGenWeeklyEnabled(e.target.checked)}
+                      className="w-4 h-4 accent-baimiao-mysteria cursor-pointer"
+                    />
+                    <span className="text-[13px] text-stone-700">{t('settings.insightAutoGenWeekly')}</span>
+                  </label>
+                  <label className="flex items-center gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      data-testid="insight-auto-gen-monthly-checkbox"
+                      checked={localInsightAutoGenMonthlyEnabled}
+                      onChange={(e) => setLocalInsightAutoGenMonthlyEnabled(e.target.checked)}
+                      className="w-4 h-4 accent-baimiao-mysteria cursor-pointer"
+                    />
+                    <span className="text-[13px] text-stone-700">{t('settings.insightAutoGenMonthly')}</span>
+                  </label>
+                  <p className="text-[11px] text-stone-400 leading-relaxed">
+                    {t('settings.insightAutoGenHint')}
+                  </p>
+                </div>
+              </section>
+
               {/* Data Export / Import section */}
               <section className="baimiao-card-diary p-4 space-y-4">
                  <div>
@@ -3707,6 +3749,9 @@ export default function Settings() {
                 mingwuInsightPrompt: safeMingwuInsightPrompts[localMingwuInsightIndex] || safeMingwuInsightPrompts[0],
                 diaryReviewSummaryPrompt: localDiaryReviewSummaryPrompt,
                 mingwuInsightSummaryPrompt: localMingwuInsightSummaryPrompt,
+                // #C1 v0.6.0 洞察自动生成开关
+                insightAutoGenWeeklyEnabled: localInsightAutoGenWeeklyEnabled,
+                insightAutoGenMonthlyEnabled: localInsightAutoGenMonthlyEnabled,
                 syncEnabled: localSyncEnabled,
                 syncProvider: localSyncProvider,
                 syncEndpoint: localSyncEndpoint,
