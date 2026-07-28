@@ -863,7 +863,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
         name: 'whitewash-settings',
-        version: 14,
+        version: 15,
         partialize: (state) => {
           const { syncPassword, syncPasswordE2EE, ...rest } = state;
           if (state.syncRememberCredentials) {
@@ -1528,6 +1528,26 @@ export const useSettingsStore = create<SettingsState>()(
               zh: DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT,
               en: persistedState.mingwuInsightSummaryPromptByLang?.en || DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT_EN,
             };
+          }
+
+         // #011: 老用户 TTS 模型 2.5 → 3.1 迁移（v15）。
+         // 单独成块而非塞进 v14：v14 已发布，跑过一遍；后续用户若新装同样会跑 v14。
+         // 这里只针对已经在 v14 的老用户，把 gemini-2.5-flash-preview-tts 换成 3.1。
+         if (version < 15) {
+            const LEGACY_GEMINI_TTS_MODELS = new Set([
+              'gemini-2.5-flash-preview-tts',
+              'gemini-2.5-pro-preview-tts',
+            ]);
+            if (
+              persistedState.ttsProvider === 'gemini'
+              && typeof persistedState.ttsModel === 'string'
+              && LEGACY_GEMINI_TTS_MODELS.has(persistedState.ttsModel)
+            ) {
+              persistedState.ttsModel = 'gemini-3.1-flash-tts-preview';
+            }
+            if (persistedState.ttsConfigs?.gemini && LEGACY_GEMINI_TTS_MODELS.has(persistedState.ttsConfigs.gemini.model)) {
+              persistedState.ttsConfigs.gemini.model = 'gemini-3.1-flash-tts-preview';
+            }
           }
 
          return persistedState;
