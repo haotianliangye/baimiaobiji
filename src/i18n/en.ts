@@ -238,6 +238,12 @@ export const en: TranslationDict = {
   'review.aiFollowup': 'Ask AI',
   'review.generateNow': 'Generate review now',
   'review.generateNReviews': 'Generate {count}',
+  // Dual-mode review: timeline mode / single-day mode split
+  'review.timelineEmptyTitle': 'Timeline is empty',
+  'review.timelineEmptyDesc': 'Let AI organize your history',
+  'review.emptyDateTitle': 'No reviews on {date}',
+  'review.timelineStats': '{count} notes · {chars} chars',
+  'review.aiOrganizeN': 'AI auto-organize ({count})',
 
   // --- Thoughts page ---
   'thoughts.title': 'Thoughts',
@@ -381,11 +387,13 @@ export const en: TranslationDict = {
   'settings.ttsApiKey': 'API Key',
   'settings.ttsApiKeyHintGemini': 'Enter your Gemini API key',
   'settings.ttsApiKeyHintVolcengine': 'Use the "appid:access_token" format',
+  'settings.ttsApiKeyHintMinimax': 'Enter your minimax API key (Bearer token)',
   'settings.ttsApiKeyInvalidVolcengine': 'Format must be appid:access_token (both parts required)',
   'settings.ttsBaseUrlLabel': 'API URL (Base URL)',
   'settings.ttsModelLabel': 'Model',
   'settings.ttsModelHintGemini': 'Model name (e.g., gemini-2.5-flash-preview-tts)',
   'settings.ttsModelHintVolcengine': 'Voice type ID (e.g., BV001_streaming)',
+  'settings.ttsModelHintMinimax': 'Model name (e.g., speech-01-hd; also serves as voice_id)',
   'settings.ttsVoiceLabel': 'Voice',
   'settings.ttsVoicePlaceholder': 'Click to choose a voice',
   'settings.ttsVoiceUnmatched': 'Current value "{value}" is not in the preset list. Please reselect.',
@@ -688,6 +696,7 @@ export const en: TranslationDict = {
   'provider.siliconflow': 'SiliconFlow',
   'provider.custom': 'Custom',
   'provider.siliconflowShort': 'Silicon',
+  'provider.minimax': 'minimax',
 
   // --- Data type labels (export) ---
   'dataType.raw_logs': 'Records',

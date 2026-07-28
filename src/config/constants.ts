@@ -190,13 +190,30 @@ export const VOLCENGINE_TTS_VOICES: TtsVoiceOption[] = [
   { id: 'BV216_streaming', label: '长沙靓女', desc: '女声·长沙话', group: '方言', lang: 'zh' },
 ];
 
+// #010: minimax TTS 预置音色。数据来源：minimax T2A v2 / speech-01 文档。
+// [TBD-wait-real-list] 全部 voice_id 占位，待用户提供 minimax 官方 voice 列表后核对替换。
+// 当前占位与 minimax 官方常见 voice_id 形态保持一致；用户使用「自定义…」可手填 id。
+export const MINIMAX_TTS_VOICES: TtsVoiceOption[] = [
+  { id: 'male-qn-jingying', label: '精英男声', desc: '男声·新闻/知识', group: '通用', lang: 'zh' },
+  { id: 'female-shaonv', label: '少女音', desc: '女声·年轻活泼', group: '通用', lang: 'zh' },
+  { id: 'male-qn-qingse', label: '青涩男声', desc: '男声·年轻温和', group: '通用', lang: 'zh' },
+  { id: 'female-yujie', label: '御姐音', desc: '女声·成熟知性', group: '通用', lang: 'zh' },
+  { id: 'male-qn-badao', label: '霸道男声', desc: '男声·气场强', group: '通用', lang: 'zh' },
+  { id: 'female-chengshu', label: '成熟女声', desc: '女声·沉稳', group: '通用', lang: 'zh' },
+  { id: 'presenter_male', label: '主持人男声', desc: '男声·主持/播报', group: '通用', lang: 'zh' },
+  { id: 'presenter_female', label: '主持人女声', desc: '女声·主持/播报', group: '通用', lang: 'zh' },
+  { id: 'English_PassionateWarrior', label: 'English Passionate Warrior', desc: '男声·美式英语', group: '多语种', lang: 'en' },
+  { id: 'English_Trustworth_Man', label: 'English Trustworthy Man', desc: '男声·美式英语', group: '多语种', lang: 'en' },
+];
+
 /**
  * Provider -> 预置音色列表。用户在 TTS 设置页"语音"下拉里看到的就是这个。
  * 维护：新增 Provider 时在此处追加。
  */
-export const TTS_VOICES: Record<'gemini' | 'volcengine', TtsVoiceOption[]> = {
+export const TTS_VOICES: Record<'gemini' | 'volcengine' | 'minimax', TtsVoiceOption[]> = {
   gemini: GEMINI_TTS_VOICES,
   volcengine: VOLCENGINE_TTS_VOICES,
+  minimax: MINIMAX_TTS_VOICES,
 };
 
 /**
@@ -204,10 +221,10 @@ export const TTS_VOICES: Record<'gemini' | 'volcengine', TtsVoiceOption[]> = {
  * 返回 null——UI 应展示"未匹配，请重新选择"的占位状态。
  */
 export function findTtsVoiceLabel(
-  provider: 'gemini' | 'volcengine',
+  provider: 'gemini' | 'volcengine' | 'minimax',
   voiceId: string
 ): TtsVoiceOption | null {
   if (!voiceId) return null;
   const list = TTS_VOICES[provider];
-  return list.find((v) => v.id === voiceId) || null;
+  return list?.find((v) => v.id === voiceId) || null;
 }

@@ -382,11 +382,13 @@ export const zh: TranslationDict = {
   'settings.ttsApiKey': 'API Key',
   'settings.ttsApiKeyHintGemini': '填入 Gemini API Key',
   'settings.ttsApiKeyHintVolcengine': '请填写「appid:access_token」格式',
+  'settings.ttsApiKeyHintMinimax': '填入 minimax API Key（Bearer 单串）',
   'settings.ttsApiKeyInvalidVolcengine': '格式应为 appid:access_token（两部分均不能为空）',
   'settings.ttsBaseUrlLabel': 'API 地址 (Base URL)',
   'settings.ttsModelLabel': '模型 (Model)',
   'settings.ttsModelHintGemini': '填模型名（如 gemini-2.5-flash-preview-tts）',
   'settings.ttsModelHintVolcengine': '填发音人 ID（如 BV001_streaming）',
+  'settings.ttsModelHintMinimax': '填模型名（如 speech-01-hd；此处同时用作 voice_id）',
   'settings.ttsVoiceLabel': '语音 (Voice)',
   'settings.ttsVoicePlaceholder': '点击选择语音',
   'settings.ttsVoiceUnmatched': '当前值「{value}」不在预置列表中，请重新选择',
@@ -689,6 +691,7 @@ export const zh: TranslationDict = {
   'provider.siliconflow': '硅基流动',
   'provider.custom': '自定义',
   'provider.siliconflowShort': '硅基',
+  'provider.minimax': 'minimax',
 
   // --- 数据类型标签 (导出) ---
   'dataType.raw_logs': '记录',

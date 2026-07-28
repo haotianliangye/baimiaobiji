@@ -64,7 +64,7 @@ function TtsVoicePickerModal({
   customKey,
   customHintKey,
 }: {
-  provider: 'gemini' | 'volcengine';
+  provider: 'gemini' | 'volcengine' | 'minimax';
   value: string;
   onSelect: (id: string) => void;
   onClose: () => void;
@@ -2057,16 +2057,17 @@ export default function Settings() {
                     {/* Provider 选择 */}
                     <div className="space-y-1.5">
                       <label className="text-[12px] font-medium text-stone-500">{t('settings.ttsProvider')}</label>
-                      <div className="grid grid-cols-2 gap-1 p-1 bg-black/5 rounded-lg">
+                      <div className="grid grid-cols-3 gap-1 p-1 bg-black/5 rounded-lg">
                         {[
                           { id: 'gemini', label: 'Gemini' },
-                          { id: 'volcengine', label: t('provider.volcengine') }
+                          { id: 'volcengine', label: t('provider.volcengine') },
+                          { id: 'minimax', label: t('provider.minimax') }
                         ].map(p => (
                           <button
                             key={p.id}
                             type="button"
                             data-testid={`tts-provider-${p.id}`}
-                            onClick={() => setSettings({ ttsProvider: p.id as 'gemini' | 'volcengine' })}
+                            onClick={() => setSettings({ ttsProvider: p.id as 'gemini' | 'volcengine' | 'minimax' })}
                             className={`flex items-center justify-center py-1.5 text-[11.5px] font-medium rounded-md transition-all ${
                               ttsProvider === p.id
                                 ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-sm'
@@ -2105,7 +2106,11 @@ export default function Settings() {
                         <p className="text-[10.5px] text-rose-500 leading-tight">{t('settings.ttsApiKeyInvalidVolcengine')}</p>
                       ) : (
                         <p className="text-[10.5px] text-stone-400 leading-tight">
-                          {ttsProvider === 'volcengine' ? t('settings.ttsApiKeyHintVolcengine') : t('settings.ttsApiKeyHintGemini')}
+                          {ttsProvider === 'volcengine'
+                            ? t('settings.ttsApiKeyHintVolcengine')
+                            : ttsProvider === 'minimax'
+                              ? t('settings.ttsApiKeyHintMinimax')
+                              : t('settings.ttsApiKeyHintGemini')}
                         </p>
                       )}
                     </div>
@@ -2139,7 +2144,11 @@ export default function Settings() {
                         className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-900 transition-all font-mono"
                       />
                       <p className="text-[10.5px] text-stone-400 leading-tight">
-                        {ttsProvider === 'volcengine' ? t('settings.ttsModelHintVolcengine') : t('settings.ttsModelHintGemini')}
+                        {ttsProvider === 'volcengine'
+                          ? t('settings.ttsModelHintVolcengine')
+                          : ttsProvider === 'minimax'
+                            ? t('settings.ttsModelHintMinimax')
+                            : t('settings.ttsModelHintGemini')}
                       </p>
                     </div>
 
@@ -2150,7 +2159,7 @@ export default function Settings() {
                         {t('settings.ttsVoiceLabel')}
                       </label>
                       {(() => {
-                        const matched = ttsProvider === 'gemini' || ttsProvider === 'volcengine'
+                        const matched = ttsProvider === 'gemini' || ttsProvider === 'volcengine' || ttsProvider === 'minimax'
                           ? findTtsVoiceLabel(ttsProvider, ttsVoice)
                           : null;
                         const unmatched = !matched && !!ttsVoice;
@@ -2178,7 +2187,9 @@ export default function Settings() {
                               <p className="text-[10.5px] text-stone-400 leading-tight">
                                 {ttsProvider === 'gemini'
                                   ? `${TTS_VOICES.gemini.length} 个预置音色可选`
-                                  : `${TTS_VOICES.volcengine.length} 个预置音色可选`}
+                                  : ttsProvider === 'minimax'
+                                    ? `${TTS_VOICES.minimax.length} 个预置音色可选`
+                                    : `${TTS_VOICES.volcengine.length} 个预置音色可选`}
                               </p>
                             )}
                           </>

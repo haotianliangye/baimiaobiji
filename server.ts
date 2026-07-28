@@ -1030,6 +1030,207 @@ ${contextContent || '（本次未检索到相关片段）'}
     return Buffer.concat([header, pcm]);
   }
 
+  // ─── #010 TTS 流式 helpers（server.ts 与 api/index.ts 双写一致）────────────
+  // 把要朗读的文本切成 ≤ maxChars 字符的句段。中英文标点分句；单句超长按 maxChars 硬切。
+  // 空文本返回 []。返回顺序与原文本一致，前端 AudioBuffer 顺序播放。
+  function splitTextForStreaming(text: string, maxChars = 200): string[] {
+    const clean = (text || '').replace(/\s+/g, ' ').trim();
+    if (!clean) return [];
+    if (clean.length <= maxChars) return [clean];
+    const seps = /([。！？!?；;])/;
+    const out: string[] = [];
+    let buf = '';
+    for (const ch of clean) {
+      buf += ch;
+      if (seps.test(ch) && buf.trim()) {
+        out.push(buf.trim());
+        buf = '';
+      }
+      if (buf.length >= maxChars) {
+        out.push(buf.trim());
+        buf = '';
+      }
+    }
+    if (buf.trim()) out.push(buf.trim());
+    return out;
+  }
+
+  // minimax HTTP TTS：POST {baseUrl}/v1/text_to_speech，返回 { audio: "<hex>|<base64 mp3>", status: 1 }。
+  // 同步接口，单段最长 200 字符；流式通过 streamMinimaxToSSE 切片串行调本函数实现"假流式"。
+  async function callMinimaxTTS(
+    text: string,
+    apiKey: string,
+    voiceId: string,
+    model: string,
+    baseUrl: string,
+    rate = 1,
+    fetchTimeoutMs = 30_000
+  ): Promise<Buffer> {
+    const apiBase = (baseUrl || 'https://api.MiniMax.chat').replace(/\/$/, '');
+    const url = `${apiBase}/v1/text_to_speech`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), fetchTimeoutMs);
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: model || 'speech-01-hd', // [TBD-wait-user] 占位 model
+          text,
+          voice_setting: {
+            // [TBD-wait-real-list] 真实 voice_id 列表待用户替换；占位用 male-qn-jingying
+            voice_id: voiceId || 'male-qn-jingying',
+            speed: rate,
+            vol: 1,
+            pitch: 0,
+          },
+          audio_setting: { sample_rate: 32000, bitrate: 128000, format: 'mp3' },
+          stream: false,
+        }),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        const t = await res.text().catch(() => '');
+        throw new Error(`minimax TTS ${res.status}: ${t.slice(0, 200)}`);
+      }
+      const data: any = await res.json();
+      if (data?.status !== 1 || !data?.audio) {
+        throw new Error(`minimax TTS 失败 status=${data?.status} msg=${data?.message || ''}`);
+      }
+      // dual-format 防御：先试 hex（mp3 magic 0xff 0xfb/0xfa/0xe0），失败回退 base64
+      try {
+        const hex = Buffer.from(data.audio, 'hex');
+        if (hex.length >= 2 && hex[0] === 0xff && [0xfb, 0xfa, 0xe0].includes(hex[1])) {
+          return hex;
+        }
+      } catch {
+        /* fallthrough to base64 */
+      }
+      return Buffer.from(data.audio, 'base64');
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  // minimax 流式：切片 → 串行 POST → 每段返回后立刻 push SSE 事件给前端。
+  // 协议：首条 { event: 'config', format: 'mp3', sampleRate: 32000, channels: 1 }
+  //       N 条 { event: 'audio', data: '<hex mp3>', format: 'mp3', segmentIndex, totalSegments }
+  async function streamMinimaxToSSE(
+    text: string,
+    opts: { apiKey: string; voiceId: string; model: string; baseUrl: string; rate?: number },
+    writeEvent: (obj: any) => void
+  ): Promise<{ chunks: number; totalBytes: number }> {
+    const segments = splitTextForStreaming(text, 200);
+    if (segments.length === 0) {
+      writeEvent({ event: 'error', message: '文本为空' });
+      return { chunks: 0, totalBytes: 0 };
+    }
+    writeEvent({ event: 'config', format: 'mp3', sampleRate: 32000, channels: 1 });
+    let chunks = 0;
+    let totalBytes = 0;
+    for (let i = 0; i < segments.length; i++) {
+      const mp3 = await callMinimaxTTS(
+        segments[i],
+        opts.apiKey,
+        opts.voiceId,
+        opts.model,
+        opts.baseUrl,
+        opts.rate
+      );
+      writeEvent({
+        event: 'audio',
+        data: mp3.toString('hex'),
+        format: 'mp3',
+        segmentIndex: i,
+        totalSegments: segments.length,
+      });
+      chunks++;
+      totalBytes += mp3.length;
+    }
+    return { chunks, totalBytes };
+  }
+
+  // 火山引擎 openspeech 流式：POST /api/v1/tts/unidirectional，NDJSON chunked 返回。
+  // 把 chunk 行的 base64 mp3 推 SSE 给前端，前端 decodeAudioData → AudioBuffer 调度。
+  // [TBD-wait-user] 流式 URL 与 operation=submit 形态如与官方文档不符，用户在合 PR 前纠正。
+  async function streamVolcengineToSSE(
+    text: string,
+    opts: { apiKey: string; voiceType: string; baseUrl: string; rate?: number },
+    writeEvent: (obj: any) => void
+  ): Promise<{ chunks: number; totalBytes: number }> {
+    const sep = opts.apiKey.indexOf(':');
+    const appid = sep > 0 ? opts.apiKey.slice(0, sep) : '';
+    const accessToken = sep > 0 ? opts.apiKey.slice(sep + 1) : opts.apiKey;
+    if (!appid) {
+      writeEvent({ event: 'error', message: '火山引擎 API Key 需为 appid:access_token 格式' });
+      return { chunks: 0, totalBytes: 0 };
+    }
+    const apiBase = (opts.baseUrl || 'https://openspeech.bytedance.com').replace(/\/$/, '');
+    const url = `${apiBase}/api/v1/tts/unidirectional`;
+    const reqid = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer;${accessToken}`,
+      },
+      body: JSON.stringify({
+        app: { appid, token: accessToken, cluster: 'volcano_tts' },
+        user: { uid: 'baimiao' },
+        audio: {
+          voice_type: opts.voiceType || 'BV001_streaming',
+          encoding: 'mp3',
+          speed_ratio: typeof opts.rate === 'number' ? opts.rate : 1,
+        },
+        request: { reqid, text, operation: 'submit', with_timestamp: false },
+      }),
+    });
+    if (!res.ok || !res.body) {
+      const t = await res.text().catch(() => '');
+      writeEvent({ event: 'error', message: `火山引擎流式 ${res.status}: ${t.slice(0, 200)}` });
+      return { chunks: 0, totalBytes: 0 };
+    }
+    writeEvent({ event: 'config', format: 'mp3', sampleRate: 24000, channels: 1 });
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buf = '';
+    let chunks = 0;
+    let totalBytes = 0;
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf('\n')) !== -1) {
+        const line = buf.slice(0, idx).trim();
+        buf = buf.slice(idx + 1);
+        if (!line) continue;
+        try {
+          const obj = JSON.parse(line);
+          if (obj?.audio) {
+            const mp3 = Buffer.from(obj.audio, 'base64');
+            writeEvent({
+              event: 'audio',
+              data: mp3.toString('hex'),
+              format: 'mp3',
+            });
+            chunks++;
+            totalBytes += mp3.length;
+          }
+          if (obj?.status === 2) {
+            return { chunks, totalBytes };
+          }
+        } catch {
+          /* 忽略解析错误（火山引擎可能夹带心跳行） */
+        }
+      }
+    }
+    return { chunks, totalBytes };
+  }
+
   app.post('/api/tts', async (req, res) => {
     try {
       const { text, settings } = req.body;
@@ -1108,6 +1309,24 @@ ${contextContent || '（本次未检索到相关片段）'}
         return res.send(mp3Buffer);
       }
 
+      if (provider === 'minimax') {
+        // minimax HTTP TTS：单段同步返回 mp3。注意：minimax 走流式时其实命中 /api/tts/stream，
+        // 这里保留整段是给前端 fallback / 非流式调用兜底。
+        // [TBD-wait-user] voice_id 与 model 都是占位，待用户提供真实列表。
+        const voiceId = voice || model || 'male-qn-jingying';
+        const rateNum = typeof rate === 'number' && rate > 0 ? rate : 1;
+        const mp3Buffer = await callMinimaxTTS(
+          text,
+          apiKey,
+          voiceId,
+          model || 'speech-01-hd',
+          baseUrl,
+          rateNum
+        );
+        res.set('Content-Type', 'audio/mp3');
+        return res.send(mp3Buffer);
+      }
+
       return res.status(400).json({ error: `不支持的 TTS Provider: ${provider}` });
     } catch (err: any) {
       console.error('TTS error:', err);
@@ -1115,26 +1334,33 @@ ${contextContent || '（本次未检索到相关片段）'}
     }
   });
 
-  // #009-ext: 流式 TTS（SSE）。与 api/index.ts 同步双写（本地 dev/prod 跑的是 server.ts，Vercel 跑 api/index.ts）。
-  // 后端用 Gemini generateContentStream 逐 chunk 拿 PCM，前端用 AudioWorklet 边收边播。
-  // 协议：首条事件 { event: "config", sampleRate, channels, bitsPerSample }，
-  //      中间事件 { event: "audio", data: "<base64 PCM chunk>" }，
-  //      结束 { event: "end" } / 错误 { event: "error", message }。
-  // 仅 Gemini 支持流式；火山引擎走上面 /api/tts 整段方案。
+  // #009-ext + #010: 流式 TTS（SSE）。与 api/index.ts 同步双写（本地 dev/prod 跑 server.ts，Vercel 跑 api/index.ts）。
+  // 三家 Provider 全部走流式：点击 → 第一个音频 chunk 数秒内到达，前端 SSE 推到 AudioWorklet 边收边播。
+  //   - Gemini: PCM L16 → /audio-worklets/pcm-player.js
+  //   - minimax: HTTP 切片串行 POST → mp3 → decodeAudioData → /audio-worklets/mp3-scheduler.js
+  //   - 火山引擎: openspeech chunked → mp3 → decodeAudioData → /audio-worklets/mp3-scheduler.js
+  // 协议：首条 { event: 'config', format: 'pcm' | 'mp3', sampleRate, channels, bitsPerSample? }
+  //      N 条 { event: 'audio', data: '<base64 PCM or hex mp3>', format: 'pcm' | 'mp3', segmentIndex?, totalSegments? }
+  //      结束 { event: 'end', stats: { chunks, totalBase64Chars | totalBytes, upstreamMs, totalMs, provider } }
+  //      错误 { event: 'error', message }
   app.post('/api/tts/stream', async (req, res) => {
     const t0 = Date.now();
     try {
       const { text, settings } = req.body;
-      const { provider = 'gemini', apiKey, baseUrl, model, voice } = settings || {};
+      const {
+        provider = 'gemini',
+        apiKey,
+        baseUrl,
+        model,
+        voice,
+        rate,
+      } = settings || {};
 
       if (!text || !text.trim()) {
         return res.status(400).json({ error: 'text is required and must not be empty' });
       }
       if (!apiKey) {
         return res.status(400).json({ error: 'API Key 不能为空' });
-      }
-      if (provider !== 'gemini') {
-        return res.status(400).json({ error: `流式 TTS 暂不支持 ${provider}，请改用 Gemini 或非流式 /api/tts` });
       }
 
       // SSE headers
@@ -1152,47 +1378,108 @@ ${contextContent || '（本次未检索到相关片段）'}
         return ok;
       };
 
-      const ai = buildGeminiClient(apiKey, baseUrl);
-      const finalModel = model || 'gemini-2.5-flash-preview-tts';
-      const genConfig: any = { responseModalities: ['AUDIO'] };
-      if (voice) {
-        genConfig.speechConfig = {
-          voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } }
-        };
-      }
+      const rateNum = typeof rate === 'number' && rate > 0 ? rate : 1;
 
-      writeEvent({ event: 'config', sampleRate: 24000, channels: 1, bitsPerSample: 16 });
-
-      const stream = await ai.models.generateContentStream({
-        model: finalModel,
-        contents: [{ parts: [{ text }] }],
-        config: genConfig,
-      });
-
-      let chunkCount = 0;
-      let totalBytes = 0;
-      const t1 = Date.now();
-
-      for await (const chunk of stream as any) {
-        const parts = chunk?.candidates?.[0]?.content?.parts || [];
-        for (const p of parts) {
-          if (p?.inlineData?.data) {
-            chunkCount++;
-            totalBytes += p.inlineData.data.length;
-            writeEvent({ event: 'audio', data: p.inlineData.data });
+      try {
+        if (provider === 'gemini') {
+          // #010: Gemini 流式完全沿用 v0.5.1 原状：不加新字段、不改 dispatch 结构，
+          // 避免任何潜在回归。如果 "Gemini 等 2 分钟" 是上游 model gemini-2.5-flash-preview-tts
+          // 在流式下整段返回导致，那是 Gemini 服务端行为，与本改动无关；
+          // 用户若要立刻出声，切到 minimax / 火山引擎 走下方新流式路径。
+          const ai = buildGeminiClient(apiKey, baseUrl);
+          const finalModel = model || 'gemini-2.5-flash-preview-tts';
+          const genConfig: any = { responseModalities: ['AUDIO'] };
+          if (voice) {
+            genConfig.speechConfig = {
+              voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } }
+            };
           }
+          writeEvent({ event: 'config', sampleRate: 24000, channels: 1, bitsPerSample: 16 });
+          const stream = await ai.models.generateContentStream({
+            model: finalModel,
+            contents: [{ parts: [{ text }] }],
+            config: genConfig,
+          });
+          let chunkCount = 0;
+          let totalBytes = 0;
+          const t1 = Date.now();
+          for await (const chunk of stream as any) {
+            const parts = chunk?.candidates?.[0]?.content?.parts || [];
+            for (const p of parts) {
+              if (p?.inlineData?.data) {
+                chunkCount++;
+                totalBytes += p.inlineData.data.length;
+                writeEvent({ event: 'audio', data: p.inlineData.data });
+              }
+            }
+          }
+          const t2 = Date.now();
+          writeEvent({ event: 'end', stats: { chunks: chunkCount, totalBase64Chars: totalBytes, upstreamMs: t2 - t1, totalMs: t2 - t0 } });
+          res.end();
+          console.log(`[TTS stream gemini] text=${text.length}ch model=${finalModel} | upstream=${t2 - t1}ms total=${t2 - t0}ms | chunks=${chunkCount} base64Chars=${totalBytes}`);
+          return;
+        }
+
+        if (provider === 'minimax') {
+          const t1 = Date.now();
+          const stats = await streamMinimaxToSSE(
+            text,
+            {
+              apiKey,
+              // [TBD-wait-real-list] 占位 voice_id，待用户提供真实列表
+              voiceId: voice || model || 'male-qn-jingying',
+              model: model || 'speech-01-hd',
+              baseUrl,
+              rate: rateNum,
+            },
+            writeEvent
+          );
+          const t2 = Date.now();
+          writeEvent({ event: 'end', stats: { ...stats, upstreamMs: t2 - t1, totalMs: t2 - t0, provider } });
+          res.end();
+          console.log(`[TTS stream minimax] text=${text.length}ch | segments=${stats.chunks} bytes=${stats.totalBytes} upstream=${t2 - t1}ms total=${t2 - t0}ms`);
+          return;
+        }
+
+        if (provider === 'volcengine') {
+          const t1 = Date.now();
+          const stats = await streamVolcengineToSSE(
+            text,
+            {
+              apiKey,
+              voiceType: model || 'BV001_streaming',
+              baseUrl,
+              rate: rateNum,
+            },
+            writeEvent
+          );
+          const t2 = Date.now();
+          writeEvent({ event: 'end', stats: { ...stats, upstreamMs: t2 - t1, totalMs: t2 - t0, provider } });
+          res.end();
+          console.log(`[TTS stream volcengine] text=${text.length}ch | chunks=${stats.chunks} bytes=${stats.totalBytes} upstream=${t2 - t1}ms total=${t2 - t0}ms`);
+          return;
+        }
+
+        writeEvent({ event: 'error', message: `流式 TTS 暂不支持 provider=${provider}` });
+        res.end();
+      } catch (innerErr: any) {
+        console.error('[TTS stream inner]', innerErr);
+        try {
+          res.write(`data: ${JSON.stringify({ event: 'error', message: innerErr.message })}\n\n`);
+          res.end();
+        } catch {
+          /* connection already closed */
         }
       }
-
-      const t2 = Date.now();
-      writeEvent({ event: 'end', stats: { chunks: chunkCount, totalBase64Chars: totalBytes, upstreamMs: t2 - t1, totalMs: t2 - t0 } });
-      res.end();
-      console.log(`[TTS stream gemini] text=${text.length}ch model=${finalModel} | upstream=${t2 - t1}ms total=${t2 - t0}ms | chunks=${chunkCount} base64Chars=${totalBytes}`);
     } catch (err: any) {
       console.error('TTS stream error:', err);
       try {
-        res.write(`data: ${JSON.stringify({ event: 'error', message: err.message })}\n\n`);
-        res.end();
+        if (!res.headersSent) {
+          res.status(500).json({ error: err.message });
+        } else {
+          res.write(`data: ${JSON.stringify({ event: 'error', message: err.message })}\n\n`);
+          res.end();
+        }
       } catch {
         /* connection already closed */
       }
