@@ -1,13 +1,18 @@
 /**
- * #009-ext + #010: 通用流式 TTS 播放器（Gemini pcm / minimax mp3 / 火山引擎 mp3）。
+ * #009-ext + #010 + #011: 通用流式 TTS 播放器（Gemini pcm / minimax mp3 / 火山引擎 mp3）。
  *
  * 用 fetch + ReadableStream 接收 /api/tts/stream 的 SSE 响应；逐个事件解析：
- *   - config 事件 → 创建 AudioContext + 加载对应 worklet 模块（pcm-player / mp3-scheduler）
- *   - audio 事件 →
- *       format='pcm': base64 → Int16Array → postMessage({type:'samples', samples:i16})
- *       format='mp3': hex → Uint8Array → audioCtx.decodeAudioData() → postMessage({type:'decode', buffer:audioBuf})
- *   - end 事件 → 通知 worklet 自然结束
- *   - error 事件 → 抛错并清理
+ *   - 老路径（minimax / 火山引擎 / Gemini 兜底）：
+ *       config 事件 → 创建 AudioContext + 加载对应 worklet 模块（pcm-player / mp3-scheduler）
+ *       audio 事件 →
+ *           format='pcm': base64 → Int16Array → postMessage({type:'samples', samples:i16})
+ *           format='mp3': hex → Uint8Array → audioCtx.decodeAudioData() → postMessage({type:'decode', buffer:audioBuf})
+ *       end 事件 → 通知 worklet 自然结束
+ *       error 事件 → 抛错并清理
+ *   - 新路径（#011 Gemini 3.1 Interactions API）：
+ *       config 事件（后端手写，固定 24kHz/16bit/mono PCM） → 同上
+ *       step.delta 事件，delta.type='audio' 且 delta.data 是 base64 PCM L16 → 直接走 pcm 路径
+ *       上游 SSE EOF 即视为结束；服务端 writeEvent({event:'end'}) 同步兜底
  *
  * 暴露 stop() 立即终止（关 fetch + 关 AudioContext）。
  */
@@ -214,6 +219,21 @@ export async function playTtsStream(text: string): Promise<StreamPlayHandle> {
                 const i16 = new Int16Array(bytes.buffer);
                 workletNode.port.postMessage({ type: 'samples', samples: i16 }, [i16.buffer]);
               }
+            } else if (obj.event_type === 'step.delta' && obj.delta?.type === 'audio' && obj.delta?.data) {
+              // #011: Gemini 3.1 Interactions API 流式 TTS。
+              // 后端已经把 {event:'config', format:'pcm', ...} 写在前；这里只处理 audio chunk（base64 PCM L16）。
+              // 与上方老路径格式互不影响，避免对 minimax / 火山引擎造成回归。
+              if (!workletNode || !audioCtx) {
+                continue;
+              }
+              if (audioCtx.state === 'suspended') {
+                audioCtx.resume().catch(() => {/* noop */});
+              }
+              const bin = atob(obj.delta.data as string);
+              const bytes = new Uint8Array(bin.length);
+              for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+              const i16 = new Int16Array(bytes.buffer);
+              workletNode.port.postMessage({ type: 'samples', samples: i16 }, [i16.buffer]);
             } else if (obj.event === 'end') {
               if (workletNode) workletNode.port.postMessage({ type: 'end' });
               // 不在这里 resolve；等 worklet 自然 finished 后再 resolve
