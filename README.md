@@ -128,7 +128,7 @@
 
 | 项目 | 版本 | 说明 |
 |:-----|:-----|:-----|
-| 应用 | v0.5.1 | 与 `package.json:4` 同步 |
+| 应用 | v0.5.2 | 与 `package.json:4` 同步 |
 | 数据 Schema | v17 | IndexedDB 当前最高迁移版本 |
 | Node 要求 | ≥ 18 | 后端运行时 |
 
@@ -142,6 +142,12 @@
 
 ### 更新日志
 
+- **v0.5.2**
+  - TTS 外部 API 新增 minimax (MiniMaxAI) Provider：Bearer 单串 API Key，端点 `POST {baseUrl}/v1/text_to_speech`，设面「外部 TTS API 配置」新增「服务商」三按钮（Gemini / 火山引擎 / minimax）
+  - 火山引擎 TTS 改流式：`/api/tts/stream` 新增 chunked openspeech → SSE mp3 → 前端 `/audio-worklets/mp3-scheduler.js` 调度；点击 → 第一段 mp3 解码后立即播放
+  - 流式播放器解耦：`pcm-player.js` 仍服务 Gemini，新 `mp3-scheduler.js` 服务 minimax / 火山引擎；前端 `ttsStream.ts` 自动按 `config.format` 字段分流
+  - Gemini TTS 流式路径**完全沿用 v0.5.1 原状**（避免任何回归；上游 `gemini-2.5-flash-preview-tts` 等合成时间问题与本次改动无关）
+  - 后端 helper 双写（`server.ts` + `api/index.ts`，与 v0.5.x 节奏一致）
 - **v0.3.3**（当前）
   - 沉淀板块重构：取消瀑布流模式 + 时间线统一 + 顶部日期导航 + 日历热力图集成；过滤由 URL `?date=` 显式驱动，默认全量时间线分组
   - 热力图区段感知：record/diary/review/thoughts 各自按本区段数据源着色 + 专属强度阈值

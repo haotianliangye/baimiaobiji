@@ -22,8 +22,9 @@ export interface TTSSpeakOptions {
   lang?: TTSLang;
   rate?: number;
   voice?: string;
-  // #009: 外部 TTS API 参数（service === 'external' 时随请求发送给后端 /api/tts）
-  ttsProvider?: 'gemini' | 'volcengine';
+  // #009 + #010: 外部 TTS API 参数（service === 'external' 时随请求发送给后端 /api/tts 与 /api/tts/stream）。
+  // minimax 为新增 provider；后端 dispatch 自动识别并选用对应协议。
+  ttsProvider?: 'gemini' | 'volcengine' | 'minimax';
   ttsApiKey?: string;
   ttsBaseUrl?: string;
   ttsModel?: string;
@@ -227,12 +228,13 @@ function speakWebSpeech(
 /**
  * 调用外部 TTS API 朗读。
  *
- * Gemini Provider 默认走流式（/api/tts/stream + AudioWorklet）：
- *   - 第一个 PCM chunk 到达即开始播放，端到端延迟 ~1-3 秒
- *   - 支持中途 stop
- * 流式失败时（非 Gemini / 网络异常 / 接口 4xx）自动降级到非流式 /api/tts 兜底。
+ * #010: 三家 Provider 全部走流式（/api/tts/stream + AudioWorklet）：
+ *   - Gemini: PCM L16 → /audio-worklets/pcm-player.js
+ *   - minimax: HTTP 切片串行 POST → mp3 → /audio-worklets/mp3-scheduler.js
+ *   - 火山引擎: openspeech chunked → mp3 → /audio-worklets/mp3-scheduler.js
+ * 端到端第一声延迟目标 < 2 秒。
  *
- * 火山引擎 Provider：暂走非流式（它的流式协议不同，需要单独 SDK），保留原整段方案。
+ * 流式失败时（接口 4xx / 网络异常）自动降级到非流式 /api/tts 兜底。
  */
 async function speakExternal(
   text: string,
@@ -242,7 +244,7 @@ async function speakExternal(
   opts: {
     rate?: number;
     voice?: string;
-    ttsProvider?: 'gemini' | 'volcengine';
+    ttsProvider?: 'gemini' | 'volcengine' | 'minimax';
     ttsApiKey?: string;
     ttsBaseUrl?: string;
     ttsModel?: string;
@@ -250,47 +252,46 @@ async function speakExternal(
 ) {
   const provider = opts.ttsProvider || 'gemini';
 
-  // Gemini 走流式
-  if (provider === 'gemini') {
-    try {
-      console.log('[speakExternal] Gemini 走流式 /api/tts/stream');
-      const handle = await playTtsStream(text);
-      // 流式播放的"开始播放"信号：第一个 chunk 到达时由 onPlaying 触发
-      // playTtsStream 内部无法精确知道首个 chunk 何时到达，由 worklet 在首个 samples 入队后发 underrun/resumed
-      // 但更直接的信号：resume AudioContext 时算"已开始播放"
-      const origOnPlaying = onPlaying;
-      const streamDone = handle.done.then(() => {
-        console.log('[speakExternal] 流式 TTS 自然结束');
+  // 三家 Provider 全部走流式
+  try {
+    console.log(`[speakExternal] ${provider} 走流式 /api/tts/stream`);
+    const handle = await playTtsStream(text);
+    // 流式播放的"开始播放"信号：playTtsStream 暴露 onFirstPlay 钩子，
+    // 当 worklet 收到首批 decode/samples 后发 'ready'/'resumed'，把上层切到 playing。
+    handle.onFirstPlay?.(() => {
+      console.log(`[speakExternal] ${provider} 流式首批音频已开始播放`);
+      onPlaying();
+    });
+    // 兜底：500ms 内若流式仍未到首个 chunk，保守切到 playing 让 UI 不卡死
+    const firstPlayFallback = setTimeout(() => onPlaying(), 500);
+
+    handle.done
+      .then(() => {
+        clearTimeout(firstPlayFallback);
+        console.log(`[speakExternal] ${provider} 流式 TTS 自然结束`);
         onEnd();
-      }).catch((err) => {
-        console.error('[speakExternal] 流式 TTS 失败，尝试降级到非流式:', err);
-        // 降级：走原整段方案
-        speakExternalFallback(text, lang, origOnPlaying, onEnd, opts).catch((fallbackErr) => {
+      })
+      .catch((err) => {
+        clearTimeout(firstPlayFallback);
+        console.error(`[speakExternal] ${provider} 流式 TTS 失败，尝试降级到非流式:`, err);
+        speakExternalFallback(text, lang, onPlaying, onEnd, opts).catch((fallbackErr) => {
           console.error('[speakExternal] 降级方案也失败:', fallbackErr);
           onEnd();
         });
       });
-      // 监听流的"已开始播放"信号：通过轮询 worklet 不现实，简单做法是给一个
-      // 保守的延迟（200ms 后认为已开始），或依赖 onPlaying 由 worklet 调起。
-      // playTtsStream 没暴露这个钩子，这里用 setTimeout 简单近似：
-      // 真实体验：流式下用户感知不到 preparing 阶段，spinner 立即切 playing。
-      setTimeout(() => origOnPlaying(), 200);
-      // 把 stop 暴露给模块级 currentAudio（兼容性）
-      currentAudio = {
-        pause: () => handle.stop(),
-        get currentTime() { return 0; },
-        set currentTime(_: number) {},
-      } as any;
-      // 取消时清理
-      void streamDone;
-      return;
-    } catch (err) {
-      console.error('[speakExternal] 流式初始化失败，降级:', err);
-      // 继续走 fallback
-    }
+    // 把 stop 暴露给模块级 currentAudio（兼容性，cancelPlayback 时调用 pause()）
+    currentAudio = {
+      pause: () => handle.stop(),
+      get currentTime() { return 0; },
+      set currentTime(_: number) {},
+    } as any;
+    return;
+  } catch (err) {
+    console.error(`[speakExternal] ${provider} 流式初始化失败，降级:`, err);
+    // 继续走 fallback
   }
 
-  // 兜底：原整段方案（火山引擎 / Gemini 流式失败）
+  // 兜底：原整段方案（流式初始化异常 / Provider 暂不支持流式）
   return speakExternalFallback(text, lang, onPlaying, onEnd, opts);
 }
 
@@ -305,7 +306,7 @@ async function speakExternalFallback(
   opts: {
     rate?: number;
     voice?: string;
-    ttsProvider?: 'gemini' | 'volcengine';
+    ttsProvider?: 'gemini' | 'volcengine' | 'minimax';
     ttsApiKey?: string;
     ttsBaseUrl?: string;
     ttsModel?: string;

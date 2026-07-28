@@ -293,12 +293,15 @@ export const DEFAULT_EMBED_PROVIDER_CONFIGS: Record<string, { apiKey: string; ba
   custom: { apiKey: '', baseUrl: 'http://127.0.0.1:11434/v1', model: 'nomic-embed-text' }
 };
 
-// #009: TTS 外部 API 提供商默认配置（Provider -> apiKey/baseUrl/model）
+// #009 + #010: TTS 外部 API 提供商默认配置（Provider -> apiKey/baseUrl/model）。
 // NOTE: 与后端 server.ts / api/index.ts 的 /api/tts 端点约定保持一致。
 // 新增 Provider 需同步更新此处与后端调用逻辑。
 export const DEFAULT_TTS_PROVIDER_CONFIGS: Record<string, { apiKey: string; baseUrl: string; model: string }> = {
   gemini: { apiKey: '', baseUrl: 'https://generativelanguage.googleapis.com', model: 'gemini-2.5-flash-preview-tts' },
   volcengine: { apiKey: '', baseUrl: 'https://openspeech.bytedance.com', model: 'BV001_streaming' },
+  // minimax (MiniMaxAI) HTTP TTS：POST {baseUrl}/v1/t2a_v2。Bearer 单串 API Key。
+  // model 固定为 speech-2.8-hd（订阅额度唯一稳定消耗的模型）。
+  minimax: { apiKey: '', baseUrl: 'https://api.minimax.chat', model: 'speech-2.8-hd' },
 };
 
 // NOTE: base64 *encoding*, NOT encryption. localStorage is readable by any
@@ -397,9 +400,9 @@ interface SettingsState {
   ttsLang: 'auto' | 'zh' | 'en';
   ttsRate: number;
   ttsVoice: string;
-  // #009: TTS 外部 API 配置（ttsService === 'external' 时生效）
-  // ttsService 为浏览器/外部总开关；ttsProvider 为外部子服务商（Gemini/火山引擎）。
-  ttsProvider: 'gemini' | 'volcengine';
+  // #009 + #010: TTS 外部 API 配置（ttsService === 'external' 时生效）。
+  // ttsService 为浏览器/外部总开关；ttsProvider 为外部子服务商（Gemini / 火山引擎 / minimax）。
+  ttsProvider: 'gemini' | 'volcengine' | 'minimax';
   ttsApiKey: string;
   ttsBaseUrl: string;
   ttsModel: string;

@@ -1,10 +1,11 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { format, startOfWeek, subDays, startOfDay, isSameDay, addDays, parse } from 'date-fns';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { VerifiedMarkdown } from '../components/VerifiedMarkdown';
 import { db } from '../db/db';
+import type { DailyReview } from '../db/db';
 import TodayStats from '../components/TodayStats';
 import { countChars } from '../lib/wordCount';
 import { formatDiaryMarkdown } from '../lib/utils';
@@ -13,7 +14,7 @@ import ActionSheet from '../components/ActionSheet';
 import ContextChat from '../components/ContextChat';
 import { TagChip } from '../components/TagChip';
 import { MultiSlotPromptPopover } from '../components/MultiSlotPromptPopover';
-import { Trash2, ChevronDown, ChevronUp, RefreshCw, Sparkles, MessageCircle, Copy, Check, Activity, Save, Edit2, Loader2, Hash, Plus, Volume2, Square as SquareIcon } from 'lucide-react';
+import { Trash2, ChevronDown, ChevronUp, RefreshCw, Sparkles, MessageCircle, Copy, Check, Activity, Save, Edit2, Loader2, Hash, Plus, Volume2, Square as SquareIcon, Clock } from 'lucide-react';
 import { useAppStore } from '../store/app.store';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useTTS } from '../lib/tts';
@@ -31,6 +32,42 @@ const generateUUID = () => {
 // 这里仅保留长按菜单（context menu）专用常量。
 const MENU_HALF_WIDTH = 135;
 const MENU_SAFE_MARGIN = 280;
+
+// ——— 时间线分组 helper（仿 Thoughts.tsx 的 buildTimelineGroups） ———
+type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
+
+interface ReviewTimelineGroup {
+  date: string;
+  label: string;
+  reviews: DailyReview[];
+}
+
+function buildTimelineGroups(reviews: DailyReview[], t: TranslateFn): ReviewTimelineGroup[] {
+  const map = new Map<string, DailyReview[]>();
+  for (const r of reviews) {
+    if (!map.has(r.review_date)) map.set(r.review_date, []);
+    map.get(r.review_date)!.push(r);
+  }
+  const cmp = (a: DailyReview, b: DailyReview) => {
+    const ta = a.entry_type === 'diary' ? 0 : 1;
+    const tb = b.entry_type === 'diary' ? 0 : 1;
+    if (ta !== tb) return ta - tb;
+    return (a.prompt_index ?? 0) - (b.prompt_index ?? 0) || b.updated_at - a.updated_at;
+  };
+  for (const list of map.values()) list.sort(cmp);
+
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const yesterdayStr = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
+  return Array.from(map.entries())
+    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+    .map(([date, items]) => {
+      let label: string;
+      if (date === todayStr) label = t('thoughts.today');
+      else if (date === yesterdayStr) label = t('thoughts.yesterday');
+      else label = format(new Date(date), t('thoughts.dateLabelFormat'));
+      return { date, label, reviews: items };
+    });
+}
 
 export default function Review() {
   const { t } = useTranslation();
@@ -143,6 +180,21 @@ export default function Review() {
   const [regeneratingReviewId, setRegeneratingReviewId] = useState<string | null>(null);
   // Tracks in-flight review generations (tempId -> true)
   const [pendingIds, setPendingIds] = useState<Record<string, boolean>>({});
+
+  // 悬浮 AI 智能整理按钮：5 秒自动隐藏（仿 Insights.tsx:557-572）
+  const [showFloatBtn, setShowFloatBtn] = useState(false);
+  const floatBtnTimeoutRef = useRef<any>(null);
+  const handleInteraction = useCallback(() => {
+    setShowFloatBtn(true);
+    if (floatBtnTimeoutRef.current) clearTimeout(floatBtnTimeoutRef.current);
+    floatBtnTimeoutRef.current = setTimeout(() => setShowFloatBtn(false), 5000);
+  }, []);
+  useEffect(() => {
+    handleInteraction();
+    return () => {
+      if (floatBtnTimeoutRef.current) clearTimeout(floatBtnTimeoutRef.current);
+    };
+  }, [handleInteraction]);
 
   const openPromptMenu = (rect: DOMRect, opts: { dateStr?: string; reviewId?: string }) => {
     setPopoverRect(rect);
@@ -342,6 +394,23 @@ export default function Review() {
     return reviewsForDate.reduce((sum, review) => sum + countChars(review.ai_editorial || review.ai_review), 0);
   }, [reviewsForDate]);
 
+  // 模式分支：URL 有 ?date= 走单日视图（保留原行为），否则走时间线模式（按 review_date 分组显示所有回顾）
+  const isTimelineMode = !dateParam;
+
+  // 时间线模式：所有回顾按"创建日"分组
+  const timelineGroups = useMemo(
+    () => (isTimelineMode && allReviews ? buildTimelineGroups(allReviews, t) : []),
+    [isTimelineMode, allReviews, t]
+  );
+
+  // 悬浮按钮显隐逻辑：5s 倒计时 / 生成中常驻 / 列表空常驻
+  const isBusy = useMemo(
+    () => Object.values(isProcessingReviewMap || {}).some(Boolean) || !!isProcessingDiary,
+    [isProcessingReviewMap, isProcessingDiary]
+  );
+  const isEmpty = !allReviews || allReviews.length === 0;
+  const showFloatingBtn = showFloatBtn || isBusy || isEmpty;
+
   const lastAutoExpandedDateRef = useRef<string | null>(null);
   const prevReviewsCountRef = useRef(0);
 
@@ -354,28 +423,34 @@ export default function Review() {
   }, [allReviews]);
 
   useEffect(() => {
-    if (reviewsForDate.length > 0 && lastAutoExpandedDateRef.current !== dateStr) {
-      setExpandedDate(dateStr);
-      setExpandedSummaryId(reviewsForDate[0].id);
-      lastAutoExpandedDateRef.current = dateStr;
-    } else if (reviewsForDate.length === 0) {
-      setExpandedDate(null);
-      setExpandedSummaryId(null);
-      lastAutoExpandedDateRef.current = dateStr;
-    }
-  }, [dateStr, reviewsForDate]);
+    // 默认全部折叠，不自动展开任何卡片
+    setExpandedDate(null);
+    setExpandedSummaryId(null);
+    lastAutoExpandedDateRef.current = dateStr;
+  }, [dateStr]);
 
   const hasPendingForDate = Object.keys(pendingIds).some(id => pendingIds[id]);
   const logsCountForDate = allLogs?.filter(
     log => format(new Date(log.created_at), 'yyyy-MM-dd') === dateStr
   ).length ?? 0;
 
+  // 统一两种模式的数据形状：时间线模式用 timelineGroups（多组），单日模式包成单组
+  const displayGroups = useMemo(() => {
+    if (isTimelineMode) return timelineGroups;
+    if (reviewsForDate.length > 0 || hasPendingForDate) {
+      return [{ date: dateStr, label: null as string | null, reviews: reviewsForDate }];
+    }
+    return [];
+  }, [isTimelineMode, timelineGroups, reviewsForDate, hasPendingForDate, dateStr]);
+
   return (
     <div className="flex flex-col h-full bg-transparent relative">
       <div
         className="flex-1 overflow-y-auto thin-scrollbar px-4 md:px-6 lg:px-8 py-4 md:py-6 flex flex-col"
-        onTouchStart={handleTouchStart}
+        onTouchStart={(e) => { handleTouchStart(e); handleInteraction(); }}
         onTouchEnd={handleTouchEnd}
+        onClick={handleInteraction}
+        onScroll={handleInteraction}
       >
          {/* 批量生成进度浮动条 */}
          {batchProgress && batchProgress.type === 'review' && (
@@ -396,22 +471,29 @@ export default function Review() {
          )}
 
         <div className="flex-1 w-full mb-20 flex flex-col gap-3">
-          {reviewsForDate.length === 0 && !hasPendingForDate ? (
+          {displayGroups.length === 0 && !hasPendingForDate ? (
             <div className="flex flex-col items-center justify-center py-8 w-full select-none">
-              <p className="text-[13px] text-stone-400 mb-5 tracking-wider font-medium">{t('review.emptyTodayTitle')}</p>
+              <p className="text-[13px] text-stone-400 mb-5 tracking-wider font-medium">
+                {isTimelineMode ? t('review.timelineEmptyTitle') : t('review.emptyDateTitle', { date: dateStr })}
+              </p>
               <div className="flex flex-col items-center justify-center p-8 bg-gradient-to-br from-baimiao-mysteria/[0.03] to-[#2c2957]/[0.01] rounded-2xl border border-baimiao-mysteria/10 shadow-[0_8px_30px_rgba(27,25,56,0.03)] text-center w-full max-w-[280px]">
                 <div className="text-baimiao-mysteria mb-4 bg-white p-3 rounded-xl shadow-[0_2px_10px_rgba(27,25,56,0.05)] border border-baimiao-mysteria/5">
                   <Sparkles className="w-6 h-6 stroke-[1.5px] text-baimiao-mysteria/70 animate-pulse" />
                 </div>
-                <p className="text-[15px] text-stone-900 font-medium tracking-tight mb-2">
-                  {t('review.todayFragmentsCount', { count: logsCountForDate })}
-                </p>
-                <p className="text-[12.5px] text-stone-500 mb-6 leading-relaxed">{t('review.emptyTodayDesc')}</p>
-                {/* 需求 1：空状态 AI 智能整理按钮上方今日统计 */}
-                <TodayStats count={reviewsForDate.length} chars={dailyChars} className="w-full" />
+                {isTimelineMode ? (
+                  <p className="text-[12.5px] text-stone-500 mb-6 leading-relaxed">{t('review.timelineEmptyDesc')}</p>
+                ) : (
+                  <>
+                    <p className="text-[15px] text-stone-900 font-medium tracking-tight mb-2">
+                      {t('review.todayFragmentsCount', { count: logsCountForDate })}
+                    </p>
+                    <p className="text-[12.5px] text-stone-500 mb-6 leading-relaxed">{t('review.emptyTodayDesc')}</p>
+                    <TodayStats count={reviewsForDate.length} chars={dailyChars} className="w-full" />
+                  </>
+                )}
                 <button
                   disabled={logsCountForDate === 0}
-                  onClick={(e) => openPromptMenu(e.currentTarget.getBoundingClientRect(), { dateStr })}
+                  onClick={(e) => openPromptMenu(e.currentTarget.getBoundingClientRect(), { dateStr: isTimelineMode ? format(today, 'yyyy-MM-dd') : dateStr })}
                   className={`w-full px-5 py-2.5 rounded-full text-[13px] font-medium tracking-wide flex items-center justify-center gap-2 transition-all ${
                     logsCountForDate > 0
                       ? "bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white hover:brightness-110 active:scale-[0.98] shadow-md shadow-baimiao-mysteria/10"
@@ -433,8 +515,25 @@ export default function Review() {
                 </div>
               )}
 
-              {/* Reviews list */}
-              {reviewsForDate.map((review) => {
+              {/* Reviews list - 时间线模式按日分组显示，单日模式扁平显示 */}
+              {displayGroups.map((g) => (
+                <div key={g.date} className="flex flex-col gap-3">
+                  {/* 时间线模式：黏性分组 header */}
+                  {g.label && (
+                    <div
+                      data-testid="review-timeline-group"
+                      data-date={g.date}
+                      className="sticky top-0 z-10 bg-[#faf9fc]/90 backdrop-blur px-1 py-1 -mx-1 flex items-center gap-1.5"
+                    >
+                      <Clock className="w-3 h-3 text-baimiao-mysteria/60" />
+                      <span className="text-[12px] font-semibold text-baimiao-mysteria">{g.label}</span>
+                      <span className="text-[10.5px] text-stone-400 font-mono">{g.date}</span>
+                      <span className="text-[10.5px] text-stone-400">
+                        {t('thoughts.itemCount', { count: g.reviews.length })}
+                      </span>
+                    </div>
+                  )}
+                  {g.reviews.map((review) => {
                 const isExpanded = expandedSummaryId === review.id;
                 const isGenerating = isProcessingReviewMap[review.id] || (review.entry_type === 'diary' && isProcessingDiary);
                 const errorMsg = diaryErrorMap[dateStr];
@@ -531,9 +630,12 @@ export default function Review() {
                       className="p-4 text-left hover:bg-stone-50 active:bg-stone-100 transition-colors flex flex-col gap-1.5 w-full relative"
                     >
                       <div className="flex justify-between items-center w-full">
-                        <span className="text-[15px] font-semibold text-stone-800 font-mono tracking-tight leading-none">
-                          {review.review_date}
-                        </span>
+                        {/* 时间线模式下分组 header 已显示日期，卡片内不再重复显示 */}
+                        {!isTimelineMode && (
+                          <span className="text-[15px] font-semibold text-stone-800 font-mono tracking-tight leading-none">
+                            {review.review_date}
+                          </span>
+                        )}
                         {isExpanded ? (
                           <ChevronUp className="w-4 h-4 text-stone-400" />
                         ) : (
@@ -816,22 +918,52 @@ export default function Review() {
                   </div>
                 );
               })}
+                </div>
+              ))}
 
-              {/* 需求 1：卡片列表底部 AI 智能整理(追加)按钮上方今日统计 */}
-              <TodayStats count={reviewsForDate.length} chars={dailyChars} />
-              {/* Append new review button */}
-              <button
-                onClick={(e) => openPromptMenu(e.currentTarget.getBoundingClientRect(), { dateStr })}
-                disabled={logsCountForDate === 0}
-                className="w-full py-3 mt-2 border border-dashed border-stone-350 rounded-2xl bg-white/30 hover:bg-white/60 hover:border-stone-400 text-stone-500 hover:text-stone-700 transition-all flex items-center justify-center gap-1.5 text-[12px] font-medium active:scale-[0.99] disabled:opacity-40"
-              >
-                <Sparkles className="w-3.5 h-3.5 stroke-[1.5px]" />
-                {t('review.aiOrganizeAppend')}
-              </button>
+              {/* 时间线模式：不显示单日 TodayStats；单日模式保留 */}
+              {!isTimelineMode && (
+                <>
+                  <TodayStats count={reviewsForDate.length} chars={dailyChars} />
+                  <button
+                    onClick={(e) => openPromptMenu(e.currentTarget.getBoundingClientRect(), { dateStr })}
+                    disabled={logsCountForDate === 0}
+                    className="w-full py-3 mt-2 border border-dashed border-stone-350 rounded-2xl bg-white/30 hover:bg-white/60 hover:border-stone-400 text-stone-500 hover:text-stone-700 transition-all flex items-center justify-center gap-1.5 text-[12px] font-medium active:scale-[0.99] disabled:opacity-40"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 stroke-[1.5px]" />
+                    {t('review.aiOrganizeAppend')}
+                  </button>
+                </>
+              )}
             </>
           )}
         </div>
       </div>
+
+      {/* 悬浮 AI 智能整理按钮（两种模式通用，仿 Insights.tsx:758-776） */}
+      {!editingReviewId && (
+        <div
+          className={`fixed bottom-24 left-0 w-full flex justify-center pointer-events-none z-20 transition-opacity duration-500 max-w-md mx-auto right-0 ${
+            showFloatingBtn ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
+          <button
+            data-testid="review-ai-organize-float-btn"
+            onClick={(e) => openPromptMenu(e.currentTarget.getBoundingClientRect(), { dateStr: isTimelineMode ? format(today, 'yyyy-MM-dd') : dateStr })}
+            disabled={isBusy}
+            className={`bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-md border border-white/10 text-white px-6 py-2.5 rounded-full text-[13px] font-medium tracking-wide transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:active:scale-100 min-w-[160px] ${
+              showFloatingBtn ? 'pointer-events-auto' : 'pointer-events-none'
+            }`}
+          >
+            {isBusy
+              ? <Loader2 className="w-4 h-4 animate-spin" />
+              : <Clock className="w-4 h-4" />}
+            {isBusy
+              ? t('review.aiGeneratingStats')
+              : t('review.aiOrganizeN', { count: (reviewSelectedIndices || [0, 1]).length })}
+          </button>
+        </div>
+      )}
 
       {/* #5: 多选浮层 - Prompt 选择（日记/回顾/自定义1/2/3）由共享组件渲染 */}
       <MultiSlotPromptPopover
