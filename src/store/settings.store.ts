@@ -297,7 +297,9 @@ export const DEFAULT_EMBED_PROVIDER_CONFIGS: Record<string, { apiKey: string; ba
 // NOTE: 与后端 server.ts / api/index.ts 的 /api/tts 端点约定保持一致。
 // 新增 Provider 需同步更新此处与后端调用逻辑。
 export const DEFAULT_TTS_PROVIDER_CONFIGS: Record<string, { apiKey: string; baseUrl: string; model: string }> = {
-  gemini: { apiKey: '', baseUrl: 'https://generativelanguage.googleapis.com', model: 'gemini-2.5-flash-preview-tts' },
+  // 默认值用 gemini-3.1-flash-tts-preview：官方支持流式 TTS（2.5 flash preview 不支持，
+  // 首字延迟可数十秒～数分钟）。用户仍可手动改回 2.5，但不推荐。
+  gemini: { apiKey: '', baseUrl: 'https://generativelanguage.googleapis.com', model: 'gemini-3.1-flash-tts-preview' },
   volcengine: { apiKey: '', baseUrl: 'https://openspeech.bytedance.com', model: 'BV001_streaming' },
   // minimax (MiniMaxAI) HTTP TTS：POST {baseUrl}/v1/t2a_v2。Bearer 单串 API Key。
   // model 固定为 speech-2.8-hd（订阅额度唯一稳定消耗的模型）。

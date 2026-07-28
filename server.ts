@@ -1249,7 +1249,10 @@ ${contextContent || '（本次未检索到相关片段）'}
 
       if (provider === 'gemini') {
         const ai = buildGeminiClient(apiKey, baseUrl);
-        const finalModel = model || 'gemini-2.5-flash-preview-tts';
+        // 默认走 3.1 flash tts preview：官方支持流式 TTS。
+        // 用户若手动切回 2.5 flash preview，TTS 将整段返回（不支持流式），
+        // 首字延迟会回到数十秒～数分钟级别——这是上游 model 行为，与本服务无关。
+        const finalModel = model || 'gemini-3.1-flash-tts-preview';
         const genConfig: any = { responseModalities: ['AUDIO'] };
         if (voice) {
           genConfig.speechConfig = {
@@ -1386,12 +1389,11 @@ ${contextContent || '（本次未检索到相关片段）'}
 
       try {
         if (provider === 'gemini') {
-          // #010: Gemini 流式完全沿用 v0.5.1 原状：不加新字段、不改 dispatch 结构，
-          // 避免任何潜在回归。如果 "Gemini 等 2 分钟" 是上游 model gemini-2.5-flash-preview-tts
-          // 在流式下整段返回导致，那是 Gemini 服务端行为，与本改动无关；
-          // 用户若要立刻出声，切到 minimax / 火山引擎 走下方新流式路径。
+          // #010 + fix/tts-gemini-3.1-default: Gemini 默认值改为 gemini-3.1-flash-tts-preview，
+          // 官方从 3.1 起支持 TTS 流式输出（2.5 flash preview 整段返回，不支持流式）。
+          // 用户若手动切回 2.5 flash preview，本端点仍可工作但首字延迟会回到数十秒～数分钟。
           const ai = buildGeminiClient(apiKey, baseUrl);
-          const finalModel = model || 'gemini-2.5-flash-preview-tts';
+          const finalModel = model || 'gemini-3.1-flash-tts-preview';
           const genConfig: any = { responseModalities: ['AUDIO'] };
           if (voice) {
             genConfig.speechConfig = {

@@ -390,7 +390,7 @@ export const zh: TranslationDict = {
   'settings.ttsApiKeyInvalidVolcengine': '格式应为 appid:access_token（两部分均不能为空）',
   'settings.ttsBaseUrlLabel': 'API 地址 (Base URL)',
   'settings.ttsModelLabel': '模型 (Model)',
-  'settings.ttsModelHintGemini': '填模型名（如 gemini-2.5-flash-preview-tts）',
+  'settings.ttsModelHintGemini': '推荐 gemini-3.1-flash-tts-preview（2.5 flash preview 不支持流式朗读，首字延迟较长）',
   'settings.ttsModelHintVolcengine': '填发音人 ID（如 BV001_streaming）',
   'settings.ttsModelHintMinimax': '固定为 speech-2.8-hd（订阅额度唯一稳定消耗的模型）',
   'settings.ttsVoiceLabel': '语音 (Voice)',

@@ -389,7 +389,7 @@ export const en: TranslationDict = {
   'settings.ttsApiKeyInvalidVolcengine': 'Format must be appid:access_token (both parts required)',
   'settings.ttsBaseUrlLabel': 'API URL (Base URL)',
   'settings.ttsModelLabel': 'Model',
-  'settings.ttsModelHintGemini': 'Model name (e.g., gemini-2.5-flash-preview-tts)',
+  'settings.ttsModelHintGemini': 'Recommended: gemini-3.1-flash-tts-preview (2.5 flash preview does not support streaming, so first-audio latency is high)',
   'settings.ttsModelHintVolcengine': 'Voice type ID (e.g., BV001_streaming)',
   'settings.ttsModelHintMinimax': 'Fixed to speech-2.8-hd (the only model that reliably consumes subscription quota)',
   'settings.ttsVoiceLabel': 'Voice',
