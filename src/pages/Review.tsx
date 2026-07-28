@@ -12,7 +12,8 @@ import { washCitations } from '../lib/citationWash';
 import ActionSheet from '../components/ActionSheet';
 import ContextChat from '../components/ContextChat';
 import { TagChip } from '../components/TagChip';
-import { Trash2, ChevronDown, ChevronUp, RefreshCw, X, Sparkles, MessageCircle, Copy, Check, Activity, Save, Edit2, Loader2, CheckSquare, Square, Hash, Plus, Volume2, Square as SquareIcon } from 'lucide-react';
+import { MultiSlotPromptPopover } from '../components/MultiSlotPromptPopover';
+import { Trash2, ChevronDown, ChevronUp, RefreshCw, Sparkles, MessageCircle, Copy, Check, Activity, Save, Edit2, Loader2, Hash, Plus, Volume2, Square as SquareIcon } from 'lucide-react';
 import { useAppStore } from '../store/app.store';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useTTS } from '../lib/tts';
@@ -26,30 +27,10 @@ const generateUUID = () => {
 };
 
 // ——— Smart Popover positioning helper ———
-// Returns CSS top (fixed) for the popover given the anchor DOMRect.
-// Priority: above the anchor. Falls back to below if not enough room above.
-const POPOVER_HEIGHT = 280; // approximate height of the 5-slot multi-select prompt menu
-const POPOVER_GAP = 8;
+// 5 槽浮层定位算法已抽到 src/lib/popover.ts 由 MultiSlotPromptPopover 使用；
+// 这里仅保留长按菜单（context menu）专用常量。
 const MENU_HALF_WIDTH = 135;
 const MENU_SAFE_MARGIN = 280;
-
-function calcPopoverTop(anchorRect: DOMRect): number {
-  const spaceAbove = anchorRect.top;
-  const spaceBelow = window.innerHeight - anchorRect.bottom;
-
-  if (spaceAbove >= POPOVER_HEIGHT + POPOVER_GAP) {
-    // Show above
-    return Math.max(8, anchorRect.top - POPOVER_HEIGHT - POPOVER_GAP);
-  } else if (spaceBelow >= POPOVER_HEIGHT + POPOVER_GAP) {
-    // Show below
-    return Math.min(anchorRect.bottom + POPOVER_GAP, window.innerHeight - POPOVER_HEIGHT - 8);
-  } else {
-    // Not enough room either way — pick the side with more space
-    return spaceAbove > spaceBelow
-      ? Math.max(8, anchorRect.top - POPOVER_HEIGHT - POPOVER_GAP)
-      : Math.min(anchorRect.bottom + POPOVER_GAP, window.innerHeight - POPOVER_HEIGHT - 8);
-  }
-}
 
 export default function Review() {
   const { t } = useTranslation();
@@ -596,9 +577,26 @@ export default function Review() {
                           className="bg-white border border-stone-200 rounded-full px-2 py-0.5 text-[10.5px] outline-none focus:border-baimiao-mysteria/40 w-24"
                           autoFocus
                         />
+                      ) : (review.tags?.length ?? 0) === 0 ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAddingTagToReview(review.id);
+                            setNewTagInput('');
+                          }}
+                          data-testid="tag-add-btn"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-200/50 transition-colors text-[10.5px]"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>{t('review.addTag')}</span>
+                        </button>
                       ) : (
                         <button
-                          onClick={(e) => { e.stopPropagation(); setAddingTagToReview(review.id); setNewTagInput(''); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAddingTagToReview(review.id);
+                            setNewTagInput('');
+                          }}
                           data-testid="tag-add-btn"
                           className="inline-flex items-center justify-center w-5 h-5 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-200/50 transition-colors"
                         >
@@ -835,74 +833,24 @@ export default function Review() {
         </div>
       </div>
 
-      {/* #5: 多选浮层 - Prompt 选择（日记/回顾/自定义1/2/3） */}
-      {showPromptMenu && popoverRect && (
-        <div
-          className="fixed inset-0 z-[110] bg-black/10 backdrop-blur-[1px]"
-          onClick={closePromptMenu}
-        >
-          <div
-            className="absolute bg-gradient-to-r from-baimiao-mysteria/95 to-[#2c2957]/95 backdrop-blur-xl border border-white/10 rounded-2xl p-2 flex flex-col gap-1 shadow-[0_10px_30px_rgba(0,0,0,0.3)] z-[120] animate-in zoom-in-95 duration-100"
-            style={{
-              top: calcPopoverTop(popoverRect),
-              left: Math.max(16, Math.min(
-                popoverRect.left + (popoverRect.width - 220) / 2,
-                window.innerWidth - 236
-              )),
-              width: '220px',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="text-[11px] font-semibold text-white/40 tracking-wider px-2.5 py-1.5 border-b border-white/5 flex justify-between items-center select-none">
-              <span>{t('review.selectTemplate')}</span>
-              <button
-                onClick={closePromptMenu}
-                className="hover:bg-white/10 p-0.5 rounded text-white/40 hover:text-white transition-colors"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-0.5 mt-1">
-              {/* 生成 N 篇回顾 按钮 */}
-              <button
-                onClick={handleGenerateSelected}
-                className="w-full py-2 px-2.5 bg-white/10 hover:bg-white/15 rounded-xl text-[12.5px] font-semibold text-purple-200 text-left active:scale-[0.98] transition-all border border-white/5 mb-1 flex items-center justify-center gap-1.5"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-purple-300" />
-                {t('review.generateNReviews', { count: (reviewSelectedIndices || [0, 1]).length })}
-              </button>
-
-              {/* 5 槽多选列表 */}
-              {(reviewPromptNames || [t('settings.promptDiary'), t('settings.promptReview'), t('settings.promptCustom1'), t('settings.promptCustom2'), t('settings.promptCustom3')]).map((name, idx) => {
-                const isSelected = (reviewSelectedIndices || [0, 1]).includes(idx);
-                const hasContent = reviewPrompts[idx]?.trim().length > 0;
-                const isFixed = idx < 2; // 日记/回顾 不可改名
-                return (
-                  <button
-                    key={idx}
-                    data-testid={`prompt-slot-${idx}`}
-                    onClick={() => handleToggleSlot(idx)}
-                    className={`w-full py-2 px-2.5 hover:bg-white/5 rounded-xl text-[12.5px] font-medium text-left active:scale-[0.98] transition-all flex items-center justify-between ${
-                      isSelected ? 'text-white' : 'text-white/50'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2">
-                      {isSelected
-                        ? <CheckSquare className="w-3.5 h-3.5 text-purple-300 shrink-0" />
-                        : <Square className="w-3.5 h-3.5 text-white/30 shrink-0" />
-                      }
-                      {name}
-                      {isFixed && <span className="text-[9px] text-white/30 font-normal">{t('settings.promptDefault')}</span>}
-                    </span>
-                    {hasContent && <span className="text-purple-300/60 text-[10px] font-normal">{t('review.configured')}</span>}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* #5: 多选浮层 - Prompt 选择（日记/回顾/自定义1/2/3）由共享组件渲染 */}
+      <MultiSlotPromptPopover
+        visible={showPromptMenu}
+        anchorRect={popoverRect}
+        slots={(reviewPromptNames || [t('settings.promptDiary'), t('settings.promptReview'), t('settings.promptCustom1'), t('settings.promptCustom2'), t('settings.promptCustom3')]).map((name, idx) => ({
+          name,
+          hasContent: !!reviewPrompts[idx]?.trim().length,
+          isFixed: idx < 2, // 日记/回顾 不可改名
+        }))}
+        selectedIndices={reviewSelectedIndices || [0, 1]}
+        onToggle={handleToggleSlot}
+        onGenerate={handleGenerateSelected}
+        onClose={closePromptMenu}
+        titleKey="review.selectTemplate"
+        generateLabelKey="review.generateNReviews"
+        testIdPrefix="prompt-slot-"
+        generateBtnTestId="review-generate-n-btn"
+      />
 
       {/* Long-press context menu */}
       {contextMenuState.isOpen && activeReview && (
