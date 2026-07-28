@@ -5,7 +5,7 @@
 
 ---
 
-## 当前进度（截至 2026-07-28 P0 + v3 完成 + v0.3.x hotfix + 洞察 5 槽多选 v0.4.0 + 沉淀手动标签 v0.5.0 + 洞察自动生成 v0.5.1 + 卡片 5 槽区分 v0.5.3 + Settings 浅紫胶囊 + 摘要 Prompt 升级 v0.5.4）
+## 当前进度（截至 2026-07-28 P0 + v3 完成 + v0.3.x hotfix + 洞察 5 槽多选 v0.4.0 + 沉淀手动标签 v0.5.0 + 洞察自动生成 v0.5.1 + 卡片 5 槽区分 v0.5.3 + Settings 浅紫胶囊 + 摘要 Prompt 升级 v0.5.4 + TTS 老用户迁移补完 v0.5.5）
 
 | # | 阶段 | 状态 |
 |---|------|------|
@@ -18,6 +18,7 @@
 | v0.5.1 洞察自动生成 | ✅ 全部合并（commits 678883c/aa1b747/c67a8dc/9b724ca）| 周报/月报独立开关 + 静默跳过 |
 | v0.5.3 卡片 5 槽区分 | ✅ 已合并（commit d3905e3）| 回顾/洞察卡片 sub-header 统一为「统摄名（槽位标签）」格式，时间带日期 |
 | v0.5.4 Settings 浅紫胶囊 + 摘要 Prompt 升级 | ✅ 已合并（commits 52be930 + 954fa9f/2df472e）| 11 处胶囊统一浅紫 + 默认 Prompt 泛化（≤39 字）+ migrate v14 强制覆盖 + TTS Gemini 3.1 流式修复 |
+| v0.5.5 TTS 老用户 IndexedDB 迁移 | ✅ 已合并（commit 816f461 + 1235446 release）| settings.store persist version 14 → 15；migrate v15 把 `gemini-2.5-flash-preview-tts` / `gemini-2.5-pro-preview-tts` 强制替换为 `gemini-3.1-flash-tts-preview`，同步 `ttsConfigs.gemini.model` |
 | 测试清理 | ✅ 6 个失效测试已删除 | 见下方「清理记录」|
 
 | Issue | 标题 | 状态 | 分支 | 验收 |
@@ -157,6 +158,29 @@
 - 每次 Layout 挂载都跑一次调度函数；触发条件命中才入队，否则只跑 initQueue + processNextQueueTask（推进现有任务）
 - 完成任务后（成功 / 静默跳过）都会更新 lastRun，下次 Layout 挂载不再触发同一周期
 - 版本策略：按用户要求从 0.6.0 调整为 0.5.1（patch bump）
+
+## v0.5.5（2026-07-28 — TTS 老用户 IndexedDB 自动迁移补完）
+
+**核心变更**：v0.5.4 改了 TTS Gemini 默认值和流式协议（commit `2df472e` / `954fa9f`），但**漏掉了老用户迁移**——他们的 IndexedDB 里持久化的是字符串 `'gemini-2.5-flash-preview-tts'`，不是 undefined，v12 migration 不会回填，导致即使服务端改成 3.1 流式，前端每次朗读依然发 2.5 给后端（首字延迟回到 1-2 分钟）。本次 v0.5.5 补上这个迁移。
+
+| 步骤 | commit | 说明 |
+|------|--------|------|
+| C1 persist version bump | `816f461` | `settings.store.ts` version 14 → 15；新加 `if (version < 15)` block；显式枚举已知旧 model（`gemini-2.5-flash-preview-tts` / `gemini-2.5-pro-preview-tts`），命中即替换为 `gemini-3.1-flash-tts-preview`，同步 `ttsConfigs.gemini.model` |
+| C2 release + push | `1235446` | version 0.5.4 → 0.5.5（patch：仅 zustand store migration 版本号变化，未触及 IndexedDB `db.version`）；tag `v0.5.5` + push main + push tag |
+
+**为什么必须 bump version**：zustand persist 的 migrate 只在 `state.version < currentVersion` 时触发。原 version=14 与线上用户一致，单独加 `if (version < 14)` migration 不会跑——必须 bump 到 15 触发迁移。
+
+**关键设计决策**：
+- 显式枚举旧 model 字符串而不是"非 3.1 即替换"：保留用户主动配置的非 Gemini-2.5 模型（如用户自己测过的某个 3.0 模型），避免误改
+- 同步 `ttsConfigs.gemini.model`：与顶层 `ttsModel` 字段保持一致，避免 UI 显示与实际请求路径不一致
+- 不放 v14 block：v14 已发布并跑过，老用户升级会重复触发；放独立 v15 block 是为了「仅 14 → 15」这一步专门跑迁移
+
+**用户体验**：升级后刷新一次 PWA，zustand persist 自动把 `ttsModel` / `ttsConfigs.gemini.model` 从 2.5 替换为 3.1。点朗读首字延迟从 1-2 分钟下降到 < 20 秒，**无需用户手动改设置**。
+
+**风险与边界**：
+- 第一次安装 v0.5.5+ 的用户：persist version 直接到 15，migration 跑一遍命中为空值集合 → no-op
+- 已升级到 v0.5.4 但还没触发 migration 的用户：从 v14 → v15 走一遍 → 老值被替换
+- 用户曾手动改过 `ttsModel` 为非 2.5 字符串：不在枚举集合里 → 不被替换（保留用户意图）
 
 ## 🎉 P0 全部完成 (8/8)
 
