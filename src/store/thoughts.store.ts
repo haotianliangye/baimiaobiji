@@ -26,7 +26,7 @@
  * 入队（ENTITY_CONFIG.thought），本 store 不直接调用 embedding。
  */
 import { create } from 'zustand';
-import { db, type Thought, type AttachmentMeta } from '../db/db';
+import { db, type Thought, type AttachmentMeta, resolveDocumentContent } from '../db/db';
 import { generateUUID } from '../lib/utils';
 import { parseTagsFromText, resolveAlias } from '../lib/tags';
 import { useTagsStore } from './tags.store';
@@ -182,7 +182,8 @@ export function createThoughtParamsToRow(
 
 /**
  * 把 UpdateThoughtParams 转换成可写入 db.thoughts 的 patch（纯函数）。
- *  - 仅当显式传入 content_doc / content 时才重算 content_doc / tags
+ *  - 仅当显式传入 content_doc / content 时才重算 content_doc
+ *  - tags 优先级：params.tags（调用方合并好） > parseTagsFromText（新正文） > existing.tags（沿用）
  *  - 仅当显式传入 attachments 时才覆盖 attachments
  *  - created_at 透传
  *  - 永不动 original_created_at
@@ -190,7 +191,6 @@ export function createThoughtParamsToRow(
 export function updateThoughtParamsToPatch(
   existing: Pick<Thought, 'id' | 'content_doc' | 'content' | 'tags' | 'attachments' | 'created_at' | 'original_created_at'>,
   params: UpdateThoughtParams,
-  parsedTags?: string[],
 ): Partial<Thought> {
   const patch: Partial<Thought> = {};
 
@@ -200,9 +200,11 @@ export function updateThoughtParamsToPatch(
     const text = documentToText(doc);
     patch.content_doc = doc;
     patch.content = '';
-    patch.tags = dedupeTags(
-      Array.isArray(parsedTags) ? parsedTags : Array.isArray(params.tags) ? params.tags : parseTagsFromText(text),
-    );
+    // tags 来源优先级：caller 合并好的 params.tags > 从新正文重新解析 > 沿用 existing
+    const nextTags = Array.isArray(params.tags)
+      ? params.tags
+      : parseTagsFromText(text);
+    patch.tags = dedupeTags(nextTags);
     patch.attachments = deriveLegacyAttachments(doc, existing.attachments);
   } else if (params.attachments !== undefined) {
     // 仅传 attachments（兼容）：不动 doc / tags
@@ -214,6 +216,26 @@ export function updateThoughtParamsToPatch(
   }
 
   return patch;
+}
+
+/**
+ * 合并手动加的标签与正文新解析出的标签（纯函数，公开 seam 供测试）。
+ *  - 旧标签中「不在旧正文解析集里」的视为手动 → 必须保留
+ *  - 新解析出的标签（来自编辑后的正文 #标签）→ 加入
+ *  - newParsedTags === undefined → 保留旧全部（caller 没改正文场景）
+ *  - alias 已在外层 resolve 过，所以传进来的 tag 字符串都是规范化路径
+ */
+export function mergeThoughtTagsPreservingManual(
+  oldTags: string[],
+  oldTextParsedTags: string[],
+  newParsedTags: string[] | undefined,
+): string[] {
+  const oldParsedSet = new Set(oldTextParsedTags);
+  const manualTags = oldTags.filter((t) => !oldParsedSet.has(t));
+  if (newParsedTags === undefined) {
+    return dedupeTags([...oldTags]);
+  }
+  return dedupeTags([...newParsedTags, ...manualTags]);
 }
 
 function dedupeTags(tags: string[]): string[] {
@@ -337,25 +359,34 @@ export const useThoughtsStore = create<ThoughtsState>(() => ({
     const existing = await db.thoughts.get(id);
     if (!existing) return;
 
-    let parsedTags: string[] | undefined;
+    let newParsedTags: string[] | undefined;
     const hasContentDocInput = updates.content_doc !== undefined || typeof updates.content === 'string';
     if (hasContentDocInput) {
       const doc = resolveInputDocument(updates);
-      parsedTags = await processTagsFromText(documentToText(doc));
+      newParsedTags = await processTagsFromText(documentToText(doc));
     }
+
+    // #thought-manual-tags: 编辑正文时合并手动标签，避免覆盖用户手动加的 chip
+    // 用旧正文的解析集筛出「手动加的标签」，与新解析集合并后传给 patch（沿用 existing.tags 字段）
+    const oldText = documentToText(resolveDocumentContent(existing));
+    const oldTextParsedTags = await processTagsFromText(oldText);
+    const mergedTags = mergeThoughtTagsPreservingManual(
+      existing.tags || [],
+      oldTextParsedTags,
+      newParsedTags,
+    );
 
     const patch = updateThoughtParamsToPatch(
       {
         id: existing.id,
         content_doc: existing.content_doc,
         content: existing.content,
-        tags: existing.tags,
+        tags: mergedTags,
         attachments: existing.attachments,
         created_at: existing.created_at,
         original_created_at: existing.original_created_at,
       },
       updates,
-      parsedTags,
     );
 
     if (Object.keys(patch).length === 0) return;

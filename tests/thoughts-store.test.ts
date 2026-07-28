@@ -6,7 +6,7 @@
  *
  * 纯函数 seam（从 thoughts.store 暴露，零 IDB 依赖）：
  *   - createThoughtParamsToRow(params, now, parsedTags)  → Thought
- *   - updateThoughtParamsToPatch(existing, params, parsedTags)  → Partial<Thought>
+ *   - updateThoughtParamsToPatch(existing, params)  → Partial<Thought>
  *   - collectReferencedAttachmentIds(thoughtLike)  → string[]
  *   - filterAttachmentIdsToDelete(referencedIds, candidateIds)  → string[]
  *
@@ -115,22 +115,23 @@ async function run() {
         { type: 'image', attrs: { attachmentId: 'att-new' } },
       ],
     },
+    tags: ['工作'],  // #thought-manual-tags: caller 负责合并后传入
     created_at: 1750000000000,
   });
   assert.ok(patch.content_doc, 'B1 patch.content_doc 存在');
   assert.equal(patch.content, '', 'B1 patch 不再以 JSON.stringify 写 content');
-  assert.deepEqual(patch.tags, ['工作'], 'B1 patch.tags 重新派生自新文档');
+  assert.deepEqual(patch.tags, ['工作'], 'B1 patch.tags 来自 params.tags（caller 合并）');
   assert.equal(patch.created_at, 1750000000000, 'B1 created_at 透传');
   assert.ok(!('original_created_at' in patch), 'B1 不覆盖 original_created_at');
-  record('B1 updateThoughtParamsToPatch 替换 content_doc / 重新派生 tags / 不动溯源时间', true, JSON.stringify(patch.tags));
+  record('B1 updateThoughtParamsToPatch 替换 content_doc / tags 来自 params / 不动溯源时间', true, JSON.stringify(patch.tags));
 
-  // B2: 仅传 content 字符串（兼容） → 派生 content_doc
+  // B2: 仅传 content 字符串（兼容） → 派生 content_doc；未传 tags → 从新正文中 parseTagsFromText
   const patch2 = mod.updateThoughtParamsToPatch(existing, { content: '补充 #随笔' });
   assert.ok(patch2.content_doc, 'B2 字符串 content 派生 content_doc');
-  assert.deepEqual(patch2.tags, ['随笔'], 'B2 tags 重新派生');
+  assert.deepEqual(patch2.tags, ['随笔'], 'B2 tags 从新正文重新解析（caller 未传 tags）');
   // 触发重算路径时 attachments 也会从新 doc 派生（同步兼容旧读路径）
   assert.ok(Array.isArray(patch2.attachments), 'B2 attachments 同步从新 doc 派生');
-  record('B2 字符串 content 兼容派生 + attachments 同步', true, JSON.stringify(patch2.tags));
+  record('B2 字符串 content 兼容派生 + tags 从新正文中解析', true, JSON.stringify(patch2.tags));
 
   // B3: 仅传 created_at → 不重算 content_doc / tags
   const patch3 = mod.updateThoughtParamsToPatch(existing, { created_at: 1760000000000 });
@@ -145,6 +146,62 @@ async function run() {
   assert.ok(!('tags' in patch4), 'B4 不重算 tags');
   assert.deepEqual(patch4.attachments, [{ kind: 'image', ref: 'att-x' }], 'B4 透传 attachments 兼容');
   record('B4 仅 attachments 兼容时不重算 doc/tags', true, 'OK');
+
+  // ============================================================
+  // Section B5 — mergeThoughtTagsPreservingManual（手动标签保留合并）
+  // ============================================================
+  // B5a: 手动标签 + 正文解析出的标签都保留；正文里消失的标签视为手动
+  const merged = mod.mergeThoughtTagsPreservingManual(
+    ['工作/项目A', '灵感', '日记'],   // 旧 tags
+    ['日记'],                         // 旧正文解析集（仅 '日记' 来自旧正文）
+    ['生活', '日记'],                 // 新正文解析集
+  );
+  const mergedSorted = [...merged].sort();
+  assert.deepEqual(
+    mergedSorted,
+    ['工作/项目A', '日记', '灵感', '生活'].sort(),
+    `B5a 手动标签 + 新解析合并, got=${JSON.stringify(merged)}`,
+  );
+  record('B5a mergeThoughtTagsPreservingManual 保留手动 + 新解析', true, JSON.stringify(merged));
+
+  // B5b: 旧正文不含任何 # → 全部旧 tags 视为手动，全部保留
+  const merged2 = mod.mergeThoughtTagsPreservingManual(
+    ['工作/项目A', '灵感'],
+    [],
+    ['生活'],
+  );
+  assert.deepEqual(
+    [...merged2].sort(),
+    ['工作/项目A', '灵感', '生活'].sort(),
+    `B5b 旧解析为空时全部视为手动, got=${JSON.stringify(merged2)}`,
+  );
+  record('B5b 旧解析为空 → 旧 tags 全部视为手动', true, JSON.stringify(merged2));
+
+  // B5c: 没有任何新解析结果（params 无正文修改场景）→ 保留旧全部
+  const merged3 = mod.mergeThoughtTagsPreservingManual(
+    ['工作', '灵感'],
+    ['工作'],
+    undefined,
+  );
+  assert.deepEqual(
+    [...merged3].sort(),
+    ['工作', '灵感'].sort(),
+    `B5c 无新解析时保留旧全部, got=${JSON.stringify(merged3)}`,
+  );
+  record('B5c 无新解析时保留旧全部', true, JSON.stringify(merged3));
+
+  // B5d: 去重 — 新解析与旧手动有交集时只留一份
+  const merged4 = mod.mergeThoughtTagsPreservingManual(
+    ['日记', '灵感'],
+    ['日记'],
+    ['日记', '生活'],
+  );
+  assert.deepEqual(
+    [...merged4].sort(),
+    ['日记', '灵感', '生活'].sort(),
+    `B5d 去重保留单一, got=${JSON.stringify(merged4)}`,
+  );
+  record('B5d 交集去重', true, JSON.stringify(merged4));
 
   // ============================================================
   // Section C — collectReferencedAttachmentIds

@@ -34,6 +34,7 @@ import {
   Mic,
   Loader2,
   Keyboard,
+  Plus,
 } from 'lucide-react';
 import { db, type Thought } from '../db/db';
 import { useThoughtsStore } from '../store/thoughts.store';
@@ -44,6 +45,7 @@ import { countChars } from '../lib/wordCount';
 import TodayStats from '../components/TodayStats';
 import { TagChip } from '../components/TagChip';
 import { useTranslation } from '../lib/i18n';
+import { normalizeTagPath, resolveAlias } from '../lib/tags';
 import DocumentEditor from '../components/DocumentEditor';
 import DocumentView from '../components/DocumentView';
 import {
@@ -832,6 +834,39 @@ function ThoughtCard({ thought, copied, onCopy, onEdit, resolveAttachment }: Tho
   const plainText = useMemo(() => documentToText(doc), [doc]);
   const collapsedMaxH = COLLAPSED_MAX_H_TIMELINE;
 
+  // #thought-manual-tags: 手动标签编辑状态（参照 Insights/Review 模式）
+  const [addingTagToThought, setAddingTagToThought] = useState(false);
+  const [newTagInput, setNewTagInput] = useState('');
+  const refreshAliases = useTagsStore((s) => s.refreshAliases);
+  useEffect(() => { refreshAliases(); }, [refreshAliases]);
+
+  const addTagToThought = async (thoughtId: string) => {
+    const trimmed = newTagInput.trim();
+    if (!trimmed) { setAddingTagToThought(false); return; }
+    const { aliases, createTag } = useTagsStore.getState();
+    const normalized = normalizeTagPath(trimmed);
+    const resolved = resolveAlias(normalized, aliases);
+    const cur = await db.thoughts.get(thoughtId);
+    if (cur) {
+      const currentTags = cur.tags || [];
+      if (!currentTags.includes(resolved)) {
+        await db.thoughts.update(thoughtId, { tags: [...currentTags, resolved] });
+      }
+    }
+    await createTag(resolved);
+    setNewTagInput('');
+    setAddingTagToThought(false);
+  };
+
+  const removeTagFromThought = async (thoughtId: string, tagPath: string) => {
+    const cur = await db.thoughts.get(thoughtId);
+    if (cur && cur.tags) {
+      await db.thoughts.update(thoughtId, {
+        tags: cur.tags.filter((tg) => tg !== tagPath),
+      });
+    }
+  };
+
   const [expanded, setExpanded] = useState(false);
   const [isOverflowing, setIsOverflowing] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -977,19 +1012,6 @@ function ThoughtCard({ thought, copied, onCopy, onEdit, resolveAttachment }: Tho
         </button>
       )}
 
-      {/* 标签 */}
-      {tags.length > 0 && (
-        <div className="flex items-center gap-1 flex-wrap mt-2">
-          {tags.map((tag) => (
-            <TagChip
-              key={tag}
-              path={tag}
-              testId={`thought-tag-${tag}`}
-            />
-          ))}
-        </div>
-      )}
-
       {/* 卡片底栏：时间 + 复制 */}
       <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-black/[0.04]">
         <span className="text-[10.5px] text-stone-400 font-mono flex items-center gap-1">
@@ -1010,6 +1032,61 @@ function ThoughtCard({ thought, copied, onCopy, onEdit, resolveAttachment }: Tho
           {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
           {copied ? t('thoughts.copied') : t('thoughts.copy')}
         </button>
+      </div>
+
+      {/* #thought-manual-tags: 标签行（与 Insights / Review 同一行：chip + 「+ 添加标签」同框），
+          放在底栏下方，对齐「下面独立一行」的位置。空标签显示「+ 添加标签」文字态，有标签
+          时收成 + 图标。阻断 touchstart/mousedown 冒泡避免触发卡片根的 500ms 长按进入编辑。 */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        className="pl-0 pr-3.5 py-1.5 border-t border-black/[0.02] bg-stone-50/30 flex items-center gap-1 flex-wrap min-h-[28px]"
+      >
+        {tags.map((tag) => (
+          <TagChip
+            key={tag}
+            path={tag}
+            testId={`thought-tag-${tag}`}
+            removable
+            onRemove={() => removeTagFromThought(thought.id, tag)}
+          />
+        ))}
+        {addingTagToThought ? (
+          <input
+            type="text"
+            value={newTagInput}
+            onChange={(e) => setNewTagInput(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.stopPropagation(); addTagToThought(thought.id); }
+              if (e.key === 'Escape') { setAddingTagToThought(false); setNewTagInput(''); }
+            }}
+            onBlur={() => addTagToThought(thought.id)}
+            placeholder={t('thoughts.tagPlaceholder')}
+            className="bg-white border border-stone-200 rounded-full px-2 py-0.5 text-[10.5px] outline-none focus:border-baimiao-mysteria/40 w-24 select-text"
+            autoFocus
+          />
+        ) : tags.length === 0 ? (
+          <button
+            onClick={(e) => { e.stopPropagation(); setAddingTagToThought(true); setNewTagInput(''); }}
+            data-testid="thought-tag-add-btn"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-200/50 transition-colors text-[10.5px]"
+          >
+            <Plus className="w-3 h-3" />
+            <span>{t('thoughts.addTag')}</span>
+          </button>
+        ) : (
+          <button
+            onClick={(e) => { e.stopPropagation(); setAddingTagToThought(true); setNewTagInput(''); }}
+            data-testid="thought-tag-add-btn"
+            className="inline-flex items-center justify-center w-5 h-5 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-200/50 transition-colors"
+          >
+            <Plus className="w-3 h-3" />
+          </button>
+        )}
       </div>
     </div>
   );
