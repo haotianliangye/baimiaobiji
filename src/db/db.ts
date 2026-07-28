@@ -575,6 +575,12 @@ export class WhitewashDiaryDB extends dexie {
         }
       }
     });
+    // Version 19: 洞察自动生成（周/月报）复合索引。
+    // - insights 新增 [range_type+start_date+end_date] 复合索引，用于「该周期是否已生成」的去重判定。
+    // - 升级无需迁旧数据：纯索引新增，Dexie 自动重建；旧 insights 行不受影响。
+    this.version(19).stores({
+      insights: 'id, range_type, created_at, [range_type+start_date+end_date]',
+    });
   }
 }
 

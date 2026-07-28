@@ -352,6 +352,13 @@ interface SettingsState {
   diaryReviewSummaryPrompt: string;
   mingwuInsightSummaryPrompt: string;
 
+  // #C1 v0.6.0 洞察自动生成开关（默认关闭，避免一开应用就烧 token）
+  insightAutoGenWeeklyEnabled: boolean;   // 每周一凌晨 00:01 自动生成上周的洞察
+  insightAutoGenMonthlyEnabled: boolean;  // 每月 1 号凌晨 00:01 自动生成上个月的洞察
+  // #C1 上次自动生成完成时间戳（节流用，0 = 从未跑过）
+  lastInsightWeeklyRun: number;           // ms
+  lastInsightMonthlyRun: number;          // ms
+
   // 云同步配置
   syncEnabled: boolean;
   syncProvider: 'webdav' | 'onedrive' | 'gdrive' | 'dropbox';
@@ -454,6 +461,12 @@ export const useSettingsStore = create<SettingsState>()(
       // #008: 合并后的摘要 Prompt
       diaryReviewSummaryPrompt: DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT,
       mingwuInsightSummaryPrompt: DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT,
+
+      // #C1 v0.6.0 洞察自动生成默认值（默认关闭，避免一开应用就烧 token）
+      insightAutoGenWeeklyEnabled: false,
+      insightAutoGenMonthlyEnabled: false,
+      lastInsightWeeklyRun: 0,
+      lastInsightMonthlyRun: 0,
 
       // 云同步配置默认值
       syncEnabled: false,
@@ -845,7 +858,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
         name: 'whitewash-settings',
-        version: 12,
+        version: 13,
         partialize: (state) => {
           const { syncPassword, syncPasswordE2EE, ...rest } = state;
           if (state.syncRememberCredentials) {
@@ -1476,6 +1489,22 @@ export const useSettingsStore = create<SettingsState>()(
             }
             if (!persistedState.ttsConfigs || typeof persistedState.ttsConfigs !== 'object') {
               persistedState.ttsConfigs = {};
+            }
+          }
+
+         if (version < 13) {
+            // #C1 v0.6.0 洞察自动生成开关 + 上次运行时间戳（节流用）
+            if (persistedState.insightAutoGenWeeklyEnabled === undefined) {
+              persistedState.insightAutoGenWeeklyEnabled = false;
+            }
+            if (persistedState.insightAutoGenMonthlyEnabled === undefined) {
+              persistedState.insightAutoGenMonthlyEnabled = false;
+            }
+            if (persistedState.lastInsightWeeklyRun === undefined) {
+              persistedState.lastInsightWeeklyRun = 0;
+            }
+            if (persistedState.lastInsightMonthlyRun === undefined) {
+              persistedState.lastInsightMonthlyRun = 0;
             }
           }
 
