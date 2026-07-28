@@ -426,7 +426,7 @@ export default function Layout() {
                   <Menu className="w-[18px] h-[18px]" />
                 </button>
               )}
-              <h1 className="text-[16px] font-normal font-serif tracking-widest select-none truncate">
+              <h1 className="text-[16px] font-semibold font-serif tracking-widest select-none truncate">
                 {isRandomWalkMode ? t('randomWalk.title') : t(headerTitleKey)}
               </h1>
               {isRandomWalkMode ? null : (
