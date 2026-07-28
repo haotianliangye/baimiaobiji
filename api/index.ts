@@ -1217,7 +1217,10 @@ ${contextContent || '（本次未检索到相关片段）'}
 
       if (provider === 'gemini') {
         const ai = buildGeminiClient(apiKey, baseUrl);
-        const finalModel = model || 'gemini-2.5-flash-preview-tts';
+        // 默认走 3.1 flash tts preview：官方支持流式 TTS。
+        // 用户若手动切回 2.5 flash preview，TTS 将整段返回（不支持流式），
+        // 首字延迟会回到数十秒～数分钟级别——这是上游 model 行为，与本服务无关。
+        const finalModel = model || 'gemini-3.1-flash-tts-preview';
         const genConfig: any = { responseModalities: ['AUDIO'] };
         if (voice) {
           genConfig.speechConfig = {
@@ -1354,44 +1357,80 @@ ${contextContent || '（本次未检索到相关片段）'}
 
       try {
         if (provider === 'gemini') {
-          // #010: Gemini 流式完全沿用 v0.5.1 原状：不加新字段、不改 dispatch 结构，
-          // 避免任何潜在回归。如果 "Gemini 等 2 分钟" 是上游 model gemini-2.5-flash-preview-tts
-          // 在流式下整段返回导致，那是 Gemini 服务端行为，与本改动无关；
-          // 用户若要立刻出声，切到 minimax / 火山引擎 走下方新流式路径。
-          const ai = buildGeminiClient(apiKey, baseUrl);
-          const finalModel = model || 'gemini-2.5-flash-preview-tts';
-          const genConfig: any = { responseModalities: ['AUDIO'] };
-          if (voice) {
-            genConfig.speechConfig = {
-              voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } }
-            };
-          }
+          // #011: Gemini 流式改用 Interactions API（POST {baseUrl}/v1beta/interactions）。
+          // 原因：3.1+ 起 TTS 流式只走 Interactions API，老的 generateContentStream 仍可调用但
+          // 服务端把整段音频当一次响应返回（不增量），导致首字延迟数十秒～数分钟。
+          // Interactions API 走 POST + header(Api-Revision) + body{stream:true}，响应是 SSE，
+          // 事件格式 { event_type: 'step.delta', delta: { type: 'audio', data: '<base64 PCM>' } }。
+          // 注意：上游 SSE EOF 即视为 end；不主动发 interaction.complete 事件。
+          const finalModel = model || 'gemini-3.1-flash-tts-preview';
+          const apiBase = (baseUrl || 'https://generativelanguage.googleapis.com').replace(/\/$/, '');
+          const url = `${apiBase}/v1beta/interactions`;
+
           // 先告知前端 PCM 格式（Gemini TTS 固定 24kHz / 16bit / mono）
           writeEvent({ event: 'config', sampleRate: 24000, channels: 1, bitsPerSample: 16 });
 
-          const stream = await ai.models.generateContentStream({
-            model: finalModel,
-            contents: [{ parts: [{ text }] }],
-            config: genConfig,
+          // 用户断连时主动 abort 上游请求，避免资源泄漏
+          const upstreamController = new AbortController();
+          req.on('close', () => {
+            if (!upstreamController.signal.aborted) upstreamController.abort();
           });
 
+          const t1 = Date.now();
+          const upstream = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': apiKey,
+              'Api-Revision': '2026-05-20',
+            },
+            body: JSON.stringify({
+              model: finalModel,
+              input: text,
+              response_format: { type: 'audio' },
+              generation_config: { speech_config: [{ voice: voice || 'Kore' }] },
+              stream: true,
+            }),
+            signal: upstreamController.signal,
+          });
+          if (!upstream.ok || !upstream.body) {
+            const errBody = await upstream.text().catch(() => '');
+            throw new Error(`Gemini Interactions API HTTP ${upstream.status}${errBody ? `: ${errBody.slice(0, 200)}` : ''}`);
+          }
+
+          const reader = upstream.body.getReader();
+          const decoder = new TextDecoder('utf-8');
+          let buffer = '';
           let chunkCount = 0;
           let totalBytes = 0;
-          const t1 = Date.now();
-          for await (const chunk of stream as any) {
-            const parts = chunk?.candidates?.[0]?.content?.parts || [];
-            for (const p of parts) {
-              if (p?.inlineData?.data) {
-                chunkCount++;
-                totalBytes += p.inlineData.data.length;
-                writeEvent({ event: 'audio', data: p.inlineData.data });
+          while (true) {
+            const { value, done: readerDone } = await reader.read();
+            if (readerDone) break;
+            buffer += decoder.decode(value, { stream: true });
+            let idx;
+            while ((idx = buffer.indexOf('\n\n')) !== -1) {
+              const rawEvent = buffer.slice(0, idx);
+              buffer = buffer.slice(idx + 2);
+              const dataLine = rawEvent.split('\n').find((l) => l.startsWith('data:'));
+              if (!dataLine) continue;
+              const data = dataLine.slice(5).trimStart();
+              if (!data || data === '[DONE]') continue;
+              try {
+                const obj: any = JSON.parse(data);
+                if (obj.event_type === 'step.delta' && obj.delta?.type === 'audio' && obj.delta?.data) {
+                  chunkCount++;
+                  totalBytes += obj.delta.data.length;
+                  writeEvent({ event: 'audio', format: 'pcm', data: obj.delta.data });
+                }
+              } catch {
+                /* 跳过无法解析的事件 */
               }
             }
           }
           const t2 = Date.now();
-          writeEvent({ event: 'end', stats: { chunks: chunkCount, totalBase64Chars: totalBytes, upstreamMs: t2 - t1, totalMs: t2 - t0 } });
+          writeEvent({ event: 'end', stats: { chunks: chunkCount, totalBase64Chars: totalBytes, upstreamMs: t2 - t1, totalMs: t2 - t0, provider, model: finalModel, api: 'interactions' } });
           res.end();
-          console.log(`[TTS stream gemini] text=${text.length}ch model=${finalModel} | upstream=${t2 - t1}ms total=${t2 - t0}ms | chunks=${chunkCount} base64Chars=${totalBytes}`);
+          console.log(`[TTS stream gemini interactions] text=${text.length}ch model=${finalModel} | upstream=${t2 - t1}ms total=${t2 - t0}ms | chunks=${chunkCount} base64Chars=${totalBytes}`);
           return;
         }
 

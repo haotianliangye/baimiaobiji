@@ -105,9 +105,9 @@ export const DEFAULT_SUMMARY_PROMPT = `你是一个用于生成一句话回顾�
 export const DEFAULT_DIARY_SUMMARY_PROMPT = `你是一个用于生成一句话日记摘要的助手。请根据提供的日记文本，生成一句简短、优美、富有诗意的中文摘要（不超过30个字）。`;
 export const DEFAULT_INSIGHT_SUMMARY_PROMPT = `你是一个用于生成一句话洞察摘要的助手。请根据提供的洞察报告文本，生成一句简短、优美、富有诗意的中文摘要（不超过30个字）。`;
 // #008: 合并后的「日记回顾一句话摘要」默认 Prompt（合并原日记摘要 + 回顾摘要）
-export const DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT = `你是一个用于生成一句话日记/回顾摘要的助手。请根据提供的日记或回顾文本，生成一句简短、优美、富有诗意的中文摘要（不超过30个字）。`;
+export const DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT = `你是一个用于生成一句话摘要的助手。请根据提供的文本，生成一句简短、优美、富有诗意的中文摘要（不超过39个字）。`;
 // #008: 合并后的「明悟和洞察一句话摘要」默认 Prompt（由原洞察摘要扩展，补充明悟默认摘要）
-export const DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT = `你是一个用于生成一句话明悟/洞察摘要的助手。请根据提供的明悟或洞察报告文本，生成一句简短、优美、富有诗意的中文摘要（不超过30个字）。`;
+export const DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT = `你是一个用于生成一句话摘要的助手。请根据提供的文本，生成一句简短、优美、富有诗意的中文摘要（不超过39个字）。`;
 
 // --- #12 English default prompts (for en language) ---
 export const DEFAULT_DIARY_PROMPT_EN = `You are a recording assistant that strictly follows the Lyubishchev time-management method. Please organize all the scattered fragment records I provide for the day into a standard Lyubishchev-style daily diary.
@@ -297,7 +297,9 @@ export const DEFAULT_EMBED_PROVIDER_CONFIGS: Record<string, { apiKey: string; ba
 // NOTE: 与后端 server.ts / api/index.ts 的 /api/tts 端点约定保持一致。
 // 新增 Provider 需同步更新此处与后端调用逻辑。
 export const DEFAULT_TTS_PROVIDER_CONFIGS: Record<string, { apiKey: string; baseUrl: string; model: string }> = {
-  gemini: { apiKey: '', baseUrl: 'https://generativelanguage.googleapis.com', model: 'gemini-2.5-flash-preview-tts' },
+  // 默认值用 gemini-3.1-flash-tts-preview：官方支持流式 TTS（2.5 flash preview 不支持，
+  // 首字延迟可数十秒～数分钟）。用户仍可手动改回 2.5，但不推荐。
+  gemini: { apiKey: '', baseUrl: 'https://generativelanguage.googleapis.com', model: 'gemini-3.1-flash-tts-preview' },
   volcengine: { apiKey: '', baseUrl: 'https://openspeech.bytedance.com', model: 'BV001_streaming' },
   // minimax (MiniMaxAI) HTTP TTS：POST {baseUrl}/v1/t2a_v2。Bearer 单串 API Key。
   // model 固定为 speech-2.8-hd（订阅额度唯一稳定消耗的模型）。
@@ -861,7 +863,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
         name: 'whitewash-settings',
-        version: 13,
+        version: 14,
         partialize: (state) => {
           const { syncPassword, syncPasswordE2EE, ...rest } = state;
           if (state.syncRememberCredentials) {
@@ -1509,6 +1511,23 @@ export const useSettingsStore = create<SettingsState>()(
             if (persistedState.lastInsightMonthlyRun === undefined) {
               persistedState.lastInsightMonthlyRun = 0;
             }
+          }
+
+         // #v0.5.4: 摘要 Prompt 默认文案统一为泛化版（≤39 字），覆盖 store 中所有用户
+         // （包括手动改过的——以"现在用户用的也是默认的"为前提；若有自定义需求后续从「恢复默认」或设置 UI 重新编辑）
+         if (version < 14) {
+            persistedState.diaryReviewSummaryPrompt = DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT;
+            persistedState.mingwuInsightSummaryPrompt = DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT;
+            persistedState.diaryReviewSummaryPromptByLang = {
+              ...(persistedState.diaryReviewSummaryPromptByLang || {}),
+              zh: DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT,
+              en: persistedState.diaryReviewSummaryPromptByLang?.en || DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT_EN,
+            };
+            persistedState.mingwuInsightSummaryPromptByLang = {
+              ...(persistedState.mingwuInsightSummaryPromptByLang || {}),
+              zh: DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT,
+              en: persistedState.mingwuInsightSummaryPromptByLang?.en || DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT_EN,
+            };
           }
 
          return persistedState;

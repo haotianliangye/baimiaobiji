@@ -542,7 +542,7 @@ function ErrorInspector() {
         <button
           onClick={handleExport}
           disabled={count === 0 || isExporting}
-          className="flex items-center gap-1 px-3 py-1.5 text-[11px] bg-stone-900 text-white rounded-lg hover:bg-black disabled:opacity-30 disabled:cursor-not-allowed"
+          className="flex items-center gap-1 px-3 py-1.5 text-[11px] bg-baimiao-mysteria/10 text-baimiao-mysteria hover:bg-baimiao-mysteria/15 border border-baimiao-mysteria/15 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
           <Download className="w-3 h-3" />
           导出 JSON
@@ -662,7 +662,7 @@ function AutoBackupSection() {
       <button
         onClick={handleBackupNow}
         disabled={isCreating}
-        className="w-full flex items-center justify-center gap-2 bg-stone-900 text-white py-2.5 rounded-xl text-[13px] font-medium hover:bg-black transition-colors disabled:opacity-30 disabled:cursor-not-allowed active:scale-[0.98]"
+        className="w-full flex items-center justify-center gap-2 bg-baimiao-mysteria/10 text-baimiao-mysteria hover:bg-baimiao-mysteria/15 border border-baimiao-mysteria/15 py-2.5 rounded-xl text-[13px] font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed active:scale-[0.98]"
       >
         {isCreating ? (
           <>
@@ -1633,10 +1633,10 @@ export default function Settings() {
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12.5px] font-medium transition-all whitespace-nowrap shrink-0 ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12.5px] font-medium transition-all whitespace-nowrap shrink-0 border ${
               activeTab === item.id
-                ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-sm font-semibold'
-                : 'text-stone-500 hover:text-stone-800 hover:bg-stone-100/60'
+                ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria border-baimiao-mysteria/40 font-semibold'
+                : 'text-stone-500 hover:text-stone-800 hover:bg-stone-100/60 border-transparent'
             }`}
           >
             {item.icon}
@@ -1829,10 +1829,10 @@ export default function Settings() {
                          onClick={() => {
                            setSettings({ provider: p.id as any });
                          }}
-                         className={`flex items-center justify-center py-1.5 px-1 rounded-lg text-[12px] font-medium transition-all ${
-                           provider === p.id 
-                             ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-md' 
-                             : 'text-stone-500 hover:bg-baimiao-mysteria/5 hover:text-baimiao-mysteria transition-all'
+                         className={`flex items-center justify-center py-1.5 px-1 rounded-lg text-[12px] font-medium transition-all border ${
+                           provider === p.id
+                             ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria border-baimiao-mysteria/40 shadow-sm'
+                             : 'text-stone-500 hover:bg-baimiao-mysteria/5 hover:text-baimiao-mysteria border-transparent transition-all'
                          }`}
                        >
                          {p.label}
@@ -2021,10 +2021,10 @@ export default function Settings() {
                       type="button"
                       data-testid="tts-service-webspeech"
                       onClick={() => setSettings({ ttsService: 'webspeech' })}
-                      className={`flex-1 flex justify-center py-1.5 text-[11.5px] font-medium rounded-md transition-all ${
+                      className={`flex-1 flex justify-center py-1.5 text-[11.5px] font-medium rounded-md transition-all border ${
                         ttsService === 'webspeech'
-                          ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-sm'
-                          : 'text-stone-500 hover:bg-white/50 hover:text-baimiao-mysteria'
+                          ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria border-baimiao-mysteria/40 shadow-sm'
+                          : 'text-stone-500 hover:bg-white/50 hover:text-baimiao-mysteria border-transparent'
                       }`}
                     >
                       {t('settings.ttsWebspeech')}
@@ -2033,10 +2033,10 @@ export default function Settings() {
                       type="button"
                       data-testid="tts-service-external"
                       onClick={() => setSettings({ ttsService: 'external' })}
-                      className={`flex-1 flex justify-center py-1.5 text-[11.5px] font-medium rounded-md transition-all ${
+                      className={`flex-1 flex justify-center py-1.5 text-[11.5px] font-medium rounded-md transition-all border ${
                         ttsService === 'external'
-                          ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-sm'
-                          : 'text-stone-500 hover:bg-white/50 hover:text-baimiao-mysteria'
+                          ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria border-baimiao-mysteria/40 shadow-sm'
+                          : 'text-stone-500 hover:bg-white/50 hover:text-baimiao-mysteria border-transparent'
                       }`}
                     >
                       {t('settings.ttsExternal')}
@@ -2068,10 +2068,10 @@ export default function Settings() {
                             type="button"
                             data-testid={`tts-provider-${p.id}`}
                             onClick={() => setSettings({ ttsProvider: p.id as 'gemini' | 'volcengine' | 'minimax' })}
-                            className={`flex items-center justify-center py-1.5 text-[11.5px] font-medium rounded-md transition-all ${
+                            className={`flex items-center justify-center py-1.5 text-[11.5px] font-medium rounded-md transition-all border ${
                               ttsProvider === p.id
-                                ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-sm'
-                                : 'text-stone-500 hover:bg-white/50 hover:text-baimiao-mysteria'
+                                ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria border-baimiao-mysteria/40 shadow-sm'
+                                : 'text-stone-500 hover:bg-white/50 hover:text-baimiao-mysteria border-transparent'
                             }`}
                           >
                             {p.label}
@@ -2274,10 +2274,10 @@ export default function Settings() {
                             onClick={() => {
                               setSettings({ embedProvider: p.id as any });
                             }}
-                            className={`flex items-center justify-center py-1 px-0.5 rounded-md text-[11px] font-medium transition-all ${
-                              embedProvider === p.id 
-                                ? 'bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white shadow-sm' 
-                                : 'text-stone-500 hover:bg-white/50 hover:text-baimiao-mysteria'
+                            className={`flex items-center justify-center py-1 px-0.5 rounded-md text-[11px] font-medium transition-all border ${
+                              embedProvider === p.id
+                                ? 'bg-baimiao-mysteria/10 text-baimiao-mysteria border-baimiao-mysteria/40 shadow-sm'
+                                : 'text-stone-500 hover:bg-white/50 hover:text-baimiao-mysteria border-transparent'
                             }`}
                           >
                             {p.label}
@@ -2834,7 +2834,7 @@ export default function Settings() {
                       <button
                         onClick={handlePersist}
                         disabled={isPersisting}
-                        className="w-full py-2.5 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] hover:brightness-110 text-white transition-all rounded-xl text-[13px] font-medium active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-sm"
+                        className="w-full py-2.5 bg-baimiao-mysteria/10 text-baimiao-mysteria hover:bg-baimiao-mysteria/15 border border-baimiao-mysteria/15 transition-all rounded-xl text-[13px] font-medium active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-sm"
                       >
                         {isPersisting ? (
                           <>
@@ -2920,7 +2920,7 @@ export default function Settings() {
                             <button
                               type="button"
                               onClick={() => handleOAuthAuthorize(localSyncProvider)}
-                              className="w-full bg-stone-900 text-white hover:bg-black transition-colors py-2 rounded-lg text-[12px] font-medium active:scale-[0.99] flex items-center justify-center gap-1"
+                              className="w-full bg-baimiao-mysteria/10 text-baimiao-mysteria hover:bg-baimiao-mysteria/15 border border-baimiao-mysteria/15 transition-colors py-2 rounded-lg text-[12px] font-medium active:scale-[0.99] flex items-center justify-center gap-1"
                             >
                               {t('settings.oauthConnect')}
                             </button>
@@ -3120,7 +3120,7 @@ export default function Settings() {
                             (localSyncProvider === 'dropbox' && settingsStore.syncDropboxToken && localSyncPasswordE2EE)
                           )
                         }
-                        className="w-full mt-1 bg-stone-900 text-white hover:bg-black transition-colors rounded-xl text-[12.5px] font-medium active:scale-[0.98] disabled:opacity-30 disabled:bg-stone-300 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 py-2.5"
+                        className="w-full mt-1 bg-baimiao-mysteria/10 text-baimiao-mysteria hover:bg-baimiao-mysteria/15 border border-baimiao-mysteria/15 transition-colors rounded-xl text-[12.5px] font-medium active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 py-2.5"
                       >
                         {syncStatus === 'syncing' ? (
                           <>
@@ -3533,7 +3533,7 @@ export default function Settings() {
                     data-testid="import-btn"
                     onClick={handleUnifiedImport}
                     disabled={!unifiedImportFile || isUnifiedImporting}
-                    className="w-full flex items-center justify-center gap-2 bg-stone-900 text-white py-2.5 rounded-xl text-[13px] font-medium hover:bg-black transition-colors disabled:opacity-30 disabled:bg-stone-300 disabled:cursor-not-allowed active:scale-[0.98]"
+                    className="w-full flex items-center justify-center gap-2 bg-baimiao-mysteria/10 text-baimiao-mysteria hover:bg-baimiao-mysteria/15 border border-baimiao-mysteria/15 py-2.5 rounded-xl text-[13px] font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed active:scale-[0.98]"
                   >
                     {isUnifiedImporting ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -3638,7 +3638,7 @@ export default function Settings() {
                     data-testid="conversation-import-btn"
                     onClick={handleConvImport}
                     disabled={!convImportFile || isConvImporting}
-                    className="w-full flex items-center justify-center gap-2 bg-stone-900 text-white py-2 rounded-lg text-[12px] font-medium hover:bg-black transition-colors disabled:opacity-30 disabled:bg-stone-300 active:scale-[0.98]"
+                    className="w-full flex items-center justify-center gap-2 bg-baimiao-mysteria/10 text-baimiao-mysteria hover:bg-baimiao-mysteria/15 border border-baimiao-mysteria/15 py-2 rounded-lg text-[12px] font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed active:scale-[0.98]"
                   >
                     {isConvImporting ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -3701,7 +3701,7 @@ export default function Settings() {
                 <button
                   onClick={handleForceUpdate}
                   disabled={isUpdating}
-                  className={`w-full py-2.5 bg-gradient-to-r from-baimiao-mysteria to-[#2c2957] text-white hover:brightness-110 transition-all rounded-xl text-[13px] font-medium tracking-wide shadow-sm flex items-center justify-center gap-1.5 ${
+                  className={`w-full py-2.5 bg-baimiao-mysteria/10 text-baimiao-mysteria hover:bg-baimiao-mysteria/15 border border-baimiao-mysteria/15 transition-all rounded-xl text-[13px] font-medium tracking-wide shadow-sm flex items-center justify-center gap-1.5 ${
                     isUpdating ? 'opacity-80 cursor-wait' : ''
                   }`}
                 >
