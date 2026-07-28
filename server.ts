@@ -473,138 +473,152 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
     }
   });
 
-  // #8 洞察生成端点：一次调用同时产出「明悟」与「洞察」两类报告。
-  // 数据源 = raw_logs + thoughts；按 settings.submitMultimedia 决定是否提交多媒体摘要。
-  // 返回 mingwu_report/mingwu_summary + insight_report/insight_summary。
+  // #8 洞察生成端点：5 槽多选 prompt 循环生成。
+  // 旧 schema（不含 settings.prompts[]）保留「明悟 + 洞察」双报告向后兼容路径；
+  // 新 schema（含 settings.prompts[]）按数组循环生成，每个 prompt 跑 1 个 report + 1 个 summary。
+  // 数据源 = raw_logs + thoughts；按 settings.submitMultimedia 决定是否提交多媒体摘要（由客户端在 buildMingwuPayload 中按 log 维度附加 attachment_summary）。
+
+  // 组装单个 prompt 的上下文（logs + thoughts + 时间范围），末尾可追加一句 Markdown 输出风格指令（仅 legacy 双报告路径使用）。
+  function buildInsightContext(
+    promptContent: string,
+    timeRangeLabel: string,
+    logsSection: string,
+    thoughtsSection: string,
+    logsCount: number,
+    thoughtsCount: number,
+    trailingInstruction?: string,
+  ): string {
+    const base = `${promptContent}
+
+Context:
+- Analysis Time Range: ${timeRangeLabel}
+- Logs count: ${logsCount}
+- Thoughts count: ${thoughtsCount}
+
+Raw Logs:
+${logsSection || '（无拾微记录）'}
+
+Thoughts (沉淀):
+${thoughtsSection || '（无沉淀笔记）'}
+`;
+    return trailingInstruction ? `${base}\n${trailingInstruction}` : base;
+  }
+
+  // 单次 LLM 调用：Gemini 直连 vs. OpenAI-compatible 协议（sendLLMRequest）
+  async function runInsightOne(
+    provider: string,
+    apiKey: string,
+    baseUrl: string | undefined,
+    model: string | undefined,
+    ctx: string,
+  ): Promise<string> {
+    if (provider === 'gemini') {
+      if (!apiKey) {
+        throw new Error('请在设置页面中配置你的 Gemini API Key');
+      }
+      const ai = buildGeminiClient(apiKey, baseUrl);
+      const finalModel = model || 'gemini-3.1-flash-lite';
+      const response = await ai.models.generateContent({
+        model: finalModel,
+        contents: ctx,
+      });
+      return response.text || "";
+    }
+    return await sendLLMRequest(
+      provider, baseUrl, apiKey, model,
+      "You output well-formatted Markdown text.",
+      [{ role: "user", content: ctx }],
+    );
+  }
+
+  // 单次摘要 LLM 调用；report 为空时直接返回空串，错误不抛出（避免影响主报告）
+  async function runInsightSummary(
+    provider: string,
+    apiKey: string,
+    baseUrl: string | undefined,
+    model: string | undefined,
+    report: string,
+    summaryPromptStr: string,
+  ): Promise<string> {
+    if (!report) return "";
+    try {
+      if (provider === 'gemini') {
+        if (!apiKey) return "";
+        const ai = buildGeminiClient(apiKey, baseUrl);
+        const finalModel = model || 'gemini-3.1-flash-lite';
+        const response = await ai.models.generateContent({
+          model: finalModel,
+          contents: `${summaryPromptStr}\n\nReport:\n${report}`,
+        });
+        return response.text || "";
+      }
+      return await sendLLMRequest(
+        provider, baseUrl, apiKey, model,
+        summaryPromptStr,
+        [{ role: "user", content: `Report:\n${report}` }],
+        1024,
+      );
+    } catch (err) {
+      console.error("Failed to generate insight summary:", err);
+      return "";
+    }
+  }
   app.post('/api/generate-insight', async (req, res) => {
     try {
       const { logs, thoughts, timeRangeLabel, settings } = req.body;
-      const { provider = 'gemini', apiKey, baseUrl, model, mingwuPrompt, insightPrompt, insightSummaryPrompt } = settings || {};
-
-      const defaultMingwuPrompt = `你是一位兼具东方哲学智慧与现代心理学素养的「明悟」导师。请审视用户一段时间内的记录与沉淀，超越表层行为与情绪，直抵生命深层脉络，产出一份通透、克制、富有启悟力量的明悟报告。`;
-      const defaultInsightPrompt = `You are a productivity and life coach assistant. Based on the user's activity logs and diaries, provide deep insights into their routines, highlighting positive trends, areas for potential improvement, and actionable suggestions to enhance well-being and productivity.`;
+      const {
+        provider = 'gemini', apiKey, baseUrl, model,
+        mingwuPrompt, insightPrompt, insightSummaryPrompt,
+        prompts, summaryPrompt,
+      } = settings || {};
 
       const logsSection = (logs || []).map((l: any) => `- [${l.date}] (ID: ${l.id}): ${l.content}${l.attachment_summary ? `\n  [附件摘要] ${l.attachment_summary}` : ''}`).join('\n');
       const thoughtsSection = (thoughts || []).map((t: any) => `- [${t.date}] (ID: ${t.id}): ${t.content}`).join('\n');
+      const logsCount = (logs || []).length;
+      const thoughtsCount = (thoughts || []).length;
 
-      // 明悟上下文
-      const mingwuContext = `${mingwuPrompt || defaultMingwuPrompt}
+      const defaultSummaryPrompt = `你是一个用于生成一句话摘要的助手。请根据提供的文本，生成一句简短、优美、富有诗意的中文摘要（不超过30个字）。`;
+      const summaryPromptStr = summaryPrompt || insightSummaryPrompt || defaultSummaryPrompt;
 
-Context:
-- Analysis Time Range: ${timeRangeLabel}
-- Logs count: ${(logs || []).length}
-- Thoughts count: ${(thoughts || []).length}
-
-Raw Logs:
-${logsSection || '（无拾微记录）'}
-
-Thoughts (沉淀):
-${thoughtsSection || '（无沉淀笔记）'}
-
-请用清晰克制的 Markdown 格式输出你的明悟报告。`;
-
-      // 洞察上下文
-      const insightContext = `${insightPrompt || defaultInsightPrompt}
-
-Context:
-- Analysis Time Range: ${timeRangeLabel}
-- Logs count: ${(logs || []).length}
-- Thoughts count: ${(thoughts || []).length}
-
-Raw Logs:
-${logsSection || '（无拾微记录）'}
-
-Thoughts (沉淀):
-${thoughtsSection || '（无沉淀笔记）'}
-
-Output your insights in a clear, well-structured Markdown format. Group your insights logically (e.g., Summary, Key Trends, Actionable Advice).
-`;
-
-      let mingwuMarkdown = "";
-      let insightMarkdown = "";
-
-      if (provider === 'gemini') {
-        const activeKey = apiKey;
-        if (!activeKey) {
-          return res.status(500).json({ error: '请在设置页面中配置你的 Gemini API Key' });
-        }
-        const ai = buildGeminiClient(activeKey, baseUrl);
-        const finalModel = model || 'gemini-3.1-flash-lite';
-
-        const mingwuResponse = await ai.models.generateContent({
-          model: finalModel,
-          contents: mingwuContext,
-        });
-        mingwuMarkdown = mingwuResponse.text || "";
-
-        const insightResponse = await ai.models.generateContent({
-          model: finalModel,
-          contents: insightContext,
-        });
-        insightMarkdown = insightResponse.text || "";
-      } else {
-        mingwuMarkdown = await sendLLMRequest(
-          provider, baseUrl, apiKey, model,
-          "You output well-formatted Markdown text.",
-          [{ role: "user", content: mingwuContext }]
-        );
-        insightMarkdown = await sendLLMRequest(
-          provider, baseUrl, apiKey, model,
-          "You output well-formatted Markdown text.",
-          [{ role: "user", content: insightContext }]
-        );
-      }
-
-      // 生成两份摘要
-      const summaryPromptStr = insightSummaryPrompt || `你是一个用于生成一句话摘要的助手。请根据提供的文本，生成一句简短、优美、富有诗意的中文摘要（不超过30个字）。`;
-      let mingwuSummary = "";
-      let insightSummary = "";
-
-      if (mingwuMarkdown) {
-        try {
-          if (provider === 'gemini') {
-            const ai = buildGeminiClient(apiKey, baseUrl);
-            const finalModel = model || 'gemini-3.1-flash-lite';
-            const summaryResponse = await ai.models.generateContent({
-              model: finalModel,
-              contents: `${summaryPromptStr}\n\nReport:\n${mingwuMarkdown}`,
-            });
-            mingwuSummary = summaryResponse.text || "";
-          } else {
-            mingwuSummary = await sendLLMRequest(
-              provider, baseUrl, apiKey, model,
-              summaryPromptStr,
-              [{ role: "user", content: `Report:\n${mingwuMarkdown}` }],
-              1024
-            );
+      // === New schema: settings.prompts[] 循环生成 ===
+      if (Array.isArray(prompts) && prompts.length > 0) {
+        const results: Array<{ index: number; name: string; report: string; summary: string }> = [];
+        for (let i = 0; i < prompts.length; i++) {
+          const p = prompts[i];
+          if (!p.content || p.content.trim().length === 0) {
+            // 空 prompt 跳过 LLM 调用，槽位仍占位（report/summary 为空串），客户端据落库判断
+            results.push({ index: p.index, name: p.name, report: '', summary: '' });
+            continue;
           }
-        } catch (err) {
-          console.error("Failed to generate mingwu summary:", err);
+          const ctx = buildInsightContext(p.content, timeRangeLabel, logsSection, thoughtsSection, logsCount, thoughtsCount);
+          const report = await runInsightOne(provider, apiKey, baseUrl, model, ctx);
+          const summary = await runInsightSummary(provider, apiKey, baseUrl, model, report, summaryPromptStr);
+          results.push({ index: p.index, name: p.name, report, summary });
+          if (i < prompts.length - 1) {
+            // 防触发上游 LLM 限流；值与 src/config/constants.ts:API_RATE_LIMIT_DELAY_MS 保持一致
+            await new Promise(r => setTimeout(r, 3000));
+          }
         }
+        return res.json({ results });
       }
 
-      if (insightMarkdown) {
-        try {
-          if (provider === 'gemini') {
-            const ai = buildGeminiClient(apiKey, baseUrl);
-            const finalModel = model || 'gemini-3.1-flash-lite';
-            const summaryResponse = await ai.models.generateContent({
-              model: finalModel,
-              contents: `${summaryPromptStr}\n\nInsight Report:\n${insightMarkdown}`,
-            });
-            insightSummary = summaryResponse.text || "";
-          } else {
-            insightSummary = await sendLLMRequest(
-              provider, baseUrl, apiKey, model,
-              summaryPromptStr,
-              [{ role: "user", content: `Insight Report:\n${insightMarkdown}` }],
-              1024
-            );
-          }
-        } catch (err) {
-          console.error("Failed to generate insight summary:", err);
-        }
-      }
+      // === Legacy schema: 双报告（明悟 + 洞察）保持向后兼容 ===
+      const defaultMingwuPrompt = `你是一位兼具东方哲学智慧与现代心理学素养的「明悟」导师。请审视用户一段时间内的记录与沉淀，超越表层行为与情绪，直抵生命深层脉络，产出一份通透、克制、富有启悟力量的明悟报告。`;
+      const defaultInsightPrompt = `You are a productivity and life coach assistant. Based on the user's activity logs and diaries, provide deep insights into their routines, highlighting positive trends, areas for potential improvement, and actionable suggestions to enhance well-being and productivity.`;
+
+      const mingwuContext = buildInsightContext(
+        mingwuPrompt || defaultMingwuPrompt, timeRangeLabel, logsSection, thoughtsSection, logsCount, thoughtsCount,
+        '请用清晰克制的 Markdown 格式输出你的明悟报告。',
+      );
+      const insightContext = buildInsightContext(
+        insightPrompt || defaultInsightPrompt, timeRangeLabel, logsSection, thoughtsSection, logsCount, thoughtsCount,
+        'Output your insights in a clear, well-structured Markdown format. Group your insights logically (e.g., Summary, Key Trends, Actionable Advice).',
+      );
+
+      const mingwuMarkdown = await runInsightOne(provider, apiKey, baseUrl, model, mingwuContext);
+      const insightMarkdown = await runInsightOne(provider, apiKey, baseUrl, model, insightContext);
+      const mingwuSummary = await runInsightSummary(provider, apiKey, baseUrl, model, mingwuMarkdown, summaryPromptStr);
+      const insightSummary = await runInsightSummary(provider, apiKey, baseUrl, model, insightMarkdown, summaryPromptStr);
 
       res.json({
         mingwu_report: mingwuMarkdown,
