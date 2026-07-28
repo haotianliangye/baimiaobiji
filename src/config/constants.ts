@@ -190,20 +190,61 @@ export const VOLCENGINE_TTS_VOICES: TtsVoiceOption[] = [
   { id: 'BV216_streaming', label: '长沙靓女', desc: '女声·长沙话', group: '方言', lang: 'zh' },
 ];
 
-// #010: minimax TTS 预置音色。数据来源：minimax T2A v2 / speech-01 文档。
-// [TBD-wait-real-list] 全部 voice_id 占位，待用户提供 minimax 官方 voice 列表后核对替换。
-// 当前占位与 minimax 官方常见 voice_id 形态保持一致；用户使用「自定义…」可手填 id。
+// #010: minimax TTS 预置音色。数据来源：MiniMax 官方 voice_model_config。
+// 与官方 1:1 对应；新增/下架音色时同步更新。
 export const MINIMAX_TTS_VOICES: TtsVoiceOption[] = [
-  { id: 'male-qn-jingying', label: '精英男声', desc: '男声·新闻/知识', group: '通用', lang: 'zh' },
-  { id: 'female-shaonv', label: '少女音', desc: '女声·年轻活泼', group: '通用', lang: 'zh' },
-  { id: 'male-qn-qingse', label: '青涩男声', desc: '男声·年轻温和', group: '通用', lang: 'zh' },
-  { id: 'female-yujie', label: '御姐音', desc: '女声·成熟知性', group: '通用', lang: 'zh' },
-  { id: 'male-qn-badao', label: '霸道男声', desc: '男声·气场强', group: '通用', lang: 'zh' },
-  { id: 'female-chengshu', label: '成熟女声', desc: '女声·沉稳', group: '通用', lang: 'zh' },
-  { id: 'presenter_male', label: '主持人男声', desc: '男声·主持/播报', group: '通用', lang: 'zh' },
-  { id: 'presenter_female', label: '主持人女声', desc: '女声·主持/播报', group: '通用', lang: 'zh' },
-  { id: 'English_PassionateWarrior', label: 'English Passionate Warrior', desc: '男声·美式英语', group: '多语种', lang: 'en' },
-  { id: 'English_Trustworth_Man', label: 'English Trustworthy Man', desc: '男声·美式英语', group: '多语种', lang: 'en' },
+  // 通用 - 青年
+  { id: 'male-qn-qingse', label: '青涩青年', desc: '男声·年轻温和', group: '通用', lang: 'zh' },
+  { id: 'male-qn-jingying', label: '精英青年', desc: '男声·新闻/知识', group: '通用', lang: 'zh' },
+  { id: 'male-qn-badao', label: '霸道青年', desc: '男声·气场强', group: '通用', lang: 'zh' },
+  { id: 'male-qn-daxuesheng', label: '青年大学生', desc: '男声·学生气', group: '通用', lang: 'zh' },
+  { id: 'female-shaonv', label: '少女', desc: '女声·年轻活泼', group: '通用', lang: 'zh' },
+  { id: 'female-yujie', label: '御姐', desc: '女声·成熟知性', group: '通用', lang: 'zh' },
+  { id: 'female-chengshu', label: '成熟女性', desc: '女声·沉稳', group: '通用', lang: 'zh' },
+  { id: 'female-tianmei', label: '甜美女性', desc: '女声·甜美', group: '通用', lang: 'zh' },
+  // 主持人 / 有声书
+  { id: 'presenter_male', label: '男性主持人', desc: '男声·主持/播报', group: '播报', lang: 'zh' },
+  { id: 'presenter_female', label: '女性主持人', desc: '女声·主持/播报', group: '播报', lang: 'zh' },
+  { id: 'audiobook_male_1', label: '男性有声书 1', desc: '男声·沉浸叙述', group: '有声书', lang: 'zh' },
+  { id: 'audiobook_male_2', label: '男性有声书 2', desc: '男声·沉浸叙述', group: '有声书', lang: 'zh' },
+  { id: 'audiobook_female_1', label: '女性有声书 1', desc: '女声·沉浸叙述', group: '有声书', lang: 'zh' },
+  { id: 'audiobook_female_2', label: '女性有声书 2', desc: '女声·沉浸叙述', group: '有声书', lang: 'zh' },
+  // beta
+  { id: 'male-qn-qingse-jingpin', label: '青涩青年-beta', desc: '男声·年轻温和（精品）', group: '精品-beta', lang: 'zh' },
+  { id: 'male-qn-jingying-jingpin', label: '精英青年-beta', desc: '男声·新闻/知识（精品）', group: '精品-beta', lang: 'zh' },
+  { id: 'male-qn-badao-jingpin', label: '霸道青年-beta', desc: '男声·气场强（精品）', group: '精品-beta', lang: 'zh' },
+  { id: 'male-qn-daxuesheng-jingpin', label: '青年大学生-beta', desc: '男声·学生气（精品）', group: '精品-beta', lang: 'zh' },
+  { id: 'female-shaonv-jingpin', label: '少女-beta', desc: '女声·年轻活泼（精品）', group: '精品-beta', lang: 'zh' },
+  { id: 'female-yujie-jingpin', label: '御姐-beta', desc: '女声·成熟知性（精品）', group: '精品-beta', lang: 'zh' },
+  { id: 'female-chengshu-jingpin', label: '成熟女性-beta', desc: '女声·沉稳（精品）', group: '精品-beta', lang: 'zh' },
+  { id: 'female-tianmei-jingpin', label: '甜美女性-beta', desc: '女声·甜美（精品）', group: '精品-beta', lang: 'zh' },
+  // 儿童 / 卡通
+  { id: 'clever_boy', label: '聪明男童', desc: '童声·机灵', group: '儿童', lang: 'zh' },
+  { id: 'cute_boy', label: '可爱男童', desc: '童声·可爱', group: '儿童', lang: 'zh' },
+  { id: 'lovely_girl', label: '萌萌女童', desc: '童声·萌系', group: '儿童', lang: 'zh' },
+  { id: 'cartoon_pig', label: '卡通猪小琪', desc: '童声·卡通', group: '儿童', lang: 'zh' },
+  // 角色
+  { id: 'bingjiao_didi', label: '病娇弟弟', desc: '男声·角色', group: '角色', lang: 'zh' },
+  { id: 'junlang_nanyou', label: '俊朗男友', desc: '男声·角色', group: '角色', lang: 'zh' },
+  { id: 'chunzhen_xuedi', label: '纯真学弟', desc: '男声·角色', group: '角色', lang: 'zh' },
+  { id: 'lengdan_xiongzhang', label: '冷淡学长', desc: '男声·角色', group: '角色', lang: 'zh' },
+  { id: 'badao_shaoye', label: '霸道少爷', desc: '男声·角色', group: '角色', lang: 'zh' },
+  { id: 'tianxin_xiaoling', label: '甜心小玲', desc: '女声·角色', group: '角色', lang: 'zh' },
+  { id: 'qiaopi_mengmei', label: '俏皮萌妹', desc: '女声·角色', group: '角色', lang: 'zh' },
+  { id: 'wumei_yujie', label: '妩媚御姐', desc: '女声·角色', group: '角色', lang: 'zh' },
+  { id: 'diadia_xuemei', label: '嗲嗲学妹', desc: '女声·角色', group: '角色', lang: 'zh' },
+  { id: 'danya_xuejie', label: '淡雅学姐', desc: '女声·角色', group: '角色', lang: 'zh' },
+  // 英语
+  { id: 'Santa_Claus', label: 'Santa Claus', desc: '男声·老年·英语', group: '英语', lang: 'en' },
+  { id: 'Grinch', label: 'Grinch', desc: '男声·成年·英语', group: '英语', lang: 'en' },
+  { id: 'Rudolph', label: 'Rudolph', desc: '男声·青年·英语', group: '英语', lang: 'en' },
+  { id: 'Arnold', label: 'Arnold', desc: '男声·成年·英语', group: '英语', lang: 'en' },
+  { id: 'Charming_Santa', label: 'Charming Santa', desc: '男声·老年·英语', group: '英语', lang: 'en' },
+  { id: 'Charming_Lady', label: 'Charming Lady', desc: '女声·成年·英语', group: '英语', lang: 'en' },
+  { id: 'Sweet_Girl', label: 'Sweet Girl', desc: '女声·青年·英语', group: '英语', lang: 'en' },
+  { id: 'Cute_Elf', label: 'Cute Elf', desc: '女声·青年·英语', group: '英语', lang: 'en' },
+  { id: 'Attractive_Girl', label: 'Attractive Girl', desc: '女声·青年·英语', group: '英语', lang: 'en' },
+  { id: 'Serene_Woman', label: 'Serene Woman', desc: '女声·成年·英语', group: '英语', lang: 'en' },
 ];
 
 /**

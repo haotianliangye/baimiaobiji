@@ -239,6 +239,10 @@ export const zh: TranslationDict = {
   'review.aiFollowup': 'AI 追问',
   'review.generateNow': '立即生成回顾',
   'review.generateNReviews': '生成 {count} 篇',
+  'review.aiOrganizeN': '生成 {count} 篇回顾',
+  'review.timelineEmptyTitle': '时间线暂无回顾',
+  'review.timelineEmptyDesc': '让 AI 为你整理历史',
+  'review.emptyDateTitle': '{date} 暂无回顾',
 
   // --- Thoughts 页 (沉淀) ---
   'thoughts.title': '沉淀',
@@ -388,7 +392,7 @@ export const zh: TranslationDict = {
   'settings.ttsModelLabel': '模型 (Model)',
   'settings.ttsModelHintGemini': '填模型名（如 gemini-2.5-flash-preview-tts）',
   'settings.ttsModelHintVolcengine': '填发音人 ID（如 BV001_streaming）',
-  'settings.ttsModelHintMinimax': '填模型名（如 speech-01-hd；此处同时用作 voice_id）',
+  'settings.ttsModelHintMinimax': '固定为 speech-2.8-hd（订阅额度唯一稳定消耗的模型）',
   'settings.ttsVoiceLabel': '语音 (Voice)',
   'settings.ttsVoicePlaceholder': '点击选择语音',
   'settings.ttsVoiceUnmatched': '当前值「{value}」不在预置列表中，请重新选择',

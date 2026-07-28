@@ -299,9 +299,9 @@ export const DEFAULT_EMBED_PROVIDER_CONFIGS: Record<string, { apiKey: string; ba
 export const DEFAULT_TTS_PROVIDER_CONFIGS: Record<string, { apiKey: string; baseUrl: string; model: string }> = {
   gemini: { apiKey: '', baseUrl: 'https://generativelanguage.googleapis.com', model: 'gemini-2.5-flash-preview-tts' },
   volcengine: { apiKey: '', baseUrl: 'https://openspeech.bytedance.com', model: 'BV001_streaming' },
-  // minimax (MiniMaxAI) HTTP TTS：POST {baseUrl}/v1/text_to_speech。Bearer 单串 API Key。
-  // [TBD-wait-user] model 占位 speech-01-hd；真实推荐 model 由用户提供后替换。
-  minimax: { apiKey: '', baseUrl: 'https://api.MiniMax.chat', model: 'speech-01-hd' },
+  // minimax (MiniMaxAI) HTTP TTS：POST {baseUrl}/v1/t2a_v2。Bearer 单串 API Key。
+  // model 固定为 speech-2.8-hd（订阅额度唯一稳定消耗的模型）。
+  minimax: { apiKey: '', baseUrl: 'https://api.minimax.chat', model: 'speech-2.8-hd' },
 };
 
 // NOTE: base64 *encoding*, NOT encryption. localStorage is readable by any

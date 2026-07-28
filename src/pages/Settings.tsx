@@ -2136,13 +2136,19 @@ export default function Settings() {
                         <Cpu className="w-3.5 h-3.5 text-stone-400" />
                         {t('settings.ttsModelLabel')}
                       </label>
-                      <input
-                        type="text"
-                        value={ttsModel}
-                        onChange={e => setSettings({ ttsModel: e.target.value })}
-                        data-testid="tts-model"
-                        className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-900 transition-all font-mono"
-                      />
+                      {ttsProvider === 'minimax' ? (
+                        <div className="w-full bg-stone-50 border border-black/5 px-3 py-1.5 rounded-lg text-[13px] text-stone-500 font-mono">
+                          speech-2.8-hd
+                        </div>
+                      ) : (
+                        <input
+                          type="text"
+                          value={ttsModel}
+                          onChange={e => setSettings({ ttsModel: e.target.value })}
+                          data-testid="tts-model"
+                          className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 rounded-lg text-[13px] text-stone-900 transition-all font-mono"
+                        />
+                      )}
                       <p className="text-[10.5px] text-stone-400 leading-tight">
                         {ttsProvider === 'volcengine'
                           ? t('settings.ttsModelHintVolcengine')
@@ -3788,8 +3794,8 @@ export default function Settings() {
         </div>
       )}
 
-      {/* #009-ext: TTS 语音选择 Modal（仅外部 TTS + 已选 Provider 时可用） */}
-      {ttsVoiceModalOpen && (ttsProvider === 'gemini' || ttsProvider === 'volcengine') && (
+      {/* #009-ext: TTS 语音选择 Modal（外部 TTS + 已选 Provider 时可用；minimax 同步支持） */}
+      {ttsVoiceModalOpen && (ttsProvider === 'gemini' || ttsProvider === 'volcengine' || ttsProvider === 'minimax') && (
         <TtsVoicePickerModal
           provider={ttsProvider}
           value={ttsVoice}

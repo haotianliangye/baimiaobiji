@@ -1029,17 +1029,22 @@ ${contextContent || '（本次未检索到相关片段）'}
     return out;
   }
 
+  // minimax HTTP TTS：POST {baseUrl}/v1/t2a_v2，返回 { base_resp: { status_code: 0 }, data: { audio: "<hex mp3>" } }。
+  // 同步接口，单段最长 200 字符；流式通过 streamMinimaxToSSE 切片串行调本函数实现"假流式"。
+  // model 固定为 speech-2.8-hd（订阅额度唯一稳定消耗的模型）。
   async function callMinimaxTTS(
     text: string,
     apiKey: string,
     voiceId: string,
-    model: string,
+    _model: string,
     baseUrl: string,
     rate = 1,
     fetchTimeoutMs = 30_000
   ): Promise<Buffer> {
-    const apiBase = (baseUrl || 'https://api.MiniMax.chat').replace(/\/$/, '');
-    const url = `${apiBase}/v1/text_to_speech`;
+    const rawBase = (baseUrl || 'https://api.minimax.chat').replace(/\/$/, '');
+    // 兼容用户把 Base URL 填成 https://api.minimax.chat/v1 的情况
+    const apiBase = rawBase.replace(/\/v1$/, '');
+    const url = `${apiBase}/v1/t2a_v2`;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), fetchTimeoutMs);
     try {
@@ -1050,16 +1055,17 @@ ${contextContent || '（本次未检索到相关片段）'}
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: model || 'speech-01-hd', // [TBD-wait-user] 占位 model
+          model: 'speech-2.8-hd',
           text,
+          output_format: 'hex',
           voice_setting: {
-            // [TBD-wait-real-list] 真实 voice_id 列表待用户替换；占位 male-qn-jingying
             voice_id: voiceId || 'male-qn-jingying',
-            speed: rate,
+            // MiniMax t2a_v2 要求 speed/vol/pitch 为整数，传浮点会报 2013 invalid params
+            speed: Math.max(0, Math.round(rate)),
             vol: 1,
             pitch: 0,
           },
-          audio_setting: { sample_rate: 32000, bitrate: 128000, format: 'mp3' },
+          audio_setting: { sample_rate: 32000, bitrate: 128000, format: 'mp3', channel: 1 },
           stream: false,
         }),
         signal: controller.signal,
@@ -1069,18 +1075,18 @@ ${contextContent || '（本次未检索到相关片段）'}
         throw new Error(`minimax TTS ${res.status}: ${t.slice(0, 200)}`);
       }
       const data: any = await res.json();
-      if (data?.status !== 1 || !data?.audio) {
-        throw new Error(`minimax TTS 失败 status=${data?.status} msg=${data?.message || ''}`);
+      if (data?.base_resp?.status_code !== 0 || !data?.data?.audio) {
+        throw new Error(`minimax TTS 失败 status_code=${data?.base_resp?.status_code} msg=${data?.base_resp?.status_msg || ''}`);
       }
       try {
-        const hex = Buffer.from(data.audio, 'hex');
+        const hex = Buffer.from(data.data.audio, 'hex');
         if (hex.length >= 2 && hex[0] === 0xff && [0xfb, 0xfa, 0xe0].includes(hex[1])) {
           return hex;
         }
       } catch {
         /* fallthrough to base64 */
       }
-      return Buffer.from(data.audio, 'base64');
+      return Buffer.from(data.data.audio, 'base64');
     } finally {
       clearTimeout(timer);
     }
@@ -1282,14 +1288,14 @@ ${contextContent || '（本次未检索到相关片段）'}
       if (provider === 'minimax') {
         // minimax HTTP TTS：单段同步返回 mp3。流式路径实际命中 /api/tts/stream，
         // 这里保留整段方案给前端 fallback / 非流式调用兜底。
-        // [TBD-wait-user] voice_id 与 model 都是占位，待用户提供真实列表。
-        const voiceId = voice || model || 'male-qn-jingying';
+        // model 固定为 speech-2.8-hd；voice_id 使用用户在下拉里选择的 ttsVoice。
+        const voiceId = voice || 'male-qn-jingying';
         const rateNum = typeof rate === 'number' && rate > 0 ? rate : 1;
         const mp3Buffer = await callMinimaxTTS(
           text,
           apiKey,
           voiceId,
-          model || 'speech-01-hd',
+          'speech-2.8-hd',
           baseUrl,
           rateNum
         );
@@ -1395,9 +1401,8 @@ ${contextContent || '（本次未检索到相关片段）'}
             text,
             {
               apiKey,
-              // [TBD-wait-real-list] 占位 voice_id，待用户提供真实列表
-              voiceId: voice || model || 'male-qn-jingying',
-              model: model || 'speech-01-hd',
+              voiceId: voice || 'male-qn-jingying',
+              model: 'speech-2.8-hd',
               baseUrl,
               rate: rateNum,
             },
