@@ -21,6 +21,7 @@ import { VerifiedMarkdown } from '../components/VerifiedMarkdown';
 import DatePickerPopover from '../components/DatePickerPopover';
 import { MultiSlotPromptPopover, type MultiSlotPromptPopoverSlot } from '../components/MultiSlotPromptPopover';
 import { useTranslation } from '../lib/i18n';
+import { slotLabel } from '../lib/slotLabel';
 
 const MENU_HALF_WIDTH = 140;
 const MENU_SAFE_MARGIN = 296;
@@ -246,9 +247,9 @@ const InsightCard = ({ insight, isEditing, onStartEdit, onEndEdit, onDelete, onR
         </div>
       ) : (
         <>
-        {/* Prompt/range meta sub-header - mirrors Diary/Review's sub-header. */}
+        {/* Prompt/range meta sub-header - mirrors Diary/Review's sub-header. 形态：洞察（明悟）· 10-16 10:16 */}
         <div className="px-4 py-1.5 border-t border-black/[0.03] bg-stone-50/60 text-[11px] text-stone-400 font-mono flex items-center justify-between select-none">
-          <span>{typeLabel} · {headerDate}</span>
+          <span>{t('insight.title')}（{slotLabel(insight.prompt_name, insight.prompt_index, t, 'insight')}）· {headerDate}</span>
           <span>{rangeTypeLabel(insight.range_type)}</span>
         </div>
         {/* #insight-manual-tags: 手动标签编辑行 — 始终显示，参照 Review.tsx 模式。

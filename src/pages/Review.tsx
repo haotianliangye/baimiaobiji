@@ -22,6 +22,7 @@ import { useSettingsStore, isDiarySlot } from '../store/settings.store';
 import { normalizeTagPath, resolveAlias } from '../lib/tags';
 import { useTagsStore } from '../store/tags.store';
 import { useTranslation } from '../lib/i18n';
+import { slotLabel } from '../lib/slotLabel';
 
 const generateUUID = () => {
   return self.crypto?.randomUUID?.() || Math.random().toString(36).substring(2);
@@ -538,7 +539,6 @@ export default function Review() {
                 const isGenerating = isProcessingReviewMap[review.id] || (review.entry_type === 'diary' && isProcessingDiary);
                 const errorMsg = diaryErrorMap[dateStr];
                 const isEditing = editingReviewId === review.id;
-                const entryLabel = review.entry_type === 'diary' ? t('review.diary') : t('review.review');
                 const entryContent = review.ai_editorial || review.ai_review;
 
                 return (
@@ -647,10 +647,10 @@ export default function Review() {
                       </span>
                     </button>
 
-                    {/* Prompt label sub-header：收起时也显示 */}
+                    {/* Prompt label sub-header：收起时也显示。形态：回顾（日记）· 07-28 10:16 */}
                     <div data-testid="review-card-meta" className="px-4 py-1.5 border-t border-black/[0.03] bg-stone-50/60">
                       <span className="text-[11px] text-stone-400 font-medium">
-                        {entryLabel} ({review.prompt_name || t('settings.promptDefault')}) · {format(new Date(review.updated_at), 'HH:mm')}
+                        {t('review.title')}（{slotLabel(review.prompt_name, review.prompt_index, t, 'review')}）· {format(new Date(review.updated_at), 'MM-dd HH:mm')}
                       </span>
                     </div>
 
