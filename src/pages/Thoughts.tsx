@@ -158,7 +158,6 @@ function buildTimelineGroups(thoughts: Thought[], t: TranslateFn): TimelineGroup
 export default function Thoughts() {
   const { t } = useTranslation();
   const { createThought, updateThought, deleteThought } = useThoughtsStore();
-  const { copied, copy } = useCopyToClipboard();
   const refreshAliases = useTagsStore((s) => s.refreshAliases);
   useEffect(() => {
     refreshAliases();
@@ -536,8 +535,6 @@ export default function Thoughts() {
                   <ThoughtCard
                     key={tt.id}
                     thought={tt}
-                    copied={copied}
-                    onCopy={() => copy(documentToText(resolveDocumentContent(tt)))}
                     onEdit={() => openEdit(tt)}
                     resolveAttachment={resolveAttachment}
                   />
@@ -568,8 +565,6 @@ export default function Thoughts() {
               <ThoughtCard
                 key={tt.id}
                 thought={tt}
-                copied={copied}
-                onCopy={() => copy(documentToText(resolveDocumentContent(tt)))}
                 onEdit={() => openEdit(tt)}
                 resolveAttachment={resolveAttachment}
               />
@@ -812,8 +807,6 @@ function DateEmptyState({ dateStr, onBackToToday }: { dateStr: string; onBackToT
 /** 单条沉淀卡片 */
 interface ThoughtCardProps {
   thought: Thought;
-  copied: boolean;
-  onCopy: () => void;
   onEdit: () => void;
   resolveAttachment: (id: string) => Promise<Blob | null>;
 }
@@ -825,8 +818,9 @@ const COLLAPSED_MAX_H_TIMELINE = 160; // px
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_THRESHOLD = 10; // px，手指滑动超过该距离取消长按
 
-function ThoughtCard({ thought, copied, onCopy, onEdit, resolveAttachment }: ThoughtCardProps) {
+function ThoughtCard({ thought, onEdit, resolveAttachment }: ThoughtCardProps) {
   const { t } = useTranslation();
+  const { copied, copy } = useCopyToClipboard();
   const tags = thought.tags || [];
 
   // 卡片正文：从 content_doc 解析 RichDocument 渲染
@@ -1021,7 +1015,7 @@ function ThoughtCard({ thought, copied, onCopy, onEdit, resolveAttachment }: Tho
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onCopy();
+            copy(plainText);
           }}
           className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10.5px] font-medium transition-colors ${
             copied
