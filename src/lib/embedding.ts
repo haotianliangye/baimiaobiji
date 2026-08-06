@@ -3,6 +3,7 @@ import { resolveDocumentContent } from '../db/db';
 import { documentToText } from './documentModel';
 import { chunkText } from './chunking';
 import { useSettingsStore, DEFAULT_EMBED_PROVIDER_CONFIGS } from '../store/settings.store';
+import { loadApiKey } from './apiKeyStore';
 
 // --- Cosine Similarity ---
 export function cosineSimilarity(vecA: number[], vecB: number[]): number {
@@ -27,25 +28,34 @@ export interface EmbedSettings {
   embeddingModel: string;
 }
 
-export function getEmbedSettings(): EmbedSettings {
+/**
+ * P1-003: 异步加载 embedding 配置。apiKey 从 IndexedDB 读，baseUrl/model/provider
+ * 仍从 settings store（持久化在 localStorage）读。embedApiKey 为空时 fallback 到
+ * Chat key（仅在 embed provider === 'gemini' 时；其它 provider 必须独立配 key）。
+ */
+export async function getEmbedSettings(): Promise<EmbedSettings> {
   const s = useSettingsStore.getState();
   const defConfig = DEFAULT_EMBED_PROVIDER_CONFIGS[s.embedProvider] || DEFAULT_EMBED_PROVIDER_CONFIGS['gemini'];
+  let apiKey = s.embedApiKey || await loadApiKey('embed', s.embedProvider);
+  if (!apiKey && s.embedProvider === 'gemini') {
+    apiKey = s.apiKey || await loadApiKey('llm', s.provider);
+  }
   return {
     provider: s.embedProvider,
-    apiKey: s.embedApiKey || s.apiKey, // fallback to Chat apiKey if embed apiKey is empty
+    apiKey,
     baseUrl: s.embedBaseUrl || defConfig.baseUrl,
     embeddingModel: s.embedModel || defConfig.model,
   };
 }
 
-export function getEmbedVersionTag(): string {
-  const s = getEmbedSettings();
+export async function getEmbedVersionTag(): Promise<string> {
+  const s = await getEmbedSettings();
   return `${s.provider}:${s.embeddingModel}`;
 }
 
 // --- API Call ---
 export async function requestEmbedding(text: string): Promise<number[]> {
-  const settings = getEmbedSettings();
+  const settings = await getEmbedSettings();
   const res = await fetch('/api/generate-embedding', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -219,7 +229,7 @@ export async function processEmbeddingQueue(
   if (isProcessing) return;
 
   isProcessing = true;
-  const versionTag = getEmbedVersionTag();
+  const versionTag = await getEmbedVersionTag();
   try {
     while (true) {
       const currentQueue = getQueue();
@@ -374,7 +384,7 @@ function registerEntityHooks(type: EntityType, textField: 'content' | 'ai_editor
 
 // --- Enqueue all items missing embeddings (for historical data backfilling) ---
 export async function enqueueAllMissingEmbeddings(): Promise<number> {
-  const versionTag = getEmbedVersionTag();
+  const versionTag = await getEmbedVersionTag();
   const queue = getQueue();
   const queueSet = new Set(queue.map(t => `${t.type}:${t.id}`));
   let addedCount = 0;

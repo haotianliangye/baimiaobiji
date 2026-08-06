@@ -86,6 +86,32 @@ async function run() {
   );
   record('K8 ApiKeyType 三选项', true, 'literal union found');
 
+  // ===== K9: P1-003 provider-scoped schema — setApiKey / loadApiKey 接受 provider 参数 =====
+  // setApiKey 签名应是 setApiKey(type, provider, value) 三参
+  assert.ok(
+    /export\s+async\s+function\s+setApiKey\s*\(\s*type\s*:\s*ApiKeyType\s*,\s*provider\s*:\s*string\s*,\s*value\s*:\s*string\s*\)/.test(src),
+    'K9 setApiKey 应为 (type, provider, value) 三参签名'
+  );
+  assert.ok(
+    /export\s+async\s+function\s+loadApiKey\s*\(\s*type\s*:\s*ApiKeyType\s*,\s*provider\s*:\s*string\s*\)/.test(src),
+    'K9 loadApiKey 应为 (type, provider) 双参签名'
+  );
+  record('K9 setApiKey/loadApiKey provider-scoped 签名', true, 'regex match');
+
+  // ===== K10: keyFor 拼出 api_key.<type>.<provider> 格式（provider-scoped schema）=====
+  assert.ok(
+    /function\s+keyFor\s*\([^)]*\)\s*:\s*string\s*\{\s*return\s+[`'"]\$\{KEY_PREFIX\}\$\{type\}\.\$\{provider\}[`'"]/s.test(src),
+    'K10 keyFor 应拼 "api_key." + type + "." + provider'
+  );
+  record('K10 keyFor provider-scoped 拼接', true, 'regex match');
+
+  // ===== K11: db.settings_kv.put 仍然使用（落地 provider-scoped 行的入口）=====
+  assert.ok(
+    /db\.settings_kv\.put\s*\(\s*\{[^}]*key:\s*keyFor/s.test(src),
+    'K11 setApiKey 应调 db.settings_kv.put({key: keyFor(...), value: {key: value}})'
+  );
+  record('K11 setApiKey 走 db.settings_kv.put(keyFor 行)', true, 'pattern matched');
+
   // ===== 汇总 =====
   const failed = results.filter(r => !r.pass);
   console.log(`\n=== 汇总 ===`);

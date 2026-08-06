@@ -4,6 +4,7 @@ import { generateUUID } from '../lib/utils';
 import { SYNC_CONSTANTS } from '../config/constants';
 import { getBackoffMs, isRetryableError, getRetryLimit } from '../lib/backoff';
 import { useSettingsStore, isDiarySlot, getEntryTypeForSlot, getLegacyPromptIndices } from './settings.store';
+import { loadApiKey } from '../lib/apiKeyStore';
 import type { ToastItem, ToastType } from '../components/Toast';
 import { cosineSimilarity, requestEmbedding, getEmbedSettings, registerQueueChangeListener } from '../lib/embedding';
 import { computeCosineBatch, type CosineCandidate, type CosineScore } from '../lib/cosineWorker';
@@ -269,6 +270,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().clearDiaryError(dateStr);
 
     const settings = { ...useSettingsStore.getState() };
+    // P1-003: apiKey 从 IndexedDB 读（state 镜像可能为空）
+    settings.apiKey = settings.apiKey || await loadApiKey('llm', settings.provider);
     // #5: 使用统一 5 槽名称
     const promptNames = settings.reviewPromptNames || ['日记', '回顾', '自定义 1', '自定义 2', '自定义 3'];
 
@@ -368,6 +371,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().clearDiaryError(dateStr);
 
     const settings = { ...useSettingsStore.getState() };
+    // P1-003: apiKey 从 IndexedDB 读
+    settings.apiKey = settings.apiKey || await loadApiKey('llm', settings.provider);
     // #5: 使用统一 5 槽名称
     const promptNames = settings.reviewPromptNames || ['日记', '回顾', '自定义 1', '自定义 2', '自定义 3'];
 
@@ -463,6 +468,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isSilentlyGenerating: true });
 
     const settings = { ...useSettingsStore.getState() };
+    // P1-003: apiKey 从 IndexedDB 读
+    settings.apiKey = settings.apiKey || await loadApiKey('llm', settings.provider);
     // #5: 日记槽位固定为 slot 0
     const activePromptIndex = 0;
     const promptNames = settings.reviewPromptNames || ['日记', '回顾', '自定义 1', '自定义 2', '自定义 3'];
@@ -529,6 +536,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isSilentlyGeneratingReview: true });
 
     const settings = { ...useSettingsStore.getState() };
+    // P1-003: apiKey 从 IndexedDB 读
+    settings.apiKey = settings.apiKey || await loadApiKey('llm', settings.provider);
     // #5: 回顾槽位固定为 slot 1
     const activePromptIndex = 1;
     const promptNames = settings.reviewPromptNames || ['日记', '回顾', '自定义 1', '自定义 2', '自定义 3'];
@@ -889,6 +898,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     let lastQueueError: any = null;
 
     const settings = { ...useSettingsStore.getState() };
+    // P1-003: apiKey 从 IndexedDB 读
+    settings.apiKey = settings.apiKey || await loadApiKey('llm', settings.provider);
     const promptNames = settings.reviewPromptNames || ['日记', '回顾', '自定义 1', '自定义 2', '自定义 3'];
 
     while (true) {

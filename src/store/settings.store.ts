@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { setApiKey, listAllApiKeys, type ApiKeyType } from '../lib/apiKeyStore';
 
 export const DEFAULT_DIARY_PROMPT = `你现在是严格遵循柳比歇夫时间管理法的记录助手。请将我提供的当天所有零散碎片记录，整理成一篇标准的柳比歇夫式当日日记。
 
@@ -428,6 +429,59 @@ interface SettingsState {
 
   setSettings: (settings: Partial<SettingsState>) => void;
   setLanguage: (lang: Language) => void;
+  /**
+   * P1-003: API key 写入通道。UI 调用此方法：同步写 state 镜像（UI 不抖）+
+   * 异步写 IndexedDB（持久化）。同时同步更新 configs/embedConfigs/ttsConfigs
+   * provider 缓存（用于 provider 切换时回填 active key）。
+   */
+  setApiKeyField: (type: ApiKeyType, provider: string, value: string) => void;
+}
+
+/**
+ * P1-003: 从 IndexedDB 拉取所有 API key 填回 state 镜像。
+ *
+ * 调用时机：settings.store.onRehydrateStorage 回调（每次启动 rehydrate 后）。
+ * 设计：
+ *   - 按 (type, provider) 维度把 IDB 数据回填到 state.apiKey（当前 active provider）
+ *     和 configs / embedConfigs / ttsConfigs（每个 provider 缓存）
+ *   - fire-and-forget：失败时 state 镜像为空，UI 仍可用（用户可重新输入）
+ *   - 不修改 persist partialize 已 exclude 的字段以外的 state
+ */
+export async function bootstrapApiKeysIntoState(): Promise<void> {
+  const list = await listAllApiKeys();
+  if (list.length === 0) return;
+
+  const state = useSettingsStore.getState();
+  const llmConfigs: Record<string, { apiKey: string; baseUrl: string; model: string }> = { ...state.configs };
+  const embedConfigs: Record<string, { apiKey: string; baseUrl: string; model: string }> = { ...state.embedConfigs };
+  const ttsConfigs: Record<string, { apiKey: string; baseUrl: string; model: string }> = { ...state.ttsConfigs };
+
+  for (const row of list) {
+    if (row.type === 'llm') {
+      const prev = llmConfigs[row.provider] || { apiKey: '', baseUrl: state.baseUrl, model: state.model };
+      llmConfigs[row.provider] = { ...prev, apiKey: row.key };
+    } else if (row.type === 'embed') {
+      const prev = embedConfigs[row.provider] || { apiKey: '', baseUrl: state.embedBaseUrl, model: state.embedModel };
+      embedConfigs[row.provider] = { ...prev, apiKey: row.key };
+    } else if (row.type === 'tts') {
+      const prev = ttsConfigs[row.provider] || { apiKey: '', baseUrl: state.ttsBaseUrl, model: state.ttsModel };
+      ttsConfigs[row.provider] = { ...prev, apiKey: row.key };
+    }
+  }
+
+  // 当前 active provider 的 key 同步回顶层镜像
+  const activeLlmKey = llmConfigs[state.provider]?.apiKey ?? '';
+  const activeEmbedKey = embedConfigs[state.embedProvider]?.apiKey ?? '';
+  const activeTtsKey = ttsConfigs[state.ttsProvider]?.apiKey ?? '';
+
+  useSettingsStore.setState({
+    apiKey: activeLlmKey,
+    embedApiKey: activeEmbedKey,
+    ttsApiKey: activeTtsKey,
+    configs: llmConfigs,
+    embedConfigs,
+    ttsConfigs,
+  });
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -860,12 +914,63 @@ export const useSettingsStore = create<SettingsState>()(
 
          return nextState;
       }),
+
+      // P1-003: API key 写入通道（同步镜像 + 异步 IDB）。
+      // 调用模式：Settings UI input onChange → setApiKeyField('llm', provider, value)。
+      // 行为：
+      //   1. 同步写顶层镜像 (apiKey/embedApiKey/ttsApiKey) → UI 不抖
+      //   2. 同步写 provider 缓存 (configs/embedConfigs/ttsConfigs[provider].apiKey)
+      //      → provider 切换时回填一致
+      //   3. 异步写 IndexedDB；失败仅 console.warn，state 镜像仍可用
+      setApiKeyField: (type, provider, value) => {
+        set((state) => {
+          if (type === 'llm') {
+            const nextConfigs = { ...state.configs };
+            nextConfigs[provider] = {
+              ...(nextConfigs[provider] || { apiKey: '', baseUrl: state.baseUrl, model: state.model }),
+              apiKey: value,
+            };
+            return { ...state, apiKey: value, configs: nextConfigs };
+          }
+          if (type === 'embed') {
+            const nextEmbedConfigs = { ...state.embedConfigs };
+            nextEmbedConfigs[provider] = {
+              ...(nextEmbedConfigs[provider] || { apiKey: '', baseUrl: state.embedBaseUrl, model: state.embedModel }),
+              apiKey: value,
+            };
+            return { ...state, embedApiKey: value, embedConfigs: nextEmbedConfigs };
+          }
+          if (type === 'tts') {
+            const nextTtsConfigs = { ...state.ttsConfigs };
+            nextTtsConfigs[provider] = {
+              ...(nextTtsConfigs[provider] || { apiKey: '', baseUrl: state.ttsBaseUrl, model: state.ttsModel }),
+              apiKey: value,
+            };
+            return { ...state, ttsApiKey: value, ttsConfigs: nextTtsConfigs };
+          }
+          return state;
+        });
+        // 异步 IDB 写入：fire-and-forget，失败降级（state 镜像仍可用）
+        setApiKey(type, provider, value).catch(err =>
+          console.warn(`[P1-003] setApiKey(${type}, ${provider}) IDB write failed`, err)
+        );
+      },
     }),
     {
         name: 'whitewash-settings',
-        version: 15,
+        version: 16,
         partialize: (state) => {
-          const { syncPassword, syncPasswordE2EE, ...rest } = state;
+          // P1-003: API key 字段一律不写入 localStorage。改由 src/lib/apiKeyStore
+          // 持久化到 IndexedDB（db.settings_kv），UI 用 state 镜像 + bootstrap 同步。
+          // 注意：configs / embedConfigs / ttsConfigs 整体 exclude，因为它们每个
+          // 嵌套对象都含 apiKey 字段；保留 baseUrl/model 等非敏感字段会引入更多
+          // 同步成本，当前 v16 决策是「整段 exclude」。
+          const {
+            syncPassword, syncPasswordE2EE,
+            apiKey, embedApiKey, ttsApiKey,
+            configs, embedConfigs, ttsConfigs,
+            ...rest
+          } = state as any;
           if (state.syncRememberCredentials) {
             return {
               ...rest,
@@ -874,6 +979,16 @@ export const useSettingsStore = create<SettingsState>()(
             };
           }
           return rest;
+        },
+        onRehydrateStorage: () => (state, error) => {
+          // P1-003: rehydrate 完成后从 IndexedDB 拉取所有 API key 填回 state 镜像。
+          // state.apiKey 等字段在 partialize 中已不持久化，所以 rehydrate 后是 ''，
+          // 这里把它们从 IDB 拉回来让 UI 显示正确。fire-and-forget，失败降级。
+          if (state && !error) {
+            bootstrapApiKeysIntoState().catch(err =>
+              console.warn('[P1-003] apiKey bootstrap failed', err)
+            );
+          }
         },
         merge: (persistedState: any, currentState: SettingsState) => {
           if (persistedState.syncRememberCredentials) {
@@ -1547,6 +1662,64 @@ export const useSettingsStore = create<SettingsState>()(
             }
             if (persistedState.ttsConfigs?.gemini && LEGACY_GEMINI_TTS_MODELS.has(persistedState.ttsConfigs.gemini.model)) {
               persistedState.ttsConfigs.gemini.model = 'gemini-3.1-flash-tts-preview';
+            }
+          }
+
+         // P1-003 (v15 → v16): API key 从 localStorage 抽到 IndexedDB。
+         // 老版本（v15 及之前）apiKey/embedApiKey/ttsApiKey 顶层镜像 + configs[*].apiKey
+         // nested 缓存都明文落在 whitewash-settings。本块把残留 key 一律写到 db.settings_kv
+         // （provider-scoped schema: api_key.<type>.<provider>），然后从 persistedState 删除
+         // 避免 merge 把它们拉回 state，且 partialize 之后也不会再写出去。
+         // 注意：migrate 是同步签名，setApiKey 是 async；用 fire-and-forget。
+         // 幂等：db.settings_kv.put 按 key 覆盖，重复运行无副作用。
+         if (version < 16) {
+            const migrateKey = (type: ApiKeyType, provider: string, value: unknown) => {
+              if (typeof value !== 'string' || !value) return;
+              setApiKey(type, provider, value).catch(err =>
+                console.warn(`[migrate v16] ${type}.${provider} IDB write failed`, err)
+              );
+            };
+            const stripKey = (obj: any) => {
+              if (obj && typeof obj === 'object' && 'apiKey' in obj) delete obj.apiKey;
+            };
+
+            // 1) 顶层三个 key（按 v15 当前 provider 写入）
+            const chatProvider: string = persistedState.provider || 'gemini';
+            const embedProvider: string = persistedState.embedProvider || 'gemini';
+            const ttsProvider: string = persistedState.ttsProvider || 'gemini';
+            migrateKey('llm', chatProvider, persistedState.apiKey);
+            migrateKey('embed', embedProvider, persistedState.embedApiKey);
+            migrateKey('tts', ttsProvider, persistedState.ttsApiKey);
+
+            // 2) nested provider 缓存（每个 provider 单独写）
+            if (persistedState.configs && typeof persistedState.configs === 'object') {
+              for (const [p, cfg] of Object.entries(persistedState.configs)) {
+                migrateKey('llm', p, (cfg as any)?.apiKey);
+              }
+            }
+            if (persistedState.embedConfigs && typeof persistedState.embedConfigs === 'object') {
+              for (const [p, cfg] of Object.entries(persistedState.embedConfigs)) {
+                migrateKey('embed', p, (cfg as any)?.apiKey);
+              }
+            }
+            if (persistedState.ttsConfigs && typeof persistedState.ttsConfigs === 'object') {
+              for (const [p, cfg] of Object.entries(persistedState.ttsConfigs)) {
+                migrateKey('tts', p, (cfg as any)?.apiKey);
+              }
+            }
+
+            // 3) 从 persistedState 删除 key 字段（防 partialize 又写回，防 merge 把它们拉回 state）
+            delete persistedState.apiKey;
+            delete persistedState.embedApiKey;
+            delete persistedState.ttsApiKey;
+            if (persistedState.configs && typeof persistedState.configs === 'object') {
+              for (const p of Object.keys(persistedState.configs)) stripKey(persistedState.configs[p]);
+            }
+            if (persistedState.embedConfigs && typeof persistedState.embedConfigs === 'object') {
+              for (const p of Object.keys(persistedState.embedConfigs)) stripKey(persistedState.embedConfigs[p]);
+            }
+            if (persistedState.ttsConfigs && typeof persistedState.ttsConfigs === 'object') {
+              for (const p of Object.keys(persistedState.ttsConfigs)) stripKey(persistedState.ttsConfigs[p]);
             }
           }
 

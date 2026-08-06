@@ -13,9 +13,11 @@
 import { db, type AttachmentMeta } from '../db/db';
 import { useSettingsStore } from '../store/settings.store';
 import { generateUUID } from './utils';
+import { loadApiKey } from './apiKeyStore';
 
 /**
  * 调用 /api/multimedia-summarize 端点，用 Gemini 多模态模型生成图片/视频的文本摘要。
+ * P1-003: apiKey 从 IndexedDB 读；其它字段从 settings store（baseUrl/model/provider）。
  */
 export async function requestMultimediaSummary(
   base64data: string,
@@ -23,6 +25,7 @@ export async function requestMultimediaSummary(
   kind: 'image' | 'video'
 ): Promise<string> {
   const settings = useSettingsStore.getState();
+  const apiKey = settings.apiKey || await loadApiKey('llm', settings.provider);
   const res = await fetch('/api/multimedia-summarize', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -32,7 +35,7 @@ export async function requestMultimediaSummary(
       kind,
       settings: {
         provider: settings.provider,
-        apiKey: settings.apiKey,
+        apiKey,
         baseUrl: settings.baseUrl,
         model: settings.model,
       },

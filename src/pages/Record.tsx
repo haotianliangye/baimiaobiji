@@ -40,6 +40,7 @@ import { generateUUID } from "../lib/utils";
 import { getPatternsForRequest } from "../lib/hallucinationPatterns";
 import { countChars } from "../lib/wordCount";
 import { useSettingsStore } from "../store/settings.store";
+import { loadApiKey } from "../lib/apiKeyStore";
 import { useAppStore } from "../store/app.store";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { parseTagsFromText, resolveAlias } from "../lib/tags";
@@ -804,13 +805,15 @@ export default function Record() {
             try {
               const base64data = (reader.result as string).split(",")[1];
               const settings = useSettingsStore.getState();
+              // P1-003: apiKey 从 IndexedDB 读
+              const apiKey = settings.apiKey || await loadApiKey('llm', settings.provider);
 
               let transcribedText = t('record.voiceRecord');
               try {
                 const data = await fetchTranscriptionWithRetry({
                   audio_base64: base64data,
                   mime_type: mimeType,
-                  settings,
+                  settings: { ...settings, apiKey },
                 });
                 if (data && data.text) {
                   transcribedText = data.text;

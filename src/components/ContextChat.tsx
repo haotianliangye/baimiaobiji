@@ -5,6 +5,7 @@ import { VerifiedMarkdown } from './VerifiedMarkdown';
 import { InsightMessage } from '../db/db';
 import { useSettingsStore } from '../store/settings.store';
 import { useAppStore } from '../store/app.store';
+import { loadApiKey } from '../lib/apiKeyStore';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useTTS } from '../lib/tts';
 import { washCitations } from '../lib/citationWash';
@@ -83,6 +84,8 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
 
     try {
       const ctx = getDynamicContext ? await getDynamicContext(userMsg.content) : (contextContent || '');
+      // P1-003: apiKey 从 IndexedDB 读
+      const apiKey = settings.apiKey || await loadApiKey('llm', settings.provider);
       const res = await fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -90,7 +93,7 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
           contextContent: ctx,
           chatHistory: messages,
           userMessage: userMsg.content,
-          settings
+          settings: { ...settings, apiKey }
         })
       });
 
@@ -146,6 +149,8 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
 
     try {
       const ctx = getDynamicContext ? await getDynamicContext(targetUserMsg.content) : (contextContent || '');
+      // P1-003: apiKey 从 IndexedDB 读
+      const apiKey = settings.apiKey || await loadApiKey('llm', settings.provider);
       const res = await fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -153,7 +158,7 @@ export default function ContextChat({ chatHistory, contextContent, apiEndpoint, 
           contextContent: ctx,
           chatHistory: historyUpToUserMsg,
           userMessage: targetUserMsg.content,
-          settings
+          settings: { ...settings, apiKey }
         })
       });
 

@@ -18,6 +18,7 @@
  */
 
 import { useSettingsStore } from '../store/settings.store';
+import { loadApiKey } from './apiKeyStore';
 
 export interface StreamPlayHandle {
   /** 立即停止并释放资源。幂等。 */
@@ -70,6 +71,9 @@ export async function playTtsStream(text: string): Promise<StreamPlayHandle> {
   const settings = useSettingsStore.getState();
   const cleanText = stripMarkdownForStream(text);
 
+  // P1-003: ttsApiKey 从 IndexedDB 读，fallback 到 state 镜像
+  const apiKey = settings.ttsApiKey || await loadApiKey('tts', settings.ttsProvider);
+
   const controller = new AbortController();
   let audioCtx: AudioContext | null = null;
   let workletNode: AudioWorkletNode | null = null;
@@ -121,7 +125,7 @@ export async function playTtsStream(text: string): Promise<StreamPlayHandle> {
           text: cleanText,
           settings: {
             provider: settings.ttsProvider,
-            apiKey: settings.ttsApiKey,
+            apiKey,
             baseUrl: settings.ttsBaseUrl,
             model: settings.ttsModel,
             voice: settings.ttsVoice,

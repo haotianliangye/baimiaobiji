@@ -16,6 +16,7 @@ import { db, type Insight } from '../db/db';
 import { generateUUID } from '../lib/utils';
 import { useSettingsStore } from './settings.store';
 import { useAppStore } from './app.store';
+import { loadApiKey } from '../lib/apiKeyStore';
 import { format } from 'date-fns';
 
 interface GenerateMingwuParams {
@@ -56,6 +57,8 @@ async function buildMingwuPayload(
   selectedIndices: number[],
 ) {
   const settings = { ...useSettingsStore.getState() };
+  // P1-003: apiKey 从 IndexedDB 读（state 镜像可能为空）
+  settings.apiKey = settings.apiKey || await loadApiKey('llm', settings.provider);
 
   const logs = await db.raw_logs
     .where('created_at')

@@ -37,6 +37,7 @@ import { db, type AttachmentMeta } from '../db/db';
 import { parseTagsFromText } from '../lib/tags';
 import { useTranslation } from '../lib/i18n';
 import { useSettingsStore } from '../store/settings.store';
+import { loadApiKey } from '../lib/apiKeyStore';
 
 export interface RichEditorProps {
   value: string;
@@ -87,13 +88,15 @@ async function transcribeAudioBlob(
   });
   const base64data = (reader.result as string).split(',')[1];
   const settings = useSettingsStore.getState();
+  // P1-003: apiKey 从 IndexedDB 读
+  const apiKey = settings.apiKey || await loadApiKey('llm', settings.provider);
   const res = await fetch('/api/transcribe', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       audio_base64: base64data,
       mime_type: mimeType,
-      settings,
+      settings: { ...settings, apiKey },
     }),
   });
   if (!res.ok) {

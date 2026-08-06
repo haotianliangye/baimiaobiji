@@ -7,6 +7,7 @@ import TagManagement from './TagManagement';
 import DrawerTagList from '../components/DrawerTagList';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useSettingsStore, DEFAULT_DIARY_PROMPT, DEFAULT_REVIEW_PROMPT, DEFAULT_INSIGHT_PROMPT, DEFAULT_MINGWU_PROMPT, DEFAULT_DIARY_REVIEW_SUMMARY_PROMPT, DEFAULT_MINGWU_INSIGHT_SUMMARY_PROMPT, DEFAULT_PROMPTS_BY_LANG, DEFAULT_REVIEW_PROMPT_NAMES_BY_LANG, DEFAULT_MINGWU_INSIGHT_PROMPT_NAMES_BY_LANG, type Language } from '../store/settings.store';
+import { loadApiKey } from '../lib/apiKeyStore';
 import { db, normalizeLegacyDiary, normalizeLegacyInsight, type Fact } from '../db/db';
 import { addFact, listFacts, deleteFact, type FactCategory } from '../lib/factsStore';
 import { enqueueAllMissingEmbeddings } from '../lib/embedding';
@@ -903,7 +904,9 @@ export default function Settings() {
     ttsModel,
     language,
     setLanguage,
-    setSettings
+    setSettings,
+    // P1-003: API key 写入通道（同步镜像 + 异步 IDB）。替代直接 setSettings({apiKey})。
+    setApiKeyField
   } = settingsStore;
 
   const { 
@@ -1207,7 +1210,9 @@ export default function Settings() {
   const [ttsVoiceModalOpen, setTtsVoiceModalOpen] = useState(false);
 
   const handleTestChatConnection = async () => {
-    if (!apiKey && provider !== 'custom') {
+    // P1-003: apiKey 已不在 localStorage 镜像里（partialize exclude），从 IDB 读
+    const activeKey = apiKey || await loadApiKey('llm', provider);
+    if (!activeKey && provider !== 'custom') {
       setChatTestStatus('fail');
       setChatTestError(t('settings.apiKeyRequired'));
       setTimeout(() => setChatTestStatus('idle'), 3000);
@@ -1221,7 +1226,7 @@ export default function Settings() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'chat',
-          settings: { provider, apiKey, baseUrl, model }
+          settings: { provider, apiKey: activeKey, baseUrl, model }
         })
       });
       if (!res.ok) {
@@ -1238,7 +1243,11 @@ export default function Settings() {
   };
 
   const handleTestEmbedConnection = async () => {
-    const actualEmbedKey = embedApiKey || (embedProvider === 'gemini' ? apiKey : '');
+    // P1-003: 同上 — 从 IDB 读 key（fallback 到 chat key）
+    let actualEmbedKey = embedApiKey || await loadApiKey('embed', embedProvider);
+    if (!actualEmbedKey && embedProvider === 'gemini') {
+      actualEmbedKey = apiKey || await loadApiKey('llm', provider);
+    }
     if (!actualEmbedKey && embedProvider !== 'custom') {
       setEmbedTestStatus('fail');
       setEmbedTestError(t('settings.embeddingApiKeyRequired'));
@@ -1899,7 +1908,7 @@ export default function Settings() {
                         type={showApiKey ? "text" : "password"}
                         placeholder={t('settings.apiKeyPlaceholder')}
                         value={apiKey}
-                        onChange={e => setSettings({ apiKey: e.target.value })}
+                        onChange={e => setApiKeyField('llm', provider, e.target.value)}
                         className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-2 pr-10 rounded-lg text-[14px] text-stone-900 placeholder:text-stone-400 transition-all font-mono"
                       />
                       <button
@@ -2083,7 +2092,7 @@ export default function Settings() {
                         <input
                           type={showTtsApiKey ? 'text' : 'password'}
                           value={ttsApiKey}
-                          onChange={e => setSettings({ ttsApiKey: e.target.value })}
+                          onChange={e => setApiKeyField('tts', ttsProvider, e.target.value)}
                           data-testid="tts-api-key"
                           className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 pr-10 rounded-lg text-[13px] text-stone-900 transition-all font-mono"
                         />
@@ -2330,7 +2339,7 @@ export default function Settings() {
                             type={showEmbedApiKey ? "text" : "password"}
                             placeholder={embedProvider === 'gemini' && !embedApiKey && apiKey ? t('settings.embeddingAutoReuse') : t('settings.apiKeyPlaceholder')}
                             value={embedApiKey}
-                            onChange={e => setSettings({ embedApiKey: e.target.value })}
+                            onChange={e => setApiKeyField('embed', embedProvider, e.target.value)}
                             className="w-full bg-white border border-black/5 shadow-sm outline-none focus:border-black focus:ring-1 focus:ring-black px-3 py-1.5 pr-10 rounded-lg text-[13px] text-stone-900 placeholder:text-stone-400 transition-all font-mono"
                           />
                           <button

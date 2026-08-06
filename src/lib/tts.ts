@@ -13,6 +13,7 @@ import { useCallback } from 'react';
 import { create } from 'zustand';
 import { useSettingsStore } from '../store/settings.store';
 import { playTtsStream } from './ttsStream';
+import { loadApiKey } from './apiKeyStore';
 
 export type TTSService = 'webspeech' | 'external';
 export type TTSLang = 'auto' | 'zh' | 'en';
@@ -297,6 +298,7 @@ async function speakExternal(
 
 /**
  * 非流式兜底：调 /api/tts 拿完整音频 blob → HTMLAudioElement 播放。
+ * P1-003: apiKey 从 IndexedDB 读，fallback 到 opts.ttsApiKey（兼容镜像态）。
  */
 async function speakExternalFallback(
   text: string,
@@ -313,6 +315,8 @@ async function speakExternalFallback(
   }
 ) {
   try {
+    const provider = opts.ttsProvider || 'gemini';
+    const apiKey = opts.ttsApiKey || await loadApiKey('tts', provider);
     const res = await fetch('/api/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -320,8 +324,8 @@ async function speakExternalFallback(
         text,
         lang,
         settings: {
-          provider: opts.ttsProvider || 'gemini',
-          apiKey: opts.ttsApiKey || '',
+          provider,
+          apiKey,
           baseUrl: opts.ttsBaseUrl || '',
           model: opts.ttsModel || '',
           voice: opts.voice || '',

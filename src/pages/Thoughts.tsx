@@ -40,6 +40,7 @@ import { db, type Thought } from '../db/db';
 import { useThoughtsStore } from '../store/thoughts.store';
 import { useTagsStore } from '../store/tags.store';
 import { useSettingsStore } from '../store/settings.store';
+import { loadApiKey } from '../lib/apiKeyStore';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { countChars } from '../lib/wordCount';
 import TodayStats from '../components/TodayStats';
@@ -351,13 +352,15 @@ export default function Thoughts() {
               try {
                 const base64data = (reader.result as string).split(",")[1];
                 const settings = useSettingsStore.getState();
+                // P1-003: apiKey 从 IndexedDB 读
+                const apiKey = settings.apiKey || await loadApiKey('llm', settings.provider);
 
                 let transcribedText = t('thoughts.voiceRecord');
                 try {
                   const data = await fetchTranscriptionWithRetry({
                     audio_base64: base64data,
                     mime_type: mimeType,
-                    settings,
+                    settings: { ...settings, apiKey },
                   });
                   if (data && data.text) {
                     transcribedText = data.text;
