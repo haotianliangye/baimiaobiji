@@ -6,6 +6,8 @@ import ffmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import fs from 'fs';
 import os from 'os';
+import { fetchWithTimeout, FETCH_TIMEOUTS } from '../src/lib/fetchWithTimeout';
+import { assertSafeBaseUrl } from '../src/lib/safeBaseUrl';
 
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 const app = express();
@@ -15,13 +17,15 @@ app.use(express.json({ limit: '50mb' }));
 // Build a GoogleGenAI client with base-URL normalization. Shared by every
 // endpoint that calls Gemini (generate-timeline, generate-review,
 // generate-embedding, test-connection) to avoid repeating the config dance.
-function buildGeminiClient(apiKey: string, baseUrl?: string) {
+// Batch 1: async + assertSafeBaseUrl 校验 → 拒绝内网/loopback/metadata SSRF
+async function buildGeminiClient(apiKey: string, baseUrl?: string) {
   const genAiConfig: any = { apiKey };
   let finalBaseUrl = baseUrl;
   if (finalBaseUrl === 'https://generativelanguage.googleapis.com/v1beta') {
     finalBaseUrl = 'https://generativelanguage.googleapis.com';
   }
   if (finalBaseUrl) {
+    finalBaseUrl = await assertSafeBaseUrl(finalBaseUrl);
     genAiConfig.httpOptions = { baseUrl: finalBaseUrl };
   }
   return new GoogleGenAI(genAiConfig);
@@ -61,7 +65,7 @@ ${logs.map((l: any) => `- [${new Date(l.created_at).toLocaleTimeString('zh-CN', 
             return res.status(500).json({ error: '请在设置页面中配置你的 Gemini API Key' });
          }
          
-         const ai = buildGeminiClient(activeKey, baseUrl);
+         const ai = await buildGeminiClient(activeKey, baseUrl);
          
          let finalModel = model || 'gemini-3.1-flash-lite';
 
@@ -150,7 +154,7 @@ ${diaryContent || ""}
             return res.status(500).json({ error: '请在设置页面中配置你的 Gemini API Key' });
          }
          
-         const ai = buildGeminiClient(activeKey, baseUrl);
+         const ai = await buildGeminiClient(activeKey, baseUrl);
          
          let finalModel = model || 'gemini-3.1-flash-lite';
 
@@ -219,7 +223,7 @@ ${diaryContent || ""}
       let embedding: number[] = [];
 
       if (provider === 'gemini') {
-        const ai = buildGeminiClient(apiKey, baseUrl);
+        const ai = await buildGeminiClient(apiKey, baseUrl);
         const result = await ai.models.embedContent({
           model: embeddingModel || 'gemini-embedding-2',
           contents: text.trim(),
@@ -238,11 +242,12 @@ ${diaryContent || ""}
           custom: { baseUrl: 'http://127.0.0.1:11434/v1', model: 'nomic-embed-text' },
         };
         const def = defConfigs[provider] || defConfigs['custom'];
-        const apiBase = (baseUrl || def.baseUrl).replace(/\/$/, '');
+        // Batch 1: assertSafeBaseUrl 拒内网/metadata host
+        const apiBase = await assertSafeBaseUrl(baseUrl || def.baseUrl);
         const apiUrl = `${apiBase}/embeddings`;
         const actualModel = embeddingModel || def.model;
 
-        const response = await fetch(apiUrl, {
+        const response = await fetchWithTimeout(apiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -283,7 +288,7 @@ ${diaryContent || ""}
 
       if (type === 'chat') {
         if (provider === 'gemini') {
-          const ai = buildGeminiClient(apiKey, baseUrl);
+          const ai = await buildGeminiClient(apiKey, baseUrl);
           const response = await ai.models.generateContent({
             model: model || 'gemini-3.1-flash-lite',
             contents: 'Say ok',
@@ -296,14 +301,20 @@ ${diaryContent || ""}
           }
         } else {
           // OpenAI compatible chat completions
+          // Batch 1: 非 Gemini provider 必须显式提供 baseUrl（避免拼接相对路径
+          // 发到当前 host 自身的 /chat/completions，相当于 self-loop）
+          if (!baseUrl) {
+            return res.status(400).json({ error: 'baseUrl 不能为空（非 Gemini provider 必须显式提供）' });
+          }
           const headers: Record<string, string> = {
             'Content-Type': 'application/json'
           };
           if (apiKey) {
             headers['Authorization'] = `Bearer ${apiKey}`;
           }
-          const apiBase = (baseUrl || '').replace(/\/$/, '');
-          const response = await fetch(`${apiBase}/chat/completions`, {
+          // Batch 1: assertSafeBaseUrl 拒内网/metadata host
+          const apiBase = await assertSafeBaseUrl(baseUrl);
+          const response = await fetchWithTimeout(`${apiBase}/chat/completions`, {
             method: 'POST',
             headers,
             body: JSON.stringify({
@@ -323,7 +334,7 @@ ${diaryContent || ""}
         }
       } else if (type === 'embed') {
         if (provider === 'gemini') {
-          const ai = buildGeminiClient(apiKey, baseUrl);
+          const ai = await buildGeminiClient(apiKey, baseUrl);
           const result = await ai.models.embedContent({
             model: model || 'gemini-embedding-2',
             contents: 'test',
@@ -333,14 +344,19 @@ ${diaryContent || ""}
           }
         } else {
           // OpenAI compatible embeddings
+          // Batch 1: 非 Gemini embed provider 必须显式提供 baseUrl
+          if (!baseUrl) {
+            return res.status(400).json({ error: 'baseUrl 不能为空（非 Gemini embed provider 必须显式提供）' });
+          }
           const headers: Record<string, string> = {
             'Content-Type': 'application/json'
           };
           if (apiKey) {
             headers['Authorization'] = `Bearer ${apiKey}`;
           }
-          const apiBase = (baseUrl || '').replace(/\/$/, '');
-          const response = await fetch(`${apiBase}/embeddings`, {
+          // Batch 1: assertSafeBaseUrl 拒内网/metadata host
+          const apiBase = await assertSafeBaseUrl(baseUrl);
+          const response = await fetchWithTimeout(`${apiBase}/embeddings`, {
             method: 'POST',
             headers,
             body: JSON.stringify({
@@ -398,7 +414,7 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
             return res.status(500).json({ error: '请在设置页面中配置你的 Gemini API Key' });
          }
          
-         const ai = buildGeminiClient(activeKey, baseUrl);
+         const ai = await buildGeminiClient(activeKey, baseUrl);
          
          let finalModel = model || 'gemini-3.1-flash-lite';
 
@@ -424,7 +440,7 @@ Output your insights in a clear, well-structured Markdown format. Group your ins
         const summaryPromptStr = insightSummaryPrompt || `你是一个用于生成一句话洞察摘要的助手。请根据提供的洞察报告文本，生成一句简短、优美、富有诗意的中文摘要（不超过30个字）。`;
         try {
           if (provider === 'gemini') {
-            const ai = buildGeminiClient(apiKey, baseUrl);
+            const ai = await buildGeminiClient(apiKey, baseUrl);
             const finalModel = model || 'gemini-3.1-flash-lite';
             const summaryResponse = await ai.models.generateContent({
               model: finalModel,
@@ -497,7 +513,7 @@ ${thoughtsSection || '（无沉淀笔记）'}
       if (!apiKey) {
         throw new Error('请在设置页面中配置你的 Gemini API Key');
       }
-      const ai = buildGeminiClient(apiKey, baseUrl);
+      const ai = await buildGeminiClient(apiKey, baseUrl);
       const finalModel = model || 'gemini-3.1-flash-lite';
       const response = await ai.models.generateContent({
         model: finalModel,
@@ -525,7 +541,7 @@ ${thoughtsSection || '（无沉淀笔记）'}
     try {
       if (provider === 'gemini') {
         if (!apiKey) return "";
-        const ai = buildGeminiClient(apiKey, baseUrl);
+        const ai = await buildGeminiClient(apiKey, baseUrl);
         const finalModel = model || 'gemini-3.1-flash-lite';
         const response = await ai.models.generateContent({
           model: finalModel,
@@ -627,7 +643,7 @@ ${thoughtsSection || '（无沉淀笔记）'}
             return res.status(500).json({ error: '请在设置页面中配置你的 Gemini API Key' });
          }
          
-         const ai = buildGeminiClient(activeKey, baseUrl);
+         const ai = await buildGeminiClient(activeKey, baseUrl);
          
          let finalModel = model || 'gemini-3.1-flash-lite';
          
@@ -726,7 +742,7 @@ ${contextContent || '（本次未检索到相关片段）'}
             return res.status(500).json({ error: '请在设置页面中配置你的 Gemini API Key' });
          }
          
-         const ai = buildGeminiClient(activeKey, baseUrl);
+         const ai = await buildGeminiClient(activeKey, baseUrl);
          
          let finalModel = model || 'gemini-3.1-flash-lite';
 
@@ -795,8 +811,8 @@ ${contextContent || '（本次未检索到相关片段）'}
          }
 
          const audioDataUrl = `data:${convertedMime};base64,${convertedBase64}`;
-         
-         const fetchRes = await fetch(apiUrl, {
+
+         const fetchRes = await fetchWithTimeout(apiUrl, {
             method: 'POST',
             headers: {
                'Content-Type': 'application/json',
@@ -865,7 +881,8 @@ ${contextContent || '（本次未检索到相关片段）'}
            case 'mimo': defBase = 'https://ai.xiaomi.com/v1'; break;
          }
 
-         const baseStr = baseUrl || defBase;
+         // Batch 1: assertSafeBaseUrl 拒内网/metadata host
+         const baseStr = await assertSafeBaseUrl(baseUrl || defBase);
          const apiUrl = baseStr.endsWith('/audio/transcriptions') ? baseStr : `${baseStr.replace(/\/$/, '')}/audio/transcriptions`;
          
          if (!apiUrl) {
@@ -904,8 +921,8 @@ ${contextContent || '（本次未检索到相关片段）'}
          formData.append('model', provider === 'openai' ? 'whisper-1' : (model || 'whisper-1'));
          formData.append('temperature', '0');
          formData.append('prompt', '这是一段普通的中文语音。');
-         
-         const fetchRes = await fetch(apiUrl, {
+
+         const fetchRes = await fetchWithTimeout(apiUrl, {
             method: 'POST',
             headers: {
                'Authorization': `Bearer ${apiKey}`
@@ -949,7 +966,7 @@ ${contextContent || '（本次未检索到相关片段）'}
           return res.status(500).json({ error: '请在设置页面中配置你的 Gemini API Key' });
         }
 
-        const ai = buildGeminiClient(activeKey, baseUrl);
+        const ai = await buildGeminiClient(activeKey, baseUrl);
         const finalModel = model || 'gemini-3.1-flash-lite';
         const cleanMimeType = mime_type.split(';')[0];
         const kindLabel = kind === 'video' ? '视频' : '图片';
@@ -1041,14 +1058,15 @@ ${contextContent || '（本次未检索到相关片段）'}
     rate = 1,
     fetchTimeoutMs = 30_000
   ): Promise<Buffer> {
-    const rawBase = (baseUrl || 'https://api.minimax.chat').replace(/\/$/, '');
+    // Batch 1: assertSafeBaseUrl 拒内网/metadata host
+    const rawBase = await assertSafeBaseUrl(baseUrl || 'https://api.minimax.chat');
     // 兼容用户把 Base URL 填成 https://api.minimax.chat/v1 的情况
     const apiBase = rawBase.replace(/\/v1$/, '');
     const url = `${apiBase}/v1/t2a_v2`;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), fetchTimeoutMs);
     try {
-      const res = await fetch(url, {
+      const res = await fetchWithTimeout(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1139,10 +1157,11 @@ ${contextContent || '（本次未检索到相关片段）'}
       writeEvent({ event: 'error', message: '火山引擎 API Key 需为 appid:access_token 格式' });
       return { chunks: 0, totalBytes: 0 };
     }
-    const apiBase = (opts.baseUrl || 'https://openspeech.bytedance.com').replace(/\/$/, '');
+    // Batch 1: assertSafeBaseUrl 拒内网/metadata host
+    const apiBase = await assertSafeBaseUrl(opts.baseUrl || 'https://openspeech.bytedance.com');
     const url = `${apiBase}/api/v1/tts/unidirectional`; // [TBD-wait-user] 流式 URL 待用户确认
     const reqid = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    const res = await fetch(url, {
+    const res = await fetchWithTimeout(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1216,7 +1235,7 @@ ${contextContent || '（本次未检索到相关片段）'}
       }
 
       if (provider === 'gemini') {
-        const ai = buildGeminiClient(apiKey, baseUrl);
+        const ai = await buildGeminiClient(apiKey, baseUrl);
         // 默认走 3.1 flash tts preview：官方支持流式 TTS。
         // 用户若手动切回 2.5 flash preview，TTS 将整段返回（不支持流式），
         // 首字延迟会回到数十秒～数分钟级别——这是上游 model 行为，与本服务无关。
@@ -1257,12 +1276,13 @@ ${contextContent || '（本次未检索到相关片段）'}
         if (!appid) {
           return res.status(400).json({ error: '火山引擎 TTS 的 API Key 需为 "appid:access_token" 格式' });
         }
-        const apiBase = (baseUrl || 'https://openspeech.bytedance.com').replace(/\/$/, '');
+        // Batch 1: assertSafeBaseUrl 拒内网/metadata host
+        const apiBase = await assertSafeBaseUrl(baseUrl || 'https://openspeech.bytedance.com');
         const apiUrl = `${apiBase}/api/v1/tts`;
         const voiceType = model || 'BV001_streaming';
         const speedRatio = typeof rate === 'number' && rate > 0 ? rate : 1;
         const reqid = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-        const fetchRes = await fetch(apiUrl, {
+        const fetchRes = await fetchWithTimeout(apiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1364,7 +1384,8 @@ ${contextContent || '（本次未检索到相关片段）'}
           // 事件格式 { event_type: 'step.delta', delta: { type: 'audio', data: '<base64 PCM>' } }。
           // 注意：上游 SSE EOF 即视为 end；不主动发 interaction.complete 事件。
           const finalModel = model || 'gemini-3.1-flash-tts-preview';
-          const apiBase = (baseUrl || 'https://generativelanguage.googleapis.com').replace(/\/$/, '');
+          // Batch 1: assertSafeBaseUrl 拒内网/metadata host
+          const apiBase = await assertSafeBaseUrl(baseUrl || 'https://generativelanguage.googleapis.com');
           const url = `${apiBase}/v1beta/interactions`;
 
           // 先告知前端 PCM 格式（Gemini TTS 固定 24kHz / 16bit / mono）
@@ -1377,7 +1398,7 @@ ${contextContent || '（本次未检索到相关片段）'}
           });
 
           const t1 = Date.now();
-          const upstream = await fetch(url, {
+          const upstream = await fetchWithTimeout(url, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -1524,7 +1545,7 @@ ${contextContent || '（本次未检索到相关片段）'}
         }
       }
 
-      const response = await fetch(url, {
+      const response = await fetchWithTimeout(url, {
         method,
         headers: requestHeaders,
         body: requestBody
@@ -1572,7 +1593,8 @@ async function sendLLMRequest(
      case 'anthropic': defBase = 'https://api.anthropic.com/v1'; defModel = 'claude-3-5-sonnet-latest'; break;
    }
    
-   const baseStr = baseUrl || defBase;
+   // Batch 1: assertSafeBaseUrl 拒内网/metadata host
+   const baseStr = await assertSafeBaseUrl(baseUrl || defBase);
    const actualModel = model || defModel;
    let apiUrl = '';
    const headers: Record<string, string> = {
@@ -1613,7 +1635,7 @@ async function sendLLMRequest(
       };
    }
 
-   const response = await fetch(apiUrl, {
+   const response = await fetchWithTimeout(apiUrl, {
       method: 'POST',
       headers,
       body: JSON.stringify(bodyPayload)

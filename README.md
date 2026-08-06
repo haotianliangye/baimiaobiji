@@ -167,7 +167,7 @@
 ### 升级策略
 
 - **数据迁移**：启动时自动按 schema 版本号升级 IndexedDB，老数据不会丢失
-- **配置兼容**：API Key、Prompt、云同步凭据存于 `settings_kv`，升级时自动保留
+- **配置兼容**：Prompt / 云同步凭据 / OAuth token 存于 `settings_kv`，API Key 单独存于 `settings_kv` 的 `api_key.<type>.<provider>` 行（P1-003 集成，v0.6.0+；不在 localStorage 明文）
 - **回滚**：通过「设置 → 数据管理 → 本地备份」恢复最近 4 周内的任意快照
 - **手动导入/导出**：设置 → 数据管理 → 导出 / 导入 JSON 备份，跨设备迁移安全可控
 
