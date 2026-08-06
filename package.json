@@ -12,7 +12,7 @@
     "sync-version": "node scripts/sync-version.js",
     "sync-version:check": "node scripts/sync-version.js --check",
     "test:e2e": "tsx tests/foundation-migration.test.ts",
-    "test:unit": "tsx tests/document-model.test.ts && tsx tests/editor-schema.test.ts && tsx tests/editor-extensions.test.ts && tsx tests/document-components.test.ts && tsx tests/document-migration.test.ts && tsx tests/thoughts-store.test.ts && tsx tests/apiKeyStore.test.ts && tsx tests/apiKeyStore.migration.test.ts"
+    "test:unit": "tsx tests/document-model.test.ts && tsx tests/editor-schema.test.ts && tsx tests/editor-extensions.test.ts && tsx tests/document-components.test.ts && tsx tests/document-migration.test.ts && tsx tests/thoughts-store.test.ts && tsx tests/apiKeyStore.test.ts && tsx tests/apiKeyStore.migration.test.ts && tsx tests/safe-base-url.test.ts"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
