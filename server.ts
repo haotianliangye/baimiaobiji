@@ -9,6 +9,7 @@ import fs from 'fs';
 import os from 'os';
 import { fetchWithTimeout, FETCH_TIMEOUTS } from './src/lib/fetchWithTimeout';
 import { assertSafeBaseUrl } from './src/lib/safeBaseUrl';
+import { handleWebdavProxy } from './src/lib/webdavProxyServer';
 import pkg from './package.json' with { type: 'json' };
 import { evaluateTranscript, getDefaultPatterns, type HallucinationPattern } from './src/lib/hallucinationFilter';
 
@@ -1595,55 +1596,9 @@ ${contextContent || '（本次未检索到相关片段）'}
     console.log('[TTS test-stream] done');
   });
 
-  app.post('/api/webdav-proxy', async (req, res) => {
-    try {
-      const { endpoint, method, path: filePath, auth, body, headers } = req.body;
-      if (!endpoint || !method) {
-        return res.status(400).json({ error: 'Missing endpoint or method' });
-      }
-
-      const cleanEndpoint = endpoint.endsWith('/') ? endpoint : endpoint + '/';
-      const cleanPath = filePath.startsWith('/') ? filePath.slice(1) : filePath;
-      const url = cleanEndpoint + cleanPath;
-
-      const requestHeaders: Record<string, string> = {
-        'Authorization': auth,
-        ...headers
-      };
-
-      let requestBody: any = undefined;
-      if (body) {
-        if (method === 'PUT') {
-          requestBody = Buffer.from(body, 'base64');
-        } else {
-          requestBody = body;
-        }
-      }
-
-      const response = await fetchWithTimeout(url, {
-        method,
-        headers: requestHeaders,
-        body: requestBody
-      }, FETCH_TIMEOUTS.webdav);
-
-      if (method === 'GET') {
-        if (response.status === 404) {
-          return res.status(404).json({ error: 'FILE_NOT_FOUND' });
-        }
-        if (!response.ok) {
-          return res.status(response.status).json({ error: `Fetch failed: ${response.statusText}` });
-        }
-        const arrayBuffer = await response.arrayBuffer();
-        const base64 = Buffer.from(arrayBuffer).toString('base64');
-        return res.json({ status: response.status, data: base64 });
-      }
-
-      return res.json({ status: response.status });
-    } catch (err: any) {
-      console.error("WebDAV Proxy Error:", err);
-      res.status(500).json({ error: err.message });
-    }
-  });
+  // Batch 1: webdav-proxy 收窄为 handleWebdavProxy helper（method 白名单 +
+  // endpoint 校验 + auth scheme 校验 + headers 黑名单 + 30s 超时）。
+  app.post('/api/webdav-proxy', handleWebdavProxy);
 
   // Vite middleware for development
   // Health check endpoint — used by /api/health probes (e.g. uptime monitoring)
