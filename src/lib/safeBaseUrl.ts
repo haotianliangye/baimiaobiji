@@ -238,7 +238,7 @@ export async function validateBaseUrl(raw: string): Promise<ValidationResult> {
  */
 export async function assertSafeBaseUrl(raw: string): Promise<string> {
   const result = await validateBaseUrl(raw);
-  if (!result.ok) {
+  if (result.ok === false) {
     throw new Error(`Invalid baseUrl: ${result.reason}`);
   }
   // 归一化：去尾 /（避免与下游路径拼接产生 //）
