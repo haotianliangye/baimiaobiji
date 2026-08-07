@@ -128,7 +128,7 @@
 
 | 项目 | 版本 | 说明 |
 |:-----|:-----|:-----|
-| 应用 | v0.6.0 | 与 `package.json:4` 同步 |
+| 应用 | v0.5.7 | 与 `package.json:4` 同步 |
 | 数据 Schema | v17 | IndexedDB 当前最高迁移版本 |
 | Node 要求 | ≥ 18 | 后端运行时 |
 
@@ -136,12 +136,20 @@
 
 采用语义化版本号（SemVer）：`MAJOR.MINOR.PATCH`。
 
-- **PATCH**（如 v0.3.0 → v0.3.1）：仅修 bug，用户无需任何操作
-- **MINOR**（如 v0.3.x → v0.4.0）：新增模块或功能，向下兼容旧数据
+- **PATCH**（如 v0.3.0 → v0.3.1）：仅修 bug、行为加固（安全 / 性能 / SSRF 防线）、`zustand persist` 内部版本号变更；用户无需任何操作，Dexie schema 不变
+- **MINOR**（如 v0.3.x → v0.4.0）：新增用户可见模块或功能，或 IndexedDB `db.version` 自增；向下兼容旧数据
 - **MAJOR**（如 v0.x → v1.0）：可能涉及 schema 不兼容升级，启动时会提示数据迁移并自动备份
 
 ### 更新日志
 
+- **v0.5.7**（安全加固批 1）
+  - **P1-003 集成**：API Key 从 localStorage 明文抽到 IndexedDB `db.settings_kv`（provider-scoped schema `api_key.<type>.<provider>`）。`zustand persist` 不再序列化 `apiKey` / `embedApiKey` / `ttsApiKey` / `configs` / `embedConfigs` / `ttsConfigs`；老用户 v15 → v16 migrate 自动迁移并清理 localStorage 残留（详见 `docs/adr/0003-api-key-isolation.md`）
+  - **SSRF 防线（High）**：新增 `src/lib/safeBaseUrl.ts` —— scheme allowlist + DNS 解析 + 内网 IP 黑名单（RFC1918 / link-local / CGNAT / IPv6 loopback / metadata），保留 `127.0.0.1` 给 Ollama；端口黑名单（22/25/135/139/445/3389/5432/6379/9200/27017）；5 分钟 LRU 缓存
+  - 11+ 个 AI 代理端点接入 `assertSafeBaseUrl`：`/api/generate-*`、`/api/test-connection`、`/api/transcribe`、`/api/multimedia-summarize`、`/api/tts`、`/api/tts/stream`；`/api/test-connection` 非 Gemini 分支补「空 baseUrl → 400」修复（之前拼出相对路径发到当前 host 自身）
+  - **`/api/webdav-proxy` 收窄（High）**：新增 `src/lib/webdavProxyServer.ts` —— method 白名单（OPTIONS / PROPFIND / MKCOL / GET / HEAD / PUT / DELETE / COPY / MOVE）、endpoint 校验（含 `*.local` 自建 NAS 放行）、auth scheme 必须 Basic / Bearer、headers 黑名单（Host / Cookie / Connection / Content-Length / Transfer-Encoding / Upgrade）、30s 超时
+  - 顺手修 `api/index.ts` `fetchWithTimeout` 漂移（Issue #002 之前在 server.ts 加了但 api/index.ts 漏了）
+  - 测试：`tests/safe-base-url.test.ts`（35 项）、扩 `tests/apiKeyStore.test.ts`（K9-K11）、新增 `tests/apiKeyStore.migration.test.ts`（10 项）；`npm run test:unit` 84/84 全过
+  - 升级提示：v0.5.6 及更早用户升级时首次启动会自动迁移 API key 到 IndexedDB，无需任何手动操作；如 devtools 里看到老的 `whitewash-settings.localStorage` 还有 `apiKey` 字段是正常的，下次写入就会被 partialize 清掉
 - **v0.5.2**
   - TTS 外部 API 新增 minimax (MiniMaxAI) Provider：Bearer 单串 API Key，端点 `POST {baseUrl}/v1/text_to_speech`，设面「外部 TTS API 配置」新增「服务商」三按钮（Gemini / 火山引擎 / minimax）
   - 火山引擎 TTS 改流式：`/api/tts/stream` 新增 chunked openspeech → SSE mp3 → 前端 `/audio-worklets/mp3-scheduler.js` 调度；点击 → 第一段 mp3 解码后立即播放
@@ -167,7 +175,7 @@
 ### 升级策略
 
 - **数据迁移**：启动时自动按 schema 版本号升级 IndexedDB，老数据不会丢失
-- **配置兼容**：Prompt / 云同步凭据 / OAuth token 存于 `settings_kv`，API Key 单独存于 `settings_kv` 的 `api_key.<type>.<provider>` 行（P1-003 集成，v0.6.0+；不在 localStorage 明文）
+- **配置兼容**：Prompt / 云同步凭据 / OAuth token 存于 `settings_kv`，API Key 单独存于 `settings_kv` 的 `api_key.<type>.<provider>` 行（P1-003 集成，v0.5.7+；不在 localStorage 明文）
 - **回滚**：通过「设置 → 数据管理 → 本地备份」恢复最近 4 周内的任意快照
 - **手动导入/导出**：设置 → 数据管理 → 导出 / 导入 JSON 备份，跨设备迁移安全可控
 
