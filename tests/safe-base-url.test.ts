@@ -1,3 +1,4 @@
+import { promises as dns } from 'node:dns';
 /**
  * safeBaseUrl 单元测试（Issue Batch 1）
  *
@@ -11,8 +12,7 @@
  *   - assertSafeBaseUrl throw / 归一化去尾 /
  *   - normalizeBaseUrl 纯字符串处理
  *
- * 真实 DNS 解析测试用 httpbin.org / example.com 等公网域；
- * CI 环境无外网时跳过（graceful degradation）。
+ * DNS 解析使用本地 mock，不依赖外网。
  *
  * 运行：`npx tsx tests/safe-base-url.test.ts`
  */
@@ -112,13 +112,13 @@ async function run() {
   record('I2 normalizeBaseUrl 去空格', normalizeBaseUrl('  https://x.com  ') === 'https://x.com', '');
   record('I3 normalizeBaseUrl 空串', normalizeBaseUrl('') === '', '');
 
-  // ===== 真实 DNS 解析（公网域名；CI 无外网时优雅失败）=====
+  // DNS controls are deterministic and do not depend on an external resolver.
+  const lookup = dns.lookup;
   try {
-    await expectOk('J1 公网域名 api.openai.com', 'https://api.openai.com/v1', 'public DNS');
-    await expectOk('J2 公网域名 generativelanguage.googleapis.com', 'https://generativelanguage.googleapis.com/', 'public DNS');
-  } catch (e: any) {
-    record('J 公网 DNS', false, `unexpected: ${e.message}`);
-  }
+    (dns as any).lookup = async () => [{ address: '8.8.8.8', family: 4 }];
+    await expectOk('J1 公网域名 api.openai.com', 'https://api.openai.com/v1', 'mock public DNS');
+    await expectOk('J2 公网域名 generativelanguage.googleapis.com', 'https://generativelanguage.googleapis.com/', 'mock public DNS');
+  } finally { dns.lookup = lookup; }
 
   // ===== 汇总 =====
   const failed = results.filter(r => !r.pass);

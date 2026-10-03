@@ -1,3 +1,5 @@
+import { beginOAuth, consumeOAuthFragment } from '../lib/oauthState';
+import { getR2OwnerToken, setR2OwnerToken } from '../lib/r2OwnerToken';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
@@ -35,6 +37,7 @@ import {
   totalBackupSize,
   type BackupRecord,
 } from '../lib/autoBackup';
+import { R2Client } from '../lib/r2Client';
 import { useLiveQuery } from 'dexie-react-hooks';
 
 const SYNC_START_DELAY_MS = 500;
@@ -732,6 +735,354 @@ function AutoBackupSection() {
 }
 
 /**
+ * Issue #009: Cloudflare R2 单向上传云备份。
+ *
+ * 设计原则：
+ *   - 配置改动立刻 persist（与 sync 类似）
+ *   - 加密用现有 syncPasswordE2EE，所以 UI 提示用户去 sync 设置
+ *   - push / list / restore 都是 fire-and-forget，错误本地 console + UI 红字提示
+ *   - 仅展示当前最新一次备份的 cloud_uploaded_at 状态（更细的状态可去 sync 面板查日志）
+ */
+function CloudBackupR2Section() {
+  const { t } = useTranslation();
+  const settingsStore = useSettingsStore();
+
+  // 镜像到本地 state 让输入体验更顺（保存时再批量 setSettings）
+  const [ownerTokenInput, setOwnerTokenInput] = useState(getR2OwnerToken);
+  const [bucketInput, setBucketInput] = useState(settingsStore.cloudBackupR2Bucket || '');
+  const [prefixInput, setPrefixInput] = useState(
+    settingsStore.cloudBackupR2Prefix || 'baimiaobiji',
+  );
+  const [enabledLocal, setEnabledLocal] = useState(settingsStore.cloudBackupR2Enabled === true);
+  const [includeManualLocal, setIncludeManualLocal] = useState(
+    settingsStore.cloudBackupR2IncludeManual === true,
+  );
+
+  const [testStatus, setTestStatus] = useState<'idle' | 'running' | 'ok' | 'fail'>('idle');
+  const [testMessage, setTestMessage] = useState<string>('');
+  const [pushStatus, setPushStatus] = useState<'idle' | 'running' | 'ok' | 'fail'>('idle');
+  const [pushMessage, setPushMessage] = useState<string>('');
+
+  // 监听 store 变化同步本地 state（外部代码改了 settings 时也能跟上）
+  useEffect(() => {
+    setBucketInput(settingsStore.cloudBackupR2Bucket || '');
+    setPrefixInput(settingsStore.cloudBackupR2Prefix || 'baimiaobiji');
+    setEnabledLocal(settingsStore.cloudBackupR2Enabled === true);
+    setIncludeManualLocal(settingsStore.cloudBackupR2IncludeManual === true);
+  }, [
+    settingsStore.cloudBackupR2Bucket,
+    settingsStore.cloudBackupR2Prefix,
+    settingsStore.cloudBackupR2Enabled,
+    settingsStore.cloudBackupR2IncludeManual,
+  ]);
+
+  // 是否有 E2EE 密码（启用 R2 的前置条件）
+  const hasE2EE =
+    typeof settingsStore.syncPasswordE2EE === 'string' &&
+    settingsStore.syncPasswordE2EE.length > 0;
+
+  // 最新一次备份（live query 跟随 IndexedDB 变化）
+  const lastBackup = useLiveQuery(
+    () => db.backups.orderBy('created_at').reverse().first(),
+    [],
+    null as BackupRecord | null,
+  );
+
+  const persistConfig = () => {
+    setR2OwnerToken(ownerTokenInput);
+    settingsStore.setSettings({
+      cloudBackupR2Bucket: bucketInput.trim(),
+      cloudBackupR2Prefix: prefixInput.trim() || 'baimiaobiji',
+      cloudBackupR2Enabled: enabledLocal,
+      cloudBackupR2IncludeManual: includeManualLocal,
+    });
+  };
+
+  const handleToggle = (next: boolean) => {
+    setR2OwnerToken(ownerTokenInput);
+    setEnabledLocal(next);
+    settingsStore.setSettings({
+      cloudBackupR2Enabled: next,
+      cloudBackupR2Bucket: bucketInput.trim(),
+      cloudBackupR2Prefix: prefixInput.trim() || 'baimiaobiji',
+      cloudBackupR2IncludeManual: includeManualLocal,
+    });
+  };
+
+  const handleIncludeManual = (next: boolean) => {
+    setIncludeManualLocal(next);
+    settingsStore.setSettings({ cloudBackupR2IncludeManual: next });
+  };
+
+  const handleTestConnection = async () => {
+    if (!hasE2EE) {
+      setTestStatus('fail');
+      setTestMessage(t('settings.cloudBackupR2E2eeRequired'));
+      return;
+    }
+    if (!bucketInput.trim()) {
+      setTestStatus('fail');
+      setTestMessage('Bucket 名为空');
+      return;
+    }
+    setTestStatus('running');
+    setTestMessage('');
+    try {
+      const client = new R2Client({ authToken: ownerTokenInput.trim(), bucket: bucketInput.trim(), keyPrefix: prefixInput.trim() || 'baimiaobiji' });
+      const result = await client.testConnection();
+      if (result.ok) {
+        setTestStatus('ok');
+        setTestMessage(result.message);
+      } else {
+        setTestStatus('fail');
+        setTestMessage(result.message);
+      }
+    } catch (err: any) {
+      setTestStatus('fail');
+      setTestMessage(err.message || '测试失败');
+    }
+  };
+
+  const handlePushNow = async () => {
+    if (!hasE2EE) {
+      setPushStatus('fail');
+      setPushMessage(t('settings.cloudBackupR2E2eeRequired'));
+      return;
+    }
+    if (!bucketInput.trim()) {
+      setPushStatus('fail');
+      setPushMessage('Bucket 名为空');
+      return;
+    }
+    setPushStatus('running');
+    setPushMessage('');
+    try {
+      // 先把最新配置 persist（pushBackupToR2 走 store 读 config）
+      persistConfig();
+      const created = await createBackup('manual');  // 触发一次新的 manual 备份，会被 push hook 捕获
+      // 等 push 完成（pushBackupToR2 是 fire-and-forget，需要 poll cloud_uploaded_at）
+      const deadline = Date.now() + 30_000;
+      while (Date.now() < deadline) {
+        const refreshed = await db.backups.get(created.id);
+        if (refreshed?.cloud_uploaded_at) {
+          setPushStatus('ok');
+          setPushMessage(`已推送：${created.id}（${(refreshed.size_bytes / 1024 / 1024).toFixed(1)} MB）`);
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 500));
+      }
+      setPushStatus('fail');
+      setPushMessage('等待 cloud_uploaded_at 超时（30s），请看 console');
+    } catch (err: any) {
+      setPushStatus('fail');
+      setPushMessage(err.message || '推送失败');
+    }
+  };
+
+  const handleListR2 = async () => {
+    if (!bucketInput.trim()) {
+      alert('Bucket 名为空');
+      return;
+    }
+    try {
+      const client = new R2Client({ authToken: ownerTokenInput.trim(), bucket: bucketInput.trim(), keyPrefix: prefixInput.trim() || 'baimiaobiji' });
+      const list = await client.listBackups();
+      if (list.length === 0) {
+        alert(t('settings.cloudBackupR2NoBackups'));
+        return;
+      }
+      // 简化版：alert 列出 key（不做完整 restore UI，留给后续 issue）
+      const summary = list.slice(0, 10).map((o) =>
+        `• ${o.key}  (${(o.size / 1024 / 1024).toFixed(2)} MB, ${new Date(o.lastModified).toLocaleString('zh-CN')})`
+      ).join('\n');
+      alert(`R2 上找到 ${list.length} 条备份（仅展示前 10 条）：\n\n${summary}\n\n恢复功能：devtools console 调用 R2Client.downloadAndDecrypt(key, password) 拿到 plaintext 后用现有 restoreBackup 流程导入。`);
+    } catch (err: any) {
+      alert(`列出失败：${err.message || '未知错误'}`);
+    }
+  };
+
+  const lastUploadedAt = lastBackup?.cloud_uploaded_at;
+
+  return (
+    <section className="baimiao-card-diary p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-[13px] font-semibold text-stone-800 flex items-center gap-2">
+          <Cloud className="w-4 h-4 text-sky-500" />
+          {t('settings.cloudBackupR2')}
+        </h3>
+        <span className="text-[10.5px] font-mono text-stone-500">
+          {t('settings.cloudBackupR2Status')}{' '}
+          <span className={cn(
+            'px-1.5 py-0.5 rounded text-[10px]',
+            enabledLocal && hasE2EE
+              ? 'bg-emerald-100 text-emerald-700'
+              : 'bg-stone-100 text-stone-500',
+          )}>
+            {enabledLocal && hasE2EE
+              ? t('settings.cloudBackupR2Enabled')
+              : t('settings.cloudBackupR2Disabled')}
+          </span>
+        </span>
+      </div>
+
+      <p className="text-[11.5px] text-stone-600 leading-relaxed">
+        {t('settings.cloudBackupR2Desc')}
+      </p>
+
+      {/* 开关 */}
+      <div className="flex items-center justify-between pt-2 border-t border-stone-100">
+        <span className="text-[12px] text-stone-700">{t('settings.autoBackupOn')}</span>
+        <label className="relative inline-flex items-center cursor-pointer">
+          <input
+            type="checkbox"
+            checked={enabledLocal}
+            disabled={!hasE2EE}
+            onChange={(e) => handleToggle(e.target.checked)}
+            className="sr-only peer"
+            data-testid="r2-toggle"
+          />
+          <div className={cn(
+            'w-11 h-6 rounded-full transition-colors',
+            !hasE2EE ? 'bg-stone-200 opacity-50 cursor-not-allowed' :
+              enabledLocal ? 'bg-emerald-500' : 'bg-stone-300',
+            "after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-transform",
+            enabledLocal && hasE2EE ? 'after:translate-x-5' : '',
+          )} />
+        </label>
+      </div>
+
+      {/* E2EE 提示 */}
+      {!hasE2EE && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-[11.5px] text-amber-900">
+          {t('settings.cloudBackupR2E2eeRequired')}。
+          <button
+            type="button"
+            onClick={() => {
+              // 滚到同步设置 card（视觉提示，不做导航；用户自己滚）
+              const el = document.querySelector('[data-testid="cloud-sync-card"]');
+              el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }}
+            className="ml-2 underline text-amber-700 hover:text-amber-900"
+          >
+            {t('settings.cloudBackupR2E2eeSetup')}
+          </button>
+        </div>
+      )}
+
+      {/* 配置表单 */}
+      {enabledLocal && (
+        <div className="space-y-2 pt-2 border-t border-stone-100">
+          <div>
+            <label className="text-[11px] text-stone-600">{t('settings.cloudBackupR2OwnerToken')}</label>
+            <input type="password" value={ownerTokenInput} onChange={(e) => setOwnerTokenInput(e.target.value)} onBlur={persistConfig} autoComplete="off" className="w-full mt-1 px-2 py-1.5 text-[12px] border border-stone-200 rounded" />
+            <p className="text-[11px] text-stone-500">{t('settings.cloudBackupR2OwnerTokenHelp')}</p>
+          </div>
+          <div>
+            <label className="text-[11px] text-stone-600">{t('settings.cloudBackupR2Bucket')}</label>
+            <input
+              type="text"
+              value={bucketInput}
+              onChange={(e) => setBucketInput(e.target.value)}
+              onBlur={persistConfig}
+              placeholder="my-baimiao-backups"
+              className="w-full mt-1 px-2 py-1.5 text-[12px] border border-stone-200 rounded font-mono"
+              data-testid="r2-bucket-input"
+            />
+          </div>
+          <div>
+            <label className="text-[11px] text-stone-600">{t('settings.cloudBackupR2Prefix')}</label>
+            <input
+              type="text"
+              value={prefixInput}
+              onChange={(e) => setPrefixInput(e.target.value)}
+              onBlur={persistConfig}
+              placeholder="baimiaobiji"
+              className="w-full mt-1 px-2 py-1.5 text-[12px] border border-stone-200 rounded font-mono"
+              data-testid="r2-prefix-input"
+            />
+          </div>
+          <label className="flex items-center gap-2 text-[11.5px] text-stone-700">
+            <input
+              type="checkbox"
+              checked={includeManualLocal}
+              onChange={(e) => handleIncludeManual(e.target.checked)}
+              className="rounded"
+            />
+            {t('settings.cloudBackupR2IncludeManual')}
+          </label>
+        </div>
+      )}
+
+      {/* 状态行 */}
+      <div className="text-[11px] text-stone-500 font-mono pt-2 border-t border-stone-100">
+        {lastUploadedAt
+          ? t('settings.cloudBackupR2LastSuccess', {
+              time: new Date(lastUploadedAt).toLocaleString('zh-CN', {
+                month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+              }),
+            })
+          : t('settings.cloudBackupR2NeverUploaded')}
+      </div>
+
+      {/* 动作按钮 */}
+      <div className="flex flex-wrap gap-2 pt-2 border-t border-stone-100">
+        <button
+          type="button"
+          onClick={handleTestConnection}
+          disabled={testStatus === 'running'}
+          className="px-2.5 py-1.5 text-[11.5px] bg-stone-100 hover:bg-stone-200 disabled:opacity-50 rounded text-stone-700"
+        >
+          {t('settings.cloudBackupR2Test')}
+        </button>
+        <button
+          type="button"
+          onClick={handlePushNow}
+          disabled={pushStatus === 'running'}
+          className="px-2.5 py-1.5 text-[11.5px] bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white rounded"
+        >
+          {t('settings.cloudBackupR2PushNow')}
+        </button>
+        <button
+          type="button"
+          onClick={handleListR2}
+          className="px-2.5 py-1.5 text-[11.5px] bg-stone-100 hover:bg-stone-200 rounded text-stone-700"
+        >
+          {t('settings.cloudBackupR2List')}
+        </button>
+      </div>
+
+      {/* 反馈消息 */}
+      {(testMessage || pushMessage) && (
+        <div className={cn(
+          'text-[11px] font-mono px-2 py-1.5 rounded',
+          (testStatus === 'fail' || pushStatus === 'fail')
+            ? 'bg-rose-50 text-rose-700 border border-rose-200'
+            : 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+        )}>
+          {testStatus === 'fail' ? `🔌 ${testMessage}` : testStatus === 'ok' ? `🔌 ${testMessage}` : ''}
+          {pushStatus === 'fail' ? `☁️ ${pushMessage}` : pushStatus === 'ok' ? `☁️ ${pushMessage}` : ''}
+        </div>
+      )}
+
+      {/* 设置说明提示 */}
+      <details className="text-[11px] text-stone-500 pt-2 border-t border-stone-100">
+        <summary className="cursor-pointer hover:text-stone-700">
+          {t('settings.cloudBackupR2SetupGuide')}
+        </summary>
+        <div className="mt-2 space-y-1 leading-relaxed">
+          <div>1. Cloudflare dashboard → R2 → 创建 bucket（如 my-baimiao-backups）</div>
+          <div>2. R2 → Manage R2 API Tokens → Create API token（Object Read & Write 权限，限定到该 bucket）</div>
+          <div>3. 把 token 信息配到 Vercel 环境变量：</div>
+          <div className="font-mono pl-4 text-[10.5px]">R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_BUCKET</div>
+          <div>4. 回本页面填 bucket 名 + 复用「加密云同步」的 E2EE 密码 → 启用</div>
+          <div>5. 下次自动备份（24h 内）会自动推一份加密快照到 R2</div>
+        </div>
+      </details>
+    </section>
+  );
+}
+
+/**
  * Issue P1-004 follow-up (ADR-0004): 长期记忆 Facts UI
  *
  * 让用户能手动录入关于自己的事实（生日 / 偏好 / 习惯 / 背景）。
@@ -978,11 +1329,11 @@ export default function Settings() {
   useEffect(() => {
     const hash = window.location.hash;
     if (hash && hash.includes('access_token=')) {
-      const params = new URLSearchParams(hash.replace(/^#/, '?'));
-      const token = params.get('access_token');
-      const state = params.get('state');
-
-      if (token && state) {
+      const callback = consumeOAuthFragment(hash, window.location.origin + window.location.pathname);
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      if (!callback) { alert(t('settings.oauthInvalidCallback')); return; }
+      const { token, provider: state } = callback;
+      {
         // Restore pre-oauth backup
         try {
           const backupStr = localStorage.getItem('baimiao_oauth_backup');
@@ -1056,16 +1407,17 @@ export default function Settings() {
   const handleOAuthAuthorize = (provider: 'onedrive' | 'gdrive' | 'dropbox') => {
     const redirectUri = window.location.origin + window.location.pathname;
     
+    const state = beginOAuth(provider, redirectUri);
     let authUrl = '';
     if (provider === 'onedrive') {
       const clientId = localSyncOneDriveClientId || SYNC_CONSTANTS.DEFAULT_ONEDRIVE_CLIENT_ID;
-      authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent('files.readwrite')}&state=onedrive`;
+      authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent('files.readwrite')}&state=${encodeURIComponent(state)}`;
     } else if (provider === 'gdrive') {
       const clientId = localSyncGDriveClientId || SYNC_CONSTANTS.DEFAULT_GDRIVE_CLIENT_ID;
-      authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent('https://www.googleapis.com/auth/drive.file')}&state=gdrive`;
+      authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent('https://www.googleapis.com/auth/drive.file')}&state=${encodeURIComponent(state)}`;
     } else if (provider === 'dropbox') {
       const clientId = localSyncDropboxClientId || SYNC_CONSTANTS.DEFAULT_DROPBOX_CLIENT_ID;
-      authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&state=dropbox`;
+      authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}`;
     }
     
     if (authUrl) {
@@ -2857,8 +3209,11 @@ export default function Settings() {
               {/* Issue #008: Auto Backup card */}
               <AutoBackupSection />
 
+              {/* Issue #009: Cloud Backup (Cloudflare R2) card */}
+              <CloudBackupR2Section />
+
               {/* Encrypted Cloud Sync card */}
-              <section className="baimiao-card-diary p-4 space-y-3">
+              <section data-testid="cloud-sync-card" className="baimiao-card-diary p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-[13px] font-semibold text-stone-400 tracking-wider uppercase flex items-center gap-1.5">
                     <Cloud className="w-4 h-4 text-stone-400" />

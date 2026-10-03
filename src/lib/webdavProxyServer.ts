@@ -26,7 +26,8 @@
  */
 
 import type { Request, Response } from 'express';
-import { fetchWithTimeout, FETCH_TIMEOUTS } from './fetchWithTimeout';
+import { FETCH_TIMEOUTS } from './fetchWithTimeout';
+import { safeFetchWithTimeout as fetchWithTimeout } from './safeFetch';
 import { assertSafeBaseUrl } from './safeBaseUrl';
 
 // --- 白名单常量 ---
@@ -154,19 +155,24 @@ export async function handleWebdavProxy(req: Request, res: Response): Promise<vo
     }
 
     // 8. fetchWithTimeout 30s（与 server.ts Issue #002 对齐）
+    const controller = new AbortController();
+    res.once('close', () => { if (!res.writableEnded) controller.abort(); });
     const response = await fetchWithTimeout(url, {
+      signal: controller.signal,
       method: upperMethod,
       headers: requestHeaders,
       body: requestBody,
-    }, FETCH_TIMEOUTS.webdav);
+    }, FETCH_TIMEOUTS.webdav, { webdavLocal: true, maxResponseBytes: 200 * 1024 * 1024 });
 
     // 9. 响应：GET 走 base64 data，其它只回 status（与原行为一致）
     if (upperMethod === 'GET') {
       if (response.status === 404) {
+        await response.body?.cancel();
         res.status(404).json({ error: 'FILE_NOT_FOUND' });
         return;
       }
       if (!response.ok) {
+        await response.body?.cancel();
         res.status(response.status).json({ error: `Fetch failed: ${response.statusText}` });
         return;
       }
@@ -176,6 +182,7 @@ export async function handleWebdavProxy(req: Request, res: Response): Promise<vo
       return;
     }
 
+    await response.body?.cancel();
     res.json({ status: response.status });
   } catch (err: any) {
     console.error('WebDAV Proxy Error:', err);
@@ -194,27 +201,5 @@ export async function handleWebdavProxy(req: Request, res: Response): Promise<vo
  *   - 仍拒 RFC1918 数字 IP（10.0.0.5/192.168.1.10 等），仅放 host 后缀
  */
 async function assertSafeEndpointForWebdav(raw: string): Promise<string> {
-  // 先尝试标准校验
-  try {
-    return await assertSafeBaseUrl(raw);
-  } catch (err) {
-    // 若 endpoint 是 *.local 域名（解析失败），尝试放行
-    let url: URL;
-    try {
-      url = new URL(raw);
-    } catch {
-      throw err; // URL 不合法，原错误上抛
-    }
-    const host = url.hostname;
-    // 数字 IP literal 一律严格（不接受 *.local 绕过）
-    if (/^[\d.]+$/.test(host) || host.includes(':')) {
-      throw err;
-    }
-    // 仅 .local 后缀放行
-    if (host.toLowerCase().endsWith('.local') || host.toLowerCase() === 'localhost') {
-      return url.toString().replace(/\/$/, '');
-    }
-    // 其它域名解析失败仍然拒
-    throw err;
-  }
+  return assertSafeBaseUrl(raw, { webdavLocal: true });
 }

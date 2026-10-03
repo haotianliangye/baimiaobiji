@@ -12,7 +12,7 @@
  *   - K1-K6 静态检查 migrate v16 块的语义（注释 / 代码模式）
  *   - K7-K8 静态检查 partialize exclude apiKey/configs
  *   - K9 静态检查 onRehydrateStorage + bootstrapApiKeysIntoState 已串起来
- *   - K10 静态检查 version 已是 16
+ *   - K10 静态检查 version 不低于密钥迁移版本 16
  *
  * 行为验证留给手测：
  *   - devtools → Application → Local Storage → `whitewash-settings` 应不含 apiKey/configs
@@ -42,12 +42,10 @@ async function run() {
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/\/\/.*$/gm, '');
 
-  // ===== K1: version 已是 16 =====
-  assert.ok(
-    /version:\s*16/.test(src),
-    'K1 settings.store.ts version 应为 16（不是 15）'
-  );
-  record('K1 version 16', true, 'version found');
+  // ===== K1: current schema includes the v16 credential migration =====
+  const currentVersion = codeOnly.match(/^\s*version:\s*(\d+),/m);
+  assert.ok(currentVersion && Number(currentVersion[1]) >= 16, 'K1 settings schema must include credential migration v16');
+  record('K1 version >=16', true, `version=${currentVersion[1]}`);
 
   // ===== K2: migrate 含 version < 16 分支 =====
   assert.ok(

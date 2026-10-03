@@ -224,6 +224,9 @@ export interface BackupRecord {
   size_bytes: number;
   source_version: string;     // package.json version
   db_version: number;         // db.verno
+  // Issue #009: R2 云备份标记。undefined = 未上传 / 上传失败；number = 上传成功的 epoch ms。
+  // 不参与 schema 索引（Dexie 运行时加 optional 字段无需 migration）。
+  cloud_uploaded_at?: number;
 }
 
 export class WhitewashDiaryDB extends dexie {
@@ -542,7 +545,9 @@ export class WhitewashDiaryDB extends dexie {
     });
     // Version 16: Issue #008 本地自动备份。
     // - 新增 backups 表（主键 id），按 created_at 索引，按 type 索引。
-    // - 记录最近 4 周（28 天）的完整数据快照：raw_logs/daily_reviews/thoughts/insights/tags
+    // - 保留最近 2 份 auto 备份（今天 + 昨天兜底），manual 备份永不被自动删：
+    //   用户痛点是每天累积导致占用爆炸，关闭备份后 Chrome 清缓存造成数据丢失。
+    // - 完整数据快照：raw_logs/daily_reviews/thoughts/insights/tags
     // - 不含 attachments（音频 Blob 太大）/ chunks（可重建）/ settings_kv（已在云）
     //   / copilot_conversations（经常变）
     // - 升级无需迁旧数据：新表，初始为空

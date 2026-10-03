@@ -57,7 +57,7 @@
 - `backups` 表（v16）：本地自动备份快照
   - 5 个被备份的表：raw_logs / daily_reviews / thoughts / insights / tags
   - 故意不备份 attachments（太大）/ chunks（可重建）/ settings_kv（云覆盖）/ copilot_conversations（经常变）
-  - 24h 节流 + 28 天保留 + 启动时 + visibilitychange 触发
+  - 24h 节流 + 保留最近 2 份 auto + manual 永不自动删 + 启动时 + visibilitychange 触发
 
 ### 错误诊断约定（issue #006 之后生效）
 - 用 `src/lib/errorBuffer.ts` 100 条 FIFO

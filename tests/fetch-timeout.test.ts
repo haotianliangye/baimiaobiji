@@ -37,6 +37,7 @@ async function run() {
     const res = await fetchWithTimeout('http://test', {}, 5000);
     const elapsed = Date.now() - start;
     assert.equal(res.status, 200, 'T1 状态码');
+    assert.equal(await res.text(), 'ok');
     assert.ok(elapsed < 100, `T1 elapsed ${elapsed}ms < 100ms`);
     record('T1 正常响应', true, `status=200, elapsed=${elapsed}ms`);
   } catch (e) {
@@ -82,7 +83,7 @@ async function run() {
   (globalThis as any).fetch = async (_url: string, _opts: any) =>
     new Response('fast', { status: 200 });
   try {
-    await fetchWithTimeout('http://test', {}, 5000);
+    await (await fetchWithTimeout('http://test', {}, 5000)).text();
     assert.ok(clearTimeoutCalled, 'T3 clearTimeout 必须被调用');
     record('T3 Timer 清理', true, 'clearTimeout 已调用');
   } catch (e) {
@@ -126,6 +127,7 @@ async function run() {
   try {
     const res = await fetchWithTimeout('http://test');
     assert.equal(res.status, 200, 'T5 默认参数下正常返回');
+    await res.text();
     record('T5 默认 30000ms', true, '默认参数下正常返回');
   } catch (e) {
     record('T5 默认 30000ms', false, `unexpected: ${(e as Error).message}`);

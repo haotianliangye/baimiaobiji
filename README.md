@@ -256,7 +256,32 @@ npm start
 - **Prompt**：日记 / 回顾 / 洞察各自可选「默认」或「自定义 1/2/3」，默认只读、自定义可编辑
 - **语义搜索**：设置页开启向量功能并选择 embedding 模型，开启后自动扫描历史数据补建索引
 - **云同步**：选服务商 → 授权 / 填凭据 → 设置加密密码 → 选择冲突策略
+- **云备份（Cloudflare R2，#009）**：见下方「Cloud Backup Setup」
 - **长期记忆**：设置 → 数据管理 → 长期记忆 section，手动录入关于自己的事实
+
+### Cloud Backup Setup（Cloudflare R2）
+
+为防止 Chrome 清缓存 / 浏览器重装 / 换设备造成 IndexedDB 数据全废，可启用 Cloudflare R2 单向上传云备份。每条自动备份会额外推一份 AES-GCM 加密快照到 R2，密钥只存在服务端。
+
+**服务端环境变量**（Vercel / 本地 `.env.local`）：
+
+```
+R2_ACCOUNT_ID=<Cloudflare 账户 ID，右上角头像→账户主页可查>
+R2_ACCESS_KEY_ID=<R2 API token 的 Access Key>
+R2_SECRET_ACCESS_KEY=<R2 API token 的 Secret>
+R2_BUCKET=<R2 bucket 名，如 baimiao-backups>
+```
+
+**Cloudflare 端**：R2 → Create bucket → Manage R2 API Tokens → Create API token，权限选 **Object Read & Write**，bucket 限定到上面那个 bucket。
+
+**应用端**：
+1. 设置 → 数据管理 → 「加密云同步」 → 设置 E2EE 密码（必需，云备份复用这个密码加密）
+2. 设置 → 数据管理 → 「云备份（Cloudflare R2）」→ 填 bucket 名 + 启用
+3. 下次自动备份（24h 内）会自动推一份加密快照到 R2
+
+**恢复**：Settings → 云备份（R2） → 列出 R2 备份 → 选择后恢复（devtools console 调 `R2Client.downloadAndDecrypt(key, password)` 拿到 plaintext 后走 restoreBackup 流程）。
+
+**配额**：R2 免费层 10GB 存储 + 1000万次读/写/月，个人笔记绰绰有余。
 
 ---
 

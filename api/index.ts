@@ -1,37 +1,28 @@
+import { upstreamLifecycle, writeSseEvent } from '../src/lib/upstreamLifecycle';
+import { transcodeToMp3 } from '../src/lib/audioTranscode';
+import { readUpstreamFrames } from '../src/lib/upstreamFrames';
+import { safeFetchWithTimeout as fetchWithTimeout } from '../src/lib/safeFetch';
+import { requireR2Owner, r2Scope } from '../src/lib/r2Authorization';
+import { geminiCredentials } from '../src/lib/geminiCredentials';
 import 'dotenv/config';
 import express from 'express';
 import path from 'path';
-import { GoogleGenAI } from '@google/genai';
-import ffmpeg from 'fluent-ffmpeg';
-import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
-import fs from 'fs';
-import os from 'os';
-import { fetchWithTimeout, FETCH_TIMEOUTS } from '../src/lib/fetchWithTimeout';
+import { buildGeminiClient } from '../src/lib/geminiClient';
+import { FETCH_TIMEOUTS } from '../src/lib/fetchWithTimeout';
 import { assertSafeBaseUrl } from '../src/lib/safeBaseUrl';
 import { handleWebdavProxy } from '../src/lib/webdavProxyServer';
+import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 const app = express();
 
 app.use(express.json({ limit: '50mb' }));
+  app.use(upstreamLifecycle);
 
 // Build a GoogleGenAI client with base-URL normalization. Shared by every
 // endpoint that calls Gemini (generate-timeline, generate-review,
 // generate-embedding, test-connection) to avoid repeating the config dance.
 // Batch 1: async + assertSafeBaseUrl 校验 → 拒绝内网/loopback/metadata SSRF
-async function buildGeminiClient(apiKey: string, baseUrl?: string) {
-  const genAiConfig: any = { apiKey };
-  let finalBaseUrl = baseUrl;
-  if (finalBaseUrl === 'https://generativelanguage.googleapis.com/v1beta') {
-    finalBaseUrl = 'https://generativelanguage.googleapis.com';
-  }
-  if (finalBaseUrl) {
-    finalBaseUrl = await assertSafeBaseUrl(finalBaseUrl);
-    genAiConfig.httpOptions = { baseUrl: finalBaseUrl };
-  }
-  return new GoogleGenAI(genAiConfig);
-}
-
 app.post('/api/generate-timeline', async (req, res) => {
     try {
       const { logs, date, timezone, settings } = req.body;
@@ -727,6 +718,8 @@ ${contextContent || '（本次未检索到相关片段）'}
   });
 
   app.post('/api/transcribe', express.json({limit: '50mb'}), async (req, res) => {
+      const conversionController = new AbortController();
+      res.once('close', () => { if (!res.writableEnded) conversionController.abort(); });
     try {
        const { audio_base64, mime_type, settings } = req.body;
        const { provider = 'gemini', apiKey, baseUrl, model } = settings || {};
@@ -779,7 +772,7 @@ ${contextContent || '（本次未检索到相关片段）'}
            }
          }
        } else if (provider === 'volcengine') {
-         const baseStr = baseUrl || 'https://ark.cn-beijing.volces.com/api/v3';
+         const baseStr = await assertSafeBaseUrl(baseUrl || 'https://ark.cn-beijing.volces.com/api/v3');
          const apiPrefix = baseStr.replace(/\/chat\/completions$/, '').replace(/\/responses$/, '').replace(/\/$/, '');
          const apiUrl = `${apiPrefix}/responses`;
          
@@ -791,25 +784,9 @@ ${contextContent || '（本次未检索到相关片段）'}
          let convertedMime = mime_type;
          
          if (mime_type.includes('webm')) {
-           const tempInput = path.join(os.tmpdir(), `input_${Date.now()}.webm`);
-           const tempOutput = path.join(os.tmpdir(), `output_${Date.now()}.mp3`);
-           
-           fs.writeFileSync(tempInput, Buffer.from(audio_base64, 'base64'));
-           
-           await new Promise<void>((resolve, reject) => {
-             ffmpeg(tempInput)
-               .toFormat('mp3')
-               .on('end', () => resolve())
-               .on('error', (err) => reject(err))
-               .save(tempOutput);
-           });
-           
-           convertedBase64 = fs.readFileSync(tempOutput).toString('base64');
-           convertedMime = 'audio/mp3'; // use mp3 instead of mpeg for volcengine exact match
-           
-           fs.unlinkSync(tempInput);
-           fs.unlinkSync(tempOutput);
-         }
+            convertedBase64 = (await transcodeToMp3(Buffer.from(audio_base64, 'base64'), conversionController.signal)).toString('base64');
+            convertedMime = 'audio/mp3';
+          }
 
          const audioDataUrl = `data:${convertedMime};base64,${convertedBase64}`;
 
@@ -896,21 +873,9 @@ ${contextContent || '（本次未检索到相关片段）'}
          
          // Convert all non-mp3 for volcengine standard endpoint just in case it's used
          if (provider === 'volcengine' && !mime_type.includes('mpeg') && !mime_type.includes('mp3')) {
-           const tempInput = path.join(os.tmpdir(), `input_${Date.now()}.${extension}`);
-           const tempOutput = path.join(os.tmpdir(), `output_${Date.now()}.mp3`);
-           fs.writeFileSync(tempInput, finalBuffer);
-           await new Promise<void>((resolve, reject) => {
-             ffmpeg(tempInput)
-               .toFormat('mp3')
-               .on('end', () => resolve())
-               .on('error', (err) => reject(err))
-               .save(tempOutput);
-           });
-           finalBuffer = fs.readFileSync(tempOutput);
+           finalBuffer = await transcodeToMp3(finalBuffer, conversionController.signal);
            finalMime = 'audio/mp3';
            extension = 'mp3';
-           fs.unlinkSync(tempInput);
-           fs.unlinkSync(tempOutput);
          }
 
          // OpenAI API expects multipart/form-data for audio
@@ -949,7 +914,7 @@ ${contextContent || '（本次未检索到相关片段）'}
    });
 
   // #6 多媒体摘要：用 Gemini 多模态模型对图片/视频生成文本摘要。
-  // 音频附件走 /api/transcribe，不经过此端点。读 GOOGLE_API_KEY 环境变量作为后备。
+  // 音频附件走 /api/transcribe；服务端后备密钥只允许 Google 官方地址。
   app.post('/api/multimedia-summarize', async (req, res) => {
     try {
       const { file_base64, mime_type, kind, settings } = req.body;
@@ -962,12 +927,8 @@ ${contextContent || '（本次未检索到相关片段）'}
       let summary = '';
 
       if (provider === 'gemini') {
-        const activeKey = apiKey || process.env.GOOGLE_API_KEY;
-        if (!activeKey) {
-          return res.status(500).json({ error: '请在设置页面中配置你的 Gemini API Key' });
-        }
-
-        const ai = await buildGeminiClient(activeKey, baseUrl);
+        const credentials = geminiCredentials(apiKey, baseUrl, process.env.GOOGLE_API_KEY);
+        const ai = await buildGeminiClient(credentials.apiKey, credentials.baseUrl);
         const finalModel = model || 'gemini-3.1-flash-lite';
         const cleanMimeType = mime_type.split(';')[0];
         const kindLabel = kind === 'video' ? '视频' : '图片';
@@ -1114,14 +1075,14 @@ ${contextContent || '（本次未检索到相关片段）'}
   async function streamMinimaxToSSE(
     text: string,
     opts: { apiKey: string; voiceId: string; model: string; baseUrl: string; rate?: number },
-    writeEvent: (obj: any) => void
+    writeEvent: (obj: any) => Promise<void>
   ): Promise<{ chunks: number; totalBytes: number }> {
     const segments = splitTextForStreaming(text, 200);
     if (segments.length === 0) {
-      writeEvent({ event: 'error', message: '文本为空' });
+      await writeEvent({ event: 'error', message: '文本为空' });
       return { chunks: 0, totalBytes: 0 };
     }
-    writeEvent({ event: 'config', format: 'mp3', sampleRate: 32000, channels: 1 });
+    await writeEvent({ event: 'config', format: 'mp3', sampleRate: 32000, channels: 1 });
     let chunks = 0;
     let totalBytes = 0;
     for (let i = 0; i < segments.length; i++) {
@@ -1133,7 +1094,7 @@ ${contextContent || '（本次未检索到相关片段）'}
         opts.baseUrl,
         opts.rate
       );
-      writeEvent({
+      await writeEvent({
         event: 'audio',
         data: mp3.toString('hex'),
         format: 'mp3',
@@ -1149,13 +1110,13 @@ ${contextContent || '（本次未检索到相关片段）'}
   async function streamVolcengineToSSE(
     text: string,
     opts: { apiKey: string; voiceType: string; baseUrl: string; rate?: number },
-    writeEvent: (obj: any) => void
+    writeEvent: (obj: any) => Promise<void>
   ): Promise<{ chunks: number; totalBytes: number }> {
     const sep = opts.apiKey.indexOf(':');
     const appid = sep > 0 ? opts.apiKey.slice(0, sep) : '';
     const accessToken = sep > 0 ? opts.apiKey.slice(sep + 1) : opts.apiKey;
     if (!appid) {
-      writeEvent({ event: 'error', message: '火山引擎 API Key 需为 appid:access_token 格式' });
+      await writeEvent({ event: 'error', message: '火山引擎 API Key 需为 appid:access_token 格式' });
       return { chunks: 0, totalBytes: 0 };
     }
     // Batch 1: assertSafeBaseUrl 拒内网/metadata host
@@ -1181,43 +1142,24 @@ ${contextContent || '（本次未检索到相关片段）'}
     });
     if (!res.ok || !res.body) {
       const t = await res.text().catch(() => '');
-      writeEvent({ event: 'error', message: `火山引擎流式 ${res.status}: ${t.slice(0, 200)}` });
+      await writeEvent({ event: 'error', message: `火山引擎流式 ${res.status}: ${t.slice(0, 200)}` });
       return { chunks: 0, totalBytes: 0 };
     }
-    writeEvent({ event: 'config', format: 'mp3', sampleRate: 24000, channels: 1 });
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder('utf-8');
-    let buf = '';
+    await writeEvent({ event: 'config', format: 'mp3', sampleRate: 24000, channels: 1 });
     let chunks = 0;
     let totalBytes = 0;
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      let idx;
-      while ((idx = buf.indexOf('\n')) !== -1) {
-        const line = buf.slice(0, idx).trim();
-        buf = buf.slice(idx + 1);
-        if (!line) continue;
-        try {
-          const obj = JSON.parse(line);
-          if (obj?.audio) {
-            const mp3 = Buffer.from(obj.audio, 'base64');
-            writeEvent({
-              event: 'audio',
-              data: mp3.toString('hex'),
-              format: 'mp3',
-            });
-            chunks++;
-            totalBytes += mp3.length;
-          }
-          if (obj?.status === 2) {
-            return { chunks, totalBytes };
-          }
-        } catch {
-          /* 忽略解析错误（火山引擎可能夹带心跳行） */
-        }
+    for await (const frame of readUpstreamFrames(res.body, '\n')) {
+      const line = frame.trim();
+      if (!line) continue;
+      let obj: any;
+      try { obj = JSON.parse(line); } catch { continue; }
+      if (obj?.audio) {
+        const mp3 = Buffer.from(obj.audio, 'base64');
+        await writeEvent({ event: 'audio', data: mp3.toString('hex'), format: 'mp3' });
+        chunks++;
+        totalBytes += mp3.length;
       }
+      if (obj?.status === 2) return { chunks, totalBytes };
     }
     return { chunks, totalBytes };
   }
@@ -1369,10 +1311,7 @@ ${contextContent || '（本次未检索到相关片段）'}
       res.setHeader('X-Accel-Buffering', 'no'); // 防止 nginx 等代理缓冲
       res.flushHeaders?.();
 
-      const writeEvent = (obj: any) => {
-        // Vercel serverless 环境下 flush 是 no-op；Express 本地 dev 也能正常写。
-        res.write(`data: ${JSON.stringify(obj)}\n\n`);
-      };
+      const writeEvent = (obj: any) => writeSseEvent(res, obj);
 
       const rateNum = typeof rate === 'number' && rate > 0 ? rate : 1;
 
@@ -1390,12 +1329,12 @@ ${contextContent || '（本次未检索到相关片段）'}
           const url = `${apiBase}/v1beta/interactions`;
 
           // 先告知前端 PCM 格式（Gemini TTS 固定 24kHz / 16bit / mono）
-          writeEvent({ event: 'config', sampleRate: 24000, channels: 1, bitsPerSample: 16 });
+          await writeEvent({ event: 'config', sampleRate: 24000, channels: 1, bitsPerSample: 16 });
 
           // 用户断连时主动 abort 上游请求，避免资源泄漏
           const upstreamController = new AbortController();
-          req.on('close', () => {
-            if (!upstreamController.signal.aborted) upstreamController.abort();
+          res.once('close', () => {
+            if (!res.writableEnded) upstreamController.abort();
           });
 
           const t1 = Date.now();
@@ -1420,19 +1359,9 @@ ${contextContent || '（本次未检索到相关片段）'}
             throw new Error(`Gemini Interactions API HTTP ${upstream.status}${errBody ? `: ${errBody.slice(0, 200)}` : ''}`);
           }
 
-          const reader = upstream.body.getReader();
-          const decoder = new TextDecoder('utf-8');
-          let buffer = '';
           let chunkCount = 0;
           let totalBytes = 0;
-          while (true) {
-            const { value, done: readerDone } = await reader.read();
-            if (readerDone) break;
-            buffer += decoder.decode(value, { stream: true });
-            let idx;
-            while ((idx = buffer.indexOf('\n\n')) !== -1) {
-              const rawEvent = buffer.slice(0, idx);
-              buffer = buffer.slice(idx + 2);
+          for await (const rawEvent of readUpstreamFrames(upstream.body, '\n\n')) {
               const dataLine = rawEvent.split('\n').find((l) => l.startsWith('data:'));
               if (!dataLine) continue;
               const data = dataLine.slice(5).trimStart();
@@ -1442,15 +1371,14 @@ ${contextContent || '（本次未检索到相关片段）'}
                 if (obj.event_type === 'step.delta' && obj.delta?.type === 'audio' && obj.delta?.data) {
                   chunkCount++;
                   totalBytes += obj.delta.data.length;
-                  writeEvent({ event: 'audio', format: 'pcm', data: obj.delta.data });
+                  await writeEvent({ event: 'audio', format: 'pcm', data: obj.delta.data });
                 }
               } catch {
                 /* 跳过无法解析的事件 */
               }
-            }
           }
           const t2 = Date.now();
-          writeEvent({ event: 'end', stats: { chunks: chunkCount, totalBase64Chars: totalBytes, upstreamMs: t2 - t1, totalMs: t2 - t0, provider, model: finalModel, api: 'interactions' } });
+          await writeEvent({ event: 'end', stats: { chunks: chunkCount, totalBase64Chars: totalBytes, upstreamMs: t2 - t1, totalMs: t2 - t0, provider, model: finalModel, api: 'interactions' } });
           res.end();
           console.log(`[TTS stream gemini interactions] text=${text.length}ch model=${finalModel} | upstream=${t2 - t1}ms total=${t2 - t0}ms | chunks=${chunkCount} base64Chars=${totalBytes}`);
           return;
@@ -1470,7 +1398,7 @@ ${contextContent || '（本次未检索到相关片段）'}
             writeEvent
           );
           const t2 = Date.now();
-          writeEvent({ event: 'end', stats: { ...stats, upstreamMs: t2 - t1, totalMs: t2 - t0, provider } });
+          await writeEvent({ event: 'end', stats: { ...stats, upstreamMs: t2 - t1, totalMs: t2 - t0, provider } });
           res.end();
           console.log(`[TTS stream minimax] text=${text.length}ch | segments=${stats.chunks} bytes=${stats.totalBytes} upstream=${t2 - t1}ms total=${t2 - t0}ms`);
           return;
@@ -1489,13 +1417,13 @@ ${contextContent || '（本次未检索到相关片段）'}
             writeEvent
           );
           const t2 = Date.now();
-          writeEvent({ event: 'end', stats: { ...stats, upstreamMs: t2 - t1, totalMs: t2 - t0, provider } });
+          await writeEvent({ event: 'end', stats: { ...stats, upstreamMs: t2 - t1, totalMs: t2 - t0, provider } });
           res.end();
           console.log(`[TTS stream volcengine] text=${text.length}ch | chunks=${stats.chunks} bytes=${stats.totalBytes} upstream=${t2 - t1}ms total=${t2 - t0}ms`);
           return;
         }
 
-        writeEvent({ event: 'error', message: `流式 TTS 暂不支持 provider=${provider}` });
+        await writeEvent({ event: 'error', message: `流式 TTS 暂不支持 provider=${provider}` });
         res.end();
       } catch (innerErr: any) {
         console.error('[TTS stream inner]', innerErr);
@@ -1524,6 +1452,120 @@ ${contextContent || '（本次未检索到相关片段）'}
   // Batch 1: webdav-proxy 收窄为 handleWebdavProxy helper（method 白名单 +
   // endpoint 校验 + auth scheme 校验 + headers 黑名单 + 30s 超时）。
   app.post('/api/webdav-proxy', handleWebdavProxy);
+
+  // ─── Issue #009: Cloudflare R2 云备份（presigned URL 代理）──────────────
+  // Secret Access Key 只在这里出现，绝不出服务器。浏览器拿到的是带签名的
+  // 临时 URL（5 分钟 TTL），可直接 PUT/GET 到 R2。环境变量缺失时返回 503。
+  // 端点：
+  //   POST /api/r2-presign  body: { kind:'put'|'get', key, contentType?, contentLength?, bucket? }
+  //                          res:  { url, key, bucket, expiresIn }
+  //   POST /api/r2-list     body: { prefix?, bucket? }
+  //                          res:  { objects: [{ key, size, lastModified }] }
+  const R2_KEY_RE = /^[a-zA-Z0-9/_\-. ]+$/;
+  const R2_MAX_KEY_LEN = 1024;
+  const R2_MAX_CONTENT_LENGTH = 200 * 1024 * 1024; // 200MB（与单条 backup 上限对齐）
+
+  // 返回合法 key；非法时抛 Error(message)。用 throw 而非 discriminated union 是为了让
+  // 上层 try/catch 直接吃掉，且避免 TS 在复杂 if/return 下的 narrowing 不稳。
+  function validateR2Key(raw: unknown): string {
+    if (typeof raw !== 'string' || raw.length === 0 || raw.length > R2_MAX_KEY_LEN) {
+      throw new Error(`key 必须是 1-${R2_MAX_KEY_LEN} 字符的字符串`);
+    }
+    if (!R2_KEY_RE.test(raw)) {
+      throw new Error('key 仅允许字母/数字/斜杠/下划线/连字符/点/空格');
+    }
+    if (raw.startsWith('/') || raw.includes('..')) {
+      throw new Error('key 不能以 / 开头或包含 ..');
+    }
+    return raw;
+  }
+
+  function getR2Client(): { client: S3Client; defaultBucket: string } {
+    const accountId = process.env.R2_ACCOUNT_ID;
+    const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+    const defaultBucket = process.env.R2_BUCKET;
+    if (!accountId || !accessKeyId || !secretAccessKey || !defaultBucket) {
+      // 用 HTTP 503 表示「服务端配置缺失」，由外层 try/catch 接住
+      const err: any = new Error('R2 未在服务端配置（缺少 R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_BUCKET 环境变量）');
+      err.statusCode = 503;
+      throw err;
+    }
+    const client = new S3Client({
+      region: 'auto',
+      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+      credentials: { accessKeyId, secretAccessKey },
+    });
+    return { client, defaultBucket };
+  }
+
+  app.post('/api/r2-presign', requireR2Owner, async (req, res) => {
+    try {
+      const { kind, key, contentType, contentLength, bucket: reqBucket } = req.body || {};
+
+      if (kind !== 'put' && kind !== 'get') {
+        return res.status(400).json({ error: 'kind 必须为 put 或 get' });
+      }
+
+      const scope = r2Scope(reqBucket, key);
+      const validKey = validateR2Key(scope.key);
+
+      if (kind === 'put') {
+        if (contentType !== 'application/octet-stream') {
+          return res.status(400).json({ error: 'contentType 必须为 application/octet-stream' });
+        }
+        if (!Number.isSafeInteger(contentLength) || contentLength <= 0 || contentLength > R2_MAX_CONTENT_LENGTH) {
+          return res.status(400).json({ error: `contentLength 必须为 0-${R2_MAX_CONTENT_LENGTH} 字节的正整数` });
+        }
+      }
+
+      const r2 = getR2Client();
+      const bucket = scope.bucket;
+      const expiresIn = 300;
+
+      const cmd = kind === 'put'
+        ? new PutObjectCommand({ Bucket: bucket, Key: validKey, ContentType: contentType, ContentLength: contentLength })
+        : new GetObjectCommand({ Bucket: bucket, Key: validKey });
+      const url = await getSignedUrl(r2.client, cmd, { expiresIn });
+
+      res.json({ url, key: validKey, bucket, expiresIn });
+    } catch (err: any) {
+      console.error('[r2-presign] error:', err);
+      const status = err.statusCode === 503 ? 503 : 400;
+      res.status(status).json({ error: err.message || '签名失败' });
+    }
+  });
+
+  app.post('/api/r2-list', requireR2Owner, async (req, res) => {
+    try {
+      const { prefix, bucket: reqBucket } = req.body || {};
+
+      if (prefix !== undefined && prefix !== '') {
+        validateR2Key(prefix);  // 校验失败会冒泡到 catch
+      }
+
+      const r2 = getR2Client();
+      const scope = r2Scope(reqBucket, prefix, true);
+      const bucket = scope.bucket;
+      const cmd = new ListObjectsV2Command({
+        Bucket: bucket,
+        Prefix: scope.key,
+        MaxKeys: 1000,
+      });
+      const result = await r2.client.send(cmd);
+      const objects = (result.Contents || []).map((o) => ({
+        key: o.Key || '',
+        size: o.Size || 0,
+        lastModified: o.LastModified ? new Date(o.LastModified).getTime() : 0,
+      })).filter((o) => o.key.length > 0);
+
+      res.json({ objects });
+    } catch (err: any) {
+      console.error('[r2-list] error:', err);
+      const status = err.statusCode === 503 ? 503 : 400;
+      res.status(status).json({ error: err.message || '列出 R2 对象失败' });
+    }
+  });
 
 async function sendLLMRequest(
   provider: string,

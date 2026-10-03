@@ -78,6 +78,8 @@ sequenceDiagram
     Store-->>Frontend: 局部触发页面刷新，重新展示反思
 ```
 
+**云备份（Issue #009）**：每次 `autoBackup.createBackup('auto')` 在写本地 IndexedDB `backups` 表后，fire-and-forget 调 `pushBackupToR2()`：用 `syncPasswordE2EE` 做 AES-GCM 加密 → 通过 `/api/r2-presign` 拿 5min 签名 URL → 直接 PUT 到 Cloudflare R2。Secret Access Key 仅在服务端，浏览器永远拿不到。这样 Chrome 清缓存 / 重装浏览器 / 换设备后能从 R2 拉回 + 解密 + 恢复到本地。
+
 ---
 
 ## 3. 数据库表定义

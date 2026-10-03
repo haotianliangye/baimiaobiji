@@ -387,6 +387,13 @@ interface SettingsState {
   syncDropboxToken?: string;
   syncDropboxClientId?: string;
 
+  // Issue #009: Cloudflare R2 单向上传云备份（非 OAuth 双向同步）。
+  // 密钥在服务端（Vercel env vars），浏览器只配 bucket 名 + 复用 syncPasswordE2EE 加密。
+  cloudBackupR2Enabled: boolean;
+  cloudBackupR2Bucket: string;
+  cloudBackupR2Prefix: string;
+  cloudBackupR2IncludeManual: boolean;  // 是否也把 manual 备份推上云
+
   // Embedding (vector) model config - decoupled from Chat LLM
   embedEnabled: boolean;
   embedProvider: 'gemini' | 'openai' | 'siliconflow' | 'volcengine' | 'zhipu' | 'custom';
@@ -532,9 +539,10 @@ export const useSettingsStore = create<SettingsState>()(
       syncProvider: 'webdav',
       syncEndpoint: '',
       syncUsername: '',
-      syncPassword: sessionStorage.getItem('baimiao_syncPassword') || '',
+      // sessionStorage 在浏览器外（Node 测试 / SSR）不存在，做防御性读取
+      syncPassword: (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('baimiao_syncPassword')) || '',
       syncDirectory: '/baimiaobiji/',
-      syncPasswordE2EE: sessionStorage.getItem('baimiao_syncPasswordE2EE') || '',
+      syncPasswordE2EE: (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('baimiao_syncPasswordE2EE')) || '',
       syncConflictPolicy: 'merge',
       syncAutoStartup: true,
       syncAutoChange: true,
@@ -548,6 +556,12 @@ export const useSettingsStore = create<SettingsState>()(
       syncGDriveClientId: '',
       syncDropboxToken: '',
       syncDropboxClientId: '',
+
+      // Issue #009: R2 云备份默认值（默认关闭，用户主动开启）
+      cloudBackupR2Enabled: false,
+      cloudBackupR2Bucket: '',
+      cloudBackupR2Prefix: 'baimiaobiji',
+      cloudBackupR2IncludeManual: false,
 
       // Embedding config defaults
       embedEnabled: false,
@@ -958,7 +972,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
         name: 'whitewash-settings',
-        version: 16,
+        version: 17,
         partialize: (state) => {
           // P1-003: API key 字段一律不写入 localStorage。改由 src/lib/apiKeyStore
           // 持久化到 IndexedDB（db.settings_kv），UI 用 state 镜像 + bootstrap 同步。
@@ -1722,6 +1736,22 @@ export const useSettingsStore = create<SettingsState>()(
               for (const p of Object.keys(persistedState.ttsConfigs)) stripKey(persistedState.ttsConfigs[p]);
             }
           }
+
+         // --- Issue #009: R2 云备份字段回填默认值（旧 v16 没有这些字段） ---
+         if (version < 17) {
+            if (typeof persistedState.cloudBackupR2Enabled !== 'boolean') {
+               persistedState.cloudBackupR2Enabled = false;
+            }
+            if (typeof persistedState.cloudBackupR2Bucket !== 'string') {
+               persistedState.cloudBackupR2Bucket = '';
+            }
+            if (typeof persistedState.cloudBackupR2Prefix !== 'string' || persistedState.cloudBackupR2Prefix.length === 0) {
+               persistedState.cloudBackupR2Prefix = 'baimiaobiji';
+            }
+            if (typeof persistedState.cloudBackupR2IncludeManual !== 'boolean') {
+               persistedState.cloudBackupR2IncludeManual = false;
+            }
+         }
 
          return persistedState;
        }

@@ -21,7 +21,7 @@
  *      - fe80::/10 IPv6 link-local
  *      - ::ffff: 内网 IPv4 映射 IPv6
  *   5. 端口黑名单（拒 22, 25, 135, 139, 445, 3389, 5432, 6379, 9200, 27017）
- *   6. 5 分钟 LRU DNS 缓存（同 baseUrl 复用 dns.lookup 结果，Vercel 冷启动省 10ms）
+ *   6. 每次连接重新解析，safeFetch 将校验地址固定到该次连接。
  *
  * 部署形态：
  *   - server.ts: dev / 自建单容器
@@ -33,10 +33,11 @@
  */
 
 import { promises as dns } from 'node:dns';
+import { isIP } from 'node:net';
 
 // --- 类型 ---
 export type ValidationResult =
-  | { ok: true; url: URL }
+  | { ok: true; url: URL; addresses: { address: string; family: number }[] }
   | { ok: false; reason: string };
 
 // --- 端口黑名单（常见内部/admin/DB 端口）---
@@ -53,31 +54,14 @@ const BLOCKED_PORTS = new Set<number>([
   27017, // MongoDB
 ]);
 
-// --- DNS LRU 缓存（5 分钟 TTL，最多 200 项）---
-const DNS_CACHE = new Map<string, { ips: string[]; ts: number }>();
-const DNS_CACHE_TTL_MS = 5 * 60 * 1000;
-const DNS_CACHE_MAX = 200;
-
 async function cachedLookup(host: string): Promise<string[]> {
-  const cached = DNS_CACHE.get(host);
-  if (cached && Date.now() - cached.ts < DNS_CACHE_TTL_MS) {
-    return cached.ips;
-  }
-  const result = await dns.lookup(host, { all: true, verbatim: true });
-  const ips = result.map((r) => r.address);
-  if (DNS_CACHE.size >= DNS_CACHE_MAX) {
-    // LRU: Map 按插入顺序，删最老
-    const firstKey = DNS_CACHE.keys().next().value;
-    if (firstKey !== undefined) DNS_CACHE.delete(firstKey);
-  }
-  DNS_CACHE.set(host, { ips, ts: Date.now() });
-  return ips;
+  return (await dns.lookup(host, { all: true, verbatim: true })).map(r => r.address);
 }
 
 // --- IPv4 内网判定（127.0.0.1 显式放行）---
 function isPrivateIPv4(ip: string): boolean {
   // 127.0.0.0/8 — 只放行 127.0.0.1
-  if (ip === '127.0.0.1') return false;
+  if (ip === '127.0.0.1') return true;
   if (ip.startsWith('127.')) return true;
 
   // 10.0.0.0/8
@@ -114,13 +98,13 @@ function isPrivateIPv6(ip: string): boolean {
   const lower = ip.toLowerCase();
 
   // ::1 loopback
-  if (lower === '::1') return true;
+  if (lower === '::1' || lower === '::') return true;
 
   // fc00::/7 unique-local (fc / fd 开头)
   if (lower.startsWith('fc') || lower.startsWith('fd')) return true;
 
   // fe80::/10 link-local
-  if (lower.startsWith('fe80:') || lower.startsWith('fe80::')) return true;
+  if (/^fe[89ab]/.test(lower) || lower.startsWith('ff')) return true;
 
   // IPv4-mapped IPv6 (::ffff:x.x.x.x 或 ::ffff:HEX 压缩形式)
   // Node URL 构造器可能把 ::ffff:10.0.0.1 归一成 ::ffff:a00:1，
@@ -158,7 +142,7 @@ function isNonAsciiHost(host: string): boolean {
 }
 
 // --- 主校验函数 ---
-export async function validateBaseUrl(raw: string): Promise<ValidationResult> {
+export async function validateBaseUrl(raw: string, options: { webdavLocal?: boolean } = {}): Promise<ValidationResult> {
   if (!raw || typeof raw !== 'string') {
     return { ok: false, reason: 'baseUrl 不能为空' };
   }
@@ -179,6 +163,10 @@ export async function validateBaseUrl(raw: string): Promise<ValidationResult> {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     return { ok: false, reason: `scheme 必须是 http: 或 https:（收到 ${url.protocol}）` };
   }
+
+  if (url.username || url.password) return { ok: false, reason: 'URL credentials are not allowed' };
+  const requestedPort = Number(url.port || (url.protocol === 'https:' ? 443 : 80));
+  if (BLOCKED_PORTS.has(requestedPort)) return { ok: false, reason: `端口 ${requestedPort} 在黑名单中` };
 
   // URL.hostname 对 IPv6 literal URL 可能带方括号（例如 '[::1]'），
   // 解析前手动剥掉，否则下游 isPrivateIPv6 匹配不到
@@ -216,7 +204,9 @@ export async function validateBaseUrl(raw: string): Promise<ValidationResult> {
 
   for (const ip of ips) {
     const isPrivate = ip.includes(':') ? isPrivateIPv6(ip) : isPrivateIPv4(ip);
-    if (isPrivate) {
+    const explicitLoopback = (host === 'localhost' || host === '127.0.0.1') && ip === '127.0.0.1';
+    const localNas = options.webdavLocal === true && host.endsWith('.local');
+    if (isPrivate && !explicitLoopback && !localNas) {
       return { ok: false, reason: `host "${host}" 解析到内网 IP ${ip}（loopback / RFC1918 / link-local / CGNAT / metadata 全部拒）` };
     }
   }
@@ -229,15 +219,15 @@ export async function validateBaseUrl(raw: string): Promise<ValidationResult> {
     return { ok: false, reason: `端口 ${port} 在黑名单中（常见内部端口）` };
   }
 
-  return { ok: true, url };
+  return { ok: true, url, addresses: ips.map(address => ({ address, family: isIP(address) })) };
 }
 
 /**
  * 校验失败 throw 标准化错误（前端会显示原始 reason）。
  * 校验成功返回归一化 URL（trim + 去尾 /）。
  */
-export async function assertSafeBaseUrl(raw: string): Promise<string> {
-  const result = await validateBaseUrl(raw);
+export async function assertSafeBaseUrl(raw: string, options: { webdavLocal?: boolean } = {}): Promise<string> {
+  const result = await validateBaseUrl(raw, options);
   if (result.ok === false) {
     throw new Error(`Invalid baseUrl: ${result.reason}`);
   }
@@ -251,4 +241,10 @@ export async function assertSafeBaseUrl(raw: string): Promise<string> {
  */
 export function normalizeBaseUrl(raw: string): string {
   return (raw || '').trim().replace(/\/$/, '');
+}
+
+export async function resolveSafeDestination(raw: string, options: { webdavLocal?: boolean } = {}) {
+  const result = await validateBaseUrl(raw, options);
+  if (result.ok === false) throw new Error(`Invalid baseUrl: ${result.reason}`);
+  return { url: result.url, addresses: result.addresses };
 }

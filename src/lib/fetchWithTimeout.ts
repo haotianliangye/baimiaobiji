@@ -12,8 +12,8 @@
  * 行为：
  *   - 默认 30s 超时
  *   - 超时触发 AbortController.abort()，fetch 抛 AbortError
- *   - 无论成功还是异常，clearTimeout 必须执行（避免 timer 泄漏）
- *   - 调用方原 fetch options 完全透传，只追加 signal
+ *   - deadline 保持到正文读完、取消或失败，并保留调用方取消信号。
+ *   - 响应正文最多 64 MiB，拒绝重定向。
  *
  * @example
  *   const res = await fetchWithTimeout('https://api.example.com/v1/chat', {
@@ -28,13 +28,37 @@ export async function fetchWithTimeout(
   timeoutMs: number = 30000
 ): Promise<Response> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const abort = () => controller.abort(options.signal?.reason);
+  if (options.signal?.aborted) abort();
+  else options.signal?.addEventListener('abort', abort, { once: true });
+  const timer = setTimeout(() => controller.abort(new DOMException('Upstream deadline exceeded', 'AbortError')), timeoutMs);
+  const cleanup = () => { clearTimeout(timer); options.signal?.removeEventListener('abort', abort); };
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
   try {
-    return await fetch(url, { ...options, signal: controller.signal });
-  } finally {
-    // 必须在 finally 里清，否则成功路径的 timer 会一直挂起到超时才回收。
-    clearTimeout(timer);
-  }
+    controller.signal.throwIfAborted();
+    const response = await fetch(url, { ...options, redirect: 'error', signal: controller.signal });
+    if (!response.body) { cleanup(); return response; }
+    reader = response.body.getReader();
+    let bytes = 0;
+    const stream = new ReadableStream<Uint8Array>({
+      async pull(target) {
+        try {
+          controller.signal.throwIfAborted();
+          const chunk = await new Promise<ReadableStreamReadResult<Uint8Array>>((resolve, reject) => {
+            const onAbort = () => reject(controller.signal.reason);
+            controller.signal.addEventListener('abort', onAbort, { once: true });
+            reader!.read().then(resolve, reject).finally(() => controller.signal.removeEventListener('abort', onAbort));
+          });
+          if (chunk.done) { cleanup(); target.close(); return; }
+          bytes += chunk.value.byteLength;
+          if (bytes > 64 * 1024 * 1024) throw new Error('Upstream response exceeds byte limit');
+          target.enqueue(chunk.value);
+        } catch (err) { cleanup(); controller.abort(err); await reader!.cancel(err).catch(() => {}); target.error(err); }
+      },
+      async cancel(reason) { cleanup(); controller.abort(reason); await reader!.cancel(reason).catch(() => {}); },
+    });
+    return new Response(stream, { status: response.status, statusText: response.statusText, headers: response.headers });
+  } catch (err) { cleanup(); throw err; }
 }
 
 /**
